@@ -33,11 +33,12 @@ export class PrismaServiceRepository implements ServiceRepositoryPort {
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findMany(options?: { category?: ServiceCategory; isActive?: boolean; page?: number; limit?: number }): Promise<{ items: Service[]; total: number }> {
-    const { category, isActive, page = 1, limit = 50 } = options ?? {};
+  async findMany(options?: { category?: ServiceCategory; isActive?: boolean; search?: string; page?: number; limit?: number }): Promise<{ items: Service[]; total: number }> {
+    const { category, isActive, search, page = 1, limit = 50 } = options ?? {};
     const where: Prisma.ServiceWhereInput = {};
-    if (category) where.category = category;
+    if (category) where.category = category as string;
     if (isActive !== undefined) where.isActive = isActive;
+    if (search) where.name = { contains: search, mode: 'insensitive' };
 
     const [raws, total] = await Promise.all([
       this.db.service.findMany({
