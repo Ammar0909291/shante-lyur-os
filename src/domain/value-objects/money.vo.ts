@@ -70,6 +70,9 @@ export class Money {
     return { amount: this._amount, currency: this._currency };
   }
 
+  // Compatibility shim for repository layer that uses Result-pattern style
+  getValue(): Money { return this; }
+
   private ensureSameCurrency(other: Money): void {
     if (this._currency !== other._currency) {
       throw new Error(`Currency mismatch: ${this._currency} vs ${other._currency}`);

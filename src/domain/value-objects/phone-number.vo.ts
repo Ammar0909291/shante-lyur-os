@@ -31,6 +31,8 @@ export class PhoneNumber {
     return this._value === other._value;
   }
 
+  getValue(): PhoneNumber { return this; }
+
   toString(): string {
     return this._value;
   }

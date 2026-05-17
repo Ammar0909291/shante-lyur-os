@@ -31,4 +31,8 @@ export class BlockedTime extends BaseEntity {
   contains(date: Date): boolean {
     return this.props.timeRange.contains(date);
   }
+
+  static reconstitute(props: BlockedTimeProps): BlockedTime {
+    return new BlockedTime(props);
+  }
 }

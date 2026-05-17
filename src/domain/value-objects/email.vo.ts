@@ -23,6 +23,8 @@ export class Email {
     return this._value === other._value;
   }
 
+  getValue(): Email { return this; }
+
   toString(): string {
     return this._value;
   }

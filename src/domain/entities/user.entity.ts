@@ -164,4 +164,8 @@ export class User extends BaseEntity {
     if (targetRole && !canManage(targetRole, this.role)) return false;
     return true;
   }
+
+  static reconstitute(props: UserProps): User {
+    return new User(props);
+  }
 }

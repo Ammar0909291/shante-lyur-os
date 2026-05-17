@@ -36,16 +36,17 @@ export class ProcessRefundUseCase {
 
     const refundAmount = Money.create(dto.amount, payment.amount.currency);
 
-    // Check existing refunds total
+    // Validate total refunded amount does not exceed payment amount
     const existingRefunds = await this.refundRepo.findByPaymentId(payment.id);
     const totalRefunded = existingRefunds
       .filter(r => r.status === RefundStatus.COMPLETED)
       .reduce((sum, r) => sum + r.amount.amount, 0);
 
     if (totalRefunded + refundAmount.amount > payment.amount.amount) {
-      throw new ValidationError('Total refunds exceed payment amount');
+      throw new ValidationError('Total refunds would exceed payment amount');
     }
 
+    // Create refund record as PENDING first, then transition to PROCESSING before gateway call
     const refund = new Refund({
       id: crypto.randomUUID(),
       paymentId: payment.id,
@@ -57,47 +58,58 @@ export class ProcessRefundUseCase {
 
     const saved = await this.refundRepo.create(refund);
 
+    // Transition to PROCESSING — required before markCompleted can be called
+    saved.markProcessing();
+    await this.refundRepo.update(saved);
+
     // Process through gateway if online payment
-    if (payment.provider === PaymentProvider.YOOKASSA || payment.provider === PaymentProvider.ROBOKASSA) {
-      const gateway = payment.provider === PaymentProvider.YOOKASSA
-        ? this.yookassaGateway
-        : this.robokassaGateway;
+    if (
+      payment.provider === PaymentProvider.YOOKASSA ||
+      payment.provider === PaymentProvider.ROBOKASSA
+    ) {
+      const gateway =
+        payment.provider === PaymentProvider.YOOKASSA
+          ? this.yookassaGateway
+          : this.robokassaGateway;
 
-      if (payment.providerPaymentId) {
-        try {
-          const result = await gateway.refund({
-            providerPaymentId: payment.providerPaymentId,
-            amount: refundAmount,
-            reason: dto.reason,
-          });
+      if (!payment.providerPaymentId) {
+        saved.markFailed();
+        await this.refundRepo.update(saved);
+        throw new ValidationError('Cannot refund: payment has no provider payment ID');
+      }
 
-          if (result.success) {
-            refund.markCompleted(result.providerRefundId!, actorId);
-            await this.refundRepo.update(refund);
+      try {
+        const result = await gateway.refund({
+          providerPaymentId: payment.providerPaymentId,
+          amount: refundAmount,
+          reason: dto.reason,
+        });
 
-            // Update payment status
-            const totalAfter = totalRefunded + refundAmount.amount;
-            if (totalAfter >= payment.amount.amount) {
-              payment.applyFullRefund();
-            } else {
-              payment.applyPartialRefund(refundAmount);
-            }
-            await this.paymentRepo.update(payment);
+        if (result.success) {
+          saved.markCompleted(result.providerRefundId ?? 'manual', actorId);
+          await this.refundRepo.update(saved);
+
+          const totalAfter = totalRefunded + refundAmount.amount;
+          if (totalAfter >= payment.amount.amount) {
+            payment.applyFullRefund();
           } else {
-            refund.markFailed();
-            await this.refundRepo.update(refund);
-            throw new ValidationError('Refund failed at payment gateway');
+            payment.applyPartialRefund(refundAmount);
           }
-        } catch (error) {
-          refund.markFailed();
-          await this.refundRepo.update(refund);
-          throw error;
+          await this.paymentRepo.update(payment);
+        } else {
+          saved.markFailed();
+          await this.refundRepo.update(saved);
+          throw new ValidationError('Refund failed at payment gateway');
         }
+      } catch (error) {
+        if (saved.status !== RefundStatus.FAILED) {
+          saved.markFailed();
+          await this.refundRepo.update(saved);
+        }
+        throw error;
       }
     } else {
-      // Cash/terminal/transfer refunds are manual
-      refund.markProcessing();
-      await this.refundRepo.update(refund);
+      // Cash/terminal/transfer: refunds are manual; leave in PROCESSING state for operator
     }
 
     await this.eventBus.publish(
@@ -116,7 +128,9 @@ export class ProcessRefundUseCase {
         action: AuditAction.REFUND_ISSUED,
         entityType: 'Refund',
         entityId: saved.id,
+        oldValues: { paymentStatus: payment.status },
         newValues: {
+          refundId: saved.id,
           paymentId: payment.id,
           amount: refundAmount.amount,
           status: saved.status,

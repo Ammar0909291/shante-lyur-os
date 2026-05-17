@@ -30,7 +30,6 @@ import { SmtpEmailService } from '../services/smtp-email.service';
 import { NotificationService } from '../services/notification.service';
 import { YooKassaGateway } from '../services/yookassa-gateway.service';
 import { RobokassaGateway } from '../services/robokassa-gateway.service';
-import { PaymentOrchestrator } from '../services/payment-orchestrator.service';
 import { SSERealtimeService } from '../services/sse-realtime.service';
 import { AIPredictionService } from '../services/ai-prediction.service';
 
@@ -67,7 +66,6 @@ export class DIRegistry {
   readonly notificationService: NotificationService;
   readonly yooKassaGateway: YooKassaGateway;
   readonly robokassaGateway: RobokassaGateway;
-  readonly paymentOrchestrator: PaymentOrchestrator;
   readonly realtimeService: SSERealtimeService;
   readonly aiPredictionService: AIPredictionService;
 
@@ -112,11 +110,6 @@ export class DIRegistry {
     );
     this.yooKassaGateway = new YooKassaGateway();
     this.robokassaGateway = new RobokassaGateway();
-    this.paymentOrchestrator = new PaymentOrchestrator(
-      this.yooKassaGateway,
-      this.robokassaGateway,
-      this.paymentRepository
-    );
     this.realtimeService = new SSERealtimeService();
     this.aiPredictionService = new AIPredictionService(
       this.appointmentRepository,

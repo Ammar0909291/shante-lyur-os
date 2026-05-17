@@ -162,4 +162,8 @@ export class Appointment extends BaseEntity {
     if (this.specialistId !== other.specialistId) return false;
     return this._timeSlot.overlaps(other.timeSlot);
   }
+
+  static reconstitute(props: AppointmentProps): Appointment {
+    return new Appointment(props);
+  }
 }

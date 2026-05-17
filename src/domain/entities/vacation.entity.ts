@@ -54,4 +54,8 @@ export class Vacation extends BaseEntity {
     this._isApproved = false;
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: VacationProps): Vacation {
+    return new Vacation(props);
+  }
 }

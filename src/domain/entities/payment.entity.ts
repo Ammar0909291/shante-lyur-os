@@ -123,4 +123,8 @@ export class Payment extends BaseEntity {
     this._specialistCommission = specialistCommission;
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: PaymentProps): Payment {
+    return new Payment(props);
+  }
 }

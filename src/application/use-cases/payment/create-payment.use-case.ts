@@ -1,7 +1,7 @@
 import { Payment } from '@/domain/entities';
 import { PaymentStatus, PaymentProvider } from '@/domain/enums';
 import { Money } from '@/domain/value-objects';
-import { NotFoundError, ConflictError, ValidationError } from '@/domain/errors';
+import { NotFoundError, ConflictError } from '@/domain/errors';
 import { PaymentInitiatedEvent } from '@/domain/events';
 import {
   IPaymentRepository,
@@ -25,15 +25,15 @@ export class CreatePaymentUseCase {
   constructor(
     private readonly paymentRepo: IPaymentRepository,
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly yookassaGateway: IPaymentGateway,
-    private readonly robokassaGateway: IPaymentGateway,
+    yookassaGateway: IPaymentGateway,
+    robokassaGateway: IPaymentGateway,
     private readonly eventBus: IEventBus,
     private readonly auditLogRepo: IAuditLogRepository,
   ) {
     this.gateways = {
       [PaymentProvider.YOOKASSA]: yookassaGateway,
       [PaymentProvider.ROBOKASSA]: robokassaGateway,
-      [PaymentProvider.CASH]: yookassaGateway, // No-op for cash
+      [PaymentProvider.CASH]: yookassaGateway,
       [PaymentProvider.CARD_TERMINAL]: yookassaGateway,
       [PaymentProvider.TRANSFER]: yookassaGateway,
       [PaymentProvider.INTERNAL]: yookassaGateway,
@@ -50,9 +50,9 @@ export class CreatePaymentUseCase {
       throw new ConflictError('Cannot create payment for cancelled or no-show appointment');
     }
 
-    // Check for duplicate idempotency
+    // Check for duplicate via DB-unique idempotency key
     if (dto.idempotencyKey) {
-      const existing = await this.paymentRepo.findByProviderPaymentId(dto.idempotencyKey, dto.provider);
+      const existing = await this.paymentRepo.findByIdempotencyKey(dto.idempotencyKey);
       if (existing) {
         return { payment: existing };
       }
@@ -65,7 +65,6 @@ export class CreatePaymentUseCase {
       appointmentId: dto.appointmentId,
       provider: dto.provider,
       amount,
-      currency: dto.currency,
       status: PaymentStatus.PENDING,
       description: dto.description,
       metadata: dto.metadata,
@@ -80,7 +79,7 @@ export class CreatePaymentUseCase {
 
     // For online payments, initiate gateway flow
     if (dto.provider === PaymentProvider.YOOKASSA || dto.provider === PaymentProvider.ROBOKASSA) {
-      const gateway = this.gateways[dto.provider];
+      const gateway = this.gateways[dto.provider as PaymentProvider];
       const result = await gateway.createPayment({
         amount,
         description: dto.description ?? `Payment for appointment ${dto.appointmentId}`,

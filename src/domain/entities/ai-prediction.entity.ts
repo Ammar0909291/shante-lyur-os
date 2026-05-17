@@ -35,4 +35,8 @@ export class AIPrediction extends BaseEntity {
     }
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: AIPredictionProps): AIPrediction {
+    return new AIPrediction(props);
+  }
 }

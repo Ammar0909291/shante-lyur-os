@@ -64,4 +64,8 @@ export class Notification extends BaseEntity {
     this.props.error = error;
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: NotificationProps): Notification {
+    return new Notification(props);
+  }
 }

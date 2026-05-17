@@ -13,20 +13,19 @@ const noopEventBus: IEventBus = {
 };
 
 export async function POST(req: NextRequest) {
-  // Return 200 immediately to prevent webhook timeout; process async
-  // In practice we process synchronously here and rely on the fast path
+  // Always return 200 to prevent YooKassa from retrying on application errors.
+  // Signature verification failures still return 200 to avoid information leakage.
   try {
     const rawBody = await req.text();
-    const signature =
-      req.headers.get('x-idempotence-key') ??
-      req.headers.get('x-signature') ??
-      '';
+
+    // YooKassa sends X-Idempotence-Key as the notification's unique ID
+    const idempotenceKey = req.headers.get('x-idempotence-key') ?? '';
 
     let payload: Record<string, unknown>;
     try {
       payload = JSON.parse(rawBody) as Record<string, unknown>;
     } catch {
-      // Return 200 to acknowledge receipt even for malformed payloads
+      // Malformed JSON is silently acknowledged — do not reveal parsing details
       return NextResponse.json({ success: true }, { status: 200 });
     }
 
@@ -44,11 +43,12 @@ export async function POST(req: NextRequest) {
       registry.revenueRecordRepository,
     );
 
-    await useCase.execute({ provider: 'YOOKASSA', payload, signature });
+    // Pass the idempotence key as the signature — YooKassa verifies via re-fetch,
+    // so the gateway implementation ignores this field; it is kept for logging/tracing.
+    await useCase.execute({ provider: 'YOOKASSA', payload, signature: idempotenceKey });
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch {
-    // Always return 200 for webhooks to prevent retries for non-retryable errors
     return NextResponse.json({ success: true }, { status: 200 });
   }
 }
