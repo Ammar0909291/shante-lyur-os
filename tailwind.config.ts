@@ -68,6 +68,10 @@ const config: Config = {
         '88': '22rem',
         '96': '24rem',
       },
+      opacity: {
+        '4': '0.04',
+        '8': '0.08',
+      },
       transitionTimingFunction: {
         luxury: 'cubic-bezier(0.4, 0, 0.2, 1)',
       },
