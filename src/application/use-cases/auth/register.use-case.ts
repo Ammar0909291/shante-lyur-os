@@ -2,14 +2,12 @@ import { User, RefreshToken } from '@/domain/entities';
 import { UserRole, UserStatus } from '@/domain/enums';
 import { Email, PhoneNumber } from '@/domain/value-objects';
 import { ConflictError, ValidationError } from '@/domain/errors';
-import { UserRegisteredEvent } from '@/domain/events';
 import {
   IUserRepository,
   IRefreshTokenRepository,
   IPasswordHasher,
   ITokenService,
   IEmailService,
-  IEventBus,
 } from '@/application/ports';
 import { RegisterUserDto } from '@/application/dto';
 
@@ -26,7 +24,6 @@ export class RegisterUseCase {
     private readonly passwordHasher: IPasswordHasher,
     private readonly tokenService: ITokenService,
     private readonly emailService: IEmailService,
-    private readonly eventBus: IEventBus,
   ) {}
 
   async execute(dto: RegisterUserDto, ipAddress?: string): Promise<RegisterResult> {
@@ -83,15 +80,6 @@ export class RegisterUseCase {
       firstName: saved.firstName,
       verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${accessToken}`,
     });
-
-    await this.eventBus.publish(
-      new UserRegisteredEvent(saved.id, {
-        email: saved.email.value,
-        firstName: saved.firstName,
-        lastName: saved.lastName,
-        role: saved.role,
-      })
-    );
 
     return { user: saved, accessToken, refreshToken: refreshTokenStr };
   }

@@ -1,5 +1,5 @@
 import { PaymentOrchestratorPort } from '@/application/ports/payment-orchestrator.port';
-import { PaymentGatewayPort } from '@/application/ports/payment-gateway.port';
+import type { IPaymentGateway as PaymentGatewayPort } from '@/application/ports/payment-gateway.port';
 import { PaymentRepositoryPort } from '@/application/ports/payment-repository.port';
 import { Payment } from '@/domain/entities/payment.entity';
 import { PaymentStatus } from '@/domain/enums/payment-status.enum';

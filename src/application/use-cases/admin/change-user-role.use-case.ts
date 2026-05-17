@@ -1,10 +1,8 @@
 import { UserRole } from '@/domain/enums';
 import { NotFoundError, ForbiddenError } from '@/domain/errors';
-import { UserRoleChangedEvent } from '@/domain/events';
 import {
   IUserRepository,
   IAuditLogRepository,
-  IEventBus,
 } from '@/application/ports';
 import { ChangeRoleDto } from '@/application/dto';
 import { AuditLog } from '@/domain/entities';
@@ -14,7 +12,6 @@ export class ChangeUserRoleUseCase {
   constructor(
     private readonly userRepo: IUserRepository,
     private readonly auditLogRepo: IAuditLogRepository,
-    private readonly eventBus: IEventBus,
   ) {}
 
   async execute(dto: ChangeRoleDto, actorId: string, actorRole: UserRole) {
@@ -27,14 +24,6 @@ export class ChangeUserRoleUseCase {
 
     targetUser.changeRole(dto.newRole as UserRole, actorRole, actorId);
     const saved = await this.userRepo.update(targetUser);
-
-    await this.eventBus.publish(
-      new UserRoleChangedEvent(saved.id, {
-        oldRole,
-        newRole: saved.role,
-        changedBy: actorId,
-      })
-    );
 
     await this.auditLogRepo.create(
       AuditLog.create({

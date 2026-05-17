@@ -32,6 +32,4 @@ export { NotificationService } from './services/notification.service';
 export { YooKassaGateway } from './services/yookassa-gateway.service';
 export { RobokassaGateway } from './services/robokassa-gateway.service';
 export { PaymentOrchestrator } from './services/payment-orchestrator.service';
-export { SSERealtimeService } from './services/sse-realtime.service';
 export { AIPredictionService } from './services/ai-prediction.service';
-export { AppointmentReminderWorker } from './services/appointment-reminder.worker';

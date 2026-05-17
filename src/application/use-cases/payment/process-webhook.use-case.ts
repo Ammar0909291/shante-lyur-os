@@ -1,12 +1,10 @@
 import { PaymentStatus, RefundStatus } from '@/domain/enums';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { Money } from '@/domain/value-objects';
-import { PaymentReceivedEvent, PaymentFailedEvent } from '@/domain/events';
 import {
   IPaymentRepository,
   IRefundRepository,
   IPaymentGateway,
-  IEventBus,
   IAuditLogRepository,
   IAppointmentRepository,
   ICustomerProfileRepository,
@@ -25,7 +23,6 @@ export class ProcessWebhookUseCase {
     private readonly refundRepo: IRefundRepository,
     private readonly yookassaGateway: IPaymentGateway,
     private readonly robokassaGateway: IPaymentGateway,
-    private readonly eventBus: IEventBus,
     private readonly auditLogRepo: IAuditLogRepository,
     private readonly appointmentRepo: IAppointmentRepository,
     private readonly profileRepo: ICustomerProfileRepository,
@@ -97,17 +94,6 @@ export class ProcessWebhookUseCase {
         await this.profileRepo.recordVisit(appointment.clientId, payment.amount.amount);
       }
     }
-
-    await this.eventBus.publish(
-      new PaymentReceivedEvent(payment.id, {
-        appointmentId: payment.appointmentId,
-        amount: payment.amount.amount,
-        currency: payment.amount.currency,
-        provider: payment.provider,
-        providerPaymentId: result.providerPaymentId,
-        paidAt: new Date().toISOString(),
-      })
-    );
 
     await this.auditLogRepo.create(
       AuditLog.create({

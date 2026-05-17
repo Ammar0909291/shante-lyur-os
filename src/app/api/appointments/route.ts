@@ -6,20 +6,12 @@ import { ListAppointmentsUseCase, CreateAppointmentUseCase } from '@/application
 import { ListAppointmentsSchema, CreateAppointmentSchema } from '@/application/dto';
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
-import type { IEventBus } from '@/application/ports';
-import type { DomainEvent } from '@/domain/events';
-
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
 }
 function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
-
-const noopEventBus: IEventBus = {
-  async publish(_event: DomainEvent): Promise<void> {},
-  subscribe(_eventType: string, _handler: (event: DomainEvent) => Promise<void>): void {},
-};
 
 export async function GET(req: NextRequest) {
   try {
@@ -84,7 +76,6 @@ export async function POST(req: NextRequest) {
       registry.vacationRepository,
       registry.customerProfileRepository,
       registry.promoCodeRepository,
-      noopEventBus,
       registry.notificationRepository,
     );
 

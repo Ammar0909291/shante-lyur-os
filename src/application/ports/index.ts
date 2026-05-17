@@ -20,7 +20,5 @@ export * from './ai-prediction-repository.port';
 export * from './password-hasher.port';
 export * from './token-service.port';
 export * from './email-service.port';
-export * from './sms-service.port';
 export * from './payment-gateway.port';
 export * from './realtime-service.port';
-export * from './event-bus.port';

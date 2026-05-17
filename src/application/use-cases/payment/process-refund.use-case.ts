@@ -2,12 +2,10 @@ import { Refund } from '@/domain/entities';
 import { RefundStatus, PaymentProvider } from '@/domain/enums';
 import { Money } from '@/domain/value-objects';
 import { NotFoundError, ConflictError, ValidationError } from '@/domain/errors';
-import { RefundIssuedEvent } from '@/domain/events';
 import {
   IPaymentRepository,
   IRefundRepository,
   IPaymentGateway,
-  IEventBus,
   IAuditLogRepository,
 } from '@/application/ports';
 import { CreateRefundDto } from '@/application/dto';
@@ -20,7 +18,6 @@ export class ProcessRefundUseCase {
     private readonly refundRepo: IRefundRepository,
     private readonly yookassaGateway: IPaymentGateway,
     private readonly robokassaGateway: IPaymentGateway,
-    private readonly eventBus: IEventBus,
     private readonly auditLogRepo: IAuditLogRepository,
   ) {}
 
@@ -99,16 +96,6 @@ export class ProcessRefundUseCase {
       refund.markProcessing();
       await this.refundRepo.update(refund);
     }
-
-    await this.eventBus.publish(
-      new RefundIssuedEvent(saved.id, {
-        paymentId: payment.id,
-        amount: refundAmount.amount,
-        reason: dto.reason,
-        issuedBy: actorId,
-        issuedAt: new Date().toISOString(),
-      })
-    );
 
     await this.auditLogRepo.create(
       AuditLog.create({

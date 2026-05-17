@@ -1,11 +1,9 @@
 import { AppointmentStatus, UserRole, canTransitionStatus } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ValidationError } from '@/domain/errors';
-import { AppointmentConfirmedEvent, AppointmentCancelledEvent, AppointmentNoShowEvent } from '@/domain/events';
 import {
   IAppointmentRepository,
   IUserRepository,
   IAuditLogRepository,
-  IEventBus,
   INotificationRepository,
 } from '@/application/ports';
 import { UpdateAppointmentDto, CancelAppointmentDto } from '@/application/dto';
@@ -17,7 +15,6 @@ export class UpdateAppointmentStatusUseCase {
     private readonly appointmentRepo: IAppointmentRepository,
     private readonly userRepo: IUserRepository,
     private readonly auditLogRepo: IAuditLogRepository,
-    private readonly eventBus: IEventBus,
     private readonly notificationRepo: INotificationRepository,
   ) {}
 
@@ -67,12 +64,6 @@ export class UpdateAppointmentStatusUseCase {
     switch (newStatus) {
       case AppointmentStatus.CONFIRMED:
         appointment.confirm(actorId);
-        await this.eventBus.publish(
-          new AppointmentConfirmedEvent(appointment.id, {
-            confirmedBy: actorId,
-            confirmedAt: new Date().toISOString(),
-          })
-        );
         break;
       case AppointmentStatus.IN_PROGRESS:
         appointment.startInProgress(actorId);
@@ -82,12 +73,6 @@ export class UpdateAppointmentStatusUseCase {
         break;
       case AppointmentStatus.NO_SHOW:
         appointment.markNoShow(actorId);
-        await this.eventBus.publish(
-          new AppointmentNoShowEvent(appointment.id, {
-            noShowAt: new Date().toISOString(),
-            clientId: appointment.clientId,
-          })
-        );
         break;
       default:
         throw new ValidationError(`Unhandled status transition to ${newStatus}`);

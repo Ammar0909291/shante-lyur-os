@@ -9,20 +9,12 @@ import {
 import { UpdateAppointmentSchema, CancelAppointmentSchema } from '@/application/dto';
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
-import type { IEventBus } from '@/application/ports';
-import type { DomainEvent } from '@/domain/events';
-
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
 }
 function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
-
-const noopEventBus: IEventBus = {
-  async publish(_event: DomainEvent): Promise<void> {},
-  subscribe(_eventType: string, _handler: (event: DomainEvent) => Promise<void>): void {},
-};
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -77,7 +69,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       registry.appointmentRepository,
       registry.userRepository,
       registry.auditLogRepository,
-      noopEventBus,
       registry.notificationRepository,
     );
 
@@ -118,7 +109,6 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       registry.refundRepository,
       registry.promoCodeRepository,
       registry.auditLogRepository,
-      noopEventBus,
       registry.yooKassaGateway,
       registry.robokassaGateway,
     );

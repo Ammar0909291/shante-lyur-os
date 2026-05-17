@@ -1,6 +1,5 @@
 import { AppointmentStatus, UserRole } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
-import { AppointmentCancelledEvent } from '@/domain/events';
 import { Money } from '@/domain/value-objects';
 import {
   IAppointmentRepository,
@@ -8,7 +7,6 @@ import {
   IRefundRepository,
   IPromoCodeRepository,
   IAuditLogRepository,
-  IEventBus,
   IPaymentGateway,
 } from '@/application/ports';
 import { CancelAppointmentDto } from '@/application/dto';
@@ -22,7 +20,6 @@ export class CancelAppointmentUseCase {
     private readonly refundRepo: IRefundRepository,
     private readonly promoCodeRepo: IPromoCodeRepository,
     private readonly auditLogRepo: IAuditLogRepository,
-    private readonly eventBus: IEventBus,
     private readonly yookassaGateway: IPaymentGateway,
     private readonly robokassaGateway: IPaymentGateway,
   ) {}
@@ -113,14 +110,6 @@ export class CancelAppointmentUseCase {
         }
       }
     }
-
-    await this.eventBus.publish(
-      new AppointmentCancelledEvent(appointment.id, {
-        cancelledBy: actorId,
-        reason: dto.reason,
-        refundAmount: refundPolicy === 'none' ? 0 : undefined,
-      })
-    );
 
     await this.auditLogRepo.create(
       AuditLog.create({

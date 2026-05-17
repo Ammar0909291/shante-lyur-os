@@ -2,12 +2,10 @@ import { Payment } from '@/domain/entities';
 import { PaymentStatus, PaymentProvider } from '@/domain/enums';
 import { Money } from '@/domain/value-objects';
 import { NotFoundError, ConflictError, ValidationError } from '@/domain/errors';
-import { PaymentInitiatedEvent } from '@/domain/events';
 import {
   IPaymentRepository,
   IAppointmentRepository,
   IPaymentGateway,
-  IEventBus,
   IAuditLogRepository,
 } from '@/application/ports';
 import { CreatePaymentDto } from '@/application/dto';
@@ -27,7 +25,6 @@ export class CreatePaymentUseCase {
     private readonly appointmentRepo: IAppointmentRepository,
     private readonly yookassaGateway: IPaymentGateway,
     private readonly robokassaGateway: IPaymentGateway,
-    private readonly eventBus: IEventBus,
     private readonly auditLogRepo: IAuditLogRepository,
   ) {
     this.gateways = {
@@ -92,16 +89,6 @@ export class CreatePaymentUseCase {
       saved.markAuthorized(result.providerPaymentId);
       await this.paymentRepo.update(saved);
     }
-
-    await this.eventBus.publish(
-      new PaymentInitiatedEvent(saved.id, {
-        appointmentId: saved.appointmentId,
-        amount: saved.amount.amount,
-        currency: saved.amount.currency,
-        provider: saved.provider,
-        clientId: appointment.clientId,
-      })
-    );
 
     await this.auditLogRepo.create(
       AuditLog.create({

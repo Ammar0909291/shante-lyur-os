@@ -2,7 +2,6 @@ import { Appointment, AppointmentServiceItem } from '@/domain/entities';
 import { AppointmentStatus, UserRole } from '@/domain/enums';
 import { DateRange, Money } from '@/domain/value-objects';
 import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '@/domain/errors';
-import { AppointmentBookedEvent } from '@/domain/events';
 import {
   IAppointmentRepository,
   IUserRepository,
@@ -14,7 +13,6 @@ import {
   IVacationRepository,
   ICustomerProfileRepository,
   IPromoCodeRepository,
-  IEventBus,
   INotificationRepository,
 } from '@/application/ports';
 import { CreateAppointmentDto } from '@/application/dto';
@@ -36,7 +34,6 @@ export class CreateAppointmentUseCase {
     private readonly vacationRepo: IVacationRepository,
     private readonly profileRepo: ICustomerProfileRepository,
     private readonly promoCodeRepo: IPromoCodeRepository,
-    private readonly eventBus: IEventBus,
     private readonly notificationRepo: INotificationRepository,
   ) {}
 
@@ -169,23 +166,6 @@ export class CreateAppointmentUseCase {
 
     // Update customer profile
     await this.profileRepo.recordVisit(clientId, 0); // Visit recorded, amount updated on payment
-
-    // Publish event
-    await this.eventBus.publish(
-      new AppointmentBookedEvent(saved.id, {
-        clientId: saved.clientId,
-        specialistId: saved.specialistId,
-        locationId: saved.locationId,
-        startAt: saved.startAt.toISOString(),
-        endAt: saved.endAt.toISOString(),
-        services: saved.services.map(s => ({
-          serviceId: s.serviceId,
-          name: s.name,
-          price: s.price.amount,
-        })),
-        totalPrice: saved.totalPrice.amount,
-      })
-    );
 
     return { appointment: saved, discountApplied };
   }

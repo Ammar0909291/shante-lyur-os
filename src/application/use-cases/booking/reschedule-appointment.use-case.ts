@@ -1,7 +1,6 @@
 import { AppointmentStatus, UserRole } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
 import { DateRange } from '@/domain/value-objects';
-import { AppointmentRescheduledEvent } from '@/domain/events';
 import {
   IAppointmentRepository,
   ISpecialistRepository,
@@ -9,7 +8,6 @@ import {
   IVacationRepository,
   IWorkingScheduleRepository,
   IAuditLogRepository,
-  IEventBus,
 } from '@/application/ports';
 import { RescheduleAppointmentDto } from '@/application/dto';
 import { AuditLog } from '@/domain/entities';
@@ -23,7 +21,6 @@ export class RescheduleAppointmentUseCase {
     private readonly vacationRepo: IVacationRepository,
     private readonly workingScheduleRepo: IWorkingScheduleRepository,
     private readonly auditLogRepo: IAuditLogRepository,
-    private readonly eventBus: IEventBus,
   ) {}
 
   async execute(
@@ -85,16 +82,6 @@ export class RescheduleAppointmentUseCase {
 
     appointment.reschedule(newTimeRange, actorId);
     const saved = await this.appointmentRepo.update(appointment);
-
-    await this.eventBus.publish(
-      new AppointmentRescheduledEvent(saved.id, {
-        oldStartAt: oldStartAt.toISOString(),
-        oldEndAt: oldEndAt.toISOString(),
-        newStartAt: saved.startAt.toISOString(),
-        newEndAt: saved.endAt.toISOString(),
-        rescheduledBy: actorId,
-      })
-    );
 
     await this.auditLogRepo.create(
       AuditLog.create({
