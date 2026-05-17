@@ -1,0 +1,118 @@
+import { Payment } from '@/domain/entities';
+import { PaymentStatus, PaymentProvider } from '@/domain/enums';
+import { Money } from '@/domain/value-objects';
+import { NotFoundError, ConflictError, ValidationError } from '@/domain/errors';
+import { PaymentInitiatedEvent } from '@/domain/events';
+import {
+  IPaymentRepository,
+  IAppointmentRepository,
+  IPaymentGateway,
+  IEventBus,
+  IAuditLogRepository,
+} from '@/application/ports';
+import { CreatePaymentDto } from '@/application/dto';
+import { AuditLog } from '@/domain/entities';
+import { AuditAction } from '@/domain/enums';
+
+export interface CreatePaymentResult {
+  payment: Payment;
+  paymentUrl?: string;
+}
+
+export class CreatePaymentUseCase {
+  private readonly gateways: Record<PaymentProvider, IPaymentGateway>;
+
+  constructor(
+    private readonly paymentRepo: IPaymentRepository,
+    private readonly appointmentRepo: IAppointmentRepository,
+    private readonly yookassaGateway: IPaymentGateway,
+    private readonly robokassaGateway: IPaymentGateway,
+    private readonly eventBus: IEventBus,
+    private readonly auditLogRepo: IAuditLogRepository,
+  ) {
+    this.gateways = {
+      [PaymentProvider.YOOKASSA]: yookassaGateway,
+      [PaymentProvider.ROBOKASSA]: robokassaGateway,
+      [PaymentProvider.CASH]: yookassaGateway, // No-op for cash
+      [PaymentProvider.CARD_TERMINAL]: yookassaGateway,
+      [PaymentProvider.TRANSFER]: yookassaGateway,
+      [PaymentProvider.INTERNAL]: yookassaGateway,
+    };
+  }
+
+  async execute(dto: CreatePaymentDto, actorId: string): Promise<CreatePaymentResult> {
+    const appointment = await this.appointmentRepo.findById(dto.appointmentId);
+    if (!appointment) {
+      throw new NotFoundError('Appointment', dto.appointmentId);
+    }
+
+    if (appointment.isCancelled || appointment.isNoShow) {
+      throw new ConflictError('Cannot create payment for cancelled or no-show appointment');
+    }
+
+    // Check for duplicate idempotency
+    if (dto.idempotencyKey) {
+      const existing = await this.paymentRepo.findByProviderPaymentId(dto.idempotencyKey, dto.provider);
+      if (existing) {
+        return { payment: existing };
+      }
+    }
+
+    const amount = Money.create(dto.amount, dto.currency);
+
+    const payment = new Payment({
+      id: crypto.randomUUID(),
+      appointmentId: dto.appointmentId,
+      provider: dto.provider,
+      amount,
+      currency: dto.currency,
+      status: PaymentStatus.PENDING,
+      description: dto.description,
+      metadata: dto.metadata,
+      idempotencyKey: dto.idempotencyKey,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const saved = await this.paymentRepo.create(payment);
+
+    let paymentUrl: string | undefined;
+
+    // For online payments, initiate gateway flow
+    if (dto.provider === PaymentProvider.YOOKASSA || dto.provider === PaymentProvider.ROBOKASSA) {
+      const gateway = this.gateways[dto.provider];
+      const result = await gateway.createPayment({
+        amount,
+        description: dto.description ?? `Payment for appointment ${dto.appointmentId}`,
+        orderId: saved.id,
+        returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?paymentId=${saved.id}`,
+        metadata: { appointmentId: dto.appointmentId, userId: appointment.clientId },
+      });
+      paymentUrl = result.paymentUrl;
+      saved.markAuthorized(result.providerPaymentId);
+      await this.paymentRepo.update(saved);
+    }
+
+    await this.eventBus.publish(
+      new PaymentInitiatedEvent(saved.id, {
+        appointmentId: saved.appointmentId,
+        amount: saved.amount.amount,
+        currency: saved.amount.currency,
+        provider: saved.provider,
+        clientId: appointment.clientId,
+      })
+    );
+
+    await this.auditLogRepo.create(
+      AuditLog.create({
+        userId: actorId,
+        action: AuditAction.PAYMENT_PROCESSED,
+        entityType: 'Payment',
+        entityId: saved.id,
+        newValues: { status: 'PENDING', amount: saved.amount.amount, provider: saved.provider },
+      })
+    );
+
+    return { payment: saved, paymentUrl };
+  }
+}

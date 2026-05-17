@@ -1,0 +1,879 @@
+// Shante Lyur OS Pro v3 — Complete Prisma Schema
+// Session 1 — Generated 2026-05-17
+// PostgreSQL 15+ | Prisma 5.x | Next.js 14
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex", "postgresqlExtensions"]
+  output          = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgcrypto, uuid_ossp]
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 1. CORE AUTH & USER MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+  SPECIALIST
+  CLIENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  email         String     @unique
+  passwordHash  String     @map("password_hash")
+  firstName     String     @map("first_name") @db.VarChar(100)
+  lastName      String     @map("last_name") @db.VarChar(100)
+  phone         String?    @db.VarChar(30)
+  avatarUrl     String?    @map("avatar_url")
+  role          UserRole   @default(CLIENT)
+  status        UserStatus @default(PENDING_VERIFICATION)
+  emailVerified Boolean    @default(false) @map("email_verified")
+  phoneVerified Boolean    @default(false) @map("phone_verified")
+  lastLoginAt   DateTime?  @map("last_login_at")
+  failedLogins  Int        @default(0) @map("failed_logins")
+  lockedUntil   DateTime?  @map("locked_until")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  sessions       Session[]
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]
+  specialist     Specialist?
+  customerProfile CustomerProfile?
+  notifications  Notification[]
+
+  @@index([email])
+  @@index([role, status])
+  @@index([phone])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(512)
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  userAgent String?  @map("user_agent") @db.Text
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  replacedBy String? @map("replaced_by") @db.Uuid
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 2. SPECIALIST MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+enum SpecialistStatus {
+  ACTIVE
+  INACTIVE
+  ON_VACATION
+  TERMINATED
+}
+
+model Specialist {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @unique @map("user_id") @db.Uuid
+  bio             String?          @db.Text
+  specialization  String?          @db.VarChar(255)
+  experienceYears Int?             @map("experience_years")
+  rating          Decimal?         @db.Decimal(2, 1)
+  reviewCount     Int              @default(0) @map("review_count")
+  commissionRate  Decimal          @default(0.30) @map("commission_rate") @db.Decimal(5, 4)
+  status          SpecialistStatus @default(ACTIVE)
+  color           String?          @db.VarChar(7) // Calendar color hex
+  sortOrder       Int              @default(0) @map("sort_order")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  services       SpecialistService[]
+  appointments   Appointment[]
+  workingSchedules WorkingSchedule[]
+  blockedTimes   BlockedTime[]
+  vacations      Vacation[]
+  specialistNotes SpecialistNote[]
+  revenueRecords RevenueRecord[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([rating])
+  @@map("specialists")
+}
+
+model SpecialistService {
+  id           String   @id @default(uuid()) @db.Uuid
+  specialistId String   @map("specialist_id") @db.Uuid
+  serviceId    String   @map("service_id") @db.Uuid
+  priceOverride Decimal? @map("price_override") @db.Decimal(10, 2)
+  durationOverride Int? @map("duration_override")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+  service    Service    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([specialistId, serviceId])
+  @@index([specialistId])
+  @@index([serviceId])
+  @@map("specialist_services")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 3. SERVICES & LOCATIONS
+// ═══════════════════════════════════════════════════════════════
+
+enum ServiceCategory {
+  COSMETOLOGY
+  MASSAGE
+  INJECTION
+  LASER
+  BODY_CONTOURING
+  HAIR_REMOVAL
+  FACIAL
+  OTHER
+}
+
+model Service {
+  id          String          @id @default(uuid()) @db.Uuid
+  name        String          @db.VarChar(255)
+  description String?         @db.Text
+  category    ServiceCategory @default(OTHER)
+  basePrice   Decimal         @map("base_price") @db.Decimal(10, 2)
+  baseDuration Int            @map("base_duration") // minutes
+  imageUrl    String?         @map("image_url")
+  isActive    Boolean         @default(true) @map("is_active")
+  requiresConsultation Boolean @default(false) @map("requires_consultation")
+  sortOrder   Int             @default(0) @map("sort_order")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  specialists    SpecialistService[]
+  appointments   AppointmentService[]
+  locationPrices ServiceLocationPrice[]
+  revenueRecords RevenueRecord[]
+
+  @@index([category, isActive])
+  @@index([name])
+  @@map("services")
+}
+
+model Location {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(255)
+  address     String   @db.Text
+  city        String   @db.VarChar(100)
+  phone       String?  @db.VarChar(30)
+  email       String?  @db.VarChar(255)
+  timezone    String   @default("Europe/Moscow") @db.VarChar(50)
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  appointments      Appointment[]
+  workingSchedules  WorkingSchedule[]
+  servicePrices     ServiceLocationPrice[]
+  blockedTimes      BlockedTime[]
+
+  @@index([isActive])
+  @@map("locations")
+}
+
+model ServiceLocationPrice {
+  id        String   @id @default(uuid()) @db.Uuid
+  serviceId String   @map("service_id") @db.Uuid
+  locationId String  @map("location_id") @db.Uuid
+  price     Decimal  @db.Decimal(10, 2)
+  duration  Int      // minutes
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  service  Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, locationId])
+  @@index([serviceId])
+  @@index([locationId])
+  @@map("service_location_prices")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 4. BOOKING ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum CancellationReason {
+  CLIENT_REQUEST
+  SPECIALIST_UNAVAILABLE
+  WEATHER
+  EMERGENCY
+  NO_SHOW
+  OTHER
+}
+
+model Appointment {
+  id              String              @id @default(uuid()) @db.Uuid
+  clientId        String              @map("client_id") @db.Uuid
+  specialistId    String              @map("specialist_id") @db.Uuid
+  locationId      String              @map("location_id") @db.Uuid
+  startAt         DateTime            @map("start_at")
+  endAt           DateTime            @map("end_at")
+  status          AppointmentStatus   @default(PENDING)
+  totalPrice      Decimal             @map("total_price") @db.Decimal(10, 2)
+  totalDuration   Int                 @map("total_duration") // minutes
+  notes           String?             @db.Text
+  cancellationReason CancellationReason? @map("cancellation_reason")
+  cancelledAt     DateTime?           @map("cancelled_at")
+  cancelledBy     String?             @map("cancelled_by") @db.Uuid
+  noShowAt        DateTime?           @map("no_show_at")
+  checkedInAt     DateTime?           @map("checked_in_at")
+  checkedOutAt    DateTime?           @map("checked_out_at")
+  source          String?             @db.VarChar(50) // web, phone, walkin, admin
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  client          User                @relation(fields: [clientId], references: [id], onDelete: Restrict, name: "ClientAppointments")
+  specialist      Specialist          @relation(fields: [specialistId], references: [id], onDelete: Restrict)
+  location        Location            @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  services        AppointmentService[]
+  payments        Payment[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+  procedureHistory ProcedureHistory[]
+
+  @@index([clientId, startAt])
+  @@index([specialistId, startAt])
+  @@index([locationId, startAt])
+  @@index([status, startAt])
+  @@index([startAt, endAt])
+  @@map("appointments")
+}
+
+model AppointmentService {
+  id            String   @id @default(uuid()) @db.Uuid
+  appointmentId String   @map("appointment_id") @db.Uuid
+  serviceId     String   @map("service_id") @db.Uuid
+  price         Decimal  @db.Decimal(10, 2)
+  duration      Int      // minutes
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service     Service     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([appointmentId])
+  @@index([serviceId])
+  @@map("appointment_services")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 5. SCHEDULING (Working Hours, Blocked Times, Vacations)
+// ═══════════════════════════════════════════════════════════════
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model WorkingSchedule {
+  id           String    @id @default(uuid()) @db.Uuid
+  specialistId String    @map("specialist_id") @db.Uuid
+  locationId   String    @map("location_id") @db.Uuid
+  dayOfWeek    DayOfWeek @map("day_of_week")
+  startTime    String    @map("start_time") @db.VarChar(5) // HH:MM
+  endTime      String    @map("end_time") @db.VarChar(5)
+  breakStart   String?   @map("break_start") @db.VarChar(5)
+  breakEnd     String?   @map("break_end") @db.VarChar(5)
+  isActive     Boolean   @default(true) @map("is_active")
+  validFrom    DateTime  @map("valid_from")
+  validUntil   DateTime? @map("valid_until")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+  location   Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([specialistId, dayOfWeek])
+  @@index([locationId, dayOfWeek])
+  @@map("working_schedules")
+}
+
+model BlockedTime {
+  id           String   @id @default(uuid()) @db.Uuid
+  specialistId String   @map("specialist_id") @db.Uuid
+  locationId   String?  @map("location_id") @db.Uuid
+  startAt      DateTime @map("start_at")
+  endAt        DateTime @map("end_at")
+  reason       String?  @db.VarChar(255)
+  isRecurring  Boolean  @default(false) @map("is_recurring")
+  recurrenceRule String? @map("recurrence_rule") // iCal RRULE
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+  location   Location?  @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([specialistId, startAt, endAt])
+  @@index([locationId, startAt, endAt])
+  @@map("blocked_times")
+}
+
+model Vacation {
+  id           String    @id @default(uuid()) @db.Uuid
+  specialistId String    @map("specialist_id") @db.Uuid
+  startDate    DateTime  @map("start_date") @db.Date
+  endDate      DateTime  @map("end_date") @db.Date
+  reason       String?   @db.VarChar(255)
+  isApproved   Boolean   @default(false) @map("is_approved")
+  approvedBy   String?   @map("approved_by") @db.Uuid
+  approvedAt   DateTime? @map("approved_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@index([specialistId, startDate, endDate])
+  @@map("vacations")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 6. CRM — CUSTOMER PROFILES
+// ═══════════════════════════════════════════════════════════════
+
+model CustomerProfile {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  dateOfBirth       DateTime? @map("date_of_birth") @db.Date
+  gender            String?   @db.VarChar(20)
+  skinType          String?   @map("skin_type") @db.VarChar(50)
+  hairType          String?   @map("hair_type") @db.VarChar(50)
+  bodyType          String?   @map("body_type") @db.VarChar(50)
+  preferredLocationId String? @map("preferred_location_id") @db.Uuid
+  preferredSpecialistId String? @map("preferred_specialist_id") @db.Uuid
+  referralSource    String?   @map("referral_source") @db.VarChar(100)
+  firstVisitAt      DateTime? @map("first_visit_at")
+  lastVisitAt       DateTime? @map("last_visit_at")
+  totalVisits       Int       @default(0) @map("total_visits")
+  totalSpent        Decimal   @default(0) @map("total_spent") @db.Decimal(12, 2)
+  loyaltyPoints     Int       @default(0) @map("loyalty_points")
+  loyaltyTier       String    @default("BRONZE") @map("loyalty_tier") @db.VarChar(20)
+  churnRiskScore    Decimal?  @map("churn_risk_score") @db.Decimal(3, 2)
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  allergies      CustomerAllergy[]
+  restrictions   CustomerRestriction[]
+  specialistNotes SpecialistNote[]
+  procedureHistory ProcedureHistory[]
+  beforeAfterPhotos BeforeAfterPhoto[]
+  tags           CustomerTag[]
+  referralsGiven Referral[]          @relation("Referrer")
+  referralsReceived Referral[]       @relation("Referred")
+
+  @@index([userId])
+  @@index([loyaltyTier])
+  @@index([churnRiskScore])
+  @@map("customer_profiles")
+}
+
+model CustomerAllergy {
+  id          String   @id @default(uuid()) @db.Uuid
+  profileId   String   @map("profile_id") @db.Uuid
+  allergen    String   @db.VarChar(255)
+  severity    String   @db.VarChar(20) // mild, moderate, severe
+  reaction    String?  @db.Text
+  diagnosedAt DateTime? @map("diagnosed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@map("customer_allergies")
+}
+
+model CustomerRestriction {
+  id          String   @id @default(uuid()) @db.Uuid
+  profileId   String   @map("profile_id") @db.Uuid
+  type        String   @db.VarChar(50) // medical, pregnancy, medication, other
+  description String   @db.Text
+  validFrom   DateTime? @map("valid_from")
+  validUntil  DateTime? @map("valid_until")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, isActive])
+  @@map("customer_restrictions")
+}
+
+enum NotePrivacy {
+  PRIVATE      // Only the specialist who wrote it
+  SHARED       // All specialists
+  ADMIN_ONLY   // Admin/operator only
+  CLIENT_VISIBLE // Client can see
+}
+
+model SpecialistNote {
+  id           String      @id @default(uuid()) @db.Uuid
+  specialistId String      @map("specialist_id") @db.Uuid
+  profileId    String      @map("profile_id") @db.Uuid
+  appointmentId String?    @map("appointment_id") @db.Uuid
+  noteType     String      @map("note_type") @db.VarChar(50) // consultation, procedure, followup, general, complaint
+  content      String      @db.Text
+  privacy      NotePrivacy @default(PRIVATE)
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  specialist  Specialist      @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+  profile     CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, noteType])
+  @@index([specialistId, createdAt])
+  @@map("specialist_notes")
+}
+
+model ProcedureHistory {
+  id            String   @id @default(uuid()) @db.Uuid
+  profileId     String   @map("profile_id") @db.Uuid
+  appointmentId String   @map("appointment_id") @db.Uuid
+  serviceId     String   @map("service_id") @db.Uuid
+  specialistId  String   @map("specialist_id") @db.Uuid
+  performedAt   DateTime @map("performed_at")
+  results       String?  @db.Text
+  sideEffects   String?  @map("side_effects") @db.Text
+  clientFeedback String? @map("client_feedback") @db.Text
+  followUpRequired Boolean @default(false) @map("follow_up_required")
+  followUpDate  DateTime? @map("follow_up_date")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  profile     CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  appointment Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, performedAt])
+  @@index([specialistId, performedAt])
+  @@map("procedure_history")
+}
+
+model BeforeAfterPhoto {
+  id          String   @id @default(uuid()) @db.Uuid
+  profileId   String   @map("profile_id") @db.Uuid
+  serviceId   String?  @map("service_id") @db.Uuid
+  photoType   String   @map("photo_type") @db.VarChar(20) // before, after, progress
+  imageUrl    String   @map("image_url")
+  thumbnailUrl String? @map("thumbnail_url")
+  takenAt     DateTime @map("taken_at")
+  notes       String?  @db.Text
+  isPrivate   Boolean  @default(false) @map("is_private")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, photoType])
+  @@map("before_after_photos")
+}
+
+model CustomerTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  profileId String   @map("profile_id") @db.Uuid
+  tag       String   @db.VarChar(50)
+  color     String?  @db.VarChar(7)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, tag])
+  @@index([profileId])
+  @@map("customer_tags")
+}
+
+model Referral {
+  id          String    @id @default(uuid()) @db.Uuid
+  referrerId  String    @map("referrer_id") @db.Uuid
+  referredId  String    @map("referred_id") @db.Uuid
+  code        String    @db.VarChar(50)
+  rewardType  String?   @map("reward_type") @db.VarChar(50) // discount, points, service
+  rewardValue Decimal?  @map("reward_value") @db.Decimal(10, 2)
+  rewardClaimed Boolean @default(false) @map("reward_claimed")
+  claimedAt   DateTime? @map("claimed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  referrer CustomerProfile @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred CustomerProfile @relation("Referred", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@unique([referrerId, referredId])
+  @@index([code])
+  @@map("referrals")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 7. PAYMENTS
+// ═══════════════════════════════════════════════════════════════
+
+enum PaymentProvider {
+  YOOKASSA
+  ROBOKASSA
+  CASH
+  CARD_TERMINAL
+  TRANSFER
+  INTERNAL
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  AUTHORIZED
+  CAPTURED
+  PARTIALLY_REFUNDED
+  FULLY_REFUNDED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Payment {
+  id              String          @id @default(uuid()) @db.Uuid
+  appointmentId   String          @map("appointment_id") @db.Uuid
+  provider        PaymentProvider
+  providerPaymentId String?       @map("provider_payment_id") @db.VarChar(255)
+  amount          Decimal         @db.Decimal(10, 2)
+  currency        String          @default("RUB") @db.VarChar(3)
+  status          PaymentStatus   @default(PENDING)
+  description     String?         @db.VarChar(255)
+  metadata        Json?
+  paidAt          DateTime?       @map("paid_at")
+  failedAt        DateTime?       @map("failed_at")
+  failureReason   String?         @map("failure_reason") @db.Text
+  idempotencyKey  String?         @unique @map("idempotency_key") @db.VarChar(255)
+  commissionAmount Decimal?       @map("commission_amount") @db.Decimal(10, 2)
+  specialistCommission Decimal?   @map("specialist_commission") @db.Decimal(10, 2)
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  appointment Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  refunds     Refund[]
+  revenueRecords RevenueRecord[]
+
+  @@index([appointmentId])
+  @@index([providerPaymentId])
+  @@index([status, createdAt])
+  @@index([idempotencyKey])
+  @@map("payments")
+}
+
+model Refund {
+  id            String        @id @default(uuid()) @db.Uuid
+  paymentId     String        @map("payment_id") @db.Uuid
+  providerRefundId String?    @map("provider_refund_id") @db.VarChar(255)
+  amount        Decimal       @db.Decimal(10, 2)
+  reason        String?       @db.Text
+  status        RefundStatus  @default(PENDING)
+  processedAt   DateTime?     @map("processed_at")
+  processedBy   String?       @map("processed_by") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([paymentId])
+  @@index([status])
+  @@map("refunds")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 8. PROMO CODES & DISCOUNTS
+// ═══════════════════════════════════════════════════════════════
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SERVICE
+}
+
+model PromoCode {
+  id              String       @id @default(uuid()) @db.Uuid
+  code            String       @unique @db.VarChar(50)
+  description     String?      @db.Text
+  discountType    DiscountType @map("discount_type")
+  discountValue   Decimal      @map("discount_value") @db.Decimal(10, 2)
+  maxUses         Int?         @map("max_uses")
+  currentUses     Int          @default(0) @map("current_uses")
+  maxUsesPerUser  Int          @default(1) @map("max_uses_per_user")
+  minOrderAmount  Decimal?     @map("min_order_amount") @db.Decimal(10, 2)
+  validFrom       DateTime     @map("valid_from")
+  validUntil      DateTime     @map("valid_until")
+  applicableServices Json?     @map("applicable_services") // array of service IDs
+  isActive        Boolean      @default(true) @map("is_active")
+  createdBy       String       @map("created_by") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@index([code])
+  @@index([isActive, validFrom, validUntil])
+  @@map("promo_codes")
+}
+
+model PromoCodeUsage {
+  id          String   @id @default(uuid()) @db.Uuid
+  promoCodeId String   @map("promo_code_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  appointmentId String @map("appointment_id") @db.Uuid
+  discountAmount Decimal @map("discount_amount") @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([promoCodeId, userId, appointmentId])
+  @@index([promoCodeId])
+  @@index([userId])
+  @@map("promo_code_usages")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 9. REVENUE & FINANCIAL ANALYTICS
+// ═══════════════════════════════════════════════════════════════
+
+enum RevenueType {
+  SERVICE_PAYMENT
+  PRODUCT_SALE
+  GIFT_CARD
+  SUBSCRIPTION
+  PENALTY
+  REFUND
+  COMMISSION
+  OTHER
+}
+
+model RevenueRecord {
+  id            String      @id @default(uuid()) @db.Uuid
+  date          DateTime    @db.Date
+  type          RevenueType
+  amount        Decimal     @db.Decimal(12, 2)
+  specialistId  String?     @map("specialist_id") @db.Uuid
+  serviceId     String?     @map("service_id") @db.Uuid
+  paymentId     String?     @map("payment_id") @db.Uuid
+  appointmentId String?     @map("appointment_id") @db.Uuid
+  locationId    String?     @map("location_id") @db.Uuid
+  notes         String?     @db.Text
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  specialist  Specialist? @relation(fields: [specialistId], references: [id], onDelete: SetNull)
+  service     Service?    @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  payment     Payment?    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([date, type])
+  @@index([specialistId, date])
+  @@index([locationId, date])
+  @@map("revenue_records")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 10. NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+}
+
+enum NotificationType {
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_REMINDER
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_RESCHEDULED
+  PAYMENT_RECEIVED
+  PAYMENT_FAILED
+  PROMO_CODE
+  WELCOME
+  PASSWORD_RESET
+  SYSTEM
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  READ
+}
+
+model Notification {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  appointmentId String?         @map("appointment_id") @db.Uuid
+  type      NotificationType
+  channel   NotificationChannel
+  status    NotificationStatus  @default(PENDING)
+  title     String              @db.VarChar(255)
+  body      String              @db.Text
+  data      Json?
+  sentAt    DateTime?           @map("sent_at")
+  deliveredAt DateTime?         @map("delivered_at")
+  readAt    DateTime?           @map("read_at")
+  error     String?             @db.Text
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([appointmentId])
+  @@index([type, status])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 11. AUDIT LOGS
+// ═══════════════════════════════════════════════════════════════
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_CHANGED
+  ROLE_CHANGED
+  STATUS_CHANGED
+  PAYMENT_PROCESSED
+  REFUND_ISSUED
+  EXPORT
+  IMPORT
+  SETTINGS_CHANGED
+}
+
+model AuditLog {
+  id          String      @id @default(uuid()) @db.Uuid
+  userId      String?     @map("user_id") @db.Uuid
+  appointmentId String?   @map("appointment_id") @db.Uuid
+  action      AuditAction
+  entityType  String      @map("entity_type") @db.VarChar(50)
+  entityId    String?     @map("entity_id") @db.Uuid
+  oldValues   Json?       @map("old_values")
+  newValues   Json?       @map("new_values")
+  ipAddress   String?     @map("ip_address") @db.VarChar(45)
+  userAgent   String?     @map("user_agent") @db.Text
+  metadata    Json?
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 12. AI / ANALYTICS TABLES
+// ═══════════════════════════════════════════════════════════════
+
+model AIPrediction {
+  id            String   @id @default(uuid()) @db.Uuid
+  modelType     String   @map("model_type") @db.VarChar(50) // no_show, churn, revenue_forecast, slot_recommendation
+  entityType    String   @map("entity_type") @db.VarChar(50) // appointment, customer, daily, slot
+  entityId      String?  @map("entity_id") @db.Uuid
+  prediction    Json
+  confidence    Decimal? @db.Decimal(4, 3)
+  actualOutcome Json?    @map("actual_outcome")
+  accuracyDelta Decimal? @map("accuracy_delta") @db.Decimal(4, 3)
+  trainedAt     DateTime @map("trained_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([modelType, entityType])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("ai_predictions")
+}
+
+model DailyMetrics {
+  id                  String   @id @default(uuid()) @db.Uuid
+  date                DateTime @unique @db.Date
+  totalAppointments   Int      @default(0) @map("total_appointments")
+  completedAppointments Int    @default(0) @map("completed_appointments")
+  cancelledAppointments Int    @default(0) @map("cancelled_appointments")
+  noShowAppointments  Int      @default(0) @map("no_show_appointments")
+  totalRevenue        Decimal  @default(0) @map("total_revenue") @db.Decimal(12, 2)
+  totalRefunds        Decimal  @default(0) @map("total_refunds") @db.Decimal(12, 2)
+  newCustomers        Int      @default(0) @map("new_customers")
+  returningCustomers  Int      @default(0) @map("returning_customers")
+  avgAppointmentValue Decimal? @map("avg_appointment_value") @db.Decimal(10, 2)
+  avgBookingLeadTime  Int?     @map("avg_booking_lead_time") // hours
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([date])
+  @@map("daily_metrics")
+}

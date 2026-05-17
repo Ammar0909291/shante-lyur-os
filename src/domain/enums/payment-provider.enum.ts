@@ -1,0 +1,8 @@
+export enum PaymentProvider {
+  YOOKASSA = 'YOOKASSA',
+  ROBOKASSA = 'ROBOKASSA',
+  CASH = 'CASH',
+  CARD_TERMINAL = 'CARD_TERMINAL',
+  TRANSFER = 'TRANSFER',
+  INTERNAL = 'INTERNAL',
+}

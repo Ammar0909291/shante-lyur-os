@@ -1,0 +1,6 @@
+export enum SpecialistStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  ON_VACATION = 'ON_VACATION',
+  TERMINATED = 'TERMINATED',
+}

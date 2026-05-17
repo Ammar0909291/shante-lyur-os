@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/shante_lyur?schema=public
+      - DIRECT_URL=postgresql://postgres:postgres@db:5432/shante_lyur?schema=public
+      - REDIS_URL=redis://redis:6379/0
+      - NODE_ENV=production
+    depends_on:
+      - db
+      - redis
+    networks:
+      - shante-lyur
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: shante_lyur
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - shante-lyur
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - shante-lyur
+
+volumes:
+  postgres_data:
+
+networks:
+  shante-lyur:
+    driver: bridge

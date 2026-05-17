@@ -1,0 +1,6 @@
+export enum NotePrivacy {
+  PRIVATE = 'PRIVATE',
+  SHARED = 'SHARED',
+  ADMIN_ONLY = 'ADMIN_ONLY',
+  CLIENT_VISIBLE = 'CLIENT_VISIBLE',
+}
