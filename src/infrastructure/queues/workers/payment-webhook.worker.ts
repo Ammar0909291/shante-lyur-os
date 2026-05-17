@@ -1,0 +1,58 @@
+import { Worker, type Job } from 'bullmq';
+import { redisConnection } from '../redis-connection';
+import { QUEUE_NAMES } from '../queue.config';
+import type { PaymentWebhookJob } from '../job-types';
+import { di } from '@/infrastructure/config/di-registry';
+import { PaymentProvider } from '@/domain/enums/payment-provider.enum';
+
+function createProcessor() {
+  return async (job: Job<PaymentWebhookJob>): Promise<void> => {
+    const { provider, rawPayload, signature, receivedAt } = job.data;
+    const registry = di();
+
+    console.info(
+      `[PaymentWebhookWorker] Processing job ${job.id}: provider=${provider}, receivedAt=${receivedAt}`,
+    );
+
+    let parsedPayload: unknown;
+    try {
+      parsedPayload = JSON.parse(rawPayload) as unknown;
+    } catch {
+      throw new Error(`[PaymentWebhookWorker] Invalid JSON payload for job ${job.id}`);
+    }
+
+    const bullmqProvider =
+      provider === 'yookassa' ? PaymentProvider.YOOKASSA : PaymentProvider.ROBOKASSA;
+
+    const payment = await registry.paymentOrchestrator.processWebhook(
+      bullmqProvider,
+      parsedPayload,
+      signature,
+    );
+
+    console.info(
+      `[PaymentWebhookWorker] Job ${job.id} processed — payment ${payment.id} status=${payment.status}`,
+    );
+  };
+}
+
+export function createPaymentWebhookWorker(): Worker<PaymentWebhookJob> {
+  const worker = new Worker<PaymentWebhookJob>(
+    QUEUE_NAMES.PAYMENT_WEBHOOKS,
+    createProcessor(),
+    { connection: redisConnection },
+  );
+
+  worker.on('completed', (job: Job<PaymentWebhookJob>) => {
+    console.info(`[PaymentWebhookWorker] Job ${job.id} finished`);
+  });
+
+  worker.on('failed', (job: Job<PaymentWebhookJob> | undefined, err: Error) => {
+    console.error(
+      `[PaymentWebhookWorker] Job ${job?.id ?? 'unknown'} failed:`,
+      err.message,
+    );
+  });
+
+  return worker;
+}
