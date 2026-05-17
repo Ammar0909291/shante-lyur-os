@@ -53,12 +53,13 @@ model User {
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
   // Relations
-  sessions       Session[]
-  refreshTokens  RefreshToken[]
-  auditLogs      AuditLog[]
-  specialist     Specialist?
-  customerProfile CustomerProfile?
-  notifications  Notification[]
+  sessions           Session[]
+  refreshTokens      RefreshToken[]
+  auditLogs          AuditLog[]
+  specialist         Specialist?
+  customerProfile    CustomerProfile?
+  notifications      Notification[]
+  clientAppointments Appointment[]    @relation("ClientAppointments")
 
   @@index([email])
   @@index([role, status])

@@ -74,7 +74,8 @@ export class CreateAppointmentUseCase {
     let totalPrice = Money.zero('RUB');
     const appointmentServices: AppointmentServiceItem[] = [];
 
-    for (const [idx, svcDto] of dto.services.entries()) {
+    let svcIdx = 0;
+    for (const svcDto of dto.services) {
       const service = services.find(s => s.id === svcDto.serviceId)!;
       const locationPrice = await this.serviceRepo.getLocationPrice(service.id, location.id);
       const price = locationPrice ? Money.create(locationPrice.price, 'RUB') : service.basePrice;
@@ -88,8 +89,9 @@ export class CreateAppointmentUseCase {
         name: service.name,
         price,
         duration,
-        sortOrder: idx,
+        sortOrder: svcIdx,
       });
+      svcIdx++;
     }
 
     const endAt = new Date(dto.startAt.getTime() + totalDuration * 60000);

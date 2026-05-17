@@ -1,4 +1,4 @@
-import { AppointmentStatus, UserRole } from '@/domain/enums';
+import { AppointmentStatus, UserRole, CancellationReason } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
 import { Money } from '@/domain/value-objects';
 import {
@@ -58,7 +58,7 @@ export class CancelAppointmentUseCase {
       refundPolicy = 'full';
     }
 
-    appointment.cancel(dto.reason, actorId);
+    appointment.cancel(dto.reason as CancellationReason, actorId);
     const saved = await this.appointmentRepo.update(appointment);
 
     // Process refunds if applicable

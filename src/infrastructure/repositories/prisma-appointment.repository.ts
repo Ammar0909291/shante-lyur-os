@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma, AppointmentStatus as PrismaAppStatus } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { IAppointmentRepository } from '@/application/ports/appointment-repository.port';
 import { Appointment, AppointmentServiceItem } from '@/domain/entities/appointment.entity';
@@ -15,7 +15,7 @@ const APPOINTMENT_INCLUDE = {
   },
 };
 
-const INACTIVE_STATUSES: string[] = [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW];
+const INACTIVE_STATUSES: PrismaAppStatus[] = [PrismaAppStatus.CANCELLED, PrismaAppStatus.NO_SHOW];
 
 export class PrismaAppointmentRepository implements IAppointmentRepository {
   constructor(private readonly db: PrismaClient) {}
@@ -132,7 +132,7 @@ export class PrismaAppointmentRepository implements IAppointmentRepository {
   async create(appointment: Appointment): Promise<Appointment> {
     try {
       const raw = await this.db.$transaction(
-        async (tx: PrismaClient) => {
+        async (tx: Prisma.TransactionClient) => {
           const conflicts: number = await tx.appointment.count({
             where: {
               specialistId: appointment.specialistId,

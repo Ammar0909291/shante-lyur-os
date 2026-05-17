@@ -1,4 +1,3 @@
-import { PaymentStatus, RefundStatus } from '@/domain/enums';
 import { NotFoundError, ValidationError } from '@/domain/errors';
 import { Money } from '@/domain/value-objects';
 import {

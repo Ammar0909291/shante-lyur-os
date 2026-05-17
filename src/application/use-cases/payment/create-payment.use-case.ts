@@ -49,7 +49,7 @@ export class CreatePaymentUseCase {
 
     // Check for duplicate idempotency
     if (dto.idempotencyKey) {
-      const existing = await this.paymentRepo.findByProviderPaymentId(dto.idempotencyKey, dto.provider);
+      const existing = await this.paymentRepo.findByProviderPaymentId(dto.idempotencyKey, dto.provider as PaymentProvider);
       if (existing) {
         return { payment: existing };
       }
@@ -60,9 +60,8 @@ export class CreatePaymentUseCase {
     const payment = new Payment({
       id: crypto.randomUUID(),
       appointmentId: dto.appointmentId,
-      provider: dto.provider,
+      provider: dto.provider as PaymentProvider,
       amount,
-      currency: dto.currency,
       status: PaymentStatus.PENDING,
       description: dto.description,
       metadata: dto.metadata,
