@@ -1,0 +1,74 @@
+import nodemailer from 'nodemailer';
+import { EmailServicePort } from '@/application/ports/email-service.port';
+
+export class SmtpEmailService implements EmailServicePort {
+  private readonly transporter: nodemailer.Transporter;
+
+  constructor() {
+    const host = process.env.SMTP_HOST ?? 'smtp.gmail.com';
+    const port = parseInt(process.env.SMTP_PORT ?? '587', 10);
+    const user = process.env.SMTP_USER ?? '';
+    const pass = process.env.SMTP_PASS ?? '';
+    const secure = port === 465;
+
+    this.transporter = nodemailer.createTransporter({
+      host,
+      port,
+      secure,
+      auth: user && pass ? { user, pass } : undefined,
+      tls: { rejectUnauthorized: false },
+    });
+  }
+
+  async send(to: string, subject: string, html: string, text?: string): Promise<void> {
+    const from = process.env.SMTP_FROM ?? 'noreply@shantelyur.ru';
+
+    await this.transporter.sendMail({
+      from,
+      to,
+      subject,
+      text: text ?? html.replace(/<[^>]*>/g, ''),
+      html,
+    });
+  }
+
+  async sendTemplate(to: string, template: string, variables: Record<string, string>): Promise<void> {
+    const html = this.renderTemplate(template, variables);
+    const subject = this.getSubjectForTemplate(template);
+    await this.send(to, subject, html);
+  }
+
+  private renderTemplate(template: string, vars: Record<string, string>): string {
+    const base = `<!DOCTYPE html>
+<html lang="ru">
+<head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333}</style></head>
+<body>{{content}}</body></html>`;
+
+    const templates: Record<string, string> = {
+      'welcome': `<h2>Добро пожаловать в Shante Lyur!</h2><p>Здравствуйте, {{name}}!</p><p>Спасибо за регистрацию. Ваш аккаунт готов к использованию.</p>`,
+      'booking-confirmation': `<h2>Подтверждение записи</h2><p>{{name}}, ваша запись подтверждена:</p><ul><li>Услуга: {{service}}</li><li>Специалист: {{specialist}}</li><li>Дата: {{date}}</li><li>Время: {{time}}</li></ul>`,
+      'booking-reminder': `<h2>Напоминание о записи</h2><p>{{name}}, напоминаем о вашей записи завтра:</p><ul><li>Услуга: {{service}}</li><li>Дата: {{date}}</li><li>Время: {{time}}</li></ul>`,
+      'payment-receipt': `<h2>Квитанция об оплате</h2><p>{{name}}, оплата прошла успешно:</p><ul><li>Сумма: {{amount}} {{currency}}</li><li>Услуга: {{service}}</li><li>Дата: {{date}}</li></ul>`,
+      'password-reset': `<h2>Сброс пароля</h2><p>Для сброса пароля перейдите по ссылке:</p><p><a href="{{link}}">Сбросить пароль</a></p><p>Ссылка действительна 1 час.</p>`,
+      'account-locked': `<h2>Аккаунт временно заблокирован</h2><p>Ваш аккаунт заблокирован из-за множества неудачных попыток входа. Попробуйте позже или свяжитесь с администратором.</p>`,
+    };
+
+    let content = templates[template] ?? '<p>Шаблон не найден</p>';
+    for (const [key, val] of Object.entries(vars)) {
+      content = content.replace(new RegExp(`{{${key}}}`, 'g'), val);
+    }
+    return base.replace('{{content}}', content);
+  }
+
+  private getSubjectForTemplate(template: string): string {
+    const subjects: Record<string, string> = {
+      'welcome': 'Добро пожаловать в Shante Lyur',
+      'booking-confirmation': 'Подтверждение записи — Shante Lyur',
+      'booking-reminder': 'Напоминание о записи — Shante Lyur',
+      'payment-receipt': 'Квитанция об оплате — Shante Lyur',
+      'password-reset': 'Сброс пароля — Shante Lyur',
+      'account-locked': 'Безопасность аккаунта — Shante Lyur',
+    };
+    return subjects[template] ?? 'Shante Lyur';
+  }
+}
