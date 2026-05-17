@@ -1,7 +1,7 @@
 import { Appointment, AppointmentServiceItem } from '@/domain/entities';
-import { AppointmentStatus, UserRole } from '@/domain/enums';
+import { AppointmentStatus, UserRole, DayOfWeek } from '@/domain/enums';
 import { DateRange, Money } from '@/domain/value-objects';
-import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '@/domain/errors';
+import { NotFoundError, ConflictError } from '@/domain/errors';
 import {
   IAppointmentRepository,
   IUserRepository,
@@ -40,13 +40,8 @@ export class CreateAppointmentUseCase {
   async execute(
     dto: CreateAppointmentDto,
     clientId: string,
-    actorRole: UserRole
+    _actorRole: UserRole
   ): Promise<CreateAppointmentResult> {
-    // Authorization
-    if (actorRole === UserRole.CLIENT && clientId !== clientId) {
-      throw new ForbiddenError('Clients can only book for themselves');
-    }
-
     // Validate specialist
     const specialist = await this.specialistRepo.findById(dto.specialistId);
     if (!specialist || !specialist.isActive) {
@@ -118,16 +113,23 @@ export class CreateAppointmentUseCase {
       throw new ConflictError('Specialist is on vacation', 'startAt');
     }
 
+    // Appointment must not span midnight (local server time)
+    if (endAt.toDateString() !== dto.startAt.toDateString()) {
+      throw new ConflictError('Appointment cannot span midnight', 'startAt');
+    }
+
     // Check working schedule
-    const dayOfWeek = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][dto.startAt.getDay()] as any;
+    const DOW_MAP: DayOfWeek[] = [
+      DayOfWeek.SUNDAY, DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+      DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY,
+    ];
+    const dayOfWeek: DayOfWeek = DOW_MAP[dto.startAt.getDay()];
     const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(specialist.id, dayOfWeek);
+    const apptStartMin = dto.startAt.getHours() * 60 + dto.startAt.getMinutes();
+    const apptEndMin = endAt.getHours() * 60 + endAt.getMinutes();
     const validSchedule = schedules.find(s => {
       if (!s.isActive || !s.isValidForDate(dto.startAt)) return false;
-      const startMin = s.startMinutes;
-      const endMin = s.endMinutes;
-      const apptStartMin = dto.startAt.getHours() * 60 + dto.startAt.getMinutes();
-      const apptEndMin = endAt.getHours() * 60 + endAt.getMinutes();
-      return apptStartMin >= startMin && apptEndMin <= endMin;
+      return apptStartMin >= s.startMinutes && apptEndMin <= s.endMinutes;
     });
     if (!validSchedule) {
       throw new ConflictError('Outside working hours', 'startAt');

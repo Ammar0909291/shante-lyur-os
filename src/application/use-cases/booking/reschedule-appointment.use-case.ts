@@ -1,4 +1,4 @@
-import { AppointmentStatus, UserRole } from '@/domain/enums';
+import { UserRole, DayOfWeek } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
 import { DateRange } from '@/domain/value-objects';
 import {
@@ -63,15 +63,21 @@ export class RescheduleAppointmentUseCase {
       throw new ConflictError('Specialist is on vacation at new time');
     }
 
-    const dayOfWeek = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][dto.newStartAt.getDay()] as any;
+    if (newEndAt.toDateString() !== dto.newStartAt.toDateString()) {
+      throw new ConflictError('Appointment cannot span midnight', 'newStartAt');
+    }
+
+    const DOW_MAP: DayOfWeek[] = [
+      DayOfWeek.SUNDAY, DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
+      DayOfWeek.THURSDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY,
+    ];
+    const dayOfWeek: DayOfWeek = DOW_MAP[dto.newStartAt.getDay()];
     const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(appointment.specialistId, dayOfWeek);
+    const apptStartMin = dto.newStartAt.getHours() * 60 + dto.newStartAt.getMinutes();
+    const apptEndMin = newEndAt.getHours() * 60 + newEndAt.getMinutes();
     const validSchedule = schedules.find(s => {
       if (!s.isActive || !s.isValidForDate(dto.newStartAt)) return false;
-      const startMin = s.startMinutes;
-      const endMin = s.endMinutes;
-      const apptStartMin = dto.newStartAt.getHours() * 60 + dto.newStartAt.getMinutes();
-      const apptEndMin = newEndAt.getHours() * 60 + newEndAt.getMinutes();
-      return apptStartMin >= startMin && apptEndMin <= endMin;
+      return apptStartMin >= s.startMinutes && apptEndMin <= s.endMinutes;
     });
     if (!validSchedule) {
       throw new ConflictError('New time is outside working hours');

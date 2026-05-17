@@ -1,159 +1,232 @@
-import { PrismaClient, Prisma, Appointment as PrismaAppointment } from '@prisma/client';
-import { AppointmentRepositoryPort } from '@/application/ports/appointment-repository.port';
-import { Appointment } from '@/domain/entities/appointment.entity';
+import { PrismaClient } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import { IAppointmentRepository } from '@/application/ports/appointment-repository.port';
+import { Appointment, AppointmentServiceItem } from '@/domain/entities/appointment.entity';
 import { AppointmentStatus } from '@/domain/enums/appointment-status.enum';
 import { CancellationReason } from '@/domain/enums/cancellation-reason.enum';
+import { DateRange } from '@/domain/value-objects/date-range.vo';
 import { Money } from '@/domain/value-objects/money.vo';
+import { SlotUnavailableError } from '@/domain/errors/conflict-error';
 
-export class PrismaAppointmentRepository implements AppointmentRepositoryPort {
+const APPOINTMENT_INCLUDE = {
+  services: {
+    include: { service: { select: { name: true } } },
+    orderBy: { sortOrder: 'asc' as const },
+  },
+};
+
+const INACTIVE_STATUSES: string[] = [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW];
+
+export class PrismaAppointmentRepository implements IAppointmentRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: PrismaAppointment & { customer?: { id: string; firstName: string; lastName: string; email: string } | null; specialist?: { id: string; firstName: string; lastName: string } | null; service?: { id: string; name: string; durationMinutes: number } | null }): Appointment {
-    return Appointment.reconstitute({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private toDomain(raw: any): Appointment {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const services: AppointmentServiceItem[] = (raw.services ?? []).map((svc: any) => ({
+      serviceId: svc.serviceId,
+      name: svc.service.name,
+      price: Money.create(Number(svc.price)),
+      duration: svc.duration,
+      sortOrder: svc.sortOrder,
+    }));
+
+    return new Appointment({
       id: raw.id,
-      customerId: raw.customerId,
+      clientId: raw.clientId,
       specialistId: raw.specialistId,
-      serviceId: raw.serviceId,
       locationId: raw.locationId,
-      startAt: raw.startAt,
-      endAt: raw.endAt,
+      timeSlot: DateRange.create(raw.startAt as Date, raw.endAt as Date),
       status: raw.status as AppointmentStatus,
-      price: Money.create(raw.price).getValue(),
-      finalPrice: raw.finalPrice ? Money.create(raw.finalPrice).getValue() : undefined,
-      discountAmount: raw.discountAmount ? Money.create(raw.discountAmount).getValue() : undefined,
-      discountType: raw.discountType ?? undefined,
-      promoCodeId: raw.promoCodeId ?? undefined,
+      services,
+      totalPrice: Money.create(Number(raw.totalPrice)),
+      totalDuration: raw.totalDuration as number,
       notes: raw.notes ?? undefined,
-      cancellationReason: raw.cancellationReason as CancellationReason ?? undefined,
-      cancelledBy: raw.cancelledBy ?? undefined,
+      cancellationReason: (raw.cancellationReason as CancellationReason) ?? undefined,
       cancelledAt: raw.cancelledAt ?? undefined,
-      noShowMarkedAt: raw.noShowMarkedAt ?? undefined,
-      noShowMarkedBy: raw.noShowMarkedBy ?? undefined,
-      createdAt: raw.createdAt,
-      updatedAt: raw.updatedAt,
+      cancelledBy: raw.cancelledBy ?? undefined,
+      noShowAt: raw.noShowAt ?? undefined,
+      checkedInAt: raw.checkedInAt ?? undefined,
+      checkedOutAt: raw.checkedOutAt ?? undefined,
+      source: raw.source ?? undefined,
+      createdAt: raw.createdAt as Date,
+      updatedAt: raw.updatedAt as Date,
     });
   }
 
   async findById(id: string): Promise<Appointment | null> {
     const raw = await this.db.appointment.findUnique({
       where: { id },
-      include: { customer: { select: { id: true, firstName: true, lastName: true, email: true } }, specialist: { select: { id: true, firstName: true, lastName: true } }, service: { select: { id: true, name: true, durationMinutes: true } } },
+      include: APPOINTMENT_INCLUDE,
     });
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findByDateRange(start: Date, end: Date, filters?: { specialistId?: string; locationId?: string; status?: AppointmentStatus[] }): Promise<Appointment[]> {
-    const where: Prisma.AppointmentWhereInput = {
-      startAt: { gte: start, lte: end },
-    };
-    if (filters?.specialistId) where.specialistId = filters.specialistId;
-    if (filters?.locationId) where.locationId = filters.locationId;
-    if (filters?.status?.length) where.status = { in: filters.status };
+  async findMany(options: {
+    clientId?: string;
+    specialistId?: string;
+    locationId?: string;
+    status?: AppointmentStatus | AppointmentStatus[];
+    from?: Date;
+    to?: Date;
+    page?: number;
+    limit?: number;
+  }): Promise<{ items: Appointment[]; total: number }> {
+    const where: Record<string, unknown> = {};
+    if (options.clientId) where['clientId'] = options.clientId;
+    if (options.specialistId) where['specialistId'] = options.specialistId;
+    if (options.locationId) where['locationId'] = options.locationId;
+    if (options.status) {
+      where['status'] = Array.isArray(options.status)
+        ? { in: options.status }
+        : options.status;
+    }
+    if (options.from || options.to) {
+      where['startAt'] = {
+        ...(options.from ? { gte: options.from } : {}),
+        ...(options.to ? { lte: options.to } : {}),
+      };
+    }
 
-    const raws = await this.db.appointment.findMany({
-      where,
-      include: { customer: { select: { id: true, firstName: true, lastName: true, email: true } }, specialist: { select: { id: true, firstName: true, lastName: true } }, service: { select: { id: true, name: true, durationMinutes: true } } },
-      orderBy: { startAt: 'asc' },
-    });
-    return raws.map(r => this.toDomain(r));
-  }
+    const skip = options.page && options.limit ? (options.page - 1) * options.limit : undefined;
+    const take = options.limit;
 
-  async findByCustomerId(customerId: string, page?: number, limit?: number): Promise<{ items: Appointment[]; total: number }> {
-    const skip = page && limit ? (page - 1) * limit : undefined;
-    const take = limit;
     const [raws, total] = await Promise.all([
       this.db.appointment.findMany({
-        where: { customerId },
-        include: { customer: { select: { id: true, firstName: true, lastName: true, email: true } }, specialist: { select: { id: true, firstName: true, lastName: true } }, service: { select: { id: true, name: true, durationMinutes: true } } },
+        where,
+        include: APPOINTMENT_INCLUDE,
         orderBy: { startAt: 'desc' },
         skip,
         take,
       }),
-      this.db.appointment.count({ where: { customerId } }),
+      this.db.appointment.count({ where }),
     ]);
-    return { items: raws.map(r => this.toDomain(r)), total };
+
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      items: (raws as any[]).map((r) => this.toDomain(r)),
+      total: total as number,
+    };
   }
 
-  async findBySpecialistId(specialistId: string, start: Date, end: Date): Promise<Appointment[]> {
-    const raws = await this.db.appointment.findMany({
-      where: { specialistId, startAt: { gte: start, lte: end } },
-      include: { customer: { select: { id: true, firstName: true, lastName: true, email: true } }, specialist: { select: { id: true, firstName: true, lastName: true } }, service: { select: { id: true, name: true, durationMinutes: true } } },
-      orderBy: { startAt: 'asc' },
-    });
-    return raws.map(r => this.toDomain(r));
-  }
-
-  async findOverlapping(specialistId: string, startAt: Date, endAt: Date, excludeId?: string): Promise<Appointment[]> {
-    const where: Prisma.AppointmentWhereInput = {
+  async findOverlapping(
+    specialistId: string,
+    timeRange: DateRange,
+    excludeId?: string,
+  ): Promise<Appointment[]> {
+    const where: Record<string, unknown> = {
       specialistId,
-      status: { notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW] },
+      status: { notIn: INACTIVE_STATUSES },
       AND: [
-        { startAt: { lt: endAt } },
-        { endAt: { gt: startAt } },
+        { startAt: { lt: timeRange.end } },
+        { endAt: { gt: timeRange.start } },
       ],
     };
-    if (excludeId) where.id = { not: excludeId };
+    if (excludeId) where['id'] = { not: excludeId };
 
-    const raws = await this.db.appointment.findMany({
-      where,
-      include: { customer: { select: { id: true, firstName: true, lastName: true, email: true } }, specialist: { select: { id: true, firstName: true, lastName: true } }, service: { select: { id: true, name: true, durationMinutes: true } } },
-    });
-    return raws.map(r => this.toDomain(r));
+    const raws = await this.db.appointment.findMany({ where, include: APPOINTMENT_INCLUDE });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (raws as any[]).map((r) => this.toDomain(r));
   }
 
   async create(appointment: Appointment): Promise<Appointment> {
-    const raw = await this.db.appointment.create({
-      data: {
-        id: appointment.id,
-        customerId: appointment.customerId,
-        specialistId: appointment.specialistId,
-        serviceId: appointment.serviceId,
-        locationId: appointment.locationId,
-        startAt: appointment.startAt,
-        endAt: appointment.endAt,
-        status: appointment.status,
-        price: appointment.price,
-        finalPrice: appointment.finalPrice,
-        discountAmount: appointment.discountAmount,
-        discountType: appointment.discountType,
-        promoCodeId: appointment.promoCodeId,
-        notes: appointment.notes,
-      },
-      include: { customer: { select: { id: true, firstName: true, lastName: true, email: true } }, specialist: { select: { id: true, firstName: true, lastName: true } }, service: { select: { id: true, name: true, durationMinutes: true } } },
-    });
-    return this.toDomain(raw);
+    try {
+      const raw = await this.db.$transaction(
+        async (tx: PrismaClient) => {
+          const conflicts: number = await tx.appointment.count({
+            where: {
+              specialistId: appointment.specialistId,
+              status: { notIn: INACTIVE_STATUSES },
+              AND: [
+                { startAt: { lt: appointment.endAt } },
+                { endAt: { gt: appointment.startAt } },
+              ],
+            },
+          });
+          if (conflicts > 0) {
+            throw new SlotUnavailableError();
+          }
+
+          return tx.appointment.create({
+            data: {
+              id: appointment.id,
+              clientId: appointment.clientId,
+              specialistId: appointment.specialistId,
+              locationId: appointment.locationId,
+              startAt: appointment.startAt,
+              endAt: appointment.endAt,
+              status: appointment.status,
+              totalPrice: appointment.totalPrice.amount,
+              totalDuration: appointment.totalDuration,
+              notes: appointment.notes ?? null,
+              source: appointment.source ?? null,
+              services: {
+                create: appointment.services.map((svc) => ({
+                  serviceId: svc.serviceId,
+                  price: svc.price.amount,
+                  duration: svc.duration,
+                  sortOrder: svc.sortOrder,
+                })),
+              },
+            },
+            include: APPOINTMENT_INCLUDE,
+          });
+        },
+        { isolationLevel: 'Serializable' },
+      );
+
+      return this.toDomain(raw);
+    } catch (e) {
+      if (e instanceof SlotUnavailableError) throw e;
+      if (e instanceof PrismaClientKnownRequestError && e.code === 'P2034') {
+        throw new SlotUnavailableError();
+      }
+      throw e;
+    }
   }
 
   async update(appointment: Appointment): Promise<Appointment> {
     const raw = await this.db.appointment.update({
       where: { id: appointment.id },
       data: {
-        customerId: appointment.customerId,
-        specialistId: appointment.specialistId,
-        serviceId: appointment.serviceId,
-        locationId: appointment.locationId,
         startAt: appointment.startAt,
         endAt: appointment.endAt,
         status: appointment.status,
-        price: appointment.price,
-        finalPrice: appointment.finalPrice,
-        discountAmount: appointment.discountAmount,
-        discountType: appointment.discountType,
-        promoCodeId: appointment.promoCodeId,
-        notes: appointment.notes,
-        cancellationReason: appointment.cancellationReason,
-        cancelledBy: appointment.cancelledBy,
-        cancelledAt: appointment.cancelledAt,
-        noShowMarkedAt: appointment.noShowMarkedAt,
-        noShowMarkedBy: appointment.noShowMarkedBy,
+        totalPrice: appointment.totalPrice.amount,
+        totalDuration: appointment.totalDuration,
+        notes: appointment.notes ?? null,
+        cancellationReason: appointment.cancellationReason ?? null,
+        cancelledBy: appointment.cancelledBy ?? null,
+        cancelledAt: appointment.cancelledAt ?? null,
+        noShowAt: appointment.noShowAt ?? null,
+        checkedInAt: appointment.checkedInAt ?? null,
+        checkedOutAt: appointment.checkedOutAt ?? null,
         updatedAt: new Date(),
       },
-      include: { customer: { select: { id: true, firstName: true, lastName: true, email: true } }, specialist: { select: { id: true, firstName: true, lastName: true } }, service: { select: { id: true, name: true, durationMinutes: true } } },
+      include: APPOINTMENT_INCLUDE,
     });
     return this.toDomain(raw);
   }
 
   async delete(id: string): Promise<void> {
     await this.db.appointment.delete({ where: { id } });
+  }
+
+  async countByStatus(status: AppointmentStatus): Promise<number> {
+    return this.db.appointment.count({ where: { status } });
+  }
+
+  async countBySpecialistAndDate(specialistId: string, date: Date): Promise<number> {
+    const startOfDay = new Date(date);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+    return this.db.appointment.count({
+      where: {
+        specialistId,
+        startAt: { gte: startOfDay, lte: endOfDay },
+        status: { notIn: INACTIVE_STATUSES },
+      },
+    });
   }
 }
