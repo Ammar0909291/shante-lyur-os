@@ -1,6 +1,9 @@
+'use client';
+
 import * as React from 'react';
-import { Plus, Clock, Flower2 } from 'lucide-react';
+import { Plus, Clock, Flower2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
 
@@ -15,7 +18,7 @@ interface Service {
   popular: boolean;
 }
 
-const mockServices: Service[] = [
+const initialServices: Service[] = [
   { id: 'sv1', name: 'Гиалуроновый лифтинг', category: 'Инъекционная косметология', description: 'Глубокое увлажнение и лифтинг кожи с использованием гиалуроновой кислоты', duration: 60, price: 12_00000, active: true, popular: true },
   { id: 'sv2', name: 'Биоревитализация', category: 'Инъекционная косметология', description: 'Восстановление упругости и эластичности кожи', duration: 75, price: 18_00000, active: true, popular: true },
   { id: 'sv3', name: 'Контурная пластика', category: 'Инъекционная косметология', description: 'Моделирование овала лица с помощью филлеров', duration: 90, price: 22_00000, active: true, popular: false },
@@ -28,7 +31,6 @@ const mockServices: Service[] = [
   { id: 'sv10', name: 'Антивозрастной уход', category: 'Уход за кожей', description: 'Комплексный уход для зрелой кожи', duration: 75, price: 8_00000, active: false, popular: false },
 ];
 
-// Group services by category
 function groupByCategory(services: Service[]): Record<string, Service[]> {
   return services.reduce<Record<string, Service[]>>((acc, svc) => {
     if (!acc[svc.category]) acc[svc.category] = [];
@@ -37,93 +39,181 @@ function groupByCategory(services: Service[]): Record<string, Service[]> {
   }, {});
 }
 
-export default function ServicesPage() {
-  const grouped = groupByCategory(mockServices);
-  const categories = Object.keys(grouped);
-  const totalActive = mockServices.filter((s) => s.active).length;
+function AddServiceModal({ open, onClose, onAdded }: { open: boolean; onClose: () => void; onAdded: (s: Service) => void }) {
+  const [name, setName] = React.useState('');
+  const [category, setCategory] = React.useState('');
+  const [description, setDescription] = React.useState('');
+  const [duration, setDuration] = React.useState('60');
+  const [price, setPrice] = React.useState('');
+  const [error, setError] = React.useState('');
+
+  function reset() { setName(''); setCategory(''); setDescription(''); setDuration('60'); setPrice(''); setError(''); }
+  function handleClose() { reset(); onClose(); }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !category.trim() || !price.trim()) { setError('Заполните обязательные поля'); return; }
+    const priceNum = parseFloat(price.replace(',', '.'));
+    if (isNaN(priceNum) || priceNum <= 0) { setError('Введите корректную цену'); return; }
+    onAdded({
+      id: `local-${Date.now()}`,
+      name: name.trim(),
+      category: category.trim(),
+      description: description.trim(),
+      duration: parseInt(duration, 10) || 60,
+      price: Math.round(priceNum * 100),
+      active: true,
+      popular: false,
+    });
+    handleClose();
+  }
+
+  if (!open) return null;
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
-      {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-serif text-2xl font-medium text-text-primary tracking-tight">
-            Услуги
-          </h2>
-          <p className="text-sm text-text-secondary mt-0.5">
-            {totalActive} активных услуг в {categories.length} категориях
-          </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
+      <div className="relative z-10 w-full max-w-md bg-onyx border border-border-luxury rounded-2xl shadow-luxury-lg animate-slide-up">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
+          <h3 className="font-serif text-lg font-medium text-text-primary">Добавить услугу</h3>
+          <button onClick={handleClose} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <Button variant="primary" size="md" leftIcon={<Plus className="w-4 h-4" />}>
-          Добавить услугу
-        </Button>
-      </div>
-
-      {/* Categories */}
-      {categories.map((category) => {
-        const services = grouped[category] ?? [];
-        return (
-          <div key={category} className="space-y-3">
-            {/* Category header */}
-            <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-lg bg-champagne/10 flex items-center justify-center">
-                <Flower2 className="w-4 h-4 text-champagne" aria-hidden="true" />
-              </div>
-              <h3 className="font-serif text-base font-medium text-text-primary">{category}</h3>
-              <div className="flex-1 h-px bg-border-luxury" />
-              <span className="text-xs text-text-tertiary">{services.length} услуг</span>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Название *</label>
+            <Input placeholder="Гиалуроновый лифтинг" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Категория *</label>
+            <Input placeholder="Инъекционная косметология" value={category} onChange={(e) => setCategory(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Описание</label>
+            <Input placeholder="Краткое описание услуги" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Длительность, мин *</label>
+              <Input type="number" placeholder="60" value={duration} onChange={(e) => setDuration(e.target.value)} />
             </div>
-
-            {/* Services grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {services.map((svc) => (
-                <div
-                  key={svc.id}
-                  className="bg-onyx border border-border-luxury rounded-xl p-5 hover:border-border-light transition-all duration-200 group"
-                >
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium text-text-primary text-sm truncate">
-                          {svc.name}
-                        </h4>
-                        {svc.popular && (
-                          <Badge variant="gold" className="shrink-0">Популярное</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
-                        {svc.description}
-                      </p>
-                    </div>
-                    <Badge variant={svc.active ? 'completed' : 'cancelled'} className="shrink-0">
-                      {svc.active ? 'Активна' : 'Скрыта'}
-                    </Badge>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-3 border-t border-border-luxury">
-                    <div className="flex items-center gap-1.5 text-text-secondary">
-                      <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span className="text-xs">{svc.duration} мин</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-serif text-lg font-medium text-champagne">
-                        {formatCurrency(svc.price)}
-                      </span>
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                        <Button variant="ghost" size="icon-sm" aria-label="Изменить">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Цена, ₽ *</label>
+              <Input type="number" placeholder="1200" value={price} onChange={(e) => setPrice(e.target.value)} />
             </div>
           </div>
-        );
-      })}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="secondary" size="md" onClick={handleClose}>Отмена</Button>
+            <Button type="submit" variant="primary" size="md">Добавить</Button>
+          </div>
+        </form>
+      </div>
     </div>
+  );
+}
+
+export default function ServicesPage() {
+  const [services, setServices] = React.useState(initialServices);
+  const [showAdd, setShowAdd] = React.useState(false);
+
+  const grouped = groupByCategory(services);
+  const categories = Object.keys(grouped);
+  const totalActive = services.filter((s) => s.active).length;
+
+  function toggleActive(id: string) {
+    setServices((prev) => prev.map((s) => s.id === id ? { ...s, active: !s.active } : s));
+  }
+
+  function handleAdded(s: Service) {
+    setServices((prev) => [...prev, s]);
+  }
+
+  return (
+    <>
+      <AddServiceModal open={showAdd} onClose={() => setShowAdd(false)} onAdded={handleAdded} />
+
+      <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="font-serif text-2xl font-medium text-text-primary tracking-tight">Услуги</h2>
+            <p className="text-sm text-text-secondary mt-0.5">
+              {totalActive} активных услуг в {categories.length} категориях
+            </p>
+          </div>
+          <Button variant="primary" size="md" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowAdd(true)}>
+            Добавить услугу
+          </Button>
+        </div>
+
+        {categories.map((category) => {
+          const svcs = grouped[category] ?? [];
+          return (
+            <div key={category} className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-lg bg-champagne/10 flex items-center justify-center">
+                  <Flower2 className="w-4 h-4 text-champagne" aria-hidden="true" />
+                </div>
+                <h3 className="font-serif text-base font-medium text-text-primary">{category}</h3>
+                <div className="flex-1 h-px bg-border-luxury" />
+                <span className="text-xs text-text-tertiary">{svcs.length} услуг</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {svcs.map((svc) => (
+                  <div
+                    key={svc.id}
+                    className="bg-onyx border border-border-luxury rounded-xl p-5 hover:border-border-light transition-all duration-200 group"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium text-text-primary text-sm truncate">{svc.name}</h4>
+                          {svc.popular && <Badge variant="gold" className="shrink-0">Популярное</Badge>}
+                        </div>
+                        <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">{svc.description}</p>
+                      </div>
+                      <button
+                        onClick={() => toggleActive(svc.id)}
+                        className="shrink-0"
+                        title={svc.active ? 'Скрыть услугу' : 'Активировать услугу'}
+                      >
+                        <Badge variant={svc.active ? 'completed' : 'cancelled'}>
+                          {svc.active ? 'Активна' : 'Скрыта'}
+                        </Badge>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-border-luxury">
+                      <div className="flex items-center gap-1.5 text-text-secondary">
+                        <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span className="text-xs">{svc.duration} мин</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-serif text-lg font-medium text-champagne">{formatCurrency(svc.price)}</span>
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Изменить"
+                            onClick={() => toggleActive(svc.id)}
+                            title={svc.active ? 'Деактивировать' : 'Активировать'}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

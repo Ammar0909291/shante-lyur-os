@@ -1,4 +1,7 @@
+'use client';
+
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Calendar,
   TrendingUp,
@@ -14,7 +17,6 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { formatTime, formatCurrency, getGreeting } from '@/lib/utils';
 
-// Mock data — will be replaced by API calls
 const mockStats = {
   todayBookings: { value: 12, subtitle: '3 ожидают подтверждения', trend: { value: 8, positive: true, label: 'vs вчера' } },
   revenueMtd: { value: formatCurrency(248_00000), subtitle: 'за текущий месяц', trend: { value: 14, positive: true, label: 'vs пред. месяц' } },
@@ -34,7 +36,12 @@ const mockAppointments = [
 ];
 
 export default function DashboardPage() {
-  const greeting = getGreeting();
+  const router = useRouter();
+  const [greeting, setGreeting] = React.useState('');
+
+  React.useEffect(() => {
+    setGreeting(getGreeting());
+  }, []);
 
   return (
     <div className="p-6 lg:p-8 space-y-8 animate-fade-in">
@@ -51,13 +58,28 @@ export default function DashboardPage() {
 
         {/* Quick actions */}
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="secondary" size="sm" leftIcon={<Clock className="w-4 h-4" />}>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<Clock className="w-4 h-4" />}
+            onClick={() => router.push('/bookings')}
+          >
             Заблокировать время
           </Button>
-          <Button variant="secondary" size="sm" leftIcon={<UserPlus className="w-4 h-4" />}>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<UserPlus className="w-4 h-4" />}
+            onClick={() => router.push('/clients')}
+          >
             Клиент
           </Button>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Plus className="w-4 h-4" />}
+            onClick={() => router.push('/bookings')}
+          >
             Запись
           </Button>
         </div>
@@ -101,7 +123,7 @@ export default function DashboardPage() {
           <h3 className="font-serif text-lg font-medium text-text-primary">
             Записи на сегодня
           </h3>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={() => router.push('/bookings')}>
             Все записи →
           </Button>
         </div>
@@ -111,49 +133,30 @@ export default function DashboardPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border-luxury">
-                <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Клиент
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Услуга
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Специалист
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Время
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Статус
-                </th>
-                <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">
-                  Сумма
-                </th>
+                <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Клиент</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Услуга</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Специалист</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Время</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Статус</th>
+                <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Сумма</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-luxury">
               {mockAppointments.map((apt) => (
                 <tr
                   key={apt.id}
-                  className="hover:bg-charcoal/50 transition-colors"
+                  className="hover:bg-charcoal/50 transition-colors cursor-pointer"
+                  onClick={() => router.push('/bookings')}
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <Avatar name={apt.client} size="sm" />
-                      <span className="font-medium text-text-primary whitespace-nowrap">
-                        {apt.client}
-                      </span>
+                      <span className="font-medium text-text-primary whitespace-nowrap">{apt.client}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-text-secondary max-w-[180px] truncate">
-                    {apt.service}
-                  </td>
-                  <td className="px-4 py-4 text-text-secondary whitespace-nowrap">
-                    {apt.specialist}
-                  </td>
-                  <td className="px-4 py-4 text-text-secondary whitespace-nowrap tabular-nums">
-                    {formatTime(apt.time)}
-                  </td>
+                  <td className="px-4 py-4 text-text-secondary max-w-[180px] truncate">{apt.service}</td>
+                  <td className="px-4 py-4 text-text-secondary whitespace-nowrap">{apt.specialist}</td>
+                  <td className="px-4 py-4 text-text-secondary whitespace-nowrap tabular-nums">{formatTime(apt.time)}</td>
                   <td className="px-4 py-4">
                     <Badge variant={getAppointmentStatusBadgeVariant(apt.status)} dot>
                       {getAppointmentStatusLabel(apt.status)}
@@ -171,25 +174,23 @@ export default function DashboardPage() {
         {/* Mobile list */}
         <div className="sm:hidden divide-y divide-border-luxury">
           {mockAppointments.map((apt) => (
-            <div key={apt.id} className="px-4 py-4 flex items-start gap-3">
+            <div
+              key={apt.id}
+              className="px-4 py-4 flex items-start gap-3 cursor-pointer hover:bg-charcoal/50 transition-colors"
+              onClick={() => router.push('/bookings')}
+            >
               <Avatar name={apt.client} size="sm" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-text-primary text-sm truncate">
-                    {apt.client}
-                  </span>
-                  <Badge variant={getAppointmentStatusBadgeVariant(apt.status)}>
-                    {getAppointmentStatusLabel(apt.status)}
-                  </Badge>
+                  <span className="font-medium text-text-primary text-sm truncate">{apt.client}</span>
+                  <Badge variant={getAppointmentStatusBadgeVariant(apt.status)}>{getAppointmentStatusLabel(apt.status)}</Badge>
                 </div>
                 <p className="text-xs text-text-secondary mt-0.5 truncate">{apt.service}</p>
                 <div className="flex items-center gap-3 mt-1">
                   <span className="text-xs text-text-tertiary">{formatTime(apt.time)}</span>
                   <span className="text-xs text-text-tertiary">·</span>
                   <span className="text-xs text-text-tertiary">{apt.specialist}</span>
-                  <span className="text-xs font-medium text-champagne ml-auto">
-                    {formatCurrency(apt.amount)}
-                  </span>
+                  <span className="text-xs font-medium text-champagne ml-auto">{formatCurrency(apt.amount)}</span>
                 </div>
               </div>
             </div>
