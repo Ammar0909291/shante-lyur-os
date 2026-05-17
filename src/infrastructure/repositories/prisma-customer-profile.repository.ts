@@ -1,31 +1,56 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import { CustomerProfileRepositoryPort } from '@/application/ports/customer-profile-repository.port';
-import { CustomerProfile } from '@/domain/entities/customer-profile.entity';
-import { PhoneNumber } from '@/domain/value-objects/phone-number.vo';
+import { ICustomerProfileRepository } from '@/application/ports/customer-profile-repository.port';
+import { CustomerProfile, CustomerProfileProps } from '@/domain/entities/customer-profile.entity';
+import { Money } from '@/domain/value-objects/money.vo';
 
-export class PrismaCustomerProfileRepository implements CustomerProfileRepositoryPort {
+export class PrismaCustomerProfileRepository implements ICustomerProfileRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; userId: string | null; firstName: string; lastName: string; phone: string | null; email: string | null; dateOfBirth: Date | null; gender: string | null; skinType: string | null; hairType: string | null; notes: string | null; source: string | null; totalVisits: number; totalSpent: number; lastVisitAt: Date | null; createdAt: Date; updatedAt: Date }): CustomerProfile {
-    return CustomerProfile.reconstitute({
+  private toDomain(raw: {
+    id: string;
+    userId: string;
+    dateOfBirth: Date | null;
+    gender: string | null;
+    skinType: string | null;
+    hairType: string | null;
+    bodyType: string | null;
+    preferredLocationId: string | null;
+    preferredSpecialistId: string | null;
+    referralSource: string | null;
+    firstVisitAt: Date | null;
+    lastVisitAt: Date | null;
+    totalVisits: number;
+    totalSpent: { toNumber(): number };
+    loyaltyPoints: number;
+    loyaltyTier: string;
+    churnRiskScore: { toNumber(): number } | null;
+    notes: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }): CustomerProfile {
+    const props: CustomerProfileProps = {
       id: raw.id,
-      userId: raw.userId ?? undefined,
-      firstName: raw.firstName,
-      lastName: raw.lastName,
-      phone: raw.phone ? PhoneNumber.create(raw.phone).getValue() : undefined,
-      email: raw.email ?? undefined,
+      userId: raw.userId,
       dateOfBirth: raw.dateOfBirth ?? undefined,
       gender: raw.gender ?? undefined,
       skinType: raw.skinType ?? undefined,
       hairType: raw.hairType ?? undefined,
-      notes: raw.notes ?? undefined,
-      source: raw.source ?? undefined,
-      totalVisits: raw.totalVisits,
-      totalSpent: raw.totalSpent,
+      bodyType: raw.bodyType ?? undefined,
+      preferredLocationId: raw.preferredLocationId ?? undefined,
+      preferredSpecialistId: raw.preferredSpecialistId ?? undefined,
+      referralSource: raw.referralSource ?? undefined,
+      firstVisitAt: raw.firstVisitAt ?? undefined,
       lastVisitAt: raw.lastVisitAt ?? undefined,
+      totalVisits: raw.totalVisits,
+      totalSpent: Money.create(raw.totalSpent.toNumber()),
+      loyaltyPoints: raw.loyaltyPoints,
+      loyaltyTier: raw.loyaltyTier,
+      churnRiskScore: raw.churnRiskScore != null ? raw.churnRiskScore.toNumber() : undefined,
+      notes: raw.notes ?? undefined,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
-    });
+    };
+    return new CustomerProfile(props);
   }
 
   async findById(id: string): Promise<CustomerProfile | null> {
@@ -38,22 +63,19 @@ export class PrismaCustomerProfileRepository implements CustomerProfileRepositor
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findByPhone(phone: string): Promise<CustomerProfile | null> {
-    const raw = await this.db.customerProfile.findUnique({ where: { phone } });
-    return raw ? this.toDomain(raw) : null;
-  }
-
-  async findMany(options: { search?: string; page?: number; limit?: number }): Promise<{ items: CustomerProfile[]; total: number }> {
-    const { search, page = 1, limit = 20 } = options;
+  async findMany(options: {
+    search?: string;
+    loyaltyTier?: string;
+    minVisits?: number;
+    maxChurnRisk?: number;
+    page?: number;
+    limit?: number;
+  }): Promise<{ items: CustomerProfile[]; total: number }> {
+    const { loyaltyTier, minVisits, maxChurnRisk, page = 1, limit = 20 } = options;
     const where: Prisma.CustomerProfileWhereInput = {};
-    if (search) {
-      where.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ];
-    }
+    if (loyaltyTier) where.loyaltyTier = loyaltyTier;
+    if (minVisits != null) where.totalVisits = { gte: minVisits };
+    if (maxChurnRisk != null) where.churnRiskScore = { lte: maxChurnRisk };
 
     const [raws, total] = await Promise.all([
       this.db.customerProfile.findMany({
@@ -72,19 +94,22 @@ export class PrismaCustomerProfileRepository implements CustomerProfileRepositor
       data: {
         id: profile.id,
         userId: profile.userId,
-        firstName: profile.firstName,
-        lastName: profile.lastName,
-        phone: profile.phone,
-        email: profile.email,
         dateOfBirth: profile.dateOfBirth,
         gender: profile.gender,
         skinType: profile.skinType,
         hairType: profile.hairType,
-        notes: profile.notes,
-        source: profile.source,
-        totalVisits: profile.totalVisits,
-        totalSpent: profile.totalSpent,
+        bodyType: profile.bodyType,
+        preferredLocationId: profile.preferredLocationId,
+        preferredSpecialistId: profile.preferredSpecialistId,
+        referralSource: profile.referralSource,
+        firstVisitAt: profile.firstVisitAt,
         lastVisitAt: profile.lastVisitAt,
+        totalVisits: profile.totalVisits,
+        totalSpent: profile.totalSpent.amount,
+        loyaltyPoints: profile.loyaltyPoints,
+        loyaltyTier: profile.loyaltyTier,
+        churnRiskScore: profile.churnRiskScore,
+        notes: profile.notes,
       },
     });
     return this.toDomain(raw);
@@ -94,20 +119,22 @@ export class PrismaCustomerProfileRepository implements CustomerProfileRepositor
     const raw = await this.db.customerProfile.update({
       where: { id: profile.id },
       data: {
-        userId: profile.userId,
-        firstName: profile.firstName,
-        lastName: profile.lastName,
-        phone: profile.phone,
-        email: profile.email,
         dateOfBirth: profile.dateOfBirth,
         gender: profile.gender,
         skinType: profile.skinType,
         hairType: profile.hairType,
-        notes: profile.notes,
-        source: profile.source,
-        totalVisits: profile.totalVisits,
-        totalSpent: profile.totalSpent,
+        bodyType: profile.bodyType,
+        preferredLocationId: profile.preferredLocationId,
+        preferredSpecialistId: profile.preferredSpecialistId,
+        referralSource: profile.referralSource,
+        firstVisitAt: profile.firstVisitAt,
         lastVisitAt: profile.lastVisitAt,
+        totalVisits: profile.totalVisits,
+        totalSpent: profile.totalSpent.amount,
+        loyaltyPoints: profile.loyaltyPoints,
+        loyaltyTier: profile.loyaltyTier,
+        churnRiskScore: profile.churnRiskScore,
+        notes: profile.notes,
         updatedAt: new Date(),
       },
     });
@@ -118,10 +145,55 @@ export class PrismaCustomerProfileRepository implements CustomerProfileRepositor
     await this.db.customerProfile.delete({ where: { id } });
   }
 
-  async incrementVisits(id: string, amount: number): Promise<void> {
+  async recordVisit(userId: string, amount: number): Promise<void> {
     await this.db.customerProfile.update({
-      where: { id },
-      data: { totalVisits: { increment: 1 }, totalSpent: { increment: amount }, lastVisitAt: new Date() },
+      where: { userId },
+      data: {
+        totalVisits: { increment: 1 },
+        totalSpent: { increment: amount },
+        lastVisitAt: new Date(),
+        updatedAt: new Date(),
+      },
     });
+  }
+
+  async updateChurnRisk(userId: string, score: number): Promise<void> {
+    await this.db.customerProfile.update({
+      where: { userId },
+      data: {
+        churnRiskScore: score,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  async getRetentionMetrics(): Promise<{
+    totalCustomers: number;
+    activeCustomers: number;
+    atRiskCustomers: number;
+    avgLifetimeValue: number;
+  }> {
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const [totalCustomers, activeCustomers, atRiskCustomers, aggregate] = await Promise.all([
+      this.db.customerProfile.count(),
+      this.db.customerProfile.count({
+        where: { lastVisitAt: { gte: ninetyDaysAgo } },
+      }),
+      this.db.customerProfile.count({
+        where: { churnRiskScore: { gt: 0.7 } },
+      }),
+      this.db.customerProfile.aggregate({
+        _avg: { totalSpent: true },
+      }),
+    ]);
+
+    return {
+      totalCustomers,
+      activeCustomers,
+      atRiskCustomers,
+      avgLifetimeValue: Number(aggregate._avg.totalSpent ?? 0),
+    };
   }
 }
