@@ -1,25 +1,32 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import { NotificationRepositoryPort } from '@/application/ports/notification-repository.port';
+import { INotificationRepository } from '@/application/ports/notification-repository.port';
 import { Notification } from '@/domain/entities/notification.entity';
 import { NotificationType } from '@/domain/enums/notification-type.enum';
 import { NotificationStatus } from '@/domain/enums/notification-status.enum';
 import { NotificationChannel } from '@/domain/enums/notification-channel.enum';
 
-export class PrismaNotificationRepository implements NotificationRepositoryPort {
+export class PrismaNotificationRepository implements INotificationRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; userId: string | null; type: string; title: string; body: string; channel: string; status: string; sentAt: Date | null; readAt: Date | null; metadata: unknown | null; createdAt: Date }): Notification {
-    return Notification.reconstitute({
+  private toDomain(raw: {
+    id: string; userId: string; appointmentId: string | null; type: unknown; channel: unknown;
+    status: unknown; title: string; body: string; data: unknown; sentAt: Date | null;
+    deliveredAt: Date | null; readAt: Date | null; error: string | null; createdAt: Date;
+  }): Notification {
+    return new Notification({
       id: raw.id,
-      userId: raw.userId ?? undefined,
+      userId: raw.userId,
+      appointmentId: raw.appointmentId ?? undefined,
       type: raw.type as NotificationType,
-      title: raw.title,
-      body: raw.body,
       channel: raw.channel as NotificationChannel,
       status: raw.status as NotificationStatus,
+      title: raw.title,
+      body: raw.body,
+      data: raw.data ? (raw.data as Record<string, unknown>) : undefined,
       sentAt: raw.sentAt ?? undefined,
+      deliveredAt: raw.deliveredAt ?? undefined,
       readAt: raw.readAt ?? undefined,
-      metadata: (raw.metadata as Record<string, unknown>) ?? undefined,
+      error: raw.error ?? undefined,
       createdAt: raw.createdAt,
     });
   }
@@ -29,25 +36,18 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findByUserId(userId: string, options?: { status?: NotificationStatus; page?: number; limit?: number }): Promise<{ items: Notification[]; total: number }> {
-    const { status, page = 1, limit = 20 } = options ?? {};
+  async findByUser(userId: string, options?: { status?: NotificationStatus; type?: NotificationType; page?: number; limit?: number }): Promise<{ items: Notification[]; total: number; unread: number }> {
+    const { status, type, page = 1, limit = 20 } = options ?? {};
     const where: Prisma.NotificationWhereInput = { userId };
     if (status) where.status = status;
+    if (type) where.type = type;
 
-    const [raws, total] = await Promise.all([
+    const [raws, total, unread] = await Promise.all([
       this.db.notification.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' } }),
       this.db.notification.count({ where }),
+      this.db.notification.count({ where: { userId, readAt: null } }),
     ]);
-    return { items: raws.map(r => this.toDomain(r)), total };
-  }
-
-  async findPending(limit: number): Promise<Notification[]> {
-    const raws = await this.db.notification.findMany({
-      where: { status: NotificationStatus.PENDING },
-      take: limit,
-      orderBy: { createdAt: 'asc' },
-    });
-    return raws.map(r => this.toDomain(r));
+    return { items: raws.map(r => this.toDomain(r)), total, unread };
   }
 
   async create(notification: Notification): Promise<Notification> {
@@ -55,14 +55,17 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
       data: {
         id: notification.id,
         userId: notification.userId,
+        appointmentId: notification.appointmentId,
         type: notification.type,
-        title: notification.title,
-        body: notification.body,
         channel: notification.channel,
         status: notification.status,
+        title: notification.title,
+        body: notification.body,
+        data: (notification.data as Prisma.InputJsonValue) ?? Prisma.JsonNull,
         sentAt: notification.sentAt,
+        deliveredAt: notification.deliveredAt,
         readAt: notification.readAt,
-        metadata: notification.metadata as Prisma.InputJsonValue,
+        error: notification.error,
       },
     });
     return this.toDomain(raw);
@@ -74,16 +77,24 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
       data: {
         status: notification.status,
         sentAt: notification.sentAt,
+        deliveredAt: notification.deliveredAt,
         readAt: notification.readAt,
+        error: notification.error,
       },
     });
     return this.toDomain(raw);
   }
 
-  async markAllAsRead(userId: string): Promise<number> {
-    const result = await this.db.notification.updateMany({
+  async markAllRead(userId: string): Promise<void> {
+    await this.db.notification.updateMany({
       where: { userId, readAt: null },
       data: { readAt: new Date() },
+    });
+  }
+
+  async deleteOldNotifications(before: Date): Promise<number> {
+    const result = await this.db.notification.deleteMany({
+      where: { createdAt: { lt: before } },
     });
     return result.count;
   }

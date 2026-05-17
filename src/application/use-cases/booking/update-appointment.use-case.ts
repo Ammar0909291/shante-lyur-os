@@ -6,16 +6,16 @@ import {
   IAuditLogRepository,
   INotificationRepository,
 } from '@/application/ports';
-import { UpdateAppointmentDto, CancelAppointmentDto } from '@/application/dto';
+import { UpdateAppointmentDto } from '@/application/dto';
 import { AuditLog } from '@/domain/entities';
 import { AuditAction } from '@/domain/enums';
 
 export class UpdateAppointmentStatusUseCase {
   constructor(
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly userRepo: IUserRepository,
+    _userRepo: IUserRepository,
     private readonly auditLogRepo: IAuditLogRepository,
-    private readonly notificationRepo: INotificationRepository,
+    _notificationRepo: INotificationRepository,
   ) {}
 
   async execute(

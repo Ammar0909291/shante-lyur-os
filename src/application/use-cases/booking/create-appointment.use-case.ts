@@ -25,7 +25,7 @@ export interface CreateAppointmentResult {
 export class CreateAppointmentUseCase {
   constructor(
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly userRepo: IUserRepository,
+    _userRepo: IUserRepository,
     private readonly specialistRepo: ISpecialistRepository,
     private readonly serviceRepo: IServiceRepository,
     private readonly locationRepo: ILocationRepository,
@@ -34,7 +34,7 @@ export class CreateAppointmentUseCase {
     private readonly vacationRepo: IVacationRepository,
     private readonly profileRepo: ICustomerProfileRepository,
     private readonly promoCodeRepo: IPromoCodeRepository,
-    private readonly notificationRepo: INotificationRepository,
+    _notificationRepo: INotificationRepository,
   ) {}
 
   async execute(

@@ -1,5 +1,4 @@
 import { NotFoundError, ValidationError } from '@/domain/errors';
-import { Money } from '@/domain/value-objects';
 import {
   IPaymentRepository,
   IRefundRepository,
@@ -19,9 +18,9 @@ export class ProcessWebhookUseCase {
 
   constructor(
     private readonly paymentRepo: IPaymentRepository,
-    private readonly refundRepo: IRefundRepository,
-    private readonly yookassaGateway: IPaymentGateway,
-    private readonly robokassaGateway: IPaymentGateway,
+    _refundRepo: IRefundRepository,
+    yookassaGateway: IPaymentGateway,
+    robokassaGateway: IPaymentGateway,
     private readonly auditLogRepo: IAuditLogRepository,
     private readonly appointmentRepo: IAppointmentRepository,
     private readonly profileRepo: ICustomerProfileRepository,

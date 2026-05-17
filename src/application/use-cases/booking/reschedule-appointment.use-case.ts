@@ -16,7 +16,7 @@ import { AuditAction } from '@/domain/enums';
 export class RescheduleAppointmentUseCase {
   constructor(
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly specialistRepo: ISpecialistRepository,
+    _specialistRepo: ISpecialistRepository,
     private readonly blockedTimeRepo: IBlockedTimeRepository,
     private readonly vacationRepo: IVacationRepository,
     private readonly workingScheduleRepo: IWorkingScheduleRepository,

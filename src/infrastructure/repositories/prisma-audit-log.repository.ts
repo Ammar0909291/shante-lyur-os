@@ -1,22 +1,28 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import { AuditLogRepositoryPort } from '@/application/ports/audit-log-repository.port';
+import { IAuditLogRepository } from '@/application/ports/audit-log-repository.port';
 import { AuditLog } from '@/domain/entities/audit-log.entity';
 import { AuditAction } from '@/domain/enums/audit-action.enum';
 
-export class PrismaAuditLogRepository implements AuditLogRepositoryPort {
+export class PrismaAuditLogRepository implements IAuditLogRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; userId: string | null; action: string; entityType: string; entityId: string | null; oldValue: unknown | null; newValue: unknown | null; ipAddress: string | null; userAgent: string | null; createdAt: Date }): AuditLog {
-    return AuditLog.reconstitute({
+  private toDomain(raw: {
+    id: string; userId: string | null; appointmentId: string | null; createdAt: Date;
+    ipAddress: string | null; userAgent: string | null; action: unknown; entityType: string;
+    entityId: string | null; oldValues: unknown; newValues: unknown; metadata: unknown;
+  }): AuditLog {
+    return new AuditLog({
       id: raw.id,
       userId: raw.userId ?? undefined,
+      appointmentId: raw.appointmentId ?? undefined,
       action: raw.action as AuditAction,
       entityType: raw.entityType,
       entityId: raw.entityId ?? undefined,
-      oldValue: (raw.oldValue as Record<string, unknown>) ?? undefined,
-      newValue: (raw.newValue as Record<string, unknown>) ?? undefined,
+      oldValues: raw.oldValues ? (raw.oldValues as Record<string, unknown>) : undefined,
+      newValues: raw.newValues ? (raw.newValues as Record<string, unknown>) : undefined,
       ipAddress: raw.ipAddress ?? undefined,
       userAgent: raw.userAgent ?? undefined,
+      metadata: raw.metadata ? (raw.metadata as Record<string, unknown>) : undefined,
       createdAt: raw.createdAt,
     });
   }
@@ -49,15 +55,26 @@ export class PrismaAuditLogRepository implements AuditLogRepositoryPort {
       data: {
         id: log.id,
         userId: log.userId,
+        appointmentId: log.appointmentId,
         action: log.action,
         entityType: log.entityType,
         entityId: log.entityId,
-        oldValue: log.oldValue as Prisma.InputJsonValue,
-        newValue: log.newValue as Prisma.InputJsonValue,
+        oldValues: (log.oldValues as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+        newValues: (log.newValues as Prisma.InputJsonValue) ?? Prisma.JsonNull,
         ipAddress: log.ipAddress,
         userAgent: log.userAgent,
+        metadata: (log.metadata as Prisma.InputJsonValue) ?? Prisma.JsonNull,
       },
     });
     return this.toDomain(raw);
+  }
+
+  async getRecentActions(userId: string, limit: number): Promise<AuditLog[]> {
+    const raws = await this.db.auditLog.findMany({
+      where: { userId },
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+    return raws.map(r => this.toDomain(r));
   }
 }

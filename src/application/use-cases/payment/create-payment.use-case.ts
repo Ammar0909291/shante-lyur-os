@@ -1,7 +1,7 @@
 import { Payment } from '@/domain/entities';
 import { PaymentStatus, PaymentProvider } from '@/domain/enums';
 import { Money } from '@/domain/value-objects';
-import { NotFoundError, ConflictError, ValidationError } from '@/domain/errors';
+import { NotFoundError, ConflictError } from '@/domain/errors';
 import {
   IPaymentRepository,
   IAppointmentRepository,
@@ -23,8 +23,8 @@ export class CreatePaymentUseCase {
   constructor(
     private readonly paymentRepo: IPaymentRepository,
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly yookassaGateway: IPaymentGateway,
-    private readonly robokassaGateway: IPaymentGateway,
+    yookassaGateway: IPaymentGateway,
+    robokassaGateway: IPaymentGateway,
     private readonly auditLogRepo: IAuditLogRepository,
   ) {
     this.gateways = {

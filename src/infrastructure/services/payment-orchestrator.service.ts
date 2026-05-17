@@ -1,6 +1,5 @@
-import { PaymentOrchestratorPort } from '@/application/ports/payment-orchestrator.port';
-import type { IPaymentGateway as PaymentGatewayPort } from '@/application/ports/payment-gateway.port';
-import { PaymentRepositoryPort } from '@/application/ports/payment-repository.port';
+import type { IPaymentGateway } from '@/application/ports/payment-gateway.port';
+import { IPaymentRepository } from '@/application/ports/payment-repository.port';
 import { Payment } from '@/domain/entities/payment.entity';
 import { PaymentStatus } from '@/domain/enums/payment-status.enum';
 import { PaymentProvider } from '@/domain/enums/payment-provider.enum';
@@ -18,57 +17,53 @@ interface CreatePaymentCommand {
   idempotencyKey?: string;
 }
 
-export class PaymentOrchestrator implements PaymentOrchestratorPort {
+export class PaymentOrchestrator {
   constructor(
-    private readonly yooKassa: PaymentGatewayPort,
-    private readonly robokassa: PaymentGatewayPort,
-    private readonly paymentRepo: PaymentRepositoryPort,
+    private readonly yooKassa: IPaymentGateway,
+    private readonly robokassa: IPaymentGateway,
+    private readonly paymentRepo: IPaymentRepository,
   ) {}
 
   async createPayment(cmd: CreatePaymentCommand): Promise<{ payment: Payment; redirectUrl?: string }> {
-    if (cmd.idempotencyKey) {
-      const existing = await this.paymentRepo.findByIdempotencyKey(cmd.idempotencyKey);
-      if (existing) return { payment: existing };
-    }
-
     const gateway = this.selectGateway(cmd.provider);
 
+    const amountMoney = Money.create(cmd.amount, cmd.currency);
+
     const result = await gateway.createPayment({
-      appointmentId: cmd.appointmentId,
-      amount: cmd.amount,
-      currency: cmd.currency,
+      amount: amountMoney,
       description: cmd.description,
+      orderId: cmd.appointmentId,
       returnUrl: cmd.returnUrl,
-      idempotencyKey: cmd.idempotencyKey,
+      metadata: cmd.idempotencyKey ? { idempotencyKey: cmd.idempotencyKey } : undefined,
     });
 
-    const payment = Payment.create({
+    const payment = new Payment({
+      id: crypto.randomUUID(),
       appointmentId: cmd.appointmentId,
-      amount: Money.create(cmd.amount).getValue(),
-      currency: cmd.currency,
+      amount: amountMoney,
       provider: cmd.provider,
       providerPaymentId: result.providerPaymentId,
-      status: result.status,
+      status: PaymentStatus.PENDING,
       idempotencyKey: cmd.idempotencyKey,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const saved = await this.paymentRepo.create(payment);
-    return { payment: saved, redirectUrl: result.redirectUrl };
+    return { payment: saved, redirectUrl: result.paymentUrl };
   }
 
   async processWebhook(provider: PaymentProvider, payload: unknown, signature?: string): Promise<Payment> {
     const gateway = this.selectGateway(provider);
-    const webhook = await gateway.verifyWebhook(payload, signature);
+    const webhook = await gateway.verifyWebhook(payload, signature ?? '');
 
-    const payment = await this.paymentRepo.findByProviderPaymentId(provider, webhook.providerPaymentId);
+    const payment = await this.paymentRepo.findByProviderPaymentId(webhook.providerPaymentId, provider);
     if (!payment) throw new NotFoundError('Payment', webhook.providerPaymentId);
 
-    if (webhook.paid && payment.status !== PaymentStatus.COMPLETED) {
-      payment.markAsPaid();
-    } else if (webhook.status === PaymentStatus.FAILED) {
-      payment.markAsFailed();
-    } else if (webhook.status === PaymentStatus.REFUNDED) {
-      payment.markAsRefunded(payment.amount);
+    if (webhook.success && payment.status !== PaymentStatus.CAPTURED) {
+      payment.markCaptured();
+    } else if (!webhook.success) {
+      payment.markFailed('Webhook reported failure');
     }
 
     return this.paymentRepo.update(payment);
@@ -77,24 +72,27 @@ export class PaymentOrchestrator implements PaymentOrchestratorPort {
   async processRefund(paymentId: string, amount: number, reason?: string): Promise<Payment> {
     const payment = await this.paymentRepo.findById(paymentId);
     if (!payment) throw new NotFoundError('Payment', paymentId);
-    if (payment.status !== PaymentStatus.COMPLETED) {
-      throw new ConflictError('Cannot refund a payment that is not completed');
+    if (!payment.isRefundable) {
+      throw new ConflictError('Cannot refund a payment that is not refundable');
     }
-    if (payment.refundedAmount + amount > payment.amount) {
-      throw new ConflictError('Refund amount exceeds payment amount');
-    }
+
+    const refundAmount = Money.create(amount, payment.amount.currency);
 
     const gateway = this.selectGateway(payment.provider);
-    const refundResult = await gateway.refund(payment.providerPaymentId!, amount);
+    const refundResult = await gateway.refund({
+      providerPaymentId: payment.providerPaymentId!,
+      amount: refundAmount,
+      reason,
+    });
 
-    if (refundResult.status === PaymentStatus.REFUNDED || refundResult.status === PaymentStatus.REFUND_PENDING) {
-      payment.markAsRefunded(payment.refundedAmount + amount);
+    if (refundResult.success) {
+      payment.applyFullRefund();
     }
 
     return this.paymentRepo.update(payment);
   }
 
-  private selectGateway(provider: PaymentProvider): PaymentGatewayPort {
+  private selectGateway(provider: PaymentProvider): IPaymentGateway {
     switch (provider) {
       case PaymentProvider.YOOKASSA: return this.yooKassa;
       case PaymentProvider.ROBOKASSA: return this.robokassa;

@@ -36,7 +36,7 @@ export class GetCustomerDetailUseCase {
       throw new NotFoundError('CustomerProfile', profileId);
     }
 
-    const [recentAppointments, payments, recentNotes, procedureHistory] = await Promise.all([
+    const [recentAppointments, , recentNotes, procedureHistory] = await Promise.all([
       this.appointmentRepo.findMany({ clientId: profile.userId, limit: 10 }),
       this.paymentRepo.findMany({ from: new Date('2000-01-01'), to: new Date(), limit: 1000 }),
       this.noteRepo.findByProfile(profileId, 10),

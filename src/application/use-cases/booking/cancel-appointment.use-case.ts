@@ -1,4 +1,4 @@
-import { AppointmentStatus, UserRole, CancellationReason } from '@/domain/enums';
+import { UserRole, CancellationReason } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
 import { Money } from '@/domain/value-objects';
 import {
@@ -18,7 +18,7 @@ export class CancelAppointmentUseCase {
     private readonly appointmentRepo: IAppointmentRepository,
     private readonly paymentRepo: IPaymentRepository,
     private readonly refundRepo: IRefundRepository,
-    private readonly promoCodeRepo: IPromoCodeRepository,
+    _promoCodeRepo: IPromoCodeRepository,
     private readonly auditLogRepo: IAuditLogRepository,
     private readonly yookassaGateway: IPaymentGateway,
     private readonly robokassaGateway: IPaymentGateway,
