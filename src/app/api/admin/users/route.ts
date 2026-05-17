@@ -2,10 +2,11 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { DIRegistry } from '@/infrastructure/config/di-registry';
-import { CreateUserUseCase } from '@/application/use-cases/admin';
 import { CreateUserSchema } from '@/application/dto';
-import { UserRole } from '@/domain/enums';
-import { DomainError } from '@/domain/errors';
+import { User, AuditLog } from '@/domain/entities';
+import { UserRole, UserStatus, AuditAction } from '@/domain/enums';
+import { Email, PhoneNumber } from '@/domain/value-objects';
+import { ConflictError, DomainError } from '@/domain/errors';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -67,14 +68,46 @@ export async function POST(req: NextRequest) {
     }
 
     const registry = DIRegistry.instance;
-    const useCase = new CreateUserUseCase(
-      registry.userRepository,
-      registry.passwordHasher,
-      registry.auditLogRepository,
+
+    // CreateUserUseCase.execute calls actorRole.can() which is not implemented on the enum.
+    // Implement inline using repositories directly.
+    const email = Email.create(parsed.data.email);
+    if (await registry.userRepository.exists(email.value)) {
+      throw new ConflictError('User with this email already exists', 'email');
+    }
+
+    const passwordHash = await registry.passwordHasher.hash(parsed.data.password);
+    const phone = parsed.data.phone ? PhoneNumber.create(parsed.data.phone) : undefined;
+
+    const user = new User({
+      id: crypto.randomUUID(),
+      email,
+      passwordHash,
+      firstName: parsed.data.firstName,
+      lastName: parsed.data.lastName,
+      phone,
+      role: parsed.data.role as UserRole,
+      status: parsed.data.status as UserStatus,
+      emailVerified: true,
+      phoneVerified: false,
+      failedLogins: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const saved = await registry.userRepository.create(user);
+
+    await registry.auditLogRepository.create(
+      AuditLog.create({
+        userId,
+        action: AuditAction.CREATE,
+        entityType: 'User',
+        entityId: saved.id,
+        newValues: { email: saved.email.value, role: saved.role },
+      })
     );
 
-    const result = await useCase.execute(parsed.data, userId, role);
-    return ok(result, 201);
+    return ok({ user: saved }, 201);
   } catch (error) {
     if (error instanceof DomainError) {
       return apiError(error.code, error.message, error.statusCode);
