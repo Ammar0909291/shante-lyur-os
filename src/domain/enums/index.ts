@@ -21,3 +21,6 @@ export * from './membership-status.enum';
 export * from './client-package-status.enum';
 export * from './inventory-category.enum';
 export * from './inventory-movement-type.enum';
+export * from './commission-type.enum';
+export * from './payroll-period-status.enum';
+export * from './payout-status.enum';

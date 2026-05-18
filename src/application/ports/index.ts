@@ -28,3 +28,4 @@ export * from './loyalty-repository.port';
 export * from './membership-repository.port';
 export * from './client-package-repository.port';
 export * from './inventory-repository.port';
+export * from './payroll-repository.port';

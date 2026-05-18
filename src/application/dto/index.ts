@@ -8,3 +8,4 @@ export * from './loyalty.dto';
 export * from './membership.dto';
 export * from './package.dto';
 export * from './inventory.dto';
+export * from './payroll.dto';

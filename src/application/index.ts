@@ -9,3 +9,4 @@ export * from './use-cases/loyalty';
 export * from './use-cases/membership';
 export * from './use-cases/package';
 export * from './use-cases/inventory';
+export * from './use-cases/payroll';

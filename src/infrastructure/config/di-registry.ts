@@ -24,6 +24,7 @@ import { PrismaAIPredictionRepository } from '../repositories/prisma-ai-predicti
 import { PrismaLoyaltyRepository } from '../repositories/prisma-loyalty.repository';
 import { PrismaMembershipPlanRepository, PrismaClientMembershipRepository } from '../repositories/prisma-membership.repository';
 import { PrismaClientPackageRepository } from '../repositories/prisma-client-package.repository';
+import { PrismaPayrollRepository } from '../repositories/prisma-payroll.repository';
 import {
   PrismaSupplierRepository,
   PrismaInventoryItemRepository,
@@ -72,6 +73,7 @@ export class DIRegistry {
   readonly membershipPlanRepository: PrismaMembershipPlanRepository;
   readonly clientMembershipRepository: PrismaClientMembershipRepository;
   readonly clientPackageRepository: PrismaClientPackageRepository;
+  readonly payrollRepository: PrismaPayrollRepository;
   readonly supplierRepository: PrismaSupplierRepository;
   readonly inventoryItemRepository: PrismaInventoryItemRepository;
   readonly inventoryMovementRepository: PrismaInventoryMovementRepository;
@@ -117,6 +119,7 @@ export class DIRegistry {
     this.membershipPlanRepository = new PrismaMembershipPlanRepository(db);
     this.clientMembershipRepository = new PrismaClientMembershipRepository(db);
     this.clientPackageRepository = new PrismaClientPackageRepository(db);
+    this.payrollRepository = new PrismaPayrollRepository(db);
     this.supplierRepository = new PrismaSupplierRepository(db);
     this.inventoryItemRepository = new PrismaInventoryItemRepository(db);
     this.inventoryMovementRepository = new PrismaInventoryMovementRepository(db);

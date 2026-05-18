@@ -1098,3 +1098,109 @@ model AppointmentConsumable {
   @@map("appointment_consumables")
 }
 
+// ═══════════════════════════════════════════════════════════════
+// 15. PAYROLL & COMMISSIONS
+// ═══════════════════════════════════════════════════════════════
+
+model CommissionRule {
+  id              String   @id @default(uuid()) @db.Uuid
+  specialistId    String?  @map("specialist_id") @db.Uuid
+  serviceId       String?  @map("service_id") @db.Uuid
+  commissionType  String   @map("commission_type") @db.VarChar(20) // PERCENTAGE | FIXED_AMOUNT
+  commissionValue Decimal  @map("commission_value") @db.Decimal(10, 4)
+  isActive        Boolean  @default(true) @map("is_active")
+  notes           String?  @db.VarChar(500)
+  createdBy       String?  @map("created_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([specialistId, isActive])
+  @@index([serviceId, isActive])
+  @@map("commission_rules")
+}
+
+model PayrollPeriod {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(255)
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime  @map("end_date") @db.Date
+  status      String    @default("OPEN") @db.VarChar(20) // OPEN | APPROVED | PAID | CANCELLED
+  approvedBy  String?   @map("approved_by") @db.Uuid
+  approvedAt  DateTime? @map("approved_at")
+  notes       String?   @db.Text
+  createdBy   String?   @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  entries     PayrollEntry[]
+  adjustments PayrollAdjustment[]
+  payouts     Payout[]
+
+  @@index([status, startDate])
+  @@map("payroll_periods")
+}
+
+model PayrollEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  periodId        String   @map("period_id") @db.Uuid
+  specialistId    String   @map("specialist_id") @db.Uuid
+  appointmentId   String?  @map("appointment_id") @db.Uuid
+  paymentId       String?  @map("payment_id") @db.Uuid
+  entryType       String   @map("entry_type") @db.VarChar(30) // SERVICE | RETAIL
+  grossAmount     Decimal  @map("gross_amount") @db.Decimal(10, 2)
+  commissionRate  Decimal  @map("commission_rate") @db.Decimal(5, 4)
+  grossCommission Decimal  @map("gross_commission") @db.Decimal(10, 2)
+  refundDeduction Decimal  @default(0) @map("refund_deduction") @db.Decimal(10, 2)
+  netCommission   Decimal  @map("net_commission") @db.Decimal(10, 2)
+  notes           String?  @db.VarChar(500)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  period PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@index([periodId, specialistId])
+  @@index([specialistId, createdAt])
+  @@index([paymentId])
+  @@map("payroll_entries")
+}
+
+model PayrollAdjustment {
+  id           String   @id @default(uuid()) @db.Uuid
+  periodId     String   @map("period_id") @db.Uuid
+  specialistId String   @map("specialist_id") @db.Uuid
+  type         String   @db.VarChar(20) // BONUS | DEDUCTION | CORRECTION
+  amount       Decimal  @db.Decimal(10, 2)
+  reason       String   @db.VarChar(500)
+  appliedBy    String?  @map("applied_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  period PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@index([periodId, specialistId])
+  @@index([specialistId, createdAt])
+  @@map("payroll_adjustments")
+}
+
+model Payout {
+  id               String    @id @default(uuid()) @db.Uuid
+  periodId         String    @map("period_id") @db.Uuid
+  specialistId     String    @map("specialist_id") @db.Uuid
+  totalGross       Decimal   @map("total_gross") @db.Decimal(10, 2)
+  totalDeductions  Decimal   @default(0) @map("total_deductions") @db.Decimal(10, 2)
+  totalAdjustments Decimal   @default(0) @map("total_adjustments") @db.Decimal(10, 2)
+  totalNet         Decimal   @map("total_net") @db.Decimal(10, 2)
+  status           String    @default("PENDING") @db.VarChar(20) // PENDING | PAID | CANCELLED
+  paidAt           DateTime? @map("paid_at")
+  paymentMethod    String?   @map("payment_method") @db.VarChar(50)
+  notes            String?   @db.Text
+  processedBy      String?   @map("processed_by") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  period PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, specialistId])
+  @@index([specialistId, status])
+  @@index([status, createdAt])
+  @@map("payouts")
+}
+

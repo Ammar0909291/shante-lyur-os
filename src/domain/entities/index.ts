@@ -26,3 +26,5 @@ export * from './supplier.entity';
 export * from './inventory-item.entity';
 export * from './inventory-movement.entity';
 export * from './service-consumable.entity';
+export * from './payroll-period.entity';
+export * from './payout.entity';
