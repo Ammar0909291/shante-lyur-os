@@ -4,7 +4,7 @@
 
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["fullTextSearch", "fullTextIndex", "postgresqlExtensions"]
+  previewFeatures = ["fullTextSearch", "postgresqlExtensions"]
   output          = "../node_modules/.prisma/client"
 }
 
@@ -53,13 +53,18 @@ model User {
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
   // Relations
-  sessions            Session[]
-  refreshTokens       RefreshToken[]
-  auditLogs           AuditLog[]
-  specialist          Specialist?
-  customerProfile     CustomerProfile?
-  notifications       Notification[]
-  clientAppointments  Appointment[]    @relation("ClientAppointments")
+  sessions                Session[]
+  refreshTokens           RefreshToken[]
+  auditLogs               AuditLog[]
+  specialist              Specialist?
+  customerProfile         CustomerProfile?
+  notifications           Notification[]
+  clientAppointments      Appointment[]   @relation("ClientAppointments")
+  cancelledAppointments   Appointment[]   @relation("AppointmentCancelledBy")
+  approvedVacations       Vacation[]      @relation("VacationApprovedBy")
+  processedRefunds        Refund[]        @relation("RefundProcessedBy")
+  createdPromoCodes       PromoCode[]     @relation("PromoCodeCreatedBy")
+  promoCodeUsages         PromoCodeUsage[]
 
   @@index([email])
   @@index([role, status])
@@ -128,14 +133,16 @@ model Specialist {
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
   // Relations
-  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  services       SpecialistService[]
-  appointments   Appointment[]
-  workingSchedules WorkingSchedule[]
-  blockedTimes   BlockedTime[]
-  vacations      Vacation[]
-  specialistNotes SpecialistNote[]
-  revenueRecords RevenueRecord[]
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  services           SpecialistService[]
+  appointments       Appointment[]
+  workingSchedules   WorkingSchedule[]
+  blockedTimes       BlockedTime[]
+  vacations          Vacation[]
+  specialistNotes    SpecialistNote[]
+  revenueRecords     RevenueRecord[]
+  procedureHistory   ProcedureHistory[]
+  preferredByCustomers CustomerProfile[] @relation("PreferredSpecialist")
 
   @@index([userId])
   @@index([status])
@@ -191,10 +198,12 @@ model Service {
   updatedAt   DateTime        @updatedAt @map("updated_at")
 
   // Relations
-  specialists    SpecialistService[]
-  appointments   AppointmentService[]
-  locationPrices ServiceLocationPrice[]
-  revenueRecords RevenueRecord[]
+  specialists      SpecialistService[]
+  appointments     AppointmentService[]
+  locationPrices   ServiceLocationPrice[]
+  revenueRecords   RevenueRecord[]
+  procedureHistory ProcedureHistory[]
+  beforeAfterPhotos BeforeAfterPhoto[]
 
   @@index([category, isActive])
   @@index([name])
@@ -215,10 +224,12 @@ model Location {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  appointments      Appointment[]
-  workingSchedules  WorkingSchedule[]
-  servicePrices     ServiceLocationPrice[]
-  blockedTimes      BlockedTime[]
+  appointments         Appointment[]
+  workingSchedules     WorkingSchedule[]
+  servicePrices        ServiceLocationPrice[]
+  blockedTimes         BlockedTime[]
+  revenueRecords       RevenueRecord[]
+  preferredByCustomers CustomerProfile[] @relation("PreferredLocation")
 
   @@index([isActive])
   @@map("locations")
@@ -288,14 +299,18 @@ model Appointment {
   updatedAt       DateTime            @updatedAt @map("updated_at")
 
   // Relations
-  client          User                @relation(fields: [clientId], references: [id], onDelete: Restrict, name: "ClientAppointments")
-  specialist      Specialist          @relation(fields: [specialistId], references: [id], onDelete: Restrict)
-  location        Location            @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  services        AppointmentService[]
-  payments        Payment[]
-  notifications   Notification[]
-  auditLogs       AuditLog[]
+  client           User                @relation("ClientAppointments", fields: [clientId], references: [id], onDelete: Restrict)
+  cancelledByUser  User?               @relation("AppointmentCancelledBy", fields: [cancelledBy], references: [id], onDelete: SetNull)
+  specialist       Specialist          @relation(fields: [specialistId], references: [id], onDelete: Restrict)
+  location         Location            @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  services         AppointmentService[]
+  payments         Payment[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  specialistNotes  SpecialistNote[]
   procedureHistory ProcedureHistory[]
+  revenueRecords   RevenueRecord[]
+  promoCodeUsages  PromoCodeUsage[]
 
   @@index([clientId, startAt])
   @@index([specialistId, startAt])
@@ -389,7 +404,8 @@ model Vacation {
   approvedAt   DateTime? @map("approved_at")
   createdAt    DateTime  @default(now()) @map("created_at")
 
-  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+  specialist     Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+  approvedByUser User?      @relation("VacationApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
 
   @@index([specialistId, startDate, endDate])
   @@map("vacations")
@@ -422,15 +438,17 @@ model CustomerProfile {
   updatedAt         DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  allergies      CustomerAllergy[]
-  restrictions   CustomerRestriction[]
-  specialistNotes SpecialistNote[]
-  procedureHistory ProcedureHistory[]
-  beforeAfterPhotos BeforeAfterPhoto[]
-  tags           CustomerTag[]
-  referralsGiven Referral[]          @relation("Referrer")
-  referralsReceived Referral[]       @relation("Referred")
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredLocation    Location?           @relation("PreferredLocation", fields: [preferredLocationId], references: [id], onDelete: SetNull)
+  preferredSpecialist  Specialist?         @relation("PreferredSpecialist", fields: [preferredSpecialistId], references: [id], onDelete: SetNull)
+  allergies            CustomerAllergy[]
+  restrictions         CustomerRestriction[]
+  specialistNotes      SpecialistNote[]
+  procedureHistory     ProcedureHistory[]
+  beforeAfterPhotos    BeforeAfterPhoto[]
+  tags                 CustomerTag[]
+  referralsGiven       Referral[]          @relation("Referrer")
+  referralsReceived    Referral[]          @relation("Referred")
 
   @@index([userId])
   @@index([loyaltyTier])
@@ -487,8 +505,9 @@ model SpecialistNote {
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
-  specialist  Specialist      @relation(fields: [specialistId], references: [id], onDelete: Cascade)
-  profile     CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  specialist   Specialist      @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+  profile      CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  appointment  Appointment?    @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
   @@index([profileId, noteType])
   @@index([specialistId, createdAt])
@@ -511,6 +530,8 @@ model ProcedureHistory {
 
   profile     CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   appointment Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  specialist  Specialist      @relation(fields: [specialistId], references: [id], onDelete: Restrict)
+  service     Service         @relation(fields: [serviceId], references: [id], onDelete: Restrict)
 
   @@index([profileId, performedAt])
   @@index([specialistId, performedAt])
@@ -529,7 +550,8 @@ model BeforeAfterPhoto {
   isPrivate   Boolean  @default(false) @map("is_private")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  profile CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  profile  CustomerProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  service  Service?        @relation(fields: [serviceId], references: [id], onDelete: SetNull)
 
   @@index([profileId, photoType])
   @@map("before_after_photos")
@@ -642,7 +664,8 @@ model Refund {
   processedBy   String?       @map("processed_by") @db.Uuid
   createdAt     DateTime      @default(now()) @map("created_at")
 
-  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  payment         Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  processedByUser User?   @relation("RefundProcessedBy", fields: [processedBy], references: [id], onDelete: SetNull)
 
   @@index([paymentId])
   @@index([status])
@@ -677,6 +700,9 @@ model PromoCode {
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
+  createdByUser User           @relation("PromoCodeCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  usages        PromoCodeUsage[]
+
   @@index([code])
   @@index([isActive, validFrom, validUntil])
   @@map("promo_codes")
@@ -689,6 +715,10 @@ model PromoCodeUsage {
   appointmentId String @map("appointment_id") @db.Uuid
   discountAmount Decimal @map("discount_amount") @db.Decimal(10, 2)
   createdAt   DateTime @default(now()) @map("created_at")
+
+  promoCode   PromoCode   @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 
   @@unique([promoCodeId, userId, appointmentId])
   @@index([promoCodeId])
@@ -724,9 +754,11 @@ model RevenueRecord {
   notes         String?     @db.Text
   createdAt     DateTime    @default(now()) @map("created_at")
 
-  specialist  Specialist? @relation(fields: [specialistId], references: [id], onDelete: SetNull)
-  service     Service?    @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  payment     Payment?    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  specialist  Specialist?   @relation(fields: [specialistId], references: [id], onDelete: SetNull)
+  service     Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  payment     Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  appointment Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  location    Location?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
 
   @@index([date, type])
   @@index([specialistId, date])
