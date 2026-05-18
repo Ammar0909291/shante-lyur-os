@@ -124,4 +124,80 @@ export class PrismaCustomerProfileRepository implements CustomerProfileRepositor
       data: { totalVisits: { increment: 1 }, totalSpent: { increment: amount }, lastVisitAt: new Date() },
     });
   }
+
+  async recordVisit(userId: string, amount: number): Promise<void> {
+    await this.db.customerProfile.updateMany({
+      where: { userId },
+      data: {
+        totalVisits: { increment: 1 },
+        totalSpent: { increment: amount },
+        lastVisitAt: new Date(),
+      },
+    });
+  }
+
+  async updateChurnRisk(userId: string, score: number): Promise<void> {
+    await this.db.customerProfile.updateMany({
+      where: { userId },
+      data: { churnRiskScore: score },
+    });
+  }
+
+  async getRetentionMetrics(): Promise<{
+    totalCustomers: number;
+    activeCustomers: number;
+    atRiskCustomers: number;
+    avgLifetimeValue: number;
+  }> {
+    const [total, active, atRisk, avgSpent] = await Promise.all([
+      this.db.customerProfile.count(),
+      this.db.customerProfile.count({
+        where: { lastVisitAt: { gte: new Date(Date.now() - 90 * 86_400_000) } },
+      }),
+      this.db.customerProfile.count({
+        where: { churnRiskScore: { gte: 0.7 } },
+      }),
+      this.db.customerProfile.aggregate({ _avg: { totalSpent: true } }),
+    ]);
+
+    return {
+      totalCustomers: total,
+      activeCustomers: active,
+      atRiskCustomers: atRisk,
+      avgLifetimeValue: Number(avgSpent._avg.totalSpent ?? 0),
+    };
+  }
+
+  async getLoyaltyStats(profileId: string): Promise<{
+    points: number;
+    tier: string;
+    totalSpent: number;
+    totalVisits: number;
+    firstVisitAt: Date | null;
+    lastVisitAt: Date | null;
+    churnRiskScore: number | null;
+  } | null> {
+    const raw = await this.db.customerProfile.findUnique({
+      where: { id: profileId },
+      select: {
+        loyaltyPoints: true,
+        loyaltyTier: true,
+        totalSpent: true,
+        totalVisits: true,
+        firstVisitAt: true,
+        lastVisitAt: true,
+        churnRiskScore: true,
+      },
+    });
+    if (!raw) return null;
+    return {
+      points: raw.loyaltyPoints,
+      tier: raw.loyaltyTier,
+      totalSpent: Number(raw.totalSpent),
+      totalVisits: raw.totalVisits,
+      firstVisitAt: raw.firstVisitAt,
+      lastVisitAt: raw.lastVisitAt,
+      churnRiskScore: raw.churnRiskScore !== null ? Number(raw.churnRiskScore) : null,
+    };
+  }
 }

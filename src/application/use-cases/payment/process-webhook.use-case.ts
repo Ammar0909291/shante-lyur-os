@@ -12,6 +12,7 @@ import {
   ICustomerProfileRepository,
   ISpecialistRepository,
   IRevenueRecordRepository,
+  ILoyaltyRepository,
 } from '@/application/ports';
 import { ProcessWebhookDto } from '@/application/dto';
 import { AuditLog, RevenueRecord } from '@/domain/entities';
@@ -31,6 +32,7 @@ export class ProcessWebhookUseCase {
     private readonly profileRepo: ICustomerProfileRepository,
     private readonly specialistRepo: ISpecialistRepository,
     private readonly revenueRepo: IRevenueRecordRepository,
+    private readonly loyaltyRepo: ILoyaltyRepository | null = null,
   ) {
     this.gateways = {
       YOOKASSA: yookassaGateway,
@@ -95,6 +97,35 @@ export class ProcessWebhookUseCase {
 
         // Update customer profile
         await this.profileRepo.recordVisit(appointment.clientId, payment.amount.amount);
+
+        // Accumulate loyalty points
+        if (this.loyaltyRepo) {
+          try {
+            const profile = await this.profileRepo.findByUserId(appointment.clientId);
+            if (profile) {
+              const KOPEKS_PER_POINT = 10_000;
+              const TIER_MULTIPLIERS: Record<string, number> = {
+                BRONZE: 1.0, SILVER: 1.25, GOLD: 1.5, PLATINUM: 2.0,
+              };
+              const stats = await this.profileRepo.getLoyaltyStats(profile.id);
+              if (stats) {
+                const multiplier = TIER_MULTIPLIERS[stats.tier] ?? 1.0;
+                const points = Math.round(Math.floor(payment.amount.amount / KOPEKS_PER_POINT) * multiplier);
+                if (points > 0) {
+                  await this.loyaltyRepo.addPoints(
+                    profile.id,
+                    points,
+                    'EARN' as any,
+                    `Начислено за визит`,
+                    appointment.id,
+                  );
+                }
+              }
+            }
+          } catch {
+            // Non-fatal: loyalty accumulation failure should not block payment
+          }
+        }
       }
     }
 

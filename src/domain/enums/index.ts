@@ -15,3 +15,7 @@ export * from './notification-channel.enum';
 export * from './notification-type.enum';
 export * from './notification-status.enum';
 export * from './audit-action.enum';
+export * from './loyalty-transaction-type.enum';
+export * from './membership-billing-period.enum';
+export * from './membership-status.enum';
+export * from './client-package-status.enum';

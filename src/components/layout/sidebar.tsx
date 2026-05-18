@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Gift,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { label: 'Клиенты', href: '/clients', icon: Users },
   { label: 'Специалисты', href: '/specialists', icon: Sparkles },
   { label: 'Услуги', href: '/services', icon: Flower2 },
+  { label: 'Лояльность', href: '/loyalty', icon: Gift },
   { label: 'Аналитика', href: '/analytics', icon: BarChart3 },
   { label: 'Настройки', href: '/settings', icon: Settings },
 ];

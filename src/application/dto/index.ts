@@ -4,3 +4,6 @@ export * from './booking.dto';
 export * from './crm.dto';
 export * from './payment.dto';
 export * from './admin.dto';
+export * from './loyalty.dto';
+export * from './membership.dto';
+export * from './package.dto';

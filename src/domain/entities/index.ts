@@ -18,3 +18,7 @@ export * from './session.entity';
 export * from './refresh-token.entity';
 export * from './daily-metrics.entity';
 export * from './ai-prediction.entity';
+export * from './loyalty-transaction.entity';
+export * from './membership-plan.entity';
+export * from './client-membership.entity';
+export * from './client-package.entity';

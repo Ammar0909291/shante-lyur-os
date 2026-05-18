@@ -24,3 +24,6 @@ export * from './sms-service.port';
 export * from './payment-gateway.port';
 export * from './realtime-service.port';
 export * from './event-bus.port';
+export * from './loyalty-repository.port';
+export * from './membership-repository.port';
+export * from './client-package-repository.port';

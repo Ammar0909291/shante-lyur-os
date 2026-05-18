@@ -5,3 +5,6 @@ export * from './use-cases/booking';
 export * from './use-cases/crm';
 export * from './use-cases/payment';
 export * from './use-cases/admin';
+export * from './use-cases/loyalty';
+export * from './use-cases/membership';
+export * from './use-cases/package';

@@ -22,4 +22,13 @@ export interface ICustomerProfileRepository {
     atRiskCustomers: number;
     avgLifetimeValue: number;
   }>;
+  getLoyaltyStats(profileId: string): Promise<{
+    points: number;
+    tier: string;
+    totalSpent: number;
+    totalVisits: number;
+    firstVisitAt: Date | null;
+    lastVisitAt: Date | null;
+    churnRiskScore: number | null;
+  } | null>;
 }

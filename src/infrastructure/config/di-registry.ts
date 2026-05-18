@@ -21,6 +21,9 @@ import { PrismaNotificationRepository } from '../repositories/prisma-notificatio
 import { PrismaAuditLogRepository } from '../repositories/prisma-audit-log.repository';
 import { PrismaDailyMetricsRepository } from '../repositories/prisma-daily-metrics.repository';
 import { PrismaAIPredictionRepository } from '../repositories/prisma-ai-prediction.repository';
+import { PrismaLoyaltyRepository } from '../repositories/prisma-loyalty.repository';
+import { PrismaMembershipPlanRepository, PrismaClientMembershipRepository } from '../repositories/prisma-membership.repository';
+import { PrismaClientPackageRepository } from '../repositories/prisma-client-package.repository';
 
 // Services
 import { BcryptPasswordHasher } from '../services/bcrypt-password-hasher.service';
@@ -58,6 +61,10 @@ export class DIRegistry {
   readonly auditLogRepository: PrismaAuditLogRepository;
   readonly dailyMetricsRepository: PrismaDailyMetricsRepository;
   readonly aiPredictionRepository: PrismaAIPredictionRepository;
+  readonly loyaltyRepository: PrismaLoyaltyRepository;
+  readonly membershipPlanRepository: PrismaMembershipPlanRepository;
+  readonly clientMembershipRepository: PrismaClientMembershipRepository;
+  readonly clientPackageRepository: PrismaClientPackageRepository;
 
   // Services
   readonly passwordHasher: BcryptPasswordHasher;
@@ -94,6 +101,10 @@ export class DIRegistry {
     this.auditLogRepository = new PrismaAuditLogRepository(db);
     this.dailyMetricsRepository = new PrismaDailyMetricsRepository(db);
     this.aiPredictionRepository = new PrismaAIPredictionRepository(db);
+    this.loyaltyRepository = new PrismaLoyaltyRepository(db);
+    this.membershipPlanRepository = new PrismaMembershipPlanRepository(db);
+    this.clientMembershipRepository = new PrismaClientMembershipRepository(db);
+    this.clientPackageRepository = new PrismaClientPackageRepository(db);
 
     // Services
     this.passwordHasher = new BcryptPasswordHasher();
