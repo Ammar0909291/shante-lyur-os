@@ -56,6 +56,7 @@ export class User extends BaseEntity {
     return this._status === UserStatus.ACTIVE && !this.isLocked;
   }
   get passwordHash(): string { return this._passwordHash; }
+  get avatarUrl(): string | undefined { return this.props.avatarUrl; }
 
   recordLogin(): void {
     this._failedLogins = 0;

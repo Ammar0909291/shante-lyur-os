@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
-import { EmailServicePort } from '@/application/ports/email-service.port';
+import { IEmailService } from '@/application/ports/email-service.port';
 
-export class SmtpEmailService implements EmailServicePort {
+export class SmtpEmailService implements IEmailService {
   private readonly transporter: nodemailer.Transporter;
 
   constructor() {
@@ -20,15 +20,22 @@ export class SmtpEmailService implements EmailServicePort {
     });
   }
 
-  async send(to: string, subject: string, html: string, text?: string): Promise<void> {
+  async send(
+    to: string,
+    subject: string,
+    body: string,
+    options?: { html?: string; attachments?: Array<{ filename: string; content: Buffer }> },
+  ): Promise<void> {
     const from = process.env.SMTP_FROM ?? 'noreply@shantelyur.ru';
+    const html = options?.html ?? body;
 
     await this.transporter.sendMail({
       from,
       to,
       subject,
-      text: text ?? html.replace(/<[^>]*>/g, ''),
+      text: body.replace(/<[^>]*>/g, ''),
       html,
+      attachments: options?.attachments,
     });
   }
 
