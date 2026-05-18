@@ -63,7 +63,7 @@ export class CreatePaymentUseCase {
     const payment = new Payment({
       id: crypto.randomUUID(),
       appointmentId: dto.appointmentId,
-      provider: dto.provider,
+      provider: dto.provider as PaymentProvider,
       amount,
       status: PaymentStatus.PENDING,
       description: dto.description,

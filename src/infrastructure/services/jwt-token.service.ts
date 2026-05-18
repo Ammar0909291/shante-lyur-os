@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { TokenServicePort } from '@/application/ports/token-service.port';
+import { ITokenService } from '@/application/ports/token-service.port';
 import { UnauthorizedError } from '@/domain/errors/unauthorized-error';
 
 interface TokenPayload {
@@ -12,7 +12,7 @@ interface TokenPayload {
   exp: number;
 }
 
-export class JwtTokenService implements TokenServicePort {
+export class JwtTokenService implements ITokenService {
   private readonly ACCESS_SECRET: string;
   private readonly REFRESH_SECRET: string;
   private readonly ACCESS_EXPIRY = 15 * 60; // 15 minutes
@@ -23,7 +23,7 @@ export class JwtTokenService implements TokenServicePort {
     this.REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret-change-me';
   }
 
-  generateAccessToken(payload: { userId: string; email: string; role: string }): { token: string; expiresAt: Date } {
+  generateAccessTokenSync(payload: { userId: string; email: string; role: string }): { token: string; expiresAt: Date } {
     const jti = crypto.randomUUID();
     const token = jwt.sign(
       { sub: payload.userId, email: payload.email, role: payload.role, jti, type: 'access' },
@@ -33,7 +33,7 @@ export class JwtTokenService implements TokenServicePort {
     return { token, expiresAt: new Date(Date.now() + this.ACCESS_EXPIRY * 1000) };
   }
 
-  generateRefreshToken(payload: { userId: string }): { token: string; expiresAt: Date } {
+  generateRefreshTokenSync(payload: { userId: string }): { token: string; expiresAt: Date } {
     const jti = crypto.randomUUID();
     const token = jwt.sign(
       { sub: payload.userId, jti, type: 'refresh' },
@@ -43,7 +43,25 @@ export class JwtTokenService implements TokenServicePort {
     return { token, expiresAt: new Date(Date.now() + this.REFRESH_EXPIRY * 1000) };
   }
 
-  verifyAccessToken(token: string): { userId: string; email: string; role: string; jti: string } {
+  async generateAccessToken(payload: Record<string, unknown>): Promise<string> {
+    const jti = crypto.randomUUID();
+    return jwt.sign(
+      { sub: payload.userId, email: payload.email, role: payload.role, jti, type: 'access' },
+      this.ACCESS_SECRET,
+      { expiresIn: this.ACCESS_EXPIRY }
+    );
+  }
+
+  async generateRefreshToken(payload: Record<string, unknown>): Promise<string> {
+    const jti = crypto.randomUUID();
+    return jwt.sign(
+      { sub: payload.userId, jti, type: 'refresh' },
+      this.REFRESH_SECRET,
+      { expiresIn: this.REFRESH_EXPIRY }
+    );
+  }
+
+  async verifyAccessToken(token: string): Promise<Record<string, unknown>> {
     try {
       const decoded = jwt.verify(token, this.ACCESS_SECRET) as TokenPayload;
       if (decoded.type !== 'access') throw new UnauthorizedError('Invalid token type');
@@ -53,13 +71,43 @@ export class JwtTokenService implements TokenServicePort {
     }
   }
 
-  verifyRefreshToken(token: string): { userId: string; jti: string } {
+  async verifyRefreshToken(token: string): Promise<Record<string, unknown>> {
     try {
       const decoded = jwt.verify(token, this.REFRESH_SECRET) as TokenPayload;
       if (decoded.type !== 'refresh') throw new UnauthorizedError('Invalid token type');
       return { userId: decoded.sub, jti: decoded.jti };
     } catch {
       throw new UnauthorizedError('Invalid or expired refresh token');
+    }
+  }
+
+  verifyAccessTokenSync(token: string): { userId: string; email: string; role: string; jti: string } {
+    try {
+      const decoded = jwt.verify(token, this.ACCESS_SECRET) as TokenPayload;
+      if (decoded.type !== 'access') throw new UnauthorizedError('Invalid token type');
+      return { userId: decoded.sub, email: decoded.email, role: decoded.role, jti: decoded.jti };
+    } catch {
+      throw new UnauthorizedError('Invalid or expired access token');
+    }
+  }
+
+  verifyRefreshTokenSync(token: string): { userId: string; jti: string } {
+    try {
+      const decoded = jwt.verify(token, this.REFRESH_SECRET) as TokenPayload;
+      if (decoded.type !== 'refresh') throw new UnauthorizedError('Invalid token type');
+      return { userId: decoded.sub, jti: decoded.jti };
+    } catch {
+      throw new UnauthorizedError('Invalid or expired refresh token');
+    }
+  }
+
+  decode(token: string): Record<string, unknown> | null {
+    try {
+      const decoded = jwt.decode(token) as TokenPayload | null;
+      if (!decoded) return null;
+      return { userId: decoded.sub, email: decoded.email, role: decoded.role, type: decoded.type, jti: decoded.jti };
+    } catch {
+      return null;
     }
   }
 

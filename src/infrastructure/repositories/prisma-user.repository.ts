@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma, User as PrismaUser } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { IUserRepository } from '@/application/ports/user-repository.port';
 import { User } from '@/domain/entities/user.entity';
 import { UserRole } from '@/domain/enums/user-role.enum';
@@ -6,42 +6,62 @@ import { UserStatus } from '@/domain/enums/user-status.enum';
 import { Email } from '@/domain/value-objects/email.vo';
 import { PhoneNumber } from '@/domain/value-objects/phone-number.vo';
 
+type RawUser = {
+  id: string;
+  email: string;
+  passwordHash: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  avatarUrl: string | null;
+  role: string;
+  status: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  lastLoginAt: Date | null;
+  failedLogins: number;
+  lockedUntil: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export class PrismaUserRepository implements IUserRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: PrismaUser): User {
+  private toDomain(raw: RawUser): User {
     return User.reconstitute({
       id: raw.id,
-      email: Email.create(raw.email).getValue(),
-      phone: raw.phone ? PhoneNumber.create(raw.phone).getValue() : undefined,
+      email: Email.create(raw.email),
       passwordHash: raw.passwordHash,
       firstName: raw.firstName,
       lastName: raw.lastName,
+      phone: raw.phone ? PhoneNumber.create(raw.phone) : undefined,
+      avatarUrl: raw.avatarUrl ?? undefined,
       role: raw.role as UserRole,
       status: raw.status as UserStatus,
       emailVerified: raw.emailVerified,
       phoneVerified: raw.phoneVerified,
-      avatarUrl: raw.avatarUrl ?? undefined,
       lastLoginAt: raw.lastLoginAt ?? undefined,
+      failedLogins: raw.failedLogins,
+      lockedUntil: raw.lockedUntil ?? undefined,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
-      metadata: (raw.metadata as Record<string, unknown>) ?? undefined,
     });
   }
 
   async findById(id: string): Promise<User | null> {
     const raw = await this.db.user.findUnique({ where: { id } });
-    return raw ? this.toDomain(raw) : null;
+    return raw ? this.toDomain(raw as unknown as RawUser) : null;
   }
 
   async findByEmail(email: string): Promise<User | null> {
     const raw = await this.db.user.findUnique({ where: { email } });
-    return raw ? this.toDomain(raw) : null;
+    return raw ? this.toDomain(raw as unknown as RawUser) : null;
   }
 
   async findByPhone(phone: string): Promise<User | null> {
-    const raw = await this.db.user.findUnique({ where: { phone } });
-    return raw ? this.toDomain(raw) : null;
+    const raw = await this.db.user.findFirst({ where: { phone } });
+    return raw ? this.toDomain(raw as unknown as RawUser) : null;
   }
 
   async findMany(options: { role?: UserRole; status?: UserStatus; search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ items: User[]; total: number }> {
@@ -61,7 +81,7 @@ export class PrismaUserRepository implements IUserRepository {
       this.db.user.count({ where }),
     ]);
 
-    return { items: items.map(r => this.toDomain(r)), total };
+    return { items: items.map(r => this.toDomain(r as unknown as RawUser)), total };
   }
 
   async countByRole(role: UserRole): Promise<number> {
@@ -72,8 +92,8 @@ export class PrismaUserRepository implements IUserRepository {
     const raw = await this.db.user.create({
       data: {
         id: user.id,
-        email: user.email,
-        phone: user.phone,
+        email: user.email.value,
+        phone: user.phone?.value,
         passwordHash: user.passwordHash,
         firstName: user.firstName,
         lastName: user.lastName,
@@ -82,18 +102,18 @@ export class PrismaUserRepository implements IUserRepository {
         emailVerified: user.emailVerified,
         phoneVerified: user.phoneVerified,
         avatarUrl: user.avatarUrl,
-        metadata: user.metadata as Prisma.InputJsonValue,
+        failedLogins: user.failedLogins,
       },
     });
-    return this.toDomain(raw);
+    return this.toDomain(raw as unknown as RawUser);
   }
 
   async update(user: User): Promise<User> {
     const raw = await this.db.user.update({
       where: { id: user.id },
       data: {
-        email: user.email,
-        phone: user.phone,
+        email: user.email.value,
+        phone: user.phone?.value,
         passwordHash: user.passwordHash,
         firstName: user.firstName,
         lastName: user.lastName,
@@ -103,11 +123,12 @@ export class PrismaUserRepository implements IUserRepository {
         phoneVerified: user.phoneVerified,
         avatarUrl: user.avatarUrl,
         lastLoginAt: user.lastLoginAt,
-        metadata: user.metadata as Prisma.InputJsonValue,
+        failedLogins: user.failedLogins,
+        lockedUntil: user.lockedUntil,
         updatedAt: new Date(),
       },
     });
-    return this.toDomain(raw);
+    return this.toDomain(raw as unknown as RawUser);
   }
 
   async delete(id: string): Promise<void> {

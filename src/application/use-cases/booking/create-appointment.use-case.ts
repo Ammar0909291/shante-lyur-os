@@ -1,7 +1,7 @@
 import { Appointment, AppointmentServiceItem } from '@/domain/entities';
 import { AppointmentStatus, UserRole } from '@/domain/enums';
 import { DateRange, Money } from '@/domain/value-objects';
-import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '@/domain/errors';
+import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
 import { AppointmentBookedEvent } from '@/domain/events';
 import {
   IAppointmentRepository,
@@ -27,7 +27,7 @@ export interface CreateAppointmentResult {
 export class CreateAppointmentUseCase {
   constructor(
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly userRepo: IUserRepository,
+    _userRepo: IUserRepository,
     private readonly specialistRepo: ISpecialistRepository,
     private readonly serviceRepo: IServiceRepository,
     private readonly locationRepo: ILocationRepository,
@@ -37,7 +37,7 @@ export class CreateAppointmentUseCase {
     private readonly profileRepo: ICustomerProfileRepository,
     private readonly promoCodeRepo: IPromoCodeRepository,
     private readonly eventBus: IEventBus,
-    private readonly notificationRepo: INotificationRepository,
+    _notificationRepo: INotificationRepository,
   ) {}
 
   async execute(
@@ -82,7 +82,8 @@ export class CreateAppointmentUseCase {
     let totalPrice = Money.zero('RUB');
     const appointmentServices: AppointmentServiceItem[] = [];
 
-    for (const [idx, svcDto] of dto.services.entries()) {
+    for (let idx = 0; idx < dto.services.length; idx++) {
+      const svcDto = dto.services[idx];
       const service = services.find(s => s.id === svcDto.serviceId)!;
       const locationPrice = await this.serviceRepo.getLocationPrice(service.id, location.id);
       const price = locationPrice ? Money.create(locationPrice.price, 'RUB') : service.basePrice;

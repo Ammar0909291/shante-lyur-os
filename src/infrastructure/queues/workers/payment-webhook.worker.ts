@@ -4,6 +4,7 @@ import { QUEUE_NAMES } from '../queue.config';
 import type { PaymentWebhookJob } from '../job-types';
 import { di } from '@/infrastructure/config/di-registry';
 import { PaymentProvider } from '@/domain/enums/payment-provider.enum';
+import { ProcessWebhookUseCase } from '@/application/use-cases/payment';
 
 function createProcessor() {
   return async (job: Job<PaymentWebhookJob>): Promise<void> => {
@@ -14,9 +15,9 @@ function createProcessor() {
       `[PaymentWebhookWorker] Processing job ${job.id}: provider=${provider}, receivedAt=${receivedAt}`,
     );
 
-    let parsedPayload: unknown;
+    let parsedPayload: Record<string, unknown>;
     try {
-      parsedPayload = JSON.parse(rawPayload) as unknown;
+      parsedPayload = JSON.parse(rawPayload) as Record<string, unknown>;
     } catch {
       throw new Error(`[PaymentWebhookWorker] Invalid JSON payload for job ${job.id}`);
     }
@@ -24,15 +25,26 @@ function createProcessor() {
     const bullmqProvider =
       provider === 'yookassa' ? PaymentProvider.YOOKASSA : PaymentProvider.ROBOKASSA;
 
-    const payment = await registry.paymentOrchestrator.processWebhook(
-      bullmqProvider,
-      parsedPayload,
-      signature,
+    const useCase = new ProcessWebhookUseCase(
+      registry.paymentRepository,
+      registry.refundRepository,
+      registry.yooKassaGateway,
+      registry.robokassaGateway,
+      { publish: async () => {}, subscribe: () => {} },
+      registry.auditLogRepository,
+      registry.appointmentRepository,
+      registry.customerProfileRepository,
+      registry.specialistRepository,
+      registry.revenueRecordRepository,
     );
 
-    console.info(
-      `[PaymentWebhookWorker] Job ${job.id} processed — payment ${payment.id} status=${payment.status}`,
-    );
+    await useCase.execute({
+      provider: bullmqProvider,
+      payload: parsedPayload,
+      signature,
+    });
+
+    console.info(`[PaymentWebhookWorker] Job ${job.id} processed`);
   };
 }
 
