@@ -1,11 +1,12 @@
 import { PrismaClient, Prisma, Appointment as PrismaAppointment } from '@prisma/client';
-import { AppointmentRepositoryPort } from '@/application/ports/appointment-repository.port';
+import { IAppointmentRepository } from '@/application/ports/appointment-repository.port';
 import { Appointment } from '@/domain/entities/appointment.entity';
 import { AppointmentStatus } from '@/domain/enums/appointment-status.enum';
 import { CancellationReason } from '@/domain/enums/cancellation-reason.enum';
 import { Money } from '@/domain/value-objects/money.vo';
+import { DateRange } from '@/domain/value-objects/date-range.vo';
 
-export class PrismaAppointmentRepository implements AppointmentRepositoryPort {
+export class PrismaAppointmentRepository implements IAppointmentRepository {
   constructor(private readonly db: PrismaClient) {}
 
   private toDomain(raw: PrismaAppointment & { customer?: { id: string; firstName: string; lastName: string; email: string } | null; specialist?: { id: string; firstName: string; lastName: string } | null; service?: { id: string; name: string; durationMinutes: number } | null }): Appointment {
@@ -83,13 +84,35 @@ export class PrismaAppointmentRepository implements AppointmentRepositoryPort {
     return raws.map(r => this.toDomain(r));
   }
 
-  async findOverlapping(specialistId: string, startAt: Date, endAt: Date, excludeId?: string): Promise<Appointment[]> {
+  async findMany(options: { clientId?: string; specialistId?: string; locationId?: string; status?: AppointmentStatus | AppointmentStatus[]; from?: Date; to?: Date; page?: number; limit?: number }): Promise<{ items: Appointment[]; total: number }> {
+    const { clientId, specialistId, locationId, status, from, to, page = 1, limit = 20 } = options;
+    const where: Prisma.AppointmentWhereInput = {};
+    if (clientId) where.customerId = clientId;
+    if (specialistId) where.specialistId = specialistId;
+    if (locationId) where.locationId = locationId;
+    if (status) where.status = Array.isArray(status) ? { in: status } : status;
+    if (from || to) where.startAt = { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) };
+
+    const [raws, total] = await Promise.all([
+      this.db.appointment.findMany({
+        where,
+        include: { customer: { select: { id: true, firstName: true, lastName: true, email: true } }, specialist: { select: { id: true, firstName: true, lastName: true } }, service: { select: { id: true, name: true, durationMinutes: true } } },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { startAt: 'desc' },
+      }),
+      this.db.appointment.count({ where }),
+    ]);
+    return { items: raws.map(r => this.toDomain(r)), total };
+  }
+
+  async findOverlapping(specialistId: string, timeRange: DateRange, excludeId?: string): Promise<Appointment[]> {
     const where: Prisma.AppointmentWhereInput = {
       specialistId,
       status: { notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW] },
       AND: [
-        { startAt: { lt: endAt } },
-        { endAt: { gt: startAt } },
+        { startAt: { lt: timeRange.end } },
+        { endAt: { gt: timeRange.start } },
       ],
     };
     if (excludeId) where.id = { not: excludeId };
@@ -99,6 +122,18 @@ export class PrismaAppointmentRepository implements AppointmentRepositoryPort {
       include: { customer: { select: { id: true, firstName: true, lastName: true, email: true } }, specialist: { select: { id: true, firstName: true, lastName: true } }, service: { select: { id: true, name: true, durationMinutes: true } } },
     });
     return raws.map(r => this.toDomain(r));
+  }
+
+  async countByStatus(status: AppointmentStatus): Promise<number> {
+    return this.db.appointment.count({ where: { status } });
+  }
+
+  async countBySpecialistAndDate(specialistId: string, date: Date): Promise<number> {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+    return this.db.appointment.count({ where: { specialistId, startAt: { gte: start, lte: end } } });
   }
 
   async create(appointment: Appointment): Promise<Appointment> {

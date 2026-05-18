@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, UserStatus, ServiceCategory, SpecialistStatus, DayOfWeek, AppointmentStatus, PaymentProvider, PaymentStatus, RevenueType, NotificationChannel, NotificationType, NotificationStatus, AuditAction } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, ServiceCategory, DayOfWeek } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();

@@ -1,12 +1,12 @@
 import { PrismaClient, Prisma, User as PrismaUser } from '@prisma/client';
-import { UserRepositoryPort } from '@/application/ports/user-repository.port';
+import { IUserRepository } from '@/application/ports/user-repository.port';
 import { User } from '@/domain/entities/user.entity';
 import { UserRole } from '@/domain/enums/user-role.enum';
 import { UserStatus } from '@/domain/enums/user-status.enum';
 import { Email } from '@/domain/value-objects/email.vo';
 import { PhoneNumber } from '@/domain/value-objects/phone-number.vo';
 
-export class PrismaUserRepository implements UserRepositoryPort {
+export class PrismaUserRepository implements IUserRepository {
   constructor(private readonly db: PrismaClient) {}
 
   private toDomain(raw: PrismaUser): User {
@@ -44,23 +44,28 @@ export class PrismaUserRepository implements UserRepositoryPort {
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findMany(options: { role?: UserRole; status?: UserStatus; page?: number; limit?: number }): Promise<{ items: User[]; total: number }> {
-    const { role, status, page = 1, limit = 20 } = options;
+  async findMany(options: { role?: UserRole; status?: UserStatus; search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ items: User[]; total: number }> {
+    const { role, status, search, page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = options;
     const where: Prisma.UserWhereInput = {};
     if (role) where.role = role;
     if (status) where.status = status;
+    if (search) where.OR = [{ firstName: { contains: search } }, { lastName: { contains: search } }, { email: { contains: search } }];
 
     const [items, total] = await Promise.all([
       this.db.user.findMany({
         where,
         skip: (page - 1) * limit,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [sortBy]: sortOrder },
       }),
       this.db.user.count({ where }),
     ]);
 
-    return { items: items.map(this.toDomain), total };
+    return { items: items.map(r => this.toDomain(r)), total };
+  }
+
+  async countByRole(role: UserRole): Promise<number> {
+    return this.db.user.count({ where: { role } });
   }
 
   async create(user: User): Promise<User> {
