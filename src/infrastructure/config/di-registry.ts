@@ -21,6 +21,10 @@ import { PrismaNotificationRepository } from '../repositories/prisma-notificatio
 import { PrismaAuditLogRepository } from '../repositories/prisma-audit-log.repository';
 import { PrismaDailyMetricsRepository } from '../repositories/prisma-daily-metrics.repository';
 import { PrismaAIPredictionRepository } from '../repositories/prisma-ai-prediction.repository';
+import { PrismaSpecialistNoteRepository } from '../repositories/prisma-specialist-note.repository';
+import { PrismaProcedureHistoryRepository } from '../repositories/prisma-procedure-history.repository';
+import { PrismaCustomerAllergyRepository } from '../repositories/prisma-customer-allergy.repository';
+import { PrismaCustomerRestrictionRepository } from '../repositories/prisma-customer-restriction.repository';
 
 // Services
 import { BcryptPasswordHasher } from '../services/bcrypt-password-hasher.service';
@@ -58,6 +62,10 @@ export class DIRegistry {
   readonly auditLogRepository: PrismaAuditLogRepository;
   readonly dailyMetricsRepository: PrismaDailyMetricsRepository;
   readonly aiPredictionRepository: PrismaAIPredictionRepository;
+  readonly specialistNoteRepository: PrismaSpecialistNoteRepository;
+  readonly procedureHistoryRepository: PrismaProcedureHistoryRepository;
+  readonly allergyRepository: PrismaCustomerAllergyRepository;
+  readonly restrictionRepository: PrismaCustomerRestrictionRepository;
 
   // Services
   readonly passwordHasher: BcryptPasswordHasher;
@@ -94,6 +102,10 @@ export class DIRegistry {
     this.auditLogRepository = new PrismaAuditLogRepository(db);
     this.dailyMetricsRepository = new PrismaDailyMetricsRepository(db);
     this.aiPredictionRepository = new PrismaAIPredictionRepository(db);
+    this.specialistNoteRepository = new PrismaSpecialistNoteRepository(db);
+    this.procedureHistoryRepository = new PrismaProcedureHistoryRepository(db);
+    this.allergyRepository = new PrismaCustomerAllergyRepository(db);
+    this.restrictionRepository = new PrismaCustomerRestrictionRepository(db);
 
     // Services
     this.passwordHasher = new BcryptPasswordHasher();

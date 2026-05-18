@@ -59,6 +59,7 @@ model User {
   specialist     Specialist?
   customerProfile CustomerProfile?
   notifications  Notification[]
+  appointments   Appointment[]  @relation(name: "ClientAppointments")
 
   @@index([email])
   @@index([role, status])

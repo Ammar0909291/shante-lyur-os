@@ -24,3 +24,7 @@ export * from './sms-service.port';
 export * from './payment-gateway.port';
 export * from './realtime-service.port';
 export * from './event-bus.port';
+export * from './specialist-note-repository.port';
+export * from './procedure-history-repository.port';
+export * from './allergy-repository.port';
+export * from './restriction-repository.port';
