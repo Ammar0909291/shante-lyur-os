@@ -82,6 +82,28 @@ export function getAppointmentStatusLabel(status: string): string {
   return map[status] ?? status;
 }
 
+export function getSpecialistStatusBadgeVariant(
+  status: string,
+): VariantProps<typeof badgeVariants>['variant'] {
+  const map: Record<string, VariantProps<typeof badgeVariants>['variant']> = {
+    ACTIVE:      'success',
+    INACTIVE:    'warning',
+    ON_VACATION: 'info',
+    TERMINATED:  'error',
+  };
+  return map[status] ?? 'default';
+}
+
+export function getSpecialistStatusLabel(status: string): string {
+  const map: Record<string, string> = {
+    ACTIVE:      'Активен',
+    INACTIVE:    'Неактивен',
+    ON_VACATION: 'В отпуске',
+    TERMINATED:  'Уволен',
+  };
+  return map[status] ?? status;
+}
+
 export function getPaymentStatusBadgeVariant(
   status: string,
 ): VariantProps<typeof badgeVariants>['variant'] {

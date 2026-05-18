@@ -31,10 +31,14 @@ export async function GET(req: NextRequest) {
     const params = req.nextUrl.searchParams;
     const page = Math.max(1, parseInt(params.get('page') ?? '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(params.get('limit') ?? '20', 10)));
+    const roleFilter = params.get('role') as UserRole | null;
 
     const registry = DIRegistry.instance;
-    // Use repository directly — no ListUsersUseCase exists
-    const users = await registry.userRepository.findMany({ page, limit });
+    const users = await registry.userRepository.findMany({
+      page,
+      limit,
+      role: roleFilter ?? undefined,
+    });
 
     return ok(users);
   } catch (error) {
