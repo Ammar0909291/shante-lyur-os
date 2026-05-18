@@ -96,6 +96,70 @@ export const CreateReferralSchema = z.object({
 
 export type CreateReferralDto = z.infer<typeof CreateReferralSchema>;
 
+export const MassagePreferencesSchema = z.object({
+  profileId: z.string().uuid(),
+  bodyType: z.enum(['athletic', 'normal', 'full']).optional(),
+  pressurePreference: z.enum(['light', 'medium', 'firm', 'deep']),
+  focusAreas: z.array(z.string().max(50)).min(1),
+  avoidAreas: z.array(z.string().max(50)).optional(),
+  oilPreferences: z.string().max(500).optional(),
+  temperaturePreference: z.enum(['warm', 'hot', 'neutral']).optional(),
+  additionalNotes: z.string().max(2000).optional(),
+});
+
+export type MassagePreferencesDto = z.infer<typeof MassagePreferencesSchema>;
+
+export const SkincareProfileSchema = z.object({
+  profileId: z.string().uuid(),
+  skinType: z.enum(['oily', 'dry', 'combination', 'sensitive', 'normal']),
+  skinConcerns: z.array(z.string().max(50)),
+  lastPeelingDate: z.coerce.date().optional(),
+  lastInjectionDate: z.coerce.date().optional(),
+  lastLaserDate: z.coerce.date().optional(),
+  homeRoutine: z.string().max(2000).optional(),
+  reactionHistory: z.string().max(2000).optional(),
+  currentMedications: z.string().max(1000).optional(),
+  sunSensitivity: z.enum(['low', 'medium', 'high']).optional(),
+});
+
+export type SkincareProfileDto = z.infer<typeof SkincareProfileSchema>;
+
+export const RecurringTreatmentSchema = z.object({
+  profileId: z.string().uuid(),
+  serviceId: z.string().uuid(),
+  specialistId: z.string().uuid().optional(),
+  frequencyDays: z.number().int().min(1).max(365),
+  lastPerformedAt: z.coerce.date().optional(),
+  nextRecommendedAt: z.coerce.date().optional(),
+  notes: z.string().max(1000).optional(),
+  isActive: z.boolean().default(true),
+});
+
+export type RecurringTreatmentDto = z.infer<typeof RecurringTreatmentSchema>;
+
+export const CreateBeforeAfterPhotoSchema = z.object({
+  profileId: z.string().uuid(),
+  appointmentId: z.string().uuid().optional(),
+  serviceId: z.string().uuid().optional(),
+  specialistId: z.string().uuid().optional(),
+  caption: z.string().max(500).optional(),
+  photoType: z.enum(['before', 'after']),
+  consentGiven: z.boolean().refine((v) => v === true, { message: 'Client consent is required' }),
+});
+
+export type CreateBeforeAfterPhotoDto = z.infer<typeof CreateBeforeAfterPhotoSchema>;
+
+export const CreateSkincareRecommendationSchema = z.object({
+  profileId: z.string().uuid(),
+  specialistId: z.string().uuid(),
+  recommendationType: z.enum(['treatment', 'product', 'lifestyle', 'homecare']),
+  text: z.string().min(1).max(3000),
+  urgency: z.enum(['routine', 'recommended', 'urgent']).default('recommended'),
+  validUntil: z.coerce.date().optional(),
+});
+
+export type CreateSkincareRecommendationDto = z.infer<typeof CreateSkincareRecommendationSchema>;
+
 export const ListCustomersSchema = PaginationSchema.extend({
   search: z.string().optional(),
   loyaltyTier: z.enum(['BRONZE', 'SILVER', 'GOLD', 'PLATINUM']).optional(),

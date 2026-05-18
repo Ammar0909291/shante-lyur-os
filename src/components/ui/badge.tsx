@@ -13,6 +13,8 @@ const badgeVariants = cva(
         completed: 'bg-sage/10 text-sage border border-sage/20',
         cancelled: 'bg-red-500/10 text-red-400 border border-red-500/20',
         noShow: 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20',
+        inProgress: 'bg-blue-600/10 text-blue-300 border border-blue-600/20',
+        rescheduled: 'bg-lavender/10 text-lavender border border-lavender/20',
         // Payment statuses
         paid: 'bg-sage/10 text-sage border border-sage/20',
         unpaid: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
@@ -64,9 +66,11 @@ export function getAppointmentStatusBadgeVariant(
   const map: Record<string, VariantProps<typeof badgeVariants>['variant']> = {
     PENDING: 'pending',
     CONFIRMED: 'confirmed',
+    IN_PROGRESS: 'inProgress',
     COMPLETED: 'completed',
     CANCELLED: 'cancelled',
     NO_SHOW: 'noShow',
+    RESCHEDULED: 'rescheduled',
   };
   return map[status] ?? 'default';
 }
@@ -75,9 +79,11 @@ export function getAppointmentStatusLabel(status: string): string {
   const map: Record<string, string> = {
     PENDING: 'Ожидание',
     CONFIRMED: 'Подтверждено',
+    IN_PROGRESS: 'Выполняется',
     COMPLETED: 'Завершено',
     CANCELLED: 'Отменено',
     NO_SHOW: 'Не явился',
+    RESCHEDULED: 'Перенесено',
   };
   return map[status] ?? status;
 }
