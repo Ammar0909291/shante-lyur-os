@@ -24,6 +24,13 @@ import { PrismaAIPredictionRepository } from '../repositories/prisma-ai-predicti
 import { PrismaLoyaltyRepository } from '../repositories/prisma-loyalty.repository';
 import { PrismaMembershipPlanRepository, PrismaClientMembershipRepository } from '../repositories/prisma-membership.repository';
 import { PrismaClientPackageRepository } from '../repositories/prisma-client-package.repository';
+import {
+  PrismaSupplierRepository,
+  PrismaInventoryItemRepository,
+  PrismaInventoryMovementRepository,
+  PrismaServiceConsumableRepository,
+  PrismaAppointmentConsumableRepository,
+} from '../repositories/prisma-inventory.repository';
 
 // Services
 import { BcryptPasswordHasher } from '../services/bcrypt-password-hasher.service';
@@ -65,6 +72,11 @@ export class DIRegistry {
   readonly membershipPlanRepository: PrismaMembershipPlanRepository;
   readonly clientMembershipRepository: PrismaClientMembershipRepository;
   readonly clientPackageRepository: PrismaClientPackageRepository;
+  readonly supplierRepository: PrismaSupplierRepository;
+  readonly inventoryItemRepository: PrismaInventoryItemRepository;
+  readonly inventoryMovementRepository: PrismaInventoryMovementRepository;
+  readonly serviceConsumableRepository: PrismaServiceConsumableRepository;
+  readonly appointmentConsumableRepository: PrismaAppointmentConsumableRepository;
 
   // Services
   readonly passwordHasher: BcryptPasswordHasher;
@@ -105,6 +117,11 @@ export class DIRegistry {
     this.membershipPlanRepository = new PrismaMembershipPlanRepository(db);
     this.clientMembershipRepository = new PrismaClientMembershipRepository(db);
     this.clientPackageRepository = new PrismaClientPackageRepository(db);
+    this.supplierRepository = new PrismaSupplierRepository(db);
+    this.inventoryItemRepository = new PrismaInventoryItemRepository(db);
+    this.inventoryMovementRepository = new PrismaInventoryMovementRepository(db);
+    this.serviceConsumableRepository = new PrismaServiceConsumableRepository(db);
+    this.appointmentConsumableRepository = new PrismaAppointmentConsumableRepository(db);
 
     // Services
     this.passwordHasher = new BcryptPasswordHasher();

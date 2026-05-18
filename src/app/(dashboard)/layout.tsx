@@ -12,6 +12,7 @@ const pageTitles: Record<string, string> = {
   '/specialists': 'Специалисты',
   '/services': 'Услуги',
   '/loyalty': 'Лояльность',
+  '/inventory': 'Склад',
   '/analytics': 'Аналитика',
   '/settings': 'Настройки',
 };

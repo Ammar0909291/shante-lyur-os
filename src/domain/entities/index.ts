@@ -22,3 +22,7 @@ export * from './loyalty-transaction.entity';
 export * from './membership-plan.entity';
 export * from './client-membership.entity';
 export * from './client-package.entity';
+export * from './supplier.entity';
+export * from './inventory-item.entity';
+export * from './inventory-movement.entity';
+export * from './service-consumable.entity';

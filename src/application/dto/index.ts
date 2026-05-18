@@ -7,3 +7,4 @@ export * from './admin.dto';
 export * from './loyalty.dto';
 export * from './membership.dto';
 export * from './package.dto';
+export * from './inventory.dto';

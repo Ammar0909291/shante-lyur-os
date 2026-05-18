@@ -19,3 +19,5 @@ export * from './loyalty-transaction-type.enum';
 export * from './membership-billing-period.enum';
 export * from './membership-status.enum';
 export * from './client-package-status.enum';
+export * from './inventory-category.enum';
+export * from './inventory-movement-type.enum';
