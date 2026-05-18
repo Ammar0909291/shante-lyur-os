@@ -14,6 +14,7 @@ const pageTitles: Record<string, string> = {
   '/loyalty': 'Лояльность',
   '/inventory': 'Склад',
   '/payroll': 'Зарплата',
+  '/communications': 'Коммуникации',
   '/analytics': 'Аналитика',
   '/settings': 'Настройки',
 };

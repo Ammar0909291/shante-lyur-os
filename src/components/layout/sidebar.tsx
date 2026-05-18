@@ -17,6 +17,7 @@ import {
   Gift,
   Package,
   Wallet,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +36,7 @@ const navItems: NavItem[] = [
   { label: 'Лояльность', href: '/loyalty', icon: Gift },
   { label: 'Склад', href: '/inventory', icon: Package },
   { label: 'Зарплата', href: '/payroll', icon: Wallet },
+  { label: 'Коммуникации', href: '/communications', icon: MessageSquare },
   { label: 'Аналитика', href: '/analytics', icon: BarChart3 },
   { label: 'Настройки', href: '/settings', icon: Settings },
 ];

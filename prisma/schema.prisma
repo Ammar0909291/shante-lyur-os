@@ -53,12 +53,13 @@ model User {
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
   // Relations
-  sessions       Session[]
-  refreshTokens  RefreshToken[]
-  auditLogs      AuditLog[]
-  specialist     Specialist?
-  customerProfile CustomerProfile?
-  notifications  Notification[]
+  sessions                Session[]
+  refreshTokens           RefreshToken[]
+  auditLogs               AuditLog[]
+  specialist              Specialist?
+  customerProfile         CustomerProfile?
+  notifications           Notification[]
+  notificationPreference  NotificationPreference?
 
   @@index([email])
   @@index([role, status])
@@ -747,6 +748,7 @@ enum NotificationChannel {
   SMS
   PUSH
   IN_APP
+  TELEGRAM
 }
 
 enum NotificationType {
@@ -760,6 +762,11 @@ enum NotificationType {
   WELCOME
   PASSWORD_RESET
   SYSTEM
+  FOLLOW_UP
+  REACTIVATION
+  LOYALTY_REMINDER
+  MEMBERSHIP_RENEWAL
+  RECURRING_TREATMENT
 }
 
 enum NotificationStatus {
@@ -794,6 +801,46 @@ model Notification {
   @@index([type, status])
   @@index([createdAt])
   @@map("notifications")
+}
+
+model NotificationPreference {
+  id                    String   @id @default(uuid()) @db.Uuid
+  userId                String   @unique @map("user_id") @db.Uuid
+  emailEnabled          Boolean  @default(true) @map("email_enabled")
+  smsEnabled            Boolean  @default(false) @map("sms_enabled")
+  pushEnabled           Boolean  @default(true) @map("push_enabled")
+  telegramEnabled       Boolean  @default(false) @map("telegram_enabled")
+  telegramChatId        String?  @map("telegram_chat_id") @db.VarChar(50)
+  appointmentReminders  Boolean  @default(true) @map("appointment_reminders")
+  followUpMessages      Boolean  @default(true) @map("follow_up_messages")
+  loyaltyUpdates        Boolean  @default(true) @map("loyalty_updates")
+  membershipReminders   Boolean  @default(true) @map("membership_reminders")
+  marketingMessages     Boolean  @default(false) @map("marketing_messages")
+  reminderLeadHours     Int      @default(24) @map("reminder_lead_hours")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model NotificationTemplate {
+  id          String              @id @default(uuid()) @db.Uuid
+  type        NotificationType
+  channel     NotificationChannel
+  name        String              @db.VarChar(100)
+  subject     String?             @db.VarChar(255)
+  bodyTemplate String             @map("body_template") @db.Text
+  variables   Json?
+  isActive    Boolean             @default(true) @map("is_active")
+  createdBy   String?             @map("created_by") @db.Uuid
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  @@unique([type, channel])
+  @@index([type, isActive])
+  @@map("notification_templates")
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -90,6 +90,21 @@ export async function POST(req: NextRequest) {
 
     const result = await useCase.execute(parsed.data, userId, role);
 
+    // Fire-and-forget appointment confirmation notification
+    const user = await registry.userRepository.findById(userId);
+    if (user) {
+      const appt = result.appointment;
+      const serviceName = appt.services.map((s: { name: string }) => s.name).join(', ') || 'Услуга';
+      const specialist = await registry.specialistRepository.findById(appt.specialistId);
+      const specialistUser = specialist ? await registry.userRepository.findById(specialist.userId) : null;
+      registry.notificationService.sendBookingConfirmation(user, {
+        serviceName,
+        specialistName: specialistUser ? `${specialistUser.firstName} ${specialistUser.lastName}` : '',
+        date: appt.startAt.toLocaleDateString('ru-RU'),
+        time: appt.startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      }).catch(() => {});
+    }
+
     return ok(result, 201);
   } catch (error) {
     if (error instanceof DomainError) {

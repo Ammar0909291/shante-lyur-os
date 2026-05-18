@@ -28,3 +28,4 @@ export * from './inventory-movement.entity';
 export * from './service-consumable.entity';
 export * from './payroll-period.entity';
 export * from './payout.entity';
+export * from './notification-preference.entity';

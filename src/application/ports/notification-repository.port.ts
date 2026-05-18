@@ -1,16 +1,18 @@
 import { Notification } from '@/domain/entities';
 import { NotificationStatus, NotificationType } from '@/domain/enums';
 
-export interface INotificationRepository {
+export interface NotificationRepositoryPort {
   findById(id: string): Promise<Notification | null>;
-  findByUser(userId: string, options?: {
+  findByUserId(userId: string, options?: {
     status?: NotificationStatus;
     type?: NotificationType;
     page?: number;
     limit?: number;
-  }): Promise<{ items: Notification[]; total: number; unread: number }>;
+  }): Promise<{ items: Notification[]; total: number }>;
+  findPending(limit: number): Promise<Notification[]>;
   create(notification: Notification): Promise<Notification>;
   update(notification: Notification): Promise<Notification>;
-  markAllRead(userId: string): Promise<void>;
-  deleteOldNotifications(before: Date): Promise<number>;
+  markAllAsRead(userId: string): Promise<number>;
 }
+
+export type INotificationRepository = NotificationRepositoryPort;

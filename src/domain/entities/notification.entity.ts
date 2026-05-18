@@ -26,6 +26,49 @@ export class Notification extends BaseEntity {
     this._status = props.status;
   }
 
+  static create(input: Omit<NotificationProps, 'id' | 'createdAt'>): Notification {
+    return new Notification({
+      ...input,
+      id: crypto.randomUUID(),
+      createdAt: new Date(),
+    });
+  }
+
+  static reconstitute(raw: {
+    id: string;
+    userId?: string;
+    appointmentId?: string;
+    type: NotificationType;
+    channel: NotificationChannel;
+    status: NotificationStatus;
+    title: string;
+    body: string;
+    data?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+    sentAt?: Date;
+    deliveredAt?: Date;
+    readAt?: Date;
+    error?: string;
+    createdAt: Date;
+  }): Notification {
+    return new Notification({
+      id: raw.id,
+      userId: raw.userId ?? '',
+      appointmentId: raw.appointmentId,
+      type: raw.type,
+      channel: raw.channel,
+      status: raw.status,
+      title: raw.title,
+      body: raw.body,
+      data: raw.data ?? raw.metadata,
+      sentAt: raw.sentAt,
+      deliveredAt: raw.deliveredAt,
+      readAt: raw.readAt,
+      error: raw.error,
+      createdAt: raw.createdAt,
+    });
+  }
+
   get userId(): string { return this.props.userId; }
   get appointmentId(): string | undefined { return this.props.appointmentId; }
   get type(): NotificationType { return this.props.type; }
@@ -34,6 +77,7 @@ export class Notification extends BaseEntity {
   get title(): string { return this.props.title; }
   get body(): string { return this.props.body; }
   get data(): Record<string, unknown> | undefined { return this.props.data; }
+  get metadata(): Record<string, unknown> | undefined { return this.props.data; }
   get sentAt(): Date | undefined { return this.props.sentAt; }
   get deliveredAt(): Date | undefined { return this.props.deliveredAt; }
   get readAt(): Date | undefined { return this.props.readAt; }

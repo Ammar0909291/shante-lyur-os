@@ -3,4 +3,5 @@ export enum NotificationChannel {
   SMS = 'SMS',
   PUSH = 'PUSH',
   IN_APP = 'IN_APP',
+  TELEGRAM = 'TELEGRAM',
 }

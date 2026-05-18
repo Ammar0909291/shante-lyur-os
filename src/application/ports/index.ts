@@ -29,3 +29,5 @@ export * from './membership-repository.port';
 export * from './client-package-repository.port';
 export * from './inventory-repository.port';
 export * from './payroll-repository.port';
+export * from './notification-service.port';
+export * from './notification-preference-repository.port';

@@ -82,6 +82,23 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     );
 
     const result = await useCase.execute(id, parsed.data, userId, role);
+
+    // Fire-and-forget rescheduled notification
+    if (parsed.data.status === 'RESCHEDULED' || parsed.data.startAt) {
+      const savedAppt = (result as { appointment: { clientId: string; startAt: Date; services: { name: string }[] } }).appointment;
+      if (savedAppt?.clientId) {
+        registry.userRepository.findById(savedAppt.clientId).then(user => {
+          if (!user) return;
+          registry.notificationService.sendBookingConfirmation(user, {
+            serviceName: savedAppt.services?.[0]?.name ?? 'Услуга',
+            specialistName: '',
+            date: savedAppt.startAt.toLocaleDateString('ru-RU'),
+            time: savedAppt.startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+          });
+        }).catch(() => {});
+      }
+    }
+
     return ok(result);
   } catch (error) {
     if (error instanceof DomainError) {
@@ -124,6 +141,20 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     );
 
     const result = await useCase.execute(id, parsed.data, userId, role);
+
+    // Fire-and-forget cancellation notification
+    const cancelledAppt = (result as { appointment: { clientId: string; startAt: Date; services: { name: string }[] } }).appointment;
+    if (cancelledAppt?.clientId) {
+      registry.userRepository.findById(cancelledAppt.clientId).then(user => {
+        if (!user) return;
+        registry.notificationService.sendCancellationNotice(user, {
+          serviceName: cancelledAppt.services?.[0]?.name ?? 'Услуга',
+          date: cancelledAppt.startAt.toLocaleDateString('ru-RU'),
+          time: cancelledAppt.startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        });
+      }).catch(() => {});
+    }
+
     return ok(result);
   } catch (error) {
     if (error instanceof DomainError) {

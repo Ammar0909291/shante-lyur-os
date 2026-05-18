@@ -8,18 +8,36 @@ import { NotificationChannel } from '@/domain/enums/notification-channel.enum';
 export class PrismaNotificationRepository implements NotificationRepositoryPort {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; userId: string | null; type: string; title: string; body: string; channel: string; status: string; sentAt: Date | null; readAt: Date | null; metadata: unknown | null; createdAt: Date }): Notification {
+  private toDomain(raw: {
+    id: string;
+    userId: string | null;
+    appointmentId?: string | null;
+    type: string;
+    title: string;
+    body: string;
+    channel: string;
+    status: string;
+    data?: unknown | null;
+    sentAt: Date | null;
+    deliveredAt?: Date | null;
+    readAt: Date | null;
+    error?: string | null;
+    createdAt: Date;
+  }): Notification {
     return Notification.reconstitute({
       id: raw.id,
       userId: raw.userId ?? undefined,
+      appointmentId: raw.appointmentId ?? undefined,
       type: raw.type as NotificationType,
       title: raw.title,
       body: raw.body,
       channel: raw.channel as NotificationChannel,
       status: raw.status as NotificationStatus,
+      data: (raw.data as Record<string, unknown>) ?? undefined,
       sentAt: raw.sentAt ?? undefined,
+      deliveredAt: raw.deliveredAt ?? undefined,
       readAt: raw.readAt ?? undefined,
-      metadata: (raw.metadata as Record<string, unknown>) ?? undefined,
+      error: raw.error ?? undefined,
       createdAt: raw.createdAt,
     });
   }
@@ -29,10 +47,11 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findByUserId(userId: string, options?: { status?: NotificationStatus; page?: number; limit?: number }): Promise<{ items: Notification[]; total: number }> {
-    const { status, page = 1, limit = 20 } = options ?? {};
+  async findByUserId(userId: string, options?: { status?: NotificationStatus; type?: NotificationType; page?: number; limit?: number }): Promise<{ items: Notification[]; total: number }> {
+    const { status, type, page = 1, limit = 20 } = options ?? {};
     const where: Prisma.NotificationWhereInput = { userId };
     if (status) where.status = status;
+    if (type) where.type = type;
 
     const [raws, total] = await Promise.all([
       this.db.notification.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' } }),
@@ -55,6 +74,7 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
       data: {
         id: notification.id,
         userId: notification.userId,
+        appointmentId: notification.appointmentId,
         type: notification.type,
         title: notification.title,
         body: notification.body,
@@ -62,7 +82,7 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
         status: notification.status,
         sentAt: notification.sentAt,
         readAt: notification.readAt,
-        metadata: notification.metadata as Prisma.InputJsonValue,
+        data: notification.data as Prisma.InputJsonValue,
       },
     });
     return this.toDomain(raw);
@@ -75,6 +95,7 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
         status: notification.status,
         sentAt: notification.sentAt,
         readAt: notification.readAt,
+        error: notification.error,
       },
     });
     return this.toDomain(raw);
@@ -83,7 +104,7 @@ export class PrismaNotificationRepository implements NotificationRepositoryPort 
   async markAllAsRead(userId: string): Promise<number> {
     const result = await this.db.notification.updateMany({
       where: { userId, readAt: null },
-      data: { readAt: new Date() },
+      data: { readAt: new Date(), status: NotificationStatus.READ },
     });
     return result.count;
   }
