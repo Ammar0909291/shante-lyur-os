@@ -28,3 +28,7 @@ export interface IPaymentGateway {
     reason?: string;
   }): Promise<{ success: boolean; providerRefundId?: string }>;
 }
+
+// Alias used by PaymentOrchestrator
+export type PaymentGatewayPort = IPaymentGateway;
+

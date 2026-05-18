@@ -7,3 +7,5 @@ export interface IDailyMetricsRepository {
   update(metrics: DailyMetrics): Promise<DailyMetrics>;
   getLatest(): Promise<DailyMetrics | null>;
 }
+
+export type DailyMetricsRepositoryPort = IDailyMetricsRepository;

@@ -8,3 +8,5 @@ export interface ISessionRepository {
   deleteByUser(userId: string): Promise<void>;
   deleteExpired(): Promise<number>;
 }
+
+export type SessionRepositoryPort = ISessionRepository;

@@ -11,3 +11,5 @@ export interface ILocationRepository {
   update(location: Location): Promise<Location>;
   delete(id: string): Promise<void>;
 }
+
+export type LocationRepositoryPort = ILocationRepository;

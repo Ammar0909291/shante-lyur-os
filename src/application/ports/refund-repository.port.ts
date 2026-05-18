@@ -14,3 +14,5 @@ export interface IRefundRepository {
   create(refund: Refund): Promise<Refund>;
   update(refund: Refund): Promise<Refund>;
 }
+
+export type RefundRepositoryPort = IRefundRepository;

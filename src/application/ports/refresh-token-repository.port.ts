@@ -9,3 +9,5 @@ export interface IRefreshTokenRepository {
   revokeAllForUser(userId: string): Promise<void>;
   deleteExpired(): Promise<number>;
 }
+
+export type RefreshTokenRepositoryPort = IRefreshTokenRepository;

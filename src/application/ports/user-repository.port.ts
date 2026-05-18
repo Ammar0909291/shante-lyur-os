@@ -20,3 +20,5 @@ export interface IUserRepository {
   exists(email: string): Promise<boolean>;
   countByRole(role: UserRole): Promise<number>;
 }
+
+export type UserRepositoryPort = IUserRepository;

@@ -14,3 +14,5 @@ export interface INotificationRepository {
   markAllRead(userId: string): Promise<void>;
   deleteOldNotifications(before: Date): Promise<number>;
 }
+
+export type NotificationRepositoryPort = INotificationRepository;

@@ -4,3 +4,5 @@ export interface IRealtimeService {
   unsubscribe(clientId: string, channel: string): void;
   getPresence(channel: string): Array<{ clientId: string; joinedAt: Date }>;
 }
+
+export type RealtimeServicePort = IRealtimeService;

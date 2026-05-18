@@ -16,3 +16,5 @@ export interface IPromoCodeRepository {
   getUsageCount(promoCodeId: string): Promise<number>;
   getUsageCountByUser(promoCodeId: string, userId: string): Promise<number>;
 }
+
+export type PromoCodeRepositoryPort = IPromoCodeRepository;

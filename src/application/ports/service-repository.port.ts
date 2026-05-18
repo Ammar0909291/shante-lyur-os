@@ -17,3 +17,5 @@ export interface IServiceRepository {
   getLocationPrice(serviceId: string, locationId: string): Promise<{ price: number; duration: number } | null>;
   setLocationPrice(serviceId: string, locationId: string, price: number, duration: number): Promise<void>;
 }
+
+export type ServiceRepositoryPort = IServiceRepository;

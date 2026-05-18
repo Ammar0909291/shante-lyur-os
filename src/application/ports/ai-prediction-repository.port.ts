@@ -12,3 +12,5 @@ export interface IAIPredictionRepository {
     avgConfidence: number;
   }>;
 }
+
+export type AIPredictionRepositoryPort = IAIPredictionRepository;

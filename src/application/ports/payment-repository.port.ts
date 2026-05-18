@@ -22,3 +22,6 @@ export interface IPaymentRepository {
     byProvider: Record<string, number>;
   }>;
 }
+
+// Alias used by PaymentOrchestrator
+export type PaymentRepositoryPort = IPaymentRepository;

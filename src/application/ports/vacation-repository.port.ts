@@ -9,3 +9,5 @@ export interface IVacationRepository {
   delete(id: string): Promise<void>;
   approve(id: string, approvedBy: string): Promise<Vacation>;
 }
+
+export type VacationRepositoryPort = IVacationRepository;

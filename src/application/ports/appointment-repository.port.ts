@@ -21,3 +21,5 @@ export interface IAppointmentRepository {
   countByStatus(status: AppointmentStatus): Promise<number>;
   countBySpecialistAndDate(specialistId: string, date: Date): Promise<number>;
 }
+
+export type AppointmentRepositoryPort = IAppointmentRepository;

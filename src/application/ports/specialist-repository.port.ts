@@ -18,3 +18,5 @@ export interface ISpecialistRepository {
   assignService(specialistId: string, serviceId: string, priceOverride?: number, durationOverride?: number): Promise<void>;
   removeService(specialistId: string, serviceId: string): Promise<void>;
 }
+
+export type SpecialistRepositoryPort = ISpecialistRepository;

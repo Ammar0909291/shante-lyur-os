@@ -5,3 +5,5 @@ export interface ITokenService {
   verifyRefreshToken(token: string): Promise<Record<string, unknown>>;
   decode(token: string): Record<string, unknown> | null;
 }
+
+export type TokenServicePort = ITokenService;

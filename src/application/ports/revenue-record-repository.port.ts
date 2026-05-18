@@ -17,3 +17,5 @@ export interface IRevenueRecordRepository {
   getMonthlyRevenue(year: number, month: number): Promise<number>;
   getSpecialistRevenue(specialistId: string, from: Date, to: Date): Promise<number>;
 }
+
+export type RevenueRecordRepositoryPort = IRevenueRecordRepository;

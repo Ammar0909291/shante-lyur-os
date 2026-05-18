@@ -10,3 +10,5 @@ export interface IBlockedTimeRepository {
   update(blockedTime: BlockedTime): Promise<BlockedTime>;
   delete(id: string): Promise<void>;
 }
+
+export type BlockedTimeRepositoryPort = IBlockedTimeRepository;

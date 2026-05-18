@@ -3,8 +3,6 @@ import {
   ICustomerProfileRepository,
   IAppointmentRepository,
   IPaymentRepository,
-  ISpecialistNoteRepository,
-  IProcedureHistoryRepository,
 } from '@/application/ports';
 
 export interface CustomerDetailResult {
