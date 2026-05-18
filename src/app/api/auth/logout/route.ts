@@ -23,8 +23,8 @@ function clearAuthCookies(response: NextResponse): void {
   response.cookies.set('refresh_token', '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
+    sameSite: 'strict',
+    path: '/api/auth',
     maxAge: 0,
   });
 }

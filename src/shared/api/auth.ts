@@ -12,10 +12,8 @@ interface JwtPayload {
 }
 
 function getSecret(): Uint8Array {
-  const secret =
-    process.env.JWT_SECRET ??
-    process.env.JWT_ACCESS_SECRET ??
-    'dev-access-secret-change-me';
+  const secret = process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_ACCESS_SECRET environment variable is required');
   return new TextEncoder().encode(secret);
 }
 

@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { User, RefreshToken } from '@/domain/entities';
 import { UnauthorizedError, ValidationError } from '@/domain/errors';
 import { Email } from '@/domain/value-objects';
@@ -95,7 +96,7 @@ export class LoginUseCase {
     const refreshToken = new RefreshToken({
       id: crypto.randomUUID(),
       userId: user.id,
-      tokenHash: await this.passwordHasher.hash(refreshTokenStr),
+      tokenHash: createHash('sha256').update(refreshTokenStr).digest('hex'),
       expiresAt: new Date(Date.now() + (dto.rememberMe ? 30 : 7) * 24 * 60 * 60 * 1000),
       ipAddress,
       createdAt: new Date(),

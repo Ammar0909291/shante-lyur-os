@@ -1,9 +1,9 @@
+import { createHash } from 'crypto';
 import { UnauthorizedError } from '@/domain/errors';
 import { RefreshToken } from '@/domain/entities';
 import {
   IUserRepository,
   IRefreshTokenRepository,
-  IPasswordHasher,
   ITokenService,
 } from '@/application/ports';
 import { RefreshTokenDto } from '@/application/dto';
@@ -17,7 +17,6 @@ export class RefreshTokenUseCase {
   constructor(
     private readonly userRepo: IUserRepository,
     private readonly refreshTokenRepo: IRefreshTokenRepository,
-    private readonly passwordHasher: IPasswordHasher,
     private readonly tokenService: ITokenService,
   ) {}
 
@@ -29,13 +28,13 @@ export class RefreshTokenUseCase {
       throw new UnauthorizedError('Invalid refresh token');
     }
 
-    const userId = payload.sub as string;
+    const userId = payload['sub'] as string;
     const user = await this.userRepo.findById(userId);
     if (!user || !user.isActive) {
       throw new UnauthorizedError('User not found or inactive');
     }
 
-    const tokenHash = await this.passwordHasher.hash(dto.refreshToken);
+    const tokenHash = createHash('sha256').update(dto.refreshToken).digest('hex');
     const stored = await this.refreshTokenRepo.findByTokenHash(tokenHash);
     if (!stored || !stored.isValid) {
       // Security: revoke all tokens for this user if token reuse detected
@@ -46,7 +45,7 @@ export class RefreshTokenUseCase {
     }
 
     // Rotate: revoke old, issue new
-    await stored.revoke();
+    stored.revoke();
     await this.refreshTokenRepo.update(stored);
 
     const newAccessToken = await this.tokenService.generateAccessToken({
@@ -63,7 +62,7 @@ export class RefreshTokenUseCase {
     const newRefreshToken = new RefreshToken({
       id: crypto.randomUUID(),
       userId: user.id,
-      tokenHash: await this.passwordHasher.hash(newRefreshTokenStr),
+      tokenHash: createHash('sha256').update(newRefreshTokenStr).digest('hex'),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       replacedBy: stored.id,
       createdAt: new Date(),

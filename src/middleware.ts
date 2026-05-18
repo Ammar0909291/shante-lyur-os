@@ -6,6 +6,7 @@ import { jwtVerify } from 'jose';
 // ---------------------------------------------------------------------------
 
 const PROTECTED_API_ROUTES = [
+  '/api/auth/me',
   '/api/appointments',
   '/api/customers',
   '/api/admin',
@@ -48,11 +49,9 @@ interface AccessPayload {
   type?: string;
 }
 
-function getJwtSecret(): Uint8Array {
-  const secret =
-    process.env.JWT_SECRET ??
-    process.env.JWT_ACCESS_SECRET ??
-    'dev-access-secret-change-me';
+function getJwtSecret(): Uint8Array | null {
+  const secret = process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET;
+  if (!secret) return null;
   return new TextEncoder().encode(secret);
 }
 
@@ -67,8 +66,10 @@ function extractToken(request: NextRequest): string | null {
 async function verifyToken(
   token: string
 ): Promise<{ userId: string; role: string } | null> {
+  const secret = getJwtSecret();
+  if (!secret) return null;
   try {
-    const { payload } = await jwtVerify(token, getJwtSecret());
+    const { payload } = await jwtVerify(token, secret);
     const p = payload as unknown as AccessPayload;
     if (!p.sub || !p.role) return null;
     if (p.type && p.type !== 'access') return null;
@@ -93,28 +94,41 @@ function jsonError(code: string, message: string, status: number): NextResponse 
 // Security headers
 // ---------------------------------------------------------------------------
 
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 function applySecurityHeaders(response: NextResponse): void {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set(
-    'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=()'
-  );
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  response.headers.set('Content-Security-Policy', CSP);
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  }
 }
 
 // ---------------------------------------------------------------------------
 // CORS helpers
 // ---------------------------------------------------------------------------
 
+const ALLOWED_ORIGIN = process.env.NEXT_PUBLIC_APP_URL;
 const ALLOWED_METHODS = 'GET,POST,PUT,PATCH,DELETE,OPTIONS';
 const ALLOWED_HEADERS = 'Content-Type, Authorization, X-CSRF-Token, X-Request-Id';
 
 function applyCorsHeaders(response: NextResponse, request: NextRequest): void {
-  const origin =
-    process.env.NEXT_PUBLIC_APP_URL ?? request.headers.get('Origin') ?? '*';
-  response.headers.set('Access-Control-Allow-Origin', origin);
+  if (!ALLOWED_ORIGIN) return;
+  const requestOrigin = request.headers.get('Origin');
+  if (!requestOrigin || requestOrigin !== ALLOWED_ORIGIN) return;
+  response.headers.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   response.headers.set('Access-Control-Allow-Credentials', 'true');
   response.headers.set('Access-Control-Allow-Methods', ALLOWED_METHODS);
   response.headers.set('Access-Control-Allow-Headers', ALLOWED_HEADERS);

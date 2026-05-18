@@ -24,8 +24,8 @@ function setAuthCookies(response: NextResponse, accessToken: string, refreshToke
   response.cookies.set('refresh_token', refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
+    sameSite: 'strict',
+    path: '/api/auth',
     maxAge: 7 * 24 * 60 * 60,
   });
 }
@@ -55,7 +55,6 @@ export async function POST(req: NextRequest) {
     const useCase = new RefreshTokenUseCase(
       registry.userRepository,
       registry.refreshTokenRepository,
-      registry.passwordHasher,
       registry.tokenService,
     );
 

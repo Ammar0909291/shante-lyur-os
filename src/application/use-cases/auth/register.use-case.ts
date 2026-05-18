@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { User, RefreshToken } from '@/domain/entities';
 import { UserRole, UserStatus } from '@/domain/enums';
 import { Email, PhoneNumber } from '@/domain/value-objects';
@@ -71,7 +72,7 @@ export class RegisterUseCase {
     const refreshToken = new RefreshToken({
       id: crypto.randomUUID(),
       userId: saved.id,
-      tokenHash: await this.passwordHasher.hash(refreshTokenStr),
+      tokenHash: createHash('sha256').update(refreshTokenStr).digest('hex'),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       ipAddress,
       createdAt: new Date(),
@@ -81,7 +82,7 @@ export class RegisterUseCase {
 
     await this.emailService.sendTemplate(saved.email.value, 'welcome', {
       firstName: saved.firstName,
-      verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${accessToken}`,
+      verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${crypto.randomUUID()}&id=${saved.id}`,
     });
 
     await this.eventBus.publish(

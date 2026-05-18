@@ -39,4 +39,8 @@ export class RefreshToken extends BaseEntity {
     this.props.revokedAt = new Date();
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: RefreshTokenProps): RefreshToken {
+    return new RefreshToken(props);
+  }
 }
