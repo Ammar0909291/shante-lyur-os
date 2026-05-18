@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,8 @@ type FieldErrors = Partial<Record<keyof LoginFields, string>>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') ?? '/dashboard';
   const [fields, setFields] = React.useState<LoginFields>({ email: '', password: '' });
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [serverError, setServerError] = React.useState('');
@@ -58,7 +60,7 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.push('/dashboard');
+        router.push(redirectTo);
         router.refresh();
         return;
       }

@@ -5,6 +5,7 @@ import { Bell, Menu, LogOut, User, ChevronDown } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
+import { useAuth } from '@/context/auth-context';
 
 interface HeaderProps {
   title: string;
@@ -46,14 +47,18 @@ function NotificationBell() {
   );
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Суперадминистратор',
+  ADMIN:       'Администратор',
+  OPERATOR:    'Оператор',
+  SPECIALIST:  'Специалист',
+  CLIENT:      'Клиент',
+};
+
 function UserMenu() {
-  const handleLogout = React.useCallback(async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } finally {
-      window.location.href = '/login';
-    }
-  }, []);
+  const { user, logout } = useAuth();
+  const fullName = user ? `${user.firstName} ${user.lastName}` : 'Пользователь';
+  const roleLabel = user ? (ROLE_LABELS[user.role] ?? user.role) : '';
 
   return (
     <DropdownMenu.Root>
@@ -66,10 +71,10 @@ function UserMenu() {
           )}
           aria-label="Меню пользователя"
         >
-          <Avatar name="Admin User" size="sm" />
+          <Avatar name={fullName} size="sm" />
           <div className="hidden sm:flex flex-col items-start">
-            <span className="text-sm font-medium text-text-primary leading-tight">Администратор</span>
-            <span className="text-[10px] text-text-tertiary uppercase tracking-wider">admin</span>
+            <span className="text-sm font-medium text-text-primary leading-tight">{fullName}</span>
+            <span className="text-[10px] text-text-tertiary uppercase tracking-wider">{roleLabel}</span>
           </div>
           <ChevronDown className="w-4 h-4 text-text-tertiary hidden sm:block" aria-hidden="true" />
         </button>
@@ -86,8 +91,8 @@ function UserMenu() {
           sideOffset={8}
         >
           <div className="px-3 py-2.5 border-b border-border-luxury">
-            <p className="text-sm font-medium text-text-primary">Администратор</p>
-            <p className="text-xs text-text-tertiary mt-0.5">admin@shantelyur.ru</p>
+            <p className="text-sm font-medium text-text-primary">{fullName}</p>
+            <p className="text-xs text-text-tertiary mt-0.5">{user?.email ?? ''}</p>
           </div>
 
           <div className="p-1">
@@ -114,7 +119,7 @@ function UserMenu() {
                 'focus:outline-none focus:bg-red-500/10 focus:text-red-300',
                 'transition-colors',
               )}
-              onSelect={handleLogout}
+              onSelect={logout}
             >
               <LogOut className="w-4 h-4" aria-hidden="true" />
               Выйти

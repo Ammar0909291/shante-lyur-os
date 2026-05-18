@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Badge, getSpecialistStatusBadgeVariant, getSpecialistStatusLabel } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { SpecialistForm, type SpecialistRecord } from '@/components/specialists/specialist-form';
+import { apiFetch } from '@/lib/api-fetch';
 import { cn, pluralize } from '@/lib/utils';
 
 // ── Localization constants ──────────────────────────────────────────────────
@@ -287,7 +288,7 @@ export default function SpecialistsPage() {
       const url = statusFilter !== 'ALL'
         ? `/api/admin/specialists?status=${statusFilter}&limit=100`
         : '/api/admin/specialists?limit=100';
-      const res = await fetch(url);
+      const res = await apiFetch(url);
       const json = await res.json();
       if (!res.ok || !json.success) {
         setLoadError(json.error?.message ?? LABELS.loadingError);
@@ -333,7 +334,7 @@ export default function SpecialistsPage() {
 
   async function quickStatusChange(id: string, status: string) {
     try {
-      const res = await fetch(`/api/admin/specialists/${id}`, {
+      const res = await apiFetch(`/api/admin/specialists/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),

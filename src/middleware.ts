@@ -22,6 +22,9 @@ const PUBLIC_API_ROUTES = [
 
 const ADMIN_ONLY = ['/api/admin'];
 
+// Page routes that do NOT require authentication
+const PUBLIC_PAGE_ROUTES = ['/login', '/register', '/forgot-password'];
+
 function isProtectedRoute(pathname: string): boolean {
   return PROTECTED_API_ROUTES.some((route) => pathname.startsWith(route));
 }
@@ -38,6 +41,10 @@ function isApiRoute(pathname: string): boolean {
   return pathname.startsWith('/api');
 }
 
+function isPublicPage(pathname: string): boolean {
+  return PUBLIC_PAGE_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
 // ---------------------------------------------------------------------------
 // JWT helpers (edge-compatible)
 // ---------------------------------------------------------------------------
@@ -49,9 +56,10 @@ interface AccessPayload {
 }
 
 function getJwtSecret(): Uint8Array {
+  // Must match the order used by JwtTokenService — ACCESS_SECRET is authoritative
   const secret =
-    process.env.JWT_SECRET ??
     process.env.JWT_ACCESS_SECRET ??
+    process.env.JWT_SECRET ??
     'dev-access-secret-change-me';
   return new TextEncoder().encode(secret);
 }
@@ -138,10 +146,46 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-request-id', crypto.randomUUID());
 
-  // Skip auth checks for public routes
-  if (!isApiRoute(pathname) || isPublicRoute(pathname)) {
+  // ── Page-level auth guard ──────────────────────────────────────────────────
+  if (!isApiRoute(pathname)) {
+    const token = extractToken(request);
+    const user  = token ? await verifyToken(token) : null;
+
+    if (isPublicPage(pathname)) {
+      // Already authenticated → bounce to dashboard
+      if (user) {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
+      // Not authenticated → let the public page render
+      const response = NextResponse.next({ request: { headers: requestHeaders } });
+      applySecurityHeaders(response);
+      return response;
+    }
+
+    // Protected page — require valid token
+    if (!user) {
+      const loginUrl = new URL('/login', request.url);
+      // Preserve the original destination so login can redirect back
+      if (pathname !== '/' && pathname !== '/dashboard') {
+        loginUrl.searchParams.set('redirect', pathname);
+      }
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // Authenticated — inject identity headers into page request (SSR routes can use them)
+    requestHeaders.set('x-user-id',   user.userId);
+    requestHeaders.set('x-user-role', user.role);
+
     const response = NextResponse.next({ request: { headers: requestHeaders } });
-    if (isApiRoute(pathname)) applyCorsHeaders(response, request);
+    applySecurityHeaders(response);
+    return response;
+  }
+  // ── End page-level guard ───────────────────────────────────────────────────
+
+  // Skip auth checks for public API routes
+  if (isPublicRoute(pathname)) {
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    applyCorsHeaders(response, request);
     applySecurityHeaders(response);
     return response;
   }
