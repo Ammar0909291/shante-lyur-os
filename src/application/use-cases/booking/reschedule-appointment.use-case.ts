@@ -67,7 +67,7 @@ export class RescheduleAppointmentUseCase {
     }
 
     const dayOfWeek = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][dto.newStartAt.getDay()] as any;
-    const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(appointment.specialistId, dayOfWeek);
+    const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(appointment.specialistId, dayOfWeek, dto.newStartAt);
     const validSchedule = schedules.find(s => {
       if (!s.isActive || !s.isValidForDate(dto.newStartAt)) return false;
       const startMin = s.startMinutes;

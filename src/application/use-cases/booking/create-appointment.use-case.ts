@@ -46,7 +46,7 @@ export class CreateAppointmentUseCase {
     actorRole: UserRole
   ): Promise<CreateAppointmentResult> {
     // Authorization
-    if (actorRole === UserRole.CLIENT && clientId !== clientId) {
+    if (actorRole === UserRole.CLIENT && dto.clientId !== clientId) {
       throw new ForbiddenError('Clients can only book for themselves');
     }
 
@@ -123,7 +123,7 @@ export class CreateAppointmentUseCase {
 
     // Check working schedule
     const dayOfWeek = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][dto.startAt.getDay()] as any;
-    const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(specialist.id, dayOfWeek);
+    const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(specialist.id, dayOfWeek, dto.startAt);
     const validSchedule = schedules.find(s => {
       if (!s.isActive || !s.isValidForDate(dto.startAt)) return false;
       const startMin = s.startMinutes;
