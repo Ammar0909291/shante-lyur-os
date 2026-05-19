@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['bcryptjs'],
+    serverComponentsExternalPackages: ['bcryptjs', 'nodemailer', 'jsonwebtoken'],
   },
   images: {
     domains: ['localhost'],

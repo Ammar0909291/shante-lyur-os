@@ -1,29 +1,34 @@
-import nodemailer from 'nodemailer';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const nodemailer = require('nodemailer') as typeof import('nodemailer');
+
 import { EmailServicePort } from '@/application/ports/email-service.port';
 
 export class SmtpEmailService implements EmailServicePort {
-  private readonly transporter: nodemailer.Transporter;
+  private _transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 
-  constructor() {
+  private getTransporter() {
+    if (this._transporter) return this._transporter;
+
     const host = process.env.SMTP_HOST ?? 'smtp.gmail.com';
     const port = parseInt(process.env.SMTP_PORT ?? '587', 10);
     const user = process.env.SMTP_USER ?? '';
     const pass = process.env.SMTP_PASS ?? '';
     const secure = port === 465;
 
-    this.transporter = nodemailer.createTransporter({
+    this._transporter = nodemailer.createTransport({
       host,
       port,
       secure,
       auth: user && pass ? { user, pass } : undefined,
       tls: { rejectUnauthorized: false },
     });
+
+    return this._transporter;
   }
 
   async send(to: string, subject: string, html: string, text?: string): Promise<void> {
     const from = process.env.SMTP_FROM ?? 'noreply@shantelyur.ru';
-
-    await this.transporter.sendMail({
+    await this.getTransporter().sendMail({
       from,
       to,
       subject,
