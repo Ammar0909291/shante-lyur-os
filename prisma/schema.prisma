@@ -65,6 +65,8 @@ model User {
   processedRefunds        Refund[]        @relation("RefundProcessedBy")
   createdPromoCodes       PromoCode[]     @relation("PromoCodeCreatedBy")
   promoCodeUsages         PromoCodeUsage[]
+  sentMessages            InternalMessage[] @relation("SentMessages")
+  receivedMessages        InternalMessage[] @relation("ReceivedMessages")
 
   @@index([email])
   @@index([role, status])
@@ -311,6 +313,7 @@ model Appointment {
   procedureHistory ProcedureHistory[]
   revenueRecords   RevenueRecord[]
   promoCodeUsages  PromoCodeUsage[]
+  internalMessages InternalMessage[]
 
   @@index([clientId, startAt])
   @@index([specialistId, startAt])
@@ -449,6 +452,7 @@ model CustomerProfile {
   tags                 CustomerTag[]
   referralsGiven       Referral[]          @relation("Referrer")
   referralsReceived    Referral[]          @relation("Referred")
+  internalMessages     InternalMessage[]
 
   @@index([userId])
   @@index([loyaltyTier])
@@ -909,4 +913,38 @@ model DailyMetrics {
 
   @@index([date])
   @@map("daily_metrics")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 13. INTERNAL STAFF COMMUNICATION
+// ═══════════════════════════════════════════════════════════════
+
+enum MessageVisibility {
+  BROADCAST  // visible to all staff (no specific recipient)
+  DIRECT     // only sender and recipient
+}
+
+model InternalMessage {
+  id            String            @id @default(uuid()) @db.Uuid
+  senderId      String            @map("sender_id") @db.Uuid
+  recipientId   String?           @map("recipient_id") @db.Uuid
+  content       String            @db.Text
+  appointmentId String?           @map("appointment_id") @db.Uuid
+  profileId     String?           @map("profile_id") @db.Uuid
+  visibility    MessageVisibility @default(BROADCAST)
+  isRead        Boolean           @default(false) @map("is_read")
+  readAt        DateTime?         @map("read_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  sender      User             @relation("SentMessages",     fields: [senderId],    references: [id], onDelete: Cascade)
+  recipient   User?            @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: SetNull)
+  appointment Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  profile     CustomerProfile? @relation(fields: [profileId],     references: [id], onDelete: SetNull)
+
+  @@index([senderId, createdAt])
+  @@index([recipientId, createdAt])
+  @@index([appointmentId])
+  @@index([profileId])
+  @@index([visibility, createdAt])
+  @@map("internal_messages")
 }

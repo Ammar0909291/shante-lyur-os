@@ -37,7 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'specialists', href: '/specialists',            icon: Sparkles,   roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
   { key: 'services',   href: '/services',               icon: Flower2,    roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
   { key: 'analytics',  href: '/analytics',              icon: BarChart3,  roles: ['SUPER_ADMIN', 'ADMIN'] },
-  { key: 'chat',       href: '/chat',                   icon: MessageSquare, comingSoon: true },
+  { key: 'chat',       href: '/chat',                   icon: MessageSquare },
   { key: 'settings',   href: '/settings',               icon: Settings,   roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
 

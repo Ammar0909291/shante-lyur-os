@@ -15,3 +15,4 @@ export * from './notification-channel.enum';
 export * from './notification-type.enum';
 export * from './notification-status.enum';
 export * from './audit-action.enum';
+export * from './message-visibility.enum';

@@ -12,6 +12,8 @@ const PROTECTED_API_ROUTES = [
   '/api/admin',
   '/api/payments',
   '/api/specialists',
+  '/api/messages',
+  '/api/staff',
 ];
 
 const AUTH_ROUTES = ['/api/auth/login', '/api/auth/register'];

@@ -29,3 +29,4 @@ export * from './customer-restriction-repository.port';
 export * from './specialist-note-repository.port';
 export * from './procedure-history-repository.port';
 export * from './customer-tag-repository.port';
+export * from './internal-message-repository.port';

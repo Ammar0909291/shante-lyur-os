@@ -4,6 +4,7 @@ import * as React from 'react';
 import {
   Plus, Search, Calendar, Clock, Filter,
   MoreVertical, CheckCircle, Play, XCircle, AlertCircle, RefreshCw,
+  MessageSquare, Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -625,6 +626,73 @@ function RescheduleModal({
   );
 }
 
+// ── Quick note modal ───────────────────────────────────────────────────────
+
+function QuickNoteModal({
+  apt,
+  onClose,
+}: {
+  apt: AppointmentItem;
+  onClose: () => void;
+}) {
+  const [content, setContent] = React.useState('');
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!content.trim() || submitting) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await apiFetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: content.trim(), appointmentId: apt.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) { setError(json.error?.message ?? 'Ошибка'); return; }
+      onClose();
+    } catch { setError('Ошибка соединения'); }
+    finally { setSubmitting(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={!submitting ? onClose : undefined} aria-hidden="true" />
+      <div className="relative z-10 w-full max-w-md bg-onyx border border-border-luxury rounded-2xl shadow-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-serif text-lg font-medium text-text-primary">Заметка к записи</h3>
+            <p className="text-sm text-text-tertiary mt-0.5">
+              {apt.clientName} · {new Date(apt.startAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors" aria-label="Закрыть">✕</button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <textarea
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            placeholder="Например: клиентка просила теплое масло, не трогать область шеи..."
+            rows={4}
+            autoFocus
+            className="w-full resize-none rounded-xl px-4 py-2.5 text-sm bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-colors"
+          />
+          {error && <p className="text-xs text-red-400">{error}</p>}
+          <p className="text-[10px] text-text-tertiary">Заметка будет видна всем сотрудникам в разделе «Коммуникация»</p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={submitting}>Отмена</Button>
+            <Button type="submit" variant="primary" size="sm" leftIcon={<Send className="w-3.5 h-3.5" />} isLoading={submitting} disabled={!content.trim()}>
+              Отправить
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Action menu ────────────────────────────────────────────────────────────
 
 function BookingActions({
@@ -632,11 +700,13 @@ function BookingActions({
   onStatusChange,
   onCancel,
   onReschedule,
+  onNote,
 }: {
   apt: AppointmentItem;
   onStatusChange: (id: string, status: string) => void;
   onCancel: (id: string) => void;
   onReschedule: (apt: AppointmentItem) => void;
+  onNote: (apt: AppointmentItem) => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -716,10 +786,17 @@ function BookingActions({
               Перенести
             </button>
           )}
+          <button
+            onClick={() => { setOpen(false); onNote(apt); }}
+            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-text-secondary hover:text-champagne hover:bg-champagne/8 transition-colors text-left border-t border-border-luxury mt-1"
+          >
+            <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+            Заметка
+          </button>
           {canCancel && (
             <button
               onClick={() => { setOpen(false); onCancel(apt.id); }}
-              className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/8 transition-colors text-left border-t border-border-luxury mt-1"
+              className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/8 transition-colors text-left border-t border-border-luxury"
             >
               <XCircle className="w-3.5 h-3.5 shrink-0" />
               Отменить
@@ -738,11 +815,13 @@ function BookingRow({
   onStatusChange,
   onCancel,
   onReschedule,
+  onNote,
 }: {
   apt: AppointmentItem;
   onStatusChange: (id: string, status: string) => void;
   onCancel: (id: string) => void;
   onReschedule: (apt: AppointmentItem) => void;
+  onNote: (apt: AppointmentItem) => void;
 }) {
   const startAt = new Date(apt.startAt);
   return (
@@ -770,7 +849,7 @@ function BookingRow({
         {formatCurrency(apt.totalPrice)}
       </td>
       <td className="px-4 py-4 text-right">
-        <BookingActions apt={apt} onStatusChange={onStatusChange} onCancel={onCancel} onReschedule={onReschedule} />
+        <BookingActions apt={apt} onStatusChange={onStatusChange} onCancel={onCancel} onReschedule={onReschedule} onNote={onNote} />
       </td>
     </tr>
   );
@@ -783,11 +862,13 @@ function BookingCard({
   onStatusChange,
   onCancel,
   onReschedule,
+  onNote,
 }: {
   apt: AppointmentItem;
   onStatusChange: (id: string, status: string) => void;
   onCancel: (id: string) => void;
   onReschedule: (apt: AppointmentItem) => void;
+  onNote: (apt: AppointmentItem) => void;
 }) {
   const startAt = new Date(apt.startAt);
   return (
@@ -797,7 +878,7 @@ function BookingCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <p className="font-medium text-text-primary text-sm truncate">{apt.clientName}</p>
-            <BookingActions apt={apt} onStatusChange={onStatusChange} onCancel={onCancel} onReschedule={onReschedule} />
+            <BookingActions apt={apt} onStatusChange={onStatusChange} onCancel={onCancel} onReschedule={onReschedule} onNote={onNote} />
           </div>
           <p className="text-xs text-text-tertiary mt-0.5 truncate">{apt.serviceName} · {apt.specialistName}</p>
           <div className="flex items-center gap-3 mt-2">
@@ -891,6 +972,7 @@ export default function BookingsPage() {
   const [cancelTarget, setCancelTarget] = React.useState<string | null>(null);
   const [cancelling, setCancelling] = React.useState(false);
   const [rescheduleTarget, setRescheduleTarget] = React.useState<AppointmentItem | null>(null);
+  const [noteTarget, setNoteTarget] = React.useState<AppointmentItem | null>(null);
   const [view, setView] = React.useState<'list' | 'timeline'>('list');
   const [selectedDate, setSelectedDate] = React.useState(
     () => new Date().toISOString().split('T')[0],
@@ -1219,6 +1301,7 @@ export default function BookingsPage() {
                     onStatusChange={handleStatusChange}
                     onCancel={id => setCancelTarget(id)}
                     onReschedule={setRescheduleTarget}
+                    onNote={setNoteTarget}
                   />
                 ))}
               </tbody>
@@ -1236,6 +1319,7 @@ export default function BookingsPage() {
                 onStatusChange={handleStatusChange}
                 onCancel={id => setCancelTarget(id)}
                 onReschedule={setRescheduleTarget}
+                onNote={setNoteTarget}
               />
             ))}
           </div>
@@ -1262,6 +1346,12 @@ export default function BookingsPage() {
           apt={rescheduleTarget}
           onClose={() => setRescheduleTarget(null)}
           onRescheduled={handleRescheduled}
+        />
+      )}
+      {noteTarget && (
+        <QuickNoteModal
+          apt={noteTarget}
+          onClose={() => setNoteTarget(null)}
         />
       )}
     </div>
