@@ -9,6 +9,7 @@ export const AppointmentServiceItemSchema = z.object({
 });
 
 export const CreateAppointmentSchema = z.object({
+  clientId: z.string().uuid().optional(), // admin/operator: book on behalf of a client
   specialistId: z.string().uuid(),
   locationId: z.string().uuid(),
   startAt: z.coerce.date(),
