@@ -11,6 +11,7 @@ import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } fr
 import { Avatar } from '@/components/ui/avatar';
 import { apiFetch } from '@/lib/api-fetch';
 import { cn, formatTime, formatCurrency } from '@/lib/utils';
+import { TimelineView } from '@/components/bookings/timeline-view';
 
 // ── Time slot generation (:00/:15/:30/:45 only) ────────────────────────────
 
@@ -36,6 +37,8 @@ interface AppointmentItem {
   clientName: string;
   specialistId: string;
   specialistName: string;
+  specialistColor: string | null;
+  specialistSpecialization: string | null;
   locationId: string;
   startAt: string;
   endAt: string;
@@ -888,6 +891,7 @@ export default function BookingsPage() {
   const [cancelTarget, setCancelTarget] = React.useState<string | null>(null);
   const [cancelling, setCancelling] = React.useState(false);
   const [rescheduleTarget, setRescheduleTarget] = React.useState<AppointmentItem | null>(null);
+  const [view, setView] = React.useState<'list' | 'timeline'>('list');
   const [selectedDate, setSelectedDate] = React.useState(
     () => new Date().toISOString().split('T')[0],
   );
@@ -990,6 +994,42 @@ export default function BookingsPage() {
     setAppointments(list => list.map(a => a.id === updated.id ? updated : a));
   }
 
+  async function handleTimelineDrop(aptId: string, newStartAtLocal: string) {
+    const apt = appointments.find(a => a.id === aptId);
+    if (!apt) return;
+    // Parse local datetime string as local time using Date constructor parts
+    const [datePart, timePart] = newStartAtLocal.split('T');
+    const [y, mo, d] = datePart.split('-').map(Number);
+    const [h, m] = timePart.replace(':00', '').split(':').map(Number);
+    const newStart = new Date(y, mo - 1, d, h, m, 0);
+    const newEnd   = new Date(newStart.getTime() + apt.totalDuration * 60_000);
+
+    const prev = appointments;
+    setAppointments(list => list.map(a => a.id === aptId
+      ? { ...a, startAt: newStart.toISOString(), endAt: newEnd.toISOString(), status: 'CONFIRMED' }
+      : a
+    ));
+
+    try {
+      const res = await apiFetch(`/api/appointments/${aptId}/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newStartAt: newStart.toISOString() }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setAppointments(prev);
+        showActionError(json.error?.message ?? 'Не удалось перенести запись');
+      } else {
+        const updated = json.data.appointment as AppointmentItem;
+        setAppointments(list => list.map(a => a.id === aptId ? updated : a));
+      }
+    } catch {
+      setAppointments(prev);
+      showActionError('Ошибка сети при переносе');
+    }
+  }
+
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
       {/* Page header */}
@@ -1003,9 +1043,28 @@ export default function BookingsPage() {
             )}
           </p>
         </div>
-        <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
-          Новая запись
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex rounded-lg border border-border-luxury overflow-hidden">
+            {(['list', 'timeline'] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium transition-colors',
+                  view === v
+                    ? 'bg-champagne/12 text-champagne'
+                    : 'text-text-secondary hover:text-text-primary bg-charcoal',
+                )}
+              >
+                {v === 'list' ? 'Список' : 'Расписание'}
+              </button>
+            ))}
+          </div>
+          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
+            Новая запись
+          </Button>
+        </div>
       </div>
 
       {/* Action error banner */}
@@ -1094,8 +1153,20 @@ export default function BookingsPage() {
         </p>
       </div>
 
-      {/* Content */}
-      <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
+      {/* Timeline view */}
+      {view === 'timeline' && !loading && !error && (
+        <TimelineView
+          appointments={filtered}
+          selectedDate={selectedDate}
+          onDrop={handleTimelineDrop}
+          onStatusChange={handleStatusChange}
+          onCancel={id => setCancelTarget(id)}
+          onReschedule={setRescheduleTarget}
+        />
+      )}
+
+      {/* List view content */}
+      {view === 'list' && <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
         {loading && (
           <div className="flex items-center justify-center py-16 text-text-tertiary text-sm">Загрузка...</div>
         )}
@@ -1169,7 +1240,7 @@ export default function BookingsPage() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Modals */}
       {showModal && (

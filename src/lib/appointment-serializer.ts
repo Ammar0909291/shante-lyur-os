@@ -7,6 +7,8 @@ export interface SerializedAppointment {
   clientName: string;
   specialistId: string;
   specialistName: string;
+  specialistColor: string | null;
+  specialistSpecialization: string | null;
   locationId: string;
   startAt: string;
   endAt: string;
@@ -63,6 +65,8 @@ export async function serializeAppointments(items: Appointment[]): Promise<Seria
       clientName,
       specialistId: a.specialistId,
       specialistName,
+      specialistColor: specialist?.color?.value ?? null,
+      specialistSpecialization: specialist?.specialization ?? null,
       locationId: a.locationId,
       startAt: a.timeSlot.start.toISOString(),
       endAt: a.timeSlot.end.toISOString(),
