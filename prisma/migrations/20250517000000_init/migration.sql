@@ -1,8 +1,175 @@
 -- Initial Migration for Shante Lyur OS Pro v3
--- Generated: 2026-05-17
+-- Generated: 2026-05-17 (fixed: native PostgreSQL enum types)
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ═══════════════════════════════════════════════════════════════
+-- ENUM TYPES (must be created before tables that use them)
+-- ═══════════════════════════════════════════════════════════════
+
+CREATE TYPE "UserRole" AS ENUM (
+    'SUPER_ADMIN',
+    'ADMIN',
+    'OPERATOR',
+    'SPECIALIST',
+    'CLIENT'
+);
+
+CREATE TYPE "UserStatus" AS ENUM (
+    'ACTIVE',
+    'INACTIVE',
+    'SUSPENDED',
+    'PENDING_VERIFICATION'
+);
+
+CREATE TYPE "SpecialistStatus" AS ENUM (
+    'ACTIVE',
+    'INACTIVE',
+    'ON_VACATION',
+    'TERMINATED'
+);
+
+CREATE TYPE "ServiceCategory" AS ENUM (
+    'COSMETOLOGY',
+    'MASSAGE',
+    'INJECTION',
+    'LASER',
+    'BODY_CONTOURING',
+    'HAIR_REMOVAL',
+    'FACIAL',
+    'OTHER'
+);
+
+CREATE TYPE "AppointmentStatus" AS ENUM (
+    'PENDING',
+    'CONFIRMED',
+    'IN_PROGRESS',
+    'COMPLETED',
+    'CANCELLED',
+    'NO_SHOW',
+    'RESCHEDULED'
+);
+
+CREATE TYPE "CancellationReason" AS ENUM (
+    'CLIENT_REQUEST',
+    'SPECIALIST_UNAVAILABLE',
+    'WEATHER',
+    'EMERGENCY',
+    'NO_SHOW',
+    'OTHER'
+);
+
+CREATE TYPE "DayOfWeek" AS ENUM (
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY'
+);
+
+CREATE TYPE "NotePrivacy" AS ENUM (
+    'PRIVATE',
+    'SHARED',
+    'ADMIN_ONLY',
+    'CLIENT_VISIBLE'
+);
+
+CREATE TYPE "PaymentProvider" AS ENUM (
+    'YOOKASSA',
+    'ROBOKASSA',
+    'CASH',
+    'CARD_TERMINAL',
+    'TRANSFER',
+    'INTERNAL'
+);
+
+CREATE TYPE "PaymentStatus" AS ENUM (
+    'PENDING',
+    'PROCESSING',
+    'AUTHORIZED',
+    'CAPTURED',
+    'PARTIALLY_REFUNDED',
+    'FULLY_REFUNDED',
+    'FAILED',
+    'CANCELLED',
+    'EXPIRED'
+);
+
+CREATE TYPE "RefundStatus" AS ENUM (
+    'PENDING',
+    'PROCESSING',
+    'COMPLETED',
+    'FAILED'
+);
+
+CREATE TYPE "DiscountType" AS ENUM (
+    'PERCENTAGE',
+    'FIXED_AMOUNT',
+    'FREE_SERVICE'
+);
+
+CREATE TYPE "RevenueType" AS ENUM (
+    'SERVICE_PAYMENT',
+    'PRODUCT_SALE',
+    'GIFT_CARD',
+    'SUBSCRIPTION',
+    'PENALTY',
+    'REFUND',
+    'COMMISSION',
+    'OTHER'
+);
+
+CREATE TYPE "NotificationChannel" AS ENUM (
+    'EMAIL',
+    'SMS',
+    'PUSH',
+    'IN_APP'
+);
+
+CREATE TYPE "NotificationType" AS ENUM (
+    'APPOINTMENT_CONFIRMED',
+    'APPOINTMENT_REMINDER',
+    'APPOINTMENT_CANCELLED',
+    'APPOINTMENT_RESCHEDULED',
+    'PAYMENT_RECEIVED',
+    'PAYMENT_FAILED',
+    'PROMO_CODE',
+    'WELCOME',
+    'PASSWORD_RESET',
+    'SYSTEM'
+);
+
+CREATE TYPE "NotificationStatus" AS ENUM (
+    'PENDING',
+    'SENT',
+    'DELIVERED',
+    'FAILED',
+    'READ'
+);
+
+CREATE TYPE "AuditAction" AS ENUM (
+    'CREATE',
+    'UPDATE',
+    'DELETE',
+    'LOGIN',
+    'LOGOUT',
+    'LOGIN_FAILED',
+    'PASSWORD_CHANGED',
+    'ROLE_CHANGED',
+    'STATUS_CHANGED',
+    'PAYMENT_PROCESSED',
+    'REFUND_ISSUED',
+    'EXPORT',
+    'IMPORT',
+    'SETTINGS_CHANGED'
+);
+
+-- ═══════════════════════════════════════════════════════════════
+-- TABLES
+-- ═══════════════════════════════════════════════════════════════
 
 -- 1. Users
 CREATE TABLE "users" (
@@ -13,8 +180,8 @@ CREATE TABLE "users" (
     "last_name" VARCHAR(100) NOT NULL,
     "phone" VARCHAR(30),
     "avatar_url" TEXT,
-    "role" TEXT NOT NULL DEFAULT 'CLIENT',
-    "status" TEXT NOT NULL DEFAULT 'PENDING_VERIFICATION',
+    "role" "UserRole" NOT NULL DEFAULT 'CLIENT',
+    "status" "UserStatus" NOT NULL DEFAULT 'PENDING_VERIFICATION',
     "email_verified" BOOLEAN NOT NULL DEFAULT false,
     "phone_verified" BOOLEAN NOT NULL DEFAULT false,
     "last_login_at" TIMESTAMP(3),
@@ -78,7 +245,7 @@ CREATE TABLE "specialists" (
     "rating" DECIMAL(2,1),
     "review_count" INTEGER NOT NULL DEFAULT 0,
     "commission_rate" DECIMAL(5,4) NOT NULL DEFAULT 0.30,
-    "status" TEXT NOT NULL DEFAULT 'ACTIVE',
+    "status" "SpecialistStatus" NOT NULL DEFAULT 'ACTIVE',
     "color" VARCHAR(7),
     "sort_order" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -98,7 +265,7 @@ CREATE TABLE "services" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" VARCHAR(255) NOT NULL,
     "description" TEXT,
-    "category" TEXT NOT NULL DEFAULT 'OTHER',
+    "category" "ServiceCategory" NOT NULL DEFAULT 'OTHER',
     "base_price" DECIMAL(10,2) NOT NULL,
     "base_duration" INTEGER NOT NULL,
     "image_url" TEXT,
@@ -180,11 +347,11 @@ CREATE TABLE "appointments" (
     "location_id" UUID NOT NULL,
     "start_at" TIMESTAMP(3) NOT NULL,
     "end_at" TIMESTAMP(3) NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "status" "AppointmentStatus" NOT NULL DEFAULT 'PENDING',
     "total_price" DECIMAL(10,2) NOT NULL,
     "total_duration" INTEGER NOT NULL,
     "notes" TEXT,
-    "cancellation_reason" TEXT,
+    "cancellation_reason" "CancellationReason",
     "cancelled_at" TIMESTAMP(3),
     "cancelled_by" UUID,
     "no_show_at" TIMESTAMP(3),
@@ -229,7 +396,7 @@ CREATE TABLE "working_schedules" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "specialist_id" UUID NOT NULL,
     "location_id" UUID NOT NULL,
-    "day_of_week" TEXT NOT NULL,
+    "day_of_week" "DayOfWeek" NOT NULL,
     "start_time" VARCHAR(5) NOT NULL,
     "end_time" VARCHAR(5) NOT NULL,
     "break_start" VARCHAR(5),
@@ -359,7 +526,7 @@ CREATE TABLE "specialist_notes" (
     "appointment_id" UUID,
     "note_type" VARCHAR(50) NOT NULL,
     "content" TEXT NOT NULL,
-    "privacy" TEXT NOT NULL DEFAULT 'PRIVATE',
+    "privacy" "NotePrivacy" NOT NULL DEFAULT 'PRIVATE',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -452,11 +619,11 @@ CREATE INDEX "referrals_code_idx" ON "referrals"("code");
 CREATE TABLE "payments" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "appointment_id" UUID NOT NULL,
-    "provider" TEXT NOT NULL,
+    "provider" "PaymentProvider" NOT NULL,
     "provider_payment_id" VARCHAR(255),
     "amount" DECIMAL(10,2) NOT NULL,
     "currency" VARCHAR(3) NOT NULL DEFAULT 'RUB',
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "status" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
     "description" VARCHAR(255),
     "metadata" JSONB,
     "paid_at" TIMESTAMP(3),
@@ -485,7 +652,7 @@ CREATE TABLE "refunds" (
     "provider_refund_id" VARCHAR(255),
     "amount" DECIMAL(10,2) NOT NULL,
     "reason" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "status" "RefundStatus" NOT NULL DEFAULT 'PENDING',
     "processed_at" TIMESTAMP(3),
     "processed_by" UUID,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -502,7 +669,7 @@ CREATE TABLE "promo_codes" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "code" VARCHAR(50) NOT NULL,
     "description" TEXT,
-    "discount_type" TEXT NOT NULL,
+    "discount_type" "DiscountType" NOT NULL,
     "discount_value" DECIMAL(10,2) NOT NULL,
     "max_uses" INTEGER,
     "current_uses" INTEGER NOT NULL DEFAULT 0,
@@ -543,7 +710,7 @@ CREATE INDEX "promo_code_usages_user_id_idx" ON "promo_code_usages"("user_id");
 CREATE TABLE "revenue_records" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "date" DATE NOT NULL,
-    "type" TEXT NOT NULL,
+    "type" "RevenueType" NOT NULL,
     "amount" DECIMAL(12,2) NOT NULL,
     "specialist_id" UUID,
     "service_id" UUID,
@@ -568,9 +735,9 @@ CREATE TABLE "notifications" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "user_id" UUID NOT NULL,
     "appointment_id" UUID,
-    "type" TEXT NOT NULL,
-    "channel" TEXT NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "type" "NotificationType" NOT NULL,
+    "channel" "NotificationChannel" NOT NULL,
+    "status" "NotificationStatus" NOT NULL DEFAULT 'PENDING',
     "title" VARCHAR(255) NOT NULL,
     "body" TEXT NOT NULL,
     "data" JSONB,
@@ -595,7 +762,7 @@ CREATE TABLE "audit_logs" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "user_id" UUID,
     "appointment_id" UUID,
-    "action" TEXT NOT NULL,
+    "action" "AuditAction" NOT NULL,
     "entity_type" VARCHAR(50) NOT NULL,
     "entity_id" UUID,
     "old_values" JSONB,
