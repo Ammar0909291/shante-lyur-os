@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { Settings, Building2, Bell, Shield, Palette, CreditCard, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';

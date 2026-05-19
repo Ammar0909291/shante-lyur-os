@@ -114,7 +114,6 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               'hidden lg:flex p-1.5 rounded-md',
               'text-text-tertiary hover:text-text-primary hover:bg-charcoal',
               'transition-colors',
-              collapsed && 'hidden',
             )}
             aria-label={collapsed ? 'Развернуть' : 'Свернуть'}
           >

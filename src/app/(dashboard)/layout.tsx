@@ -36,13 +36,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       />
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         <Header
           title={title}
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
         />
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1">
           {children}
         </main>
       </div>
