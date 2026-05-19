@@ -1,5 +1,5 @@
 import { UserRole } from '@/domain/enums';
-import { NotFoundError, ForbiddenError } from '@/domain/errors';
+import { NotFoundError } from '@/domain/errors';
 import { UserRoleChangedEvent } from '@/domain/events';
 import {
   IUserRepository,

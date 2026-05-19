@@ -104,4 +104,8 @@ export class CustomerProfile extends BaseEntity {
       this._loyaltyTier = 'BRONZE';
     }
   }
+
+  static reconstitute(props: CustomerProfileProps): CustomerProfile {
+    return new CustomerProfile(props);
+  }
 }

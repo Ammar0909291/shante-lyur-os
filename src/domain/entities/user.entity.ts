@@ -55,6 +55,7 @@ export class User extends BaseEntity {
   get isActive(): boolean {
     return this._status === UserStatus.ACTIVE && !this.isLocked;
   }
+  get avatarUrl(): string | undefined { return this.props.avatarUrl; }
   get passwordHash(): string { return this._passwordHash; }
 
   recordLogin(): void {
@@ -88,7 +89,7 @@ export class User extends BaseEntity {
     this.updatedAt = new Date();
   }
 
-  changeRole(newRole: UserRole, actorRole: UserRole, actorId: string): void {
+  changeRole(newRole: UserRole, _actorRole: UserRole, actorId: string): void {
     if (actorId === this.id && newRole !== this.role) {
       throw new ForbiddenError('Cannot change your own role');
     }
@@ -163,5 +164,9 @@ export class User extends BaseEntity {
     if (!permissions.includes(action)) return false;
     if (targetRole && !canManage(targetRole, this.role)) return false;
     return true;
+  }
+
+  static reconstitute(props: UserProps): User {
+    return new User(props);
   }
 }

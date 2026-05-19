@@ -24,4 +24,8 @@ export class Session extends BaseEntity {
   get isExpired(): boolean {
     return new Date() > this.props.expiresAt;
   }
+
+  static reconstitute(props: SessionProps): Session {
+    return new Session(props);
+  }
 }

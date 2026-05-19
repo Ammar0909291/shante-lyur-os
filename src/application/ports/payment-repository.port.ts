@@ -4,6 +4,7 @@ import { PaymentStatus, PaymentProvider } from '@/domain/enums';
 export interface IPaymentRepository {
   findById(id: string): Promise<Payment | null>;
   findByAppointmentId(appointmentId: string): Promise<Payment[]>;
+  findByIdempotencyKey(key: string): Promise<Payment | null>;
   findByProviderPaymentId(providerId: string, provider: PaymentProvider): Promise<Payment | null>;
   findMany(options: {
     status?: PaymentStatus;

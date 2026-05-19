@@ -1,5 +1,5 @@
 import { BaseDomainEvent } from './domain-event';
-import { PaymentProvider, PaymentStatus } from '../enums';
+import { PaymentProvider } from '../enums';
 
 export class PaymentInitiatedEvent extends BaseDomainEvent {
   constructor(

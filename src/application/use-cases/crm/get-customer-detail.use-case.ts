@@ -3,8 +3,6 @@ import {
   ICustomerProfileRepository,
   IAppointmentRepository,
   IPaymentRepository,
-  ISpecialistNoteRepository,
-  IProcedureHistoryRepository,
 } from '@/application/ports';
 
 export interface CustomerDetailResult {
@@ -27,7 +25,7 @@ export class GetCustomerDetailUseCase {
   constructor(
     private readonly profileRepo: ICustomerProfileRepository,
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly paymentRepo: IPaymentRepository,
+    _paymentRepo: IPaymentRepository,
     private readonly noteRepo: ISpecialistNoteRepository,
     private readonly procedureRepo: IProcedureHistoryRepository,
   ) {}
@@ -38,9 +36,8 @@ export class GetCustomerDetailUseCase {
       throw new NotFoundError('CustomerProfile', profileId);
     }
 
-    const [recentAppointments, payments, recentNotes, procedureHistory] = await Promise.all([
+    const [recentAppointments, recentNotes, procedureHistory] = await Promise.all([
       this.appointmentRepo.findMany({ clientId: profile.userId, limit: 10 }),
-      this.paymentRepo.findMany({ from: new Date('2000-01-01'), to: new Date(), limit: 1000 }),
       this.noteRepo.findByProfile(profileId, 10),
       this.procedureRepo.findByProfile(profileId, 10),
     ]);

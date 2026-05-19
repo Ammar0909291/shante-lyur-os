@@ -1,20 +1,35 @@
-import { PrismaClient } from '@prisma/client';
-import { LocationRepositoryPort } from '@/application/ports/location-repository.port';
+import { PrismaClient, Prisma } from '@prisma/client';
+import { ILocationRepository } from '@/application/ports/location-repository.port';
 import { Location } from '@/domain/entities/location.entity';
-import { PhoneNumber } from '@/domain/value-objects/phone-number.vo';
 
-export class PrismaLocationRepository implements LocationRepositoryPort {
+type RawLocation = {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  phone: string | null;
+  email: string | null;
+  timezone: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export class PrismaLocationRepository implements ILocationRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; name: string; address: string; phone: string | null; email: string | null; timezone: string; isActive: boolean; createdAt: Date; updatedAt: Date }): Location {
+  private toDomain(raw: RawLocation): Location {
     return Location.reconstitute({
       id: raw.id,
       name: raw.name,
       address: raw.address,
-      phone: raw.phone ? PhoneNumber.create(raw.phone).getValue() : undefined,
+      city: raw.city,
+      phone: raw.phone ?? undefined,
       email: raw.email ?? undefined,
       timezone: raw.timezone,
       isActive: raw.isActive,
+      sortOrder: raw.sortOrder,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
     });
@@ -26,8 +41,20 @@ export class PrismaLocationRepository implements LocationRepositoryPort {
   }
 
   async findAll(): Promise<Location[]> {
-    const raws = await this.db.location.findMany({ orderBy: { name: 'asc' } });
+    const raws = await this.db.location.findMany({ orderBy: { sortOrder: 'asc' } });
     return raws.map(r => this.toDomain(r));
+  }
+
+  async findMany(options?: { isActive?: boolean; page?: number; limit?: number }): Promise<{ items: Location[]; total: number }> {
+    const { isActive, page = 1, limit = 50 } = options ?? {};
+    const where: Prisma.LocationWhereInput = {};
+    if (isActive !== undefined) where.isActive = isActive;
+
+    const [raws, total] = await Promise.all([
+      this.db.location.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { sortOrder: 'asc' } }),
+      this.db.location.count({ where }),
+    ]);
+    return { items: raws.map(r => this.toDomain(r)), total };
   }
 
   async create(location: Location): Promise<Location> {
@@ -36,10 +63,12 @@ export class PrismaLocationRepository implements LocationRepositoryPort {
         id: location.id,
         name: location.name,
         address: location.address,
+        city: location.city,
         phone: location.phone,
         email: location.email,
         timezone: location.timezone,
         isActive: location.isActive,
+        sortOrder: location.sortOrder,
       },
     });
     return this.toDomain(raw);
@@ -51,10 +80,12 @@ export class PrismaLocationRepository implements LocationRepositoryPort {
       data: {
         name: location.name,
         address: location.address,
+        city: location.city,
         phone: location.phone,
         email: location.email,
         timezone: location.timezone,
         isActive: location.isActive,
+        sortOrder: location.sortOrder,
         updatedAt: new Date(),
       },
     });

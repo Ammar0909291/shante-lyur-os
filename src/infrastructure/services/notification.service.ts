@@ -1,16 +1,15 @@
-import { NotificationServicePort } from '@/application/ports/notification-service.port';
-import { EmailServicePort } from '@/application/ports/email-service.port';
-import { NotificationRepositoryPort } from '@/application/ports/notification-repository.port';
+import { IEmailService } from '@/application/ports/email-service.port';
+import { INotificationRepository } from '@/application/ports/notification-repository.port';
 import { Notification } from '@/domain/entities/notification.entity';
 import { NotificationType } from '@/domain/enums/notification-type.enum';
 import { NotificationChannel } from '@/domain/enums/notification-channel.enum';
 import { NotificationStatus } from '@/domain/enums/notification-status.enum';
 import { User } from '@/domain/entities/user.entity';
 
-export class NotificationService implements NotificationServicePort {
+export class NotificationService {
   constructor(
-    private readonly emailService: EmailServicePort,
-    private readonly notificationRepo: NotificationRepositoryPort,
+    private readonly emailService: IEmailService,
+    private readonly notificationRepo: INotificationRepository,
   ) {}
 
   async sendBookingConfirmation(user: User, appointment: { serviceName: string; specialistName: string; date: string; time: string }): Promise<void> {
@@ -21,7 +20,7 @@ export class NotificationService implements NotificationServicePort {
       date: appointment.date,
       time: appointment.time,
     });
-    await this.createNotification(user.id, NotificationType.BOOKING_CONFIRMED, 'Запись подтверждена', `Ваша запись на ${appointment.serviceName} подтверждена`, NotificationChannel.EMAIL);
+    await this.createNotification(user.id, NotificationType.APPOINTMENT_CONFIRMED, 'Запись подтверждена', `Ваша запись на ${appointment.serviceName} подтверждена`, NotificationChannel.EMAIL);
   }
 
   async sendBookingReminder(user: User, appointment: { serviceName: string; date: string; time: string }): Promise<void> {
@@ -31,7 +30,7 @@ export class NotificationService implements NotificationServicePort {
       date: appointment.date,
       time: appointment.time,
     });
-    await this.createNotification(user.id, NotificationType.BOOKING_REMINDER, 'Напоминание о записи', `Напоминаем о записи на ${appointment.serviceName} завтра в ${appointment.time}`, NotificationChannel.EMAIL);
+    await this.createNotification(user.id, NotificationType.APPOINTMENT_REMINDER, 'Напоминание о записи', `Напоминаем о записи на ${appointment.serviceName} завтра в ${appointment.time}`, NotificationChannel.EMAIL);
   }
 
   async sendPaymentReceipt(user: User, payment: { amount: string; currency: string; serviceName: string; date: string }): Promise<void> {
@@ -42,7 +41,7 @@ export class NotificationService implements NotificationServicePort {
       service: payment.serviceName,
       date: payment.date,
     });
-    await this.createNotification(user.id, NotificationType.PAYMENT_RECEIPT, 'Оплата получена', `Оплата ${payment.amount} ${payment.currency} получена`, NotificationChannel.EMAIL);
+    await this.createNotification(user.id, NotificationType.PAYMENT_RECEIVED, 'Оплата получена', `Оплата ${payment.amount} ${payment.currency} получена`, NotificationChannel.EMAIL);
   }
 
   async sendWelcome(user: User): Promise<void> {
@@ -65,27 +64,28 @@ export class NotificationService implements NotificationServicePort {
   }
 
   async sendCancellationNotice(user: User, appointment: { serviceName: string; date: string; time: string }): Promise<void> {
-    await this.createNotification(user.id, NotificationType.BOOKING_CANCELLED, 'Запись отменена', `Ваша запись на ${appointment.serviceName} (${appointment.date} ${appointment.time}) отменена`, NotificationChannel.EMAIL);
+    await this.createNotification(user.id, NotificationType.APPOINTMENT_CANCELLED, 'Запись отменена', `Ваша запись на ${appointment.serviceName} (${appointment.date} ${appointment.time}) отменена`, NotificationChannel.EMAIL);
   }
 
   private async sendEmail(user: User, template: string, variables: Record<string, string>): Promise<void> {
     if (!user.email) return;
     try {
-      await this.emailService.sendTemplate(user.email, template, variables);
+      await this.emailService.sendTemplate(user.email.value, template, variables);
     } catch {
       // Log but don't fail the main flow
     }
   }
 
-  private async createNotification(userId: string | undefined, type: NotificationType, title: string, body: string, channel: NotificationChannel): Promise<void> {
-    if (!userId) return;
-    const notification = Notification.create({
+  private async createNotification(userId: string, type: NotificationType, title: string, body: string, channel: NotificationChannel): Promise<void> {
+    const notification = Notification.reconstitute({
+      id: crypto.randomUUID(),
       userId,
       type,
       title,
       body,
       channel,
       status: NotificationStatus.PENDING,
+      createdAt: new Date(),
     });
     await this.notificationRepo.create(notification);
   }

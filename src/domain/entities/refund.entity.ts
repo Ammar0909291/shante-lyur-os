@@ -54,4 +54,8 @@ export class Refund extends BaseEntity {
     this._status = RefundStatus.FAILED;
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: RefundProps): Refund {
+    return new Refund(props);
+  }
 }

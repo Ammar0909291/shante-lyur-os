@@ -15,25 +15,22 @@ const noopEventBus: IEventBus = {
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
-    const signature =
-      req.headers.get('x-signature') ??
-      req.headers.get('x-robokassa-signature') ??
-      '';
-
-    let payload: Record<string, unknown>;
-
-    // Robokassa may send URL-encoded form data
     const contentType = req.headers.get('content-type') ?? '';
+
+    // Robokassa sends form-encoded data to the Result URL
+    let payload: Record<string, string>;
     if (contentType.includes('application/x-www-form-urlencoded')) {
-      const formData = new URLSearchParams(rawBody);
-      payload = Object.fromEntries(formData.entries());
+      payload = Object.fromEntries(new URLSearchParams(rawBody).entries());
     } else {
       try {
-        payload = JSON.parse(rawBody) as Record<string, unknown>;
+        payload = JSON.parse(rawBody) as Record<string, string>;
       } catch {
         return NextResponse.json({ success: true }, { status: 200 });
       }
     }
+
+    // SignatureValue is part of the payload; signature verification happens inside the gateway
+    const signature = payload['SignatureValue'] ?? payload['signatureValue'] ?? '';
 
     const registry = DIRegistry.instance;
     const useCase = new ProcessWebhookUseCase(
@@ -51,9 +48,11 @@ export async function POST(req: NextRequest) {
 
     await useCase.execute({ provider: 'ROBOKASSA', payload, signature });
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    // Robokassa expects the literal string "OK${InvId}" on success
+    const invId = payload['InvId'] ?? '';
+    return new Response(`OK${invId}`, { status: 200, headers: { 'Content-Type': 'text/plain' } });
   } catch {
-    // Always return 200 for webhooks to prevent retries
-    return NextResponse.json({ success: true }, { status: 200 });
+    // Return success to suppress Robokassa retries for non-retryable application errors
+    return new Response('OK', { status: 200, headers: { 'Content-Type': 'text/plain' } });
   }
 }

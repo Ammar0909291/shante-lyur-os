@@ -26,6 +26,8 @@ export class Color {
     return parseInt(this._value.slice(5, 7), 16);
   }
 
+  getValue(): Color { return this; }
+
   toString(): string {
     return this._value;
   }

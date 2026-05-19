@@ -1,5 +1,4 @@
 import { BaseDomainEvent } from './domain-event';
-import { AppointmentStatus } from '../enums';
 
 export class AppointmentBookedEvent extends BaseDomainEvent {
   constructor(

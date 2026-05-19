@@ -9,6 +9,8 @@ export interface PaymentGatewayVerifyResult {
   success: boolean;
   providerPaymentId: string;
   amount: number;
+  /** Canonical status from provider; 'succeeded' = capture, 'canceled'/'failed' = terminal failure */
+  providerStatus?: 'succeeded' | 'canceled' | 'failed' | 'pending';
   metadata?: Record<string, unknown>;
 }
 
