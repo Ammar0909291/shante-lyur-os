@@ -1,22 +1,42 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { DailyMetricsRepositoryPort } from '@/application/ports/daily-metrics-repository.port';
 import { DailyMetrics } from '@/domain/entities/daily-metrics.entity';
 import { Money } from '@/domain/value-objects/money.vo';
 
+type PrismaDailyMetrics = {
+  id: string;
+  date: Date;
+  totalAppointments: number;
+  completedAppointments: number;
+  cancelledAppointments: number;
+  noShowAppointments: number;
+  totalRevenue: Prisma.Decimal;
+  totalRefunds: Prisma.Decimal;
+  newCustomers: number;
+  returningCustomers: number;
+  avgAppointmentValue: Prisma.Decimal | null;
+  avgBookingLeadTime: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export class PrismaDailyMetricsRepository implements DailyMetricsRepositoryPort {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; date: Date; totalRevenue: number; totalAppointments: number; completedAppointments: number; cancelledAppointments: number; noShowCount: number; newCustomers: number; averageTicket: number; createdAt: Date; updatedAt: Date }): DailyMetrics {
-    return DailyMetrics.reconstitute({
+  private toDomain(raw: PrismaDailyMetrics): DailyMetrics {
+    return new DailyMetrics({
       id: raw.id,
       date: raw.date,
-      totalRevenue: Money.create(raw.totalRevenue).getValue(),
       totalAppointments: raw.totalAppointments,
       completedAppointments: raw.completedAppointments,
       cancelledAppointments: raw.cancelledAppointments,
-      noShowCount: raw.noShowCount,
+      noShowAppointments: raw.noShowAppointments,
+      totalRevenue: Money.create(Number(raw.totalRevenue)),
+      totalRefunds: Money.create(Number(raw.totalRefunds)),
       newCustomers: raw.newCustomers,
-      averageTicket: Money.create(raw.averageTicket).getValue(),
+      returningCustomers: raw.returningCustomers,
+      avgAppointmentValue: raw.avgAppointmentValue ? Money.create(Number(raw.avgAppointmentValue)) : undefined,
+      avgBookingLeadTime: raw.avgBookingLeadTime ?? undefined,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
     });
@@ -24,13 +44,14 @@ export class PrismaDailyMetricsRepository implements DailyMetricsRepositoryPort 
 
   async findByDate(date: Date): Promise<DailyMetrics | null> {
     const start = new Date(date); start.setHours(0, 0, 0, 0);
-    const raw = await this.db.dailyMetrics.findFirst({ where: { date: { gte: start } } });
+    const end = new Date(date); end.setHours(23, 59, 59, 999);
+    const raw = await this.db.dailyMetrics.findFirst({ where: { date: { gte: start, lte: end } } });
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findByDateRange(start: Date, end: Date): Promise<DailyMetrics[]> {
+  async findRange(from: Date, to: Date): Promise<DailyMetrics[]> {
     const raws = await this.db.dailyMetrics.findMany({
-      where: { date: { gte: start, lte: end } },
+      where: { date: { gte: from, lte: to } },
       orderBy: { date: 'asc' },
     });
     return raws.map(r => this.toDomain(r));
@@ -41,13 +62,16 @@ export class PrismaDailyMetricsRepository implements DailyMetricsRepositoryPort 
       data: {
         id: metrics.id,
         date: metrics.date,
-        totalRevenue: metrics.totalRevenue,
         totalAppointments: metrics.totalAppointments,
         completedAppointments: metrics.completedAppointments,
         cancelledAppointments: metrics.cancelledAppointments,
-        noShowCount: metrics.noShowCount,
+        noShowAppointments: metrics.noShowAppointments,
+        totalRevenue: metrics.totalRevenue.amount,
+        totalRefunds: metrics.totalRefunds.amount,
         newCustomers: metrics.newCustomers,
-        averageTicket: metrics.averageTicket,
+        returningCustomers: metrics.returningCustomers,
+        avgAppointmentValue: metrics.avgAppointmentValue?.amount,
+        avgBookingLeadTime: metrics.avgBookingLeadTime,
       },
     });
     return this.toDomain(raw);
@@ -57,16 +81,24 @@ export class PrismaDailyMetricsRepository implements DailyMetricsRepositoryPort 
     const raw = await this.db.dailyMetrics.update({
       where: { id: metrics.id },
       data: {
-        totalRevenue: metrics.totalRevenue,
         totalAppointments: metrics.totalAppointments,
         completedAppointments: metrics.completedAppointments,
         cancelledAppointments: metrics.cancelledAppointments,
-        noShowCount: metrics.noShowCount,
+        noShowAppointments: metrics.noShowAppointments,
+        totalRevenue: metrics.totalRevenue.amount,
+        totalRefunds: metrics.totalRefunds.amount,
         newCustomers: metrics.newCustomers,
-        averageTicket: metrics.averageTicket,
+        returningCustomers: metrics.returningCustomers,
+        avgAppointmentValue: metrics.avgAppointmentValue?.amount,
+        avgBookingLeadTime: metrics.avgBookingLeadTime,
         updatedAt: new Date(),
       },
     });
     return this.toDomain(raw);
+  }
+
+  async getLatest(): Promise<DailyMetrics | null> {
+    const raw = await this.db.dailyMetrics.findFirst({ orderBy: { date: 'desc' } });
+    return raw ? this.toDomain(raw) : null;
   }
 }

@@ -1,7 +1,5 @@
-import { PaymentStatus, RefundStatus } from '@/domain/enums';
 import { NotFoundError, ValidationError } from '@/domain/errors';
-import { Money } from '@/domain/value-objects';
-import { PaymentReceivedEvent, PaymentFailedEvent } from '@/domain/events';
+import { PaymentReceivedEvent } from '@/domain/events';
 import {
   IPaymentRepository,
   IRefundRepository,
@@ -22,9 +20,9 @@ export class ProcessWebhookUseCase {
 
   constructor(
     private readonly paymentRepo: IPaymentRepository,
-    private readonly refundRepo: IRefundRepository,
-    private readonly yookassaGateway: IPaymentGateway,
-    private readonly robokassaGateway: IPaymentGateway,
+    _refundRepo: IRefundRepository,
+    _yookassaGateway: IPaymentGateway,
+    _robokassaGateway: IPaymentGateway,
     private readonly eventBus: IEventBus,
     private readonly auditLogRepo: IAuditLogRepository,
     private readonly appointmentRepo: IAppointmentRepository,
@@ -33,8 +31,8 @@ export class ProcessWebhookUseCase {
     private readonly revenueRepo: IRevenueRecordRepository,
   ) {
     this.gateways = {
-      YOOKASSA: yookassaGateway,
-      ROBOKASSA: robokassaGateway,
+      YOOKASSA: _yookassaGateway,
+      ROBOKASSA: _robokassaGateway,
     };
   }
 

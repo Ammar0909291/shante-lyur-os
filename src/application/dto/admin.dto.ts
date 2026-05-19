@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PaginationSchema } from './pagination.dto';
+
 
 export const CreateUserSchema = z.object({
   email: z.string().email(),

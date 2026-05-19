@@ -89,7 +89,7 @@ export class User extends BaseEntity {
     this.updatedAt = new Date();
   }
 
-  changeRole(newRole: UserRole, actorRole: UserRole, actorId: string): void {
+  changeRole(newRole: UserRole, _actorRole: UserRole, actorId: string): void {
     if (actorId === this.id && newRole !== this.role) {
       throw new ForbiddenError('Cannot change your own role');
     }

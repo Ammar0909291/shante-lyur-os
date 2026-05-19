@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { AIPredictionServicePort } from '@/application/ports/ai-prediction-service.port';
 import { AppointmentRepositoryPort } from '@/application/ports/appointment-repository.port';
 import { RevenueRecordRepositoryPort } from '@/application/ports/revenue-record-repository.port';
@@ -13,7 +14,7 @@ export class AIPredictionService implements AIPredictionServicePort {
   ) {}
 
   async predictNoShow(customerId: string): Promise<{ probability: number; factors: string[] }> {
-    const history = await this.appointmentRepo.findByCustomerId(customerId);
+    const history = await this.appointmentRepo.findMany({ clientId: customerId, limit: 100 });
     const total = history.total;
     if (total === 0) return { probability: 0.1, factors: ['Новый клиент'] };
 
@@ -22,7 +23,6 @@ export class AIPredictionService implements AIPredictionServicePort {
     const noShowRate = total > 0 ? noShows / total : 0;
     const cancelRate = total > 0 ? cancelled / total : 0;
 
-    // Simple heuristic model — can be replaced with ML
     let probability = 0.05;
     const factors: string[] = [];
 
@@ -32,13 +32,15 @@ export class AIPredictionService implements AIPredictionServicePort {
 
     probability = Math.min(probability, 0.95);
 
-    const prediction = AIPrediction.create({
-      type: 'no-show',
+    const prediction = new AIPrediction({
+      id: uuidv4(),
+      modelType: 'no-show',
+      entityType: 'customer',
       entityId: customerId,
-      prediction: probability,
+      prediction: { probability, noShowRate, cancelRate },
       confidence: 0.7,
-      features: { totalVisits: total, noShowRate, cancelRate },
-      modelVersion: 'heuristic-v1',
+      trainedAt: new Date(),
+      createdAt: new Date(),
     });
     await this.aiRepo.create(prediction);
 
@@ -50,16 +52,15 @@ export class AIPredictionService implements AIPredictionServicePort {
     const start = new Date();
     start.setDate(start.getDate() - 30);
 
-    const history = await this.revenueRepo.findByDateRange(start, end);
-    const avgDaily = history.length > 0
-      ? history.reduce((sum, h) => sum + h.amount, 0) / history.length
+    const history = await this.revenueRepo.findMany({ from: start, to: end, limit: 200 });
+    const avgDaily = history.items.length > 0
+      ? history.items.reduce((sum, h) => sum + h.amount.amount, 0) / history.items.length
       : 0;
 
     const results: { date: string; predictedRevenue: number; confidence: number }[] = [];
     for (let i = 1; i <= days; i++) {
       const date = new Date();
       date.setDate(date.getDate() + i);
-      // Simple moving average with slight trend
       const dayOfWeek = date.getDay();
       const weekendMultiplier = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.3 : 1.0;
       results.push({
@@ -72,8 +73,7 @@ export class AIPredictionService implements AIPredictionServicePort {
     return results;
   }
 
-  async recommendSlots(specialistId: string, date: Date): Promise<{ startTime: string; score: number; reason: string }[]> {
-    // Placeholder — would analyze historical booking density
+  async recommendSlots(_specialistId: string, _date: Date): Promise<{ startTime: string; score: number; reason: string }[]> {
     return [
       { startTime: '10:00', score: 0.9, reason: 'Пиковое время' },
       { startTime: '14:00', score: 0.7, reason: 'Средняя загрузка' },

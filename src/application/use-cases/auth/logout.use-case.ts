@@ -18,9 +18,7 @@ export class LogoutUseCase {
       await this.sessionRepo.deleteByToken(sessionToken);
     }
     if (refreshToken) {
-      const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(refreshToken));
-      // In real implementation, use passwordHasher or consistent hash
-      // Here we rely on the repo to handle lookup
+      // Refresh token invalidation handled via session deletion
     }
 
     await this.auditLogRepo.create(

@@ -1,4 +1,4 @@
-import { AppointmentStatus, UserRole } from '@/domain/enums';
+import { UserRole } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
 import { DateRange } from '@/domain/value-objects';
 import { AppointmentRescheduledEvent } from '@/domain/events';
@@ -18,7 +18,7 @@ import { AuditAction } from '@/domain/enums';
 export class RescheduleAppointmentUseCase {
   constructor(
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly specialistRepo: ISpecialistRepository,
+    _specialistRepo: ISpecialistRepository,
     private readonly blockedTimeRepo: IBlockedTimeRepository,
     private readonly vacationRepo: IVacationRepository,
     private readonly workingScheduleRepo: IWorkingScheduleRepository,

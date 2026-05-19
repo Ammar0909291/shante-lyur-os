@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, UserStatus, ServiceCategory, SpecialistStatus, DayOfWeek, AppointmentStatus, PaymentProvider, PaymentStatus, RevenueType, NotificationChannel, NotificationType, NotificationStatus, AuditAction } from '@prisma/client';
+import { PrismaClient, UserRole, UserStatus, ServiceCategory, DayOfWeek } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -63,7 +63,7 @@ async function main() {
   });
 
   // ─── Services ──────────────────────────────────────────────
-  const services = await prisma.service.createMany({
+  await prisma.service.createMany({
     data: [
       { name: 'Классический массаж лица', category: ServiceCategory.COSMETOLOGY, basePrice: 3500, baseDuration: 60, description: 'Расслабляющий массаж лица' },
       { name: 'RF-лифтинг', category: ServiceCategory.LASER, basePrice: 5500, baseDuration: 45, description: 'Радиоволновой лифтинг' },

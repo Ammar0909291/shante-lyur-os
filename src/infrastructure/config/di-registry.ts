@@ -36,7 +36,6 @@ import { AIPredictionService } from '../services/ai-prediction.service';
 
 export class DIRegistry {
   private static _instance: DIRegistry;
-  private _db: PrismaClient;
 
   // Repositories
   readonly userRepository: PrismaUserRepository;
@@ -72,8 +71,6 @@ export class DIRegistry {
   readonly aiPredictionService: AIPredictionService;
 
   private constructor(db: PrismaClient = prisma) {
-    this._db = db;
-
     // Repositories
     this.userRepository = new PrismaUserRepository(db);
     this.refreshTokenRepository = new PrismaRefreshTokenRepository(db);

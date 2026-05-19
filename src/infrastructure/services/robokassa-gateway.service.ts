@@ -14,7 +14,7 @@ export class RobokassaGateway implements IPaymentGateway {
     );
   }
 
-  async createPayment(params: {
+  async createPayment(_params: {
     amount: Money;
     description: string;
     orderId: string;
@@ -27,14 +27,14 @@ export class RobokassaGateway implements IPaymentGateway {
     throw new Error('Robokassa createPayment not yet implemented');
   }
 
-  async verifyWebhook(payload: unknown, signature: string): Promise<PaymentGatewayVerifyResult> {
+  async verifyWebhook(_payload: unknown, _signature: string): Promise<PaymentGatewayVerifyResult> {
     if (!this.isConfigured) {
       throw new Error('Robokassa is not configured');
     }
     throw new Error('Robokassa verifyWebhook not yet implemented');
   }
 
-  async refund(params: {
+  async refund(_params: {
     providerPaymentId: string;
     amount: Money;
     reason?: string;

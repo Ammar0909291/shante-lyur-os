@@ -1,4 +1,4 @@
-import { AppointmentStatus, UserRole } from '@/domain/enums';
+import { UserRole } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
 import { AppointmentCancelledEvent } from '@/domain/events';
 import { Money } from '@/domain/value-objects';
@@ -13,14 +13,14 @@ import {
 } from '@/application/ports';
 import { CancelAppointmentDto } from '@/application/dto';
 import { AuditLog, Refund } from '@/domain/entities';
-import { AuditAction, RefundStatus } from '@/domain/enums';
+import { AuditAction, RefundStatus, CancellationReason } from '@/domain/enums';
 
 export class CancelAppointmentUseCase {
   constructor(
     private readonly appointmentRepo: IAppointmentRepository,
     private readonly paymentRepo: IPaymentRepository,
     private readonly refundRepo: IRefundRepository,
-    private readonly promoCodeRepo: IPromoCodeRepository,
+    _promoCodeRepo: IPromoCodeRepository,
     private readonly auditLogRepo: IAuditLogRepository,
     private readonly eventBus: IEventBus,
     private readonly yookassaGateway: IPaymentGateway,
@@ -61,7 +61,7 @@ export class CancelAppointmentUseCase {
       refundPolicy = 'full';
     }
 
-    appointment.cancel(dto.reason, actorId);
+    appointment.cancel(dto.reason as CancellationReason, actorId);
     const saved = await this.appointmentRepo.update(appointment);
 
     // Process refunds if applicable

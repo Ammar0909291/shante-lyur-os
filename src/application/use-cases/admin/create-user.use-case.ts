@@ -19,7 +19,7 @@ export class CreateUserUseCase {
   ) {}
 
   async execute(dto: CreateUserDto, actorId: string, actorRole: UserRole) {
-    if (!actorRole.can('user:create')) {
+    if (actorRole !== UserRole.ADMIN && actorRole !== UserRole.SUPER_ADMIN && actorRole !== UserRole.OPERATOR) {
       throw new ForbiddenError();
     }
 

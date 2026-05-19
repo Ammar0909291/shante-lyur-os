@@ -1,4 +1,5 @@
 import { Worker, type Job } from 'bullmq';
+import { NotificationChannel } from '@/domain/enums/notification-channel.enum';
 import { redisConnection } from '../redis-connection';
 import { QUEUE_NAMES } from '../queue.config';
 import type { AppointmentReminderJob } from '../job-types';
@@ -38,10 +39,13 @@ function createProcessor() {
     });
 
     // Send reminder notification
-    await registry.notificationService.sendBookingReminder(user, {
-      serviceName: 'Услуга',
-      date: dateStr,
-      time: timeStr,
+    await registry.notificationService.send({
+      userId: user.id,
+      type: 'APPOINTMENT_REMINDER',
+      channel: NotificationChannel.EMAIL,
+      title: 'Напоминание о записи',
+      body: `Напоминаем о вашей записи ${dateStr} в ${timeStr}`,
+      appointmentId,
     });
 
     console.info(

@@ -1,5 +1,6 @@
 import { IAppointmentRepository } from '@/application/ports';
 import { ListAppointmentsDto } from '@/application/dto';
+import { AppointmentStatus } from '@/domain/enums';
 
 export class ListAppointmentsUseCase {
   constructor(private readonly appointmentRepo: IAppointmentRepository) {}
@@ -9,10 +10,10 @@ export class ListAppointmentsUseCase {
     const clientId = userRole === 'CLIENT' ? userId : dto.clientId;
 
     return this.appointmentRepo.findMany({
-      clientId,
-      specialistId: dto.specialistId,
-      locationId: dto.locationId,
-      status: dto.status,
+      clientId: clientId as string | undefined,
+      specialistId: dto.specialistId as string | undefined,
+      locationId: dto.locationId as string | undefined,
+      status: dto.status as AppointmentStatus | undefined,
       from: dto.from,
       to: dto.to,
       page: dto.page,

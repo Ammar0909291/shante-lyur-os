@@ -1,7 +1,7 @@
 import { Payment } from '@/domain/entities';
 import { PaymentStatus, PaymentProvider } from '@/domain/enums';
 import { Money } from '@/domain/value-objects';
-import { NotFoundError, ConflictError, ValidationError } from '@/domain/errors';
+import { NotFoundError, ConflictError } from '@/domain/errors';
 import { PaymentInitiatedEvent } from '@/domain/events';
 import {
   IPaymentRepository,
@@ -25,18 +25,18 @@ export class CreatePaymentUseCase {
   constructor(
     private readonly paymentRepo: IPaymentRepository,
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly yookassaGateway: IPaymentGateway,
-    private readonly robokassaGateway: IPaymentGateway,
+    _yookassaGateway: IPaymentGateway,
+    _robokassaGateway: IPaymentGateway,
     private readonly eventBus: IEventBus,
     private readonly auditLogRepo: IAuditLogRepository,
   ) {
     this.gateways = {
-      [PaymentProvider.YOOKASSA]: yookassaGateway,
-      [PaymentProvider.ROBOKASSA]: robokassaGateway,
-      [PaymentProvider.CASH]: yookassaGateway, // No-op for cash
-      [PaymentProvider.CARD_TERMINAL]: yookassaGateway,
-      [PaymentProvider.TRANSFER]: yookassaGateway,
-      [PaymentProvider.INTERNAL]: yookassaGateway,
+      [PaymentProvider.YOOKASSA]: _yookassaGateway,
+      [PaymentProvider.ROBOKASSA]: _robokassaGateway,
+      [PaymentProvider.CASH]: _yookassaGateway, // No-op for cash
+      [PaymentProvider.CARD_TERMINAL]: _yookassaGateway,
+      [PaymentProvider.TRANSFER]: _yookassaGateway,
+      [PaymentProvider.INTERNAL]: _yookassaGateway,
     };
   }
 
@@ -52,7 +52,7 @@ export class CreatePaymentUseCase {
 
     // Check for duplicate idempotency
     if (dto.idempotencyKey) {
-      const existing = await this.paymentRepo.findByProviderPaymentId(dto.idempotencyKey, dto.provider);
+      const existing = await this.paymentRepo.findByProviderPaymentId(dto.idempotencyKey, dto.provider as PaymentProvider);
       if (existing) {
         return { payment: existing };
       }
@@ -63,9 +63,8 @@ export class CreatePaymentUseCase {
     const payment = new Payment({
       id: crypto.randomUUID(),
       appointmentId: dto.appointmentId,
-      provider: dto.provider,
+      provider: dto.provider as PaymentProvider,
       amount,
-      currency: dto.currency,
       status: PaymentStatus.PENDING,
       description: dto.description,
       metadata: dto.metadata,

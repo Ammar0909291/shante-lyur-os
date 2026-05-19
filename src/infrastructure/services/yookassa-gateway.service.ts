@@ -10,7 +10,7 @@ export class YooKassaGateway implements IPaymentGateway {
     return !!(process.env.YOOKASSA_SHOP_ID && process.env.YOOKASSA_SECRET_KEY);
   }
 
-  async createPayment(params: {
+  async createPayment(_params: {
     amount: Money;
     description: string;
     orderId: string;
@@ -23,14 +23,14 @@ export class YooKassaGateway implements IPaymentGateway {
     throw new Error('YooKassa createPayment not yet implemented');
   }
 
-  async verifyWebhook(payload: unknown, signature: string): Promise<PaymentGatewayVerifyResult> {
+  async verifyWebhook(_payload: unknown, _signature: string): Promise<PaymentGatewayVerifyResult> {
     if (!this.isConfigured) {
       throw new Error('YooKassa is not configured');
     }
     throw new Error('YooKassa verifyWebhook not yet implemented');
   }
 
-  async refund(params: {
+  async refund(_params: {
     providerPaymentId: string;
     amount: Money;
     reason?: string;

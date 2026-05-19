@@ -1,19 +1,34 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { AIPredictionRepositoryPort } from '@/application/ports/ai-prediction-repository.port';
 import { AIPrediction } from '@/domain/entities/ai-prediction.entity';
+
+type PrismaAIPrediction = {
+  id: string;
+  modelType: string;
+  entityType: string;
+  entityId: string | null;
+  prediction: Prisma.JsonValue;
+  confidence: Prisma.Decimal | null;
+  actualOutcome: Prisma.JsonValue;
+  accuracyDelta: Prisma.Decimal | null;
+  trainedAt: Date;
+  createdAt: Date;
+};
 
 export class PrismaAIPredictionRepository implements AIPredictionRepositoryPort {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; type: string; entityId: string | null; prediction: number; confidence: number; features: unknown; modelVersion: string; createdAt: Date }): AIPrediction {
-    return AIPrediction.reconstitute({
+  private toDomain(raw: PrismaAIPrediction): AIPrediction {
+    return new AIPrediction({
       id: raw.id,
-      type: raw.type,
+      modelType: raw.modelType,
+      entityType: raw.entityType,
       entityId: raw.entityId ?? undefined,
-      prediction: raw.prediction,
-      confidence: raw.confidence,
-      features: (raw.features as Record<string, unknown>) ?? {},
-      modelVersion: raw.modelVersion,
+      prediction: (raw.prediction as Record<string, unknown>) ?? {},
+      confidence: raw.confidence ? Number(raw.confidence) : undefined,
+      actualOutcome: raw.actualOutcome ? (raw.actualOutcome as Record<string, unknown>) : undefined,
+      accuracyDelta: raw.accuracyDelta ? Number(raw.accuracyDelta) : undefined,
+      trainedAt: raw.trainedAt,
       createdAt: raw.createdAt,
     });
   }
@@ -23,35 +38,70 @@ export class PrismaAIPredictionRepository implements AIPredictionRepositoryPort 
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findByType(type: string, limit: number): Promise<AIPrediction[]> {
+  async findByModel(modelType: string, entityType: string, entityId?: string): Promise<AIPrediction[]> {
     const raws = await this.db.aIPrediction.findMany({
-      where: { type },
-      take: limit,
+      where: { modelType, entityType, ...(entityId ? { entityId } : {}) },
       orderBy: { createdAt: 'desc' },
     });
     return raws.map(r => this.toDomain(r));
   }
 
-  async findByEntityId(entityId: string): Promise<AIPrediction[]> {
-    const raws = await this.db.aIPrediction.findMany({
-      where: { entityId },
+  async findLatest(modelType: string, entityType: string, entityId: string): Promise<AIPrediction | null> {
+    const raw = await this.db.aIPrediction.findFirst({
+      where: { modelType, entityType, entityId },
       orderBy: { createdAt: 'desc' },
     });
-    return raws.map(r => this.toDomain(r));
+    return raw ? this.toDomain(raw) : null;
   }
 
   async create(prediction: AIPrediction): Promise<AIPrediction> {
     const raw = await this.db.aIPrediction.create({
       data: {
         id: prediction.id,
-        type: prediction.type,
+        modelType: prediction.modelType,
+        entityType: prediction.entityType,
         entityId: prediction.entityId,
-        prediction: prediction.prediction,
+        prediction: prediction.prediction as Prisma.InputJsonValue,
         confidence: prediction.confidence,
-        features: prediction.features as Prisma.InputJsonValue,
-        modelVersion: prediction.modelVersion,
+        actualOutcome: prediction.actualOutcome as Prisma.InputJsonValue ?? Prisma.JsonNull,
+        accuracyDelta: prediction.accuracyDelta,
+        trainedAt: prediction.trainedAt,
       },
     });
     return this.toDomain(raw);
+  }
+
+  async update(prediction: AIPrediction): Promise<AIPrediction> {
+    const raw = await this.db.aIPrediction.update({
+      where: { id: prediction.id },
+      data: {
+        actualOutcome: prediction.actualOutcome as Prisma.InputJsonValue ?? Prisma.JsonNull,
+        accuracyDelta: prediction.accuracyDelta,
+      },
+    });
+    return this.toDomain(raw);
+  }
+
+  async getAccuracyMetrics(modelType: string, from: Date, to: Date): Promise<{
+    totalPredictions: number;
+    correctPredictions: number;
+    avgConfidence: number;
+  }> {
+    const [total, withOutcome, avgResult] = await Promise.all([
+      this.db.aIPrediction.count({ where: { modelType, createdAt: { gte: from, lte: to } } }),
+      this.db.aIPrediction.count({
+        where: { modelType, createdAt: { gte: from, lte: to }, actualOutcome: { not: Prisma.DbNull } },
+      }),
+      this.db.aIPrediction.aggregate({
+        where: { modelType, createdAt: { gte: from, lte: to } },
+        _avg: { confidence: true },
+      }),
+    ]);
+
+    return {
+      totalPredictions: total,
+      correctPredictions: withOutcome,
+      avgConfidence: Number(avgResult._avg.confidence ?? 0),
+    };
   }
 }

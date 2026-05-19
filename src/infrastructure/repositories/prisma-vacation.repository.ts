@@ -2,20 +2,32 @@ import { PrismaClient } from '@prisma/client';
 import { VacationRepositoryPort } from '@/application/ports/vacation-repository.port';
 import { Vacation } from '@/domain/entities/vacation.entity';
 
+type PrismaVacation = {
+  id: string;
+  specialistId: string;
+  startDate: Date;
+  endDate: Date;
+  reason: string | null;
+  isApproved: boolean;
+  approvedBy: string | null;
+  approvedAt: Date | null;
+  createdAt: Date;
+};
+
 export class PrismaVacationRepository implements VacationRepositoryPort {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; specialistId: string; startDate: Date; endDate: Date; reason: string | null; approvedBy: string | null; approvedAt: Date | null; createdAt: Date; updatedAt: Date }): Vacation {
-    return Vacation.reconstitute({
+  private toDomain(raw: PrismaVacation): Vacation {
+    return new Vacation({
       id: raw.id,
       specialistId: raw.specialistId,
       startDate: raw.startDate,
       endDate: raw.endDate,
       reason: raw.reason ?? undefined,
+      isApproved: raw.isApproved,
       approvedBy: raw.approvedBy ?? undefined,
       approvedAt: raw.approvedAt ?? undefined,
       createdAt: raw.createdAt,
-      updatedAt: raw.updatedAt,
     });
   }
 
@@ -24,7 +36,7 @@ export class PrismaVacationRepository implements VacationRepositoryPort {
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findBySpecialistId(specialistId: string): Promise<Vacation[]> {
+  async findBySpecialist(specialistId: string): Promise<Vacation[]> {
     const raws = await this.db.vacation.findMany({
       where: { specialistId },
       orderBy: { startDate: 'desc' },
@@ -32,12 +44,14 @@ export class PrismaVacationRepository implements VacationRepositoryPort {
     return raws.map(r => this.toDomain(r));
   }
 
-  async findOverlapping(specialistId: string, startDate: Date, endDate: Date): Promise<Vacation[]> {
+  async findActiveVacations(specialistId: string, date: Date): Promise<Vacation[]> {
+    const d = new Date(date); d.setHours(0, 0, 0, 0);
     const raws = await this.db.vacation.findMany({
       where: {
         specialistId,
-        startDate: { lte: endDate },
-        endDate: { gte: startDate },
+        isApproved: true,
+        startDate: { lte: d },
+        endDate: { gte: d },
       },
     });
     return raws.map(r => this.toDomain(r));
@@ -51,6 +65,7 @@ export class PrismaVacationRepository implements VacationRepositoryPort {
         startDate: vacation.startDate,
         endDate: vacation.endDate,
         reason: vacation.reason,
+        isApproved: vacation.isApproved,
         approvedBy: vacation.approvedBy,
         approvedAt: vacation.approvedAt,
       },
@@ -62,13 +77,12 @@ export class PrismaVacationRepository implements VacationRepositoryPort {
     const raw = await this.db.vacation.update({
       where: { id: vacation.id },
       data: {
-        specialistId: vacation.specialistId,
         startDate: vacation.startDate,
         endDate: vacation.endDate,
         reason: vacation.reason,
+        isApproved: vacation.isApproved,
         approvedBy: vacation.approvedBy,
         approvedAt: vacation.approvedAt,
-        updatedAt: new Date(),
       },
     });
     return this.toDomain(raw);
@@ -76,5 +90,13 @@ export class PrismaVacationRepository implements VacationRepositoryPort {
 
   async delete(id: string): Promise<void> {
     await this.db.vacation.delete({ where: { id } });
+  }
+
+  async approve(id: string, approvedBy: string): Promise<Vacation> {
+    const raw = await this.db.vacation.update({
+      where: { id },
+      data: { isApproved: true, approvedBy, approvedAt: new Date() },
+    });
+    return this.toDomain(raw);
   }
 }

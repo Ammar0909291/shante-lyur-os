@@ -11,17 +11,11 @@ export interface RevenueReportResult {
 
 export class GenerateRevenueReportUseCase {
   constructor(
-    private readonly revenueRepo: IRevenueRecordRepository,
+    _revenueRepo: IRevenueRecordRepository,
     private readonly paymentRepo: IPaymentRepository,
   ) {}
 
   async execute(dto: RevenueReportDto): Promise<RevenueReportResult> {
-    const records = await this.revenueRepo.findMany({
-      from: dto.from,
-      to: dto.to,
-      limit: 10000,
-    });
-
     const summary = await this.paymentRepo.getRevenueSummary(dto.from, dto.to);
 
     // Group by selected dimension

@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { PaymentOrchestratorPort } from '@/application/ports/payment-orchestrator.port';
 import { PaymentGatewayPort } from '@/application/ports/payment-gateway.port';
 import { PaymentRepositoryPort } from '@/application/ports/payment-repository.port';
@@ -8,16 +9,6 @@ import { Money } from '@/domain/value-objects/money.vo';
 import { NotFoundError } from '@/domain/errors/not-found-error';
 import { ConflictError } from '@/domain/errors/conflict-error';
 
-interface CreatePaymentCommand {
-  appointmentId: string;
-  amount: number;
-  currency: string;
-  provider: PaymentProvider;
-  description: string;
-  returnUrl: string;
-  idempotencyKey?: string;
-}
-
 export class PaymentOrchestrator implements PaymentOrchestratorPort {
   constructor(
     private readonly yooKassa: PaymentGatewayPort,
@@ -25,70 +16,83 @@ export class PaymentOrchestrator implements PaymentOrchestratorPort {
     private readonly paymentRepo: PaymentRepositoryPort,
   ) {}
 
-  async createPayment(cmd: CreatePaymentCommand): Promise<{ payment: Payment; redirectUrl?: string }> {
-    if (cmd.idempotencyKey) {
-      const existing = await this.paymentRepo.findByIdempotencyKey(cmd.idempotencyKey);
-      if (existing) return { payment: existing };
-    }
-
+  async createPayment(cmd: {
+    appointmentId: string;
+    amount: number;
+    currency: string;
+    provider: PaymentProvider;
+    description: string;
+    returnUrl: string;
+    idempotencyKey?: string;
+  }): Promise<{ payment: Payment; redirectUrl?: string }> {
     const gateway = this.selectGateway(cmd.provider);
+    const amount = Money.create(cmd.amount, cmd.currency);
 
     const result = await gateway.createPayment({
-      appointmentId: cmd.appointmentId,
-      amount: cmd.amount,
-      currency: cmd.currency,
+      amount,
       description: cmd.description,
+      orderId: cmd.appointmentId,
       returnUrl: cmd.returnUrl,
-      idempotencyKey: cmd.idempotencyKey,
     });
 
-    const payment = Payment.create({
+    const payment = new Payment({
+      id: uuidv4(),
       appointmentId: cmd.appointmentId,
-      amount: Money.create(cmd.amount).getValue(),
-      currency: cmd.currency,
       provider: cmd.provider,
       providerPaymentId: result.providerPaymentId,
-      status: result.status,
+      amount,
+      status: PaymentStatus.PENDING,
       idempotencyKey: cmd.idempotencyKey,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const saved = await this.paymentRepo.create(payment);
-    return { payment: saved, redirectUrl: result.redirectUrl };
+    return { payment: saved, redirectUrl: result.paymentUrl };
   }
 
   async processWebhook(provider: PaymentProvider, payload: unknown, signature?: string): Promise<Payment> {
     const gateway = this.selectGateway(provider);
-    const webhook = await gateway.verifyWebhook(payload, signature);
+    const webhook = await gateway.verifyWebhook(payload, signature ?? '');
 
-    const payment = await this.paymentRepo.findByProviderPaymentId(provider, webhook.providerPaymentId);
+    const payment = await this.paymentRepo.findByProviderPaymentId(webhook.providerPaymentId, provider);
     if (!payment) throw new NotFoundError('Payment', webhook.providerPaymentId);
 
-    if (webhook.paid && payment.status !== PaymentStatus.COMPLETED) {
-      payment.markAsPaid();
-    } else if (webhook.status === PaymentStatus.FAILED) {
-      payment.markAsFailed();
-    } else if (webhook.status === PaymentStatus.REFUNDED) {
-      payment.markAsRefunded(payment.amount);
+    if (webhook.success) {
+      if (payment.status === PaymentStatus.PENDING || payment.status === PaymentStatus.PROCESSING) {
+        payment.markAuthorized(webhook.providerPaymentId);
+        payment.markCaptured();
+      }
+    } else {
+      if (!payment.isTerminal) {
+        payment.markFailed('Webhook indicated failure');
+      }
     }
 
     return this.paymentRepo.update(payment);
   }
 
-  async processRefund(paymentId: string, amount: number, reason?: string): Promise<Payment> {
+  async processRefund(paymentId: string, amount: number, _reason?: string): Promise<Payment> {
     const payment = await this.paymentRepo.findById(paymentId);
     if (!payment) throw new NotFoundError('Payment', paymentId);
-    if (payment.status !== PaymentStatus.COMPLETED) {
-      throw new ConflictError('Cannot refund a payment that is not completed');
-    }
-    if (payment.refundedAmount + amount > payment.amount) {
-      throw new ConflictError('Refund amount exceeds payment amount');
+    if (!payment.isRefundable) {
+      throw new ConflictError('Payment is not in a refundable state');
     }
 
     const gateway = this.selectGateway(payment.provider);
-    const refundResult = await gateway.refund(payment.providerPaymentId!, amount);
+    const refundMoney = Money.create(amount, payment.amount.currency);
 
-    if (refundResult.status === PaymentStatus.REFUNDED || refundResult.status === PaymentStatus.REFUND_PENDING) {
-      payment.markAsRefunded(payment.refundedAmount + amount);
+    if (!payment.providerPaymentId) {
+      throw new ConflictError('Payment has no provider payment ID for refund');
+    }
+
+    const refundResult = await gateway.refund({
+      providerPaymentId: payment.providerPaymentId,
+      amount: refundMoney,
+    });
+
+    if (refundResult.success) {
+      payment.markCancelled();
     }
 
     return this.paymentRepo.update(payment);
