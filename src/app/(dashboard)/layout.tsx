@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/header';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { useLang } from '@/context/lang-context';
 import { ROLE_BLOCKED_PAGES, blockedRedirect } from '@/lib/permissions';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 // Inner layout — rendered only after auth context is ready
 function DashboardInner({ children }: { children: React.ReactNode }) {
@@ -79,7 +80,9 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
         />
 
         <main className="flex-1 overflow-y-auto">
-          {children}
+          <ErrorBoundary name="page">
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

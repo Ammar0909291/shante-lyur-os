@@ -5,6 +5,7 @@ import { Sun, Moon, Globe, Bell, Shield, Building2 } from 'lucide-react';
 import { useTheme } from '@/context/theme-context';
 import { useLang } from '@/context/lang-context';
 import { cn } from '@/lib/utils';
+import { apiFetch } from '@/lib/api-fetch';
 
 function SettingSection({ title, icon: Icon, children }: {
   title: string;
@@ -61,13 +62,60 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   );
 }
 
+interface NotifPrefs {
+  notifyEmail: boolean;
+  notifySms:   boolean;
+  notifyPush:  boolean;
+}
+
 export default function SettingsPage() {
   const { theme, toggleTheme } = useTheme();
   const { lang, toggleLang, t } = useLang();
 
-  const [notifyEmail, setNotifyEmail] = React.useState(true);
-  const [notifySms, setNotifySms] = React.useState(false);
-  const [notifyPush, setNotifyPush] = React.useState(true);
+  const [notifyEmail, setNotifyEmailState] = React.useState(true);
+  const [notifySms, setNotifySmsState]     = React.useState(false);
+  const [notifyPush, setNotifyPushState]   = React.useState(true);
+  const [prefsSaving, setPrefsSaving]      = React.useState(false);
+
+  // Load persisted preferences on mount
+  React.useEffect(() => {
+    apiFetch('/api/user/preferences')
+      .then(r => r.json())
+      .then((json: { success: boolean; data?: NotifPrefs }) => {
+        if (json.success && json.data) {
+          setNotifyEmailState(json.data.notifyEmail);
+          setNotifySmsState(json.data.notifySms);
+          setNotifyPushState(json.data.notifyPush);
+        }
+      })
+      .catch(() => { /* use defaults */ });
+  }, []);
+
+  async function persistPrefs(patch: Partial<NotifPrefs>) {
+    setPrefsSaving(true);
+    try {
+      await apiFetch('/api/user/preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+    } catch { /* non-critical */ } finally {
+      setPrefsSaving(false);
+    }
+  }
+
+  function setNotifyEmail(v: boolean) {
+    setNotifyEmailState(v);
+    void persistPrefs({ notifyEmail: v });
+  }
+  function setNotifySms(v: boolean) {
+    setNotifySmsState(v);
+    void persistPrefs({ notifySms: v });
+  }
+  function setNotifyPush(v: boolean) {
+    setNotifyPushState(v);
+    void persistPrefs({ notifyPush: v });
+  }
 
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
@@ -147,7 +195,7 @@ export default function SettingsPage() {
       </SettingSection>
 
       {/* Notifications */}
-      <SettingSection title="Уведомления" icon={Bell}>
+      <SettingSection title={`Уведомления${prefsSaving ? ' — сохранение…' : ''}`} icon={Bell}>
         <SettingRow
           label="Email-уведомления"
           description="Получать уведомления о записях на email"

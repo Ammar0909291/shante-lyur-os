@@ -5,8 +5,6 @@ import { DIRegistry } from '@/infrastructure/config/di-registry';
 import { CreatePaymentUseCase } from '@/application/use-cases/payment';
 import { CreatePaymentSchema } from '@/application/dto';
 import { DomainError } from '@/domain/errors';
-import type { IEventBus } from '@/application/ports';
-import type { DomainEvent } from '@/domain/events';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -14,11 +12,6 @@ function ok<T>(data: T, status = 200) {
 function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
-
-const noopEventBus: IEventBus = {
-  async publish(_event: DomainEvent): Promise<void> {},
-  subscribe(_eventType: string, _handler: (event: DomainEvent) => Promise<void>): void {},
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,7 +34,7 @@ export async function POST(req: NextRequest) {
       registry.appointmentRepository,
       registry.yooKassaGateway,
       registry.robokassaGateway,
-      noopEventBus,
+      registry.eventBus,
       registry.auditLogRepository,
     );
 

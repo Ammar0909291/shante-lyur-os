@@ -6,7 +6,6 @@ import { RescheduleAppointmentUseCase } from '@/application/use-cases/booking';
 import { RescheduleAppointmentSchema } from '@/application/dto';
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
-import { noopEventBus } from '@/lib/noop-event-bus';
 import { serializeAppointments } from '@/lib/appointment-serializer';
 
 function ok<T>(data: T, status = 200) {
@@ -45,7 +44,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       registry.vacationRepository,
       registry.workingScheduleRepository,
       registry.auditLogRepository,
-      noopEventBus,
+      registry.eventBus,
     );
 
     const result = await useCase.execute(id, parsed.data, userId, role);

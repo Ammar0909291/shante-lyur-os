@@ -4,13 +4,6 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { DIRegistry } from '@/infrastructure/config/di-registry';
 import { ProcessWebhookUseCase } from '@/application/use-cases/payment';
-import type { IEventBus } from '@/application/ports';
-import type { DomainEvent } from '@/domain/events';
-
-const noopEventBus: IEventBus = {
-  async publish(_event: DomainEvent): Promise<void> {},
-  subscribe(_eventType: string, _handler: (event: DomainEvent) => Promise<void>): void {},
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -41,7 +34,7 @@ export async function POST(req: NextRequest) {
       registry.refundRepository,
       registry.yooKassaGateway,
       registry.robokassaGateway,
-      noopEventBus,
+      registry.eventBus,
       registry.auditLogRepository,
       registry.appointmentRepository,
       registry.customerProfileRepository,

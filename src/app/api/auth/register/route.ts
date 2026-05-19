@@ -34,11 +34,6 @@ function setAuthCookies(
   });
 }
 
-// Minimal no-op event bus for use-cases that require IEventBus
-const noopEventBus = {
-  async publish() { /* no-op */ },
-  subscribe() { /* no-op */ },
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,7 +52,7 @@ export async function POST(req: NextRequest) {
       registry.passwordHasher,
       registry.tokenService,
       registry.emailService,
-      noopEventBus,
+      registry.eventBus,
     );
 
     const ipAddress = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? undefined;

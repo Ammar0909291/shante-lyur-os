@@ -5,8 +5,6 @@ import { DIRegistry } from '@/infrastructure/config/di-registry';
 import { ChangeUserRoleUseCase } from '@/application/use-cases/admin';
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
-import type { IEventBus } from '@/application/ports';
-import type { DomainEvent } from '@/domain/events';
 import { z } from 'zod';
 
 function ok<T>(data: T, status = 200) {
@@ -15,11 +13,6 @@ function ok<T>(data: T, status = 200) {
 function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
-
-const noopEventBus: IEventBus = {
-  async publish(_event: DomainEvent): Promise<void> {},
-  subscribe(_eventType: string, _handler: (event: DomainEvent) => Promise<void>): void {},
-};
 
 const ADMIN_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
 
@@ -55,7 +48,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     const useCase = new ChangeUserRoleUseCase(
       registry.userRepository,
       registry.auditLogRepository,
-      noopEventBus,
+      registry.eventBus,
     );
 
     const result = await useCase.execute(

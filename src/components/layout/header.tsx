@@ -8,6 +8,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/context/theme-context';
 import { useLang } from '@/context/lang-context';
+import { useSSE } from '@/hooks/use-sse';
+import { apiFetch } from '@/lib/api-fetch';
 
 interface HeaderProps {
   title: string;
@@ -26,7 +28,29 @@ function useClock() {
 
 function NotificationBell() {
   const { t } = useLang();
-  const [hasNew] = React.useState(true);
+  const { user } = useAuth();
+  const [unread, setUnread] = React.useState(0);
+
+  async function fetchUnread() {
+    if (!user) return;
+    try {
+      const res = await apiFetch('/api/messages?limit=1');
+      const json = await res.json() as { success: boolean; data?: { unread: number } };
+      if (json.success) setUnread(json.data?.unread ?? 0);
+    } catch { /* non-critical */ }
+  }
+
+  React.useEffect(() => {
+    fetchUnread();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  useSSE((eventType) => {
+    if (eventType === 'chat') {
+      setUnread(prev => prev + 1);
+    }
+  });
+
   return (
     <button
       className={cn(
@@ -36,12 +60,13 @@ function NotificationBell() {
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
       )}
       aria-label={t.header.notifications}
+      onClick={fetchUnread}
     >
       <Bell className="w-5 h-5" />
-      {hasNew && (
+      {unread > 0 && (
         <span
           className="absolute top-2 right-2 w-2 h-2 rounded-full bg-champagne"
-          aria-label="new"
+          aria-label={`${unread} новых`}
         />
       )}
     </button>

@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { prisma } from './prisma-client';
+import { eventBus } from '@/lib/event-bus';
+import type { IEventBus } from '@/application/ports';
 
 // Repositories
 import { PrismaUserRepository } from '../repositories/prisma-user.repository';
@@ -81,6 +83,7 @@ export class DIRegistry {
   readonly paymentOrchestrator: PaymentOrchestrator;
   readonly realtimeService: SSERealtimeService;
   readonly aiPredictionService: AIPredictionService;
+  readonly eventBus: IEventBus;
 
   private constructor(db: PrismaClient = prisma) {
     // Repositories
@@ -138,6 +141,83 @@ export class DIRegistry {
       this.revenueRecordRepository,
       this.aiPredictionRepository
     );
+
+    // ── Event bus wiring ──────────────────────────────────────────────────────
+    this.eventBus = eventBus;
+    this._wireEventHandlers();
+  }
+
+  private _wireEventHandlers(): void {
+    const aptRepo    = this.appointmentRepository;
+    const userRepo   = this.userRepository;
+    const notifySvc  = this.notificationService;
+    const sse        = this.realtimeService;
+
+    const MOSCOW = 'Europe/Moscow';
+
+    eventBus.subscribe('APPOINTMENT_BOOKED', async (event) => {
+      sse.broadcast('appointments', 'appointment:updated', {
+        appointmentId: event.aggregateId,
+        type: 'booked',
+      });
+    });
+
+    eventBus.subscribe('APPOINTMENT_CONFIRMED', async (event) => {
+      try {
+        const apt = await aptRepo.findById(event.aggregateId);
+        if (!apt) return;
+        const client = await userRepo.findById(apt.clientId);
+        if (!client) return;
+        const serviceName = apt.services[0]?.name ?? 'услугу';
+        const date = apt.startAt.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', timeZone: MOSCOW });
+        const time = apt.startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: MOSCOW });
+        await notifySvc.sendBookingConfirmation(
+          client.id,
+          client.email.value,
+          `${client.firstName} ${client.lastName}`,
+          { serviceName, specialistName: '', date, time },
+        );
+      } catch (err) {
+        console.error('[EventBus] APPOINTMENT_CONFIRMED handler error:', err);
+      }
+      sse.broadcast('appointments', 'appointment:updated', {
+        appointmentId: event.aggregateId,
+        type: 'confirmed',
+      });
+    });
+
+    eventBus.subscribe('APPOINTMENT_CANCELLED', async (event) => {
+      try {
+        const apt = await aptRepo.findById(event.aggregateId);
+        if (!apt) return;
+        const client = await userRepo.findById(apt.clientId);
+        if (!client) return;
+        const serviceName = apt.services[0]?.name ?? 'услугу';
+        const date = apt.startAt.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', timeZone: MOSCOW });
+        const time = apt.startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: MOSCOW });
+        await notifySvc.sendCancellationNotice(client.id, { serviceName, date, time });
+      } catch (err) {
+        console.error('[EventBus] APPOINTMENT_CANCELLED handler error:', err);
+      }
+      sse.broadcast('appointments', 'appointment:updated', {
+        appointmentId: event.aggregateId,
+        type: 'cancelled',
+      });
+    });
+
+    eventBus.subscribe('APPOINTMENT_RESCHEDULED', async (event) => {
+      sse.broadcast('appointments', 'appointment:updated', {
+        appointmentId: event.aggregateId,
+        type: 'rescheduled',
+      });
+    });
+
+    eventBus.subscribe('APPOINTMENT_COMPLETED', async (event) => {
+      sse.broadcast('appointments', 'appointment:updated', {
+        appointmentId: event.aggregateId,
+        type: 'completed',
+      });
+    });
   }
 
   static get instance(): DIRegistry {

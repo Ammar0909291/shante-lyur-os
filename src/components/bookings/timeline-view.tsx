@@ -555,6 +555,14 @@ export function TimelineView({
   onCancel,
   onReschedule,
 }: TimelineViewProps) {
+  // Clean up module-level drag state on unmount to prevent cross-navigation leaks
+  React.useEffect(() => {
+    return () => {
+      _dragAptId = null;
+      _dragYOffset = 0;
+    };
+  }, []);
+
   // Deduplicate specialists in the order they first appear
   const specialists = React.useMemo(() => {
     const seen = new Map<string, { id: string; name: string; color: string }>();
@@ -607,56 +615,55 @@ export function TimelineView({
       {/* Workload panel */}
       <WorkloadPanel workloads={workloads} />
 
-      {/* Timeline */}
+      {/* Timeline — single scroll container so headers and grid track together */}
       <div className="rounded-2xl bg-onyx border border-border-luxury overflow-hidden">
-        {/* Specialist headers */}
-        <div className="flex border-b border-border-luxury sticky top-0 z-10 bg-onyx">
-          <div style={{ width: LABEL_W, flexShrink: 0 }} />
-          {specialists.map(s => (
-            <div
-              key={s.id}
-              className="flex items-center gap-2 px-3 py-2.5 border-l border-border-luxury/40"
-              style={{ minWidth: COL_W, flex: 1 }}
-            >
-              <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: s.color }}
-              />
-              <span className="text-xs font-medium text-text-primary truncate">{s.name}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Scrollable grid */}
         <div className="overflow-x-auto">
-          <div
-            className="relative flex"
-            style={{ minWidth: LABEL_W + specialists.length * COL_W }}
-          >
-            {/* Time labels */}
-            <div className="sticky left-0 z-10 bg-onyx border-r border-border-luxury/40 shrink-0">
-              <TimeLabels />
-            </div>
+          <div style={{ minWidth: LABEL_W + specialists.length * COL_W }}>
 
-            {/* Specialist columns + current time */}
-            <div className="relative flex flex-1">
-              {/* Current time indicator spans all columns */}
-              <CurrentTimeIndicator numCols={specialists.length} />
-
+            {/* Specialist headers — sticky to top of the scrollable area */}
+            <div className="flex border-b border-border-luxury sticky top-0 z-10 bg-onyx">
+              <div style={{ width: LABEL_W, flexShrink: 0 }} />
               {specialists.map(s => (
-                <div key={s.id} style={{ minWidth: COL_W, flex: 1 }}>
-                  <SpecialistColumn
-                    specialistId={s.id}
-                    appointments={bySpecialist.get(s.id) ?? []}
-                    color={s.color}
-                    dateStr={selectedDate}
-                    onDrop={onDrop}
-                    onStatusChange={onStatusChange}
-                    onCancel={onCancel}
-                    onReschedule={onReschedule}
+                <div
+                  key={s.id}
+                  className="flex items-center gap-2 px-3 py-2.5 border-l border-border-luxury/40"
+                  style={{ minWidth: COL_W, flex: 1 }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: s.color }}
                   />
+                  <span className="text-xs font-medium text-text-primary truncate">{s.name}</span>
                 </div>
               ))}
+            </div>
+
+            {/* Grid */}
+            <div className="relative flex">
+              {/* Time labels — sticky to left edge */}
+              <div className="sticky left-0 z-10 bg-onyx border-r border-border-luxury/40 shrink-0">
+                <TimeLabels />
+              </div>
+
+              {/* Specialist columns + current time */}
+              <div className="relative flex flex-1">
+                <CurrentTimeIndicator numCols={specialists.length} />
+
+                {specialists.map(s => (
+                  <div key={s.id} style={{ minWidth: COL_W, flex: 1 }}>
+                    <SpecialistColumn
+                      specialistId={s.id}
+                      appointments={bySpecialist.get(s.id) ?? []}
+                      color={s.color}
+                      dateStr={selectedDate}
+                      onDrop={onDrop}
+                      onStatusChange={onStatusChange}
+                      onCancel={onCancel}
+                      onReschedule={onReschedule}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

@@ -7,7 +7,6 @@ import { ListAppointmentsSchema, CreateAppointmentSchema } from '@/application/d
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
 import { ADMIN_ROLES } from '@/lib/admin-roles';
-import { noopEventBus } from '@/lib/noop-event-bus';
 import { serializeAppointments } from '@/lib/appointment-serializer';
 
 function ok<T>(data: T, status = 200) {
@@ -95,7 +94,7 @@ export async function POST(req: NextRequest) {
       registry.vacationRepository,
       registry.customerProfileRepository,
       registry.promoCodeRepository,
-      noopEventBus,
+      registry.eventBus,
       registry.notificationRepository,
     );
 

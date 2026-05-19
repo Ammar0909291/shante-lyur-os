@@ -9,7 +9,6 @@ import {
 import { UpdateAppointmentSchema, CancelAppointmentSchema } from '@/application/dto';
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
-import { noopEventBus } from '@/lib/noop-event-bus';
 import { serializeAppointments } from '@/lib/appointment-serializer';
 
 function ok<T>(data: T, status = 200) {
@@ -73,7 +72,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       registry.appointmentRepository,
       registry.userRepository,
       registry.auditLogRepository,
-      noopEventBus,
+      registry.eventBus,
       registry.notificationRepository,
     );
 
@@ -115,7 +114,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       registry.refundRepository,
       registry.promoCodeRepository,
       registry.auditLogRepository,
-      noopEventBus,
+      registry.eventBus,
       registry.yooKassaGateway,
       registry.robokassaGateway,
     );

@@ -84,6 +84,13 @@ export async function POST(req: NextRequest) {
       visibility,
     });
 
+    // Broadcast to relevant SSE channels
+    if (recipientId) {
+      registry.realtimeService.broadcast(`user:${recipientId}`, 'chat', { messageId: message.id, senderId: userId });
+    } else {
+      registry.realtimeService.broadcast('messages', 'chat', { messageId: message.id, senderId: userId });
+    }
+
     return ok(message, 201);
   } catch (error) {
     if (error instanceof DomainError) return apiError(error.code, error.message, error.statusCode);
