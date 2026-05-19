@@ -114,4 +114,8 @@ export class PrismaUserRepository implements UserRepositoryPort {
     const count = await this.db.user.count({ where: { email } });
     return count > 0;
   }
+
+  async countByRole(role: UserRole): Promise<number> {
+    return this.db.user.count({ where: { role } });
+  }
 }
