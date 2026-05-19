@@ -7,6 +7,7 @@ import { User, AuditLog } from '@/domain/entities';
 import { UserRole, UserStatus, AuditAction } from '@/domain/enums';
 import { Email, PhoneNumber } from '@/domain/value-objects';
 import { ConflictError, DomainError } from '@/domain/errors';
+import { ADMIN_ROLES } from '@/lib/admin-roles';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -14,8 +15,6 @@ function ok<T>(data: T, status = 200) {
 function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
-
-const ADMIN_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
 
 export async function GET(req: NextRequest) {
   try {

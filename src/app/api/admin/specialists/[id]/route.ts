@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DIRegistry } from '@/infrastructure/config/di-registry';
 import { UpdateSpecialistSchema } from '@/application/dto';
 import { Specialist, AuditLog } from '@/domain/entities';
-import { UserRole, SpecialistStatus, AuditAction } from '@/domain/enums';
+import { SpecialistStatus, AuditAction, AppointmentStatus } from '@/domain/enums';
 import { Color } from '@/domain/value-objects/color.vo';
-import { NotFoundError, DomainError } from '@/domain/errors';
+import { NotFoundError, DomainError, ConflictError } from '@/domain/errors';
+import { ADMIN_ROLES } from '@/lib/admin-roles';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -14,8 +15,6 @@ function ok<T>(data: T, status = 200) {
 function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
-
-const ADMIN_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
 
 type RouteContext = { params: { id: string } };
 
@@ -124,7 +123,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         newValues: {
           status: saved.status,
           specialization: saved.specialization ?? null,
+          bio: saved.bio ?? null,
+          experienceYears: saved.experienceYears ?? null,
           commissionRate: saved.commissionRate,
+          color: saved.color?.value ?? null,
         },
       })
     );
@@ -148,6 +150,20 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     const registry = DIRegistry.instance;
     const current = await registry.specialistRepository.findById(params.id);
     if (!current) throw new NotFoundError('Specialist', params.id);
+
+    // Guard: block termination if specialist has pending or confirmed upcoming appointments
+    const activeAppointments = await registry.appointmentRepository.findMany({
+      specialistId: params.id,
+      status: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.IN_PROGRESS],
+      from: new Date(),
+      limit: 1,
+    });
+    if (activeAppointments.total > 0) {
+      throw new ConflictError(
+        'Cannot terminate specialist with active upcoming appointments. Reassign or cancel them first.',
+        'specialistId',
+      );
+    }
 
     // Soft-delete: terminate preserves all historical data (appointments, revenue)
     const terminated = new Specialist({

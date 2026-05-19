@@ -1,5 +1,5 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import { ISpecialistRepository } from '@/application/ports/specialist-repository.port';
+import { ISpecialistRepository, AssignedServiceRow } from '@/application/ports/specialist-repository.port';
 import { Specialist } from '@/domain/entities/specialist.entity';
 import { SpecialistStatus } from '@/domain/enums/specialist-status.enum';
 import { Color } from '@/domain/value-objects/color.vo';
@@ -164,5 +164,22 @@ export class PrismaSpecialistRepository implements ISpecialistRepository {
       where: { specialistId, serviceId },
       data: { isActive: false },
     });
+  }
+
+  async findAssignedServices(specialistId: string): Promise<AssignedServiceRow[]> {
+    const rows = await this.db.specialistService.findMany({
+      where: { specialistId, isActive: true },
+      include: { service: true },
+      orderBy: { service: { name: 'asc' } },
+    });
+    return rows.map(r => ({
+      serviceId: r.serviceId,
+      name: r.service.name,
+      category: r.service.category,
+      basePrice: Number(r.service.basePrice),
+      baseDuration: r.service.baseDuration,
+      priceOverride: r.priceOverride != null ? Number(r.priceOverride) : null,
+      durationOverride: r.durationOverride ?? null,
+    }));
   }
 }

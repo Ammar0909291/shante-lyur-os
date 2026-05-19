@@ -280,6 +280,7 @@ export default function SpecialistsPage() {
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('ALL');
   const [modalMode, setModalMode] = React.useState<'create' | 'edit' | null>(null);
   const [editTarget, setEditTarget] = React.useState<SpecialistRecord | null>(null);
+  const [statusError, setStatusError] = React.useState<string | null>(null);
 
   async function loadSpecialists() {
     setLoading(true);
@@ -333,6 +334,7 @@ export default function SpecialistsPage() {
   }
 
   async function quickStatusChange(id: string, status: string) {
+    setStatusError(null);
     try {
       const res = await apiFetch(`/api/admin/specialists/${id}`, {
         method: 'PATCH',
@@ -344,9 +346,14 @@ export default function SpecialistsPage() {
         setSpecialists(prev =>
           prev.map(s => s.id === id ? { ...s, status: json.data.status, isActive: json.data.status === 'ACTIVE' } : s)
         );
+      } else {
+        const msg = json.error?.message ?? 'Не удалось изменить статус';
+        setStatusError(msg);
+        setTimeout(() => setStatusError(null), 5000);
       }
     } catch {
-      // Silent fail — user can retry via edit
+      setStatusError('Ошибка сети. Попробуйте ещё раз.');
+      setTimeout(() => setStatusError(null), 5000);
     }
   }
 
@@ -405,6 +412,23 @@ export default function SpecialistsPage() {
           ))}
         </div>
       </div>
+
+      {/* Inline status-change error */}
+      {statusError && (
+        <div
+          role="alert"
+          className="rounded-lg px-4 py-3 bg-red-500/10 border border-red-500/20 text-sm text-red-400 flex items-center justify-between gap-3"
+        >
+          <span>{statusError}</span>
+          <button
+            onClick={() => setStatusError(null)}
+            className="text-red-400/60 hover:text-red-400 transition-colors text-xs"
+            aria-label="Закрыть"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">

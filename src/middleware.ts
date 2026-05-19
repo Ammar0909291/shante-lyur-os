@@ -10,6 +10,7 @@ const PROTECTED_API_ROUTES = [
   '/api/customers',
   '/api/admin',
   '/api/payments',
+  '/api/specialists',
 ];
 
 const AUTH_ROUTES = ['/api/auth/login', '/api/auth/register'];
@@ -18,6 +19,8 @@ const PUBLIC_API_ROUTES = [
   ...AUTH_ROUTES,
   '/api/webhooks',
   '/api/health',
+  '/api/locations',
+  '/api/services',
 ];
 
 const ADMIN_ONLY = ['/api/admin'];

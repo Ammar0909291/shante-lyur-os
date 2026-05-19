@@ -1,15 +1,7 @@
 'use client';
 
-/**
- * SpecialistForm — create or edit a specialist profile.
- *
- * Localization note: all user-visible strings are defined in the LABELS
- * constant below. When a full i18n library (next-intl, react-i18next) is
- * adopted, replace each LABELS[key] access with t('specialists.form.key').
- */
-
 import * as React from 'react';
-import { X, User, Briefcase, Palette } from 'lucide-react';
+import { X, User, Briefcase, Palette, Grid, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +14,8 @@ const LABELS = {
   sectionAccount: 'Учётная запись',
   sectionProfile: 'Профиль специалиста',
   sectionCalendar: 'Параметры календаря',
+  sectionServices: 'Услуги специалиста',
+  sectionSchedule: 'Рабочий график',
   firstName: 'Имя',
   lastName: 'Фамилия',
   email: 'Email',
@@ -55,7 +49,27 @@ const LABELS = {
   creatingUser: 'Создание пользователя...',
   creatingProfile: 'Создание профиля...',
   saving: 'Сохранение...',
+  servicesLoading: 'Загрузка услуг...',
+  noServices: 'Услуги не найдены',
+  scheduleLoading: 'Загрузка графика...',
+  scheduleSave: 'Сохранить график',
+  scheduleSaving: 'Сохранение графика...',
+  scheduleSaved: 'График сохранён',
+  scheduleValidFrom: 'Дата начала',
+  scheduleHint: 'Выберите рабочие дни и укажите часы',
+  scheduleBreak: 'Перерыв',
+  days: {
+    MONDAY: 'Понедельник',
+    TUESDAY: 'Вторник',
+    WEDNESDAY: 'Среда',
+    THURSDAY: 'Четверг',
+    FRIDAY: 'Пятница',
+    SATURDAY: 'Суббота',
+    SUNDAY: 'Воскресенье',
+  } as Record<string, string>,
 } as const;
+
+const DAY_KEYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,6 +93,22 @@ export interface SpecialistRecord {
   createdAt: string;
   updatedAt: string;
 }
+
+interface ServiceOption {
+  id: string;
+  name: string;
+  category: string;
+}
+
+interface ScheduleDay {
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+  breakStart: string;
+  breakEnd: string;
+}
+
+type ScheduleState = Record<string, ScheduleDay>;
 
 interface CreateFormState {
   firstName: string;
@@ -222,6 +252,318 @@ function TextareaField({ label, error, id, className, ...props }: TextareaFieldP
   );
 }
 
+// ── Time input ────────────────────────────────────────────────────────────────
+
+function TimeInput({
+  value,
+  onChange,
+  disabled,
+  id,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  id?: string;
+}) {
+  return (
+    <input
+      id={id}
+      type="time"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      disabled={disabled}
+      className={cn(
+        'h-9 rounded-lg px-3 text-sm w-[110px]',
+        'bg-charcoal border border-border-luxury text-text-primary',
+        'focus:outline-none focus:border-champagne',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+        '[color-scheme:dark]',
+      )}
+    />
+  );
+}
+
+// ── Services section ─────────────────────────────────────────────────────────
+
+function ServicesSection({ specialistId }: { specialistId: string }) {
+  const [allServices, setAllServices] = React.useState<ServiceOption[]>([]);
+  const [assignedIds, setAssignedIds] = React.useState<Set<string>>(new Set());
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState<string | null>(null); // serviceId being toggled
+
+  React.useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const [svcRes, assignedRes] = await Promise.all([
+          apiFetch('/api/services?limit=200'),
+          apiFetch(`/api/admin/specialists/${specialistId}/services`),
+        ]);
+        const [svcJson, assignedJson] = await Promise.all([svcRes.json(), assignedRes.json()]);
+        if (svcJson.success) {
+          const items = (svcJson.data?.items ?? svcJson.data ?? []) as ServiceOption[];
+          setAllServices(items);
+        }
+        if (assignedJson.success) {
+          const ids = new Set<string>(
+            (assignedJson.data?.items ?? []).map((s: { serviceId: string }) => s.serviceId)
+          );
+          setAssignedIds(ids);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [specialistId]);
+
+  async function toggle(serviceId: string, currentlyAssigned: boolean) {
+    setSaving(serviceId);
+    try {
+      if (currentlyAssigned) {
+        const res = await apiFetch(`/api/admin/specialists/${specialistId}/services`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ serviceId }),
+        });
+        if (res.ok) {
+          setAssignedIds(prev => { const s = new Set(prev); s.delete(serviceId); return s; });
+        }
+      } else {
+        const res = await apiFetch(`/api/admin/specialists/${specialistId}/services`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ serviceId }),
+        });
+        if (res.ok) {
+          setAssignedIds(prev => new Set([...prev, serviceId]));
+        }
+      }
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  if (loading) {
+    return <p className="text-xs text-text-tertiary">{LABELS.servicesLoading}</p>;
+  }
+  if (allServices.length === 0) {
+    return <p className="text-xs text-text-tertiary">{LABELS.noServices}</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {allServices.map(svc => {
+        const assigned = assignedIds.has(svc.id);
+        const busy = saving === svc.id;
+        return (
+          <label
+            key={svc.id}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors',
+              'border border-border-luxury',
+              assigned ? 'bg-champagne/8 border-champagne/30' : 'bg-charcoal hover:bg-charcoal/70',
+              busy && 'opacity-60 pointer-events-none',
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={assigned}
+              onChange={() => toggle(svc.id, assigned)}
+              disabled={busy}
+              className="accent-[#D4AF7A] w-4 h-4 shrink-0"
+            />
+            <span className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-text-primary block truncate">{svc.name}</span>
+              <span className="text-xs text-text-tertiary">{svc.category}</span>
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Schedule section ──────────────────────────────────────────────────────────
+
+function ScheduleSection({ specialistId }: { specialistId: string }) {
+  const [locationId, setLocationId] = React.useState<string | null>(null);
+  const [schedule, setSchedule] = React.useState<ScheduleState>(() =>
+    Object.fromEntries(
+      DAY_KEYS.map(d => [d, { enabled: false, startTime: '09:00', endTime: '18:00', breakStart: '13:00', breakEnd: '14:00' }])
+    )
+  );
+  const [validFrom, setValidFrom] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [savedMsg, setSavedMsg] = React.useState(false);
+
+  // Load existing schedule and first available location
+  React.useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const [schedRes, locRes] = await Promise.all([
+          apiFetch(`/api/admin/specialists/${specialistId}/schedules`),
+          apiFetch('/api/locations?limit=1'),
+        ]);
+        const [schedJson, locJson] = await Promise.all([schedRes.json(), locRes.json()]);
+
+        if (locJson.success) {
+          const locs = locJson.data?.items ?? locJson.data ?? [];
+          if (locs.length > 0) setLocationId(locs[0].id);
+        }
+
+        if (schedJson.success) {
+          const items = schedJson.data?.items ?? [];
+          if (items.length > 0) {
+            setValidFrom(items[0].validFrom?.slice(0, 10) ?? validFrom);
+            const newSchedule: ScheduleState = { ...schedule };
+            for (const item of items) {
+              if (item.dayOfWeek in newSchedule) {
+                newSchedule[item.dayOfWeek] = {
+                  enabled: true,
+                  startTime: item.startTime,
+                  endTime: item.endTime,
+                  breakStart: item.breakStart ?? '13:00',
+                  breakEnd: item.breakEnd ?? '14:00',
+                };
+              }
+            }
+            setSchedule(newSchedule);
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [specialistId]);
+
+  function updateDay(day: string, patch: Partial<ScheduleDay>) {
+    setSchedule(prev => ({ ...prev, [day]: { ...prev[day], ...patch } }));
+  }
+
+  async function saveSchedule() {
+    if (!locationId) return;
+    const entries = DAY_KEYS.filter(d => schedule[d].enabled).map(d => ({
+      dayOfWeek: d,
+      startTime: schedule[d].startTime,
+      endTime: schedule[d].endTime,
+      breakStart: schedule[d].breakStart || undefined,
+      breakEnd: schedule[d].breakEnd || undefined,
+    }));
+
+    setSaving(true);
+    try {
+      const res = await apiFetch(`/api/admin/specialists/${specialistId}/schedules`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationId,
+          schedules: entries.length > 0 ? entries : [],
+          validFrom,
+        }),
+      });
+      if (res.ok) {
+        setSavedMsg(true);
+        setTimeout(() => setSavedMsg(false), 2500);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <p className="text-xs text-text-tertiary">{LABELS.scheduleLoading}</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-text-tertiary">{LABELS.scheduleHint}</p>
+
+      <div className="flex items-center gap-3">
+        <label className="text-xs font-semibold uppercase tracking-widest text-text-secondary whitespace-nowrap">
+          {LABELS.scheduleValidFrom}
+        </label>
+        <input
+          type="date"
+          value={validFrom}
+          onChange={e => setValidFrom(e.target.value)}
+          className={cn(
+            'h-9 rounded-lg px-3 text-sm',
+            'bg-charcoal border border-border-luxury text-text-primary',
+            'focus:outline-none focus:border-champagne',
+            '[color-scheme:dark]',
+          )}
+        />
+      </div>
+
+      <div className="space-y-2">
+        {DAY_KEYS.map(day => {
+          const d = schedule[day];
+          return (
+            <div
+              key={day}
+              className={cn(
+                'flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 rounded-lg border transition-colors',
+                d.enabled
+                  ? 'border-champagne/30 bg-champagne/5'
+                  : 'border-border-luxury bg-charcoal',
+              )}
+            >
+              {/* Day toggle */}
+              <label className="flex items-center gap-2 w-[130px] shrink-0 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={d.enabled}
+                  onChange={e => updateDay(day, { enabled: e.target.checked })}
+                  className="accent-[#D4AF7A] w-4 h-4"
+                />
+                <span className={cn('text-sm', d.enabled ? 'text-text-primary font-medium' : 'text-text-tertiary')}>
+                  {LABELS.days[day]}
+                </span>
+              </label>
+
+              {d.enabled && (
+                <>
+                  <TimeInput value={d.startTime} onChange={v => updateDay(day, { startTime: v })} />
+                  <span className="text-text-tertiary text-sm">—</span>
+                  <TimeInput value={d.endTime} onChange={v => updateDay(day, { endTime: v })} />
+                  <span className="text-xs text-text-tertiary ml-1">{LABELS.scheduleBreak}:</span>
+                  <TimeInput value={d.breakStart} onChange={v => updateDay(day, { breakStart: v })} />
+                  <span className="text-text-tertiary text-sm">—</span>
+                  <TimeInput value={d.breakEnd} onChange={v => updateDay(day, { breakEnd: v })} />
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-3 pt-1">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          isLoading={saving}
+          onClick={saveSchedule}
+          disabled={!locationId}
+        >
+          {LABELS.scheduleSave}
+        </Button>
+        {savedMsg && (
+          <span className="text-xs text-green-400">{LABELS.scheduleSaved}</span>
+        )}
+        {!locationId && (
+          <span className="text-xs text-text-tertiary">Нет локаций в системе</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Validation ────────────────────────────────────────────────────────────────
 
 function validateCreate(s: CreateFormState): FormErrors {
@@ -300,6 +642,7 @@ export function SpecialistForm({ mode, specialist, onSuccess, onClose }: Special
 
       setSubmitting(true);
       setStatusMessage(LABELS.creatingUser);
+      let userId: string | null = null;
       try {
         // Step 1: create user with SPECIALIST role
         const userRes = await apiFetch('/api/admin/users', {
@@ -322,7 +665,7 @@ export function SpecialistForm({ mode, specialist, onSuccess, onClose }: Special
           return;
         }
 
-        const userId: string = userJson.data.user.id;
+        userId = userJson.data.user.id as string;
 
         // Step 2: create specialist profile
         setStatusMessage(LABELS.creatingProfile);
@@ -344,12 +687,18 @@ export function SpecialistForm({ mode, specialist, onSuccess, onClose }: Special
 
         const specJson = await specRes.json();
         if (!specRes.ok || !specJson.success) {
+          // Compensate: clean up the orphaned user account
+          await apiFetch(`/api/admin/users/${userId}`, { method: 'DELETE' }).catch(() => {});
           setServerError(specJson.error?.message ?? LABELS.errorServer);
           return;
         }
 
         onSuccess(specJson.data as SpecialistRecord);
       } catch {
+        // If we have a userId but specialist creation threw, attempt cleanup
+        if (userId) {
+          await apiFetch(`/api/admin/users/${userId}`, { method: 'DELETE' }).catch(() => {});
+        }
         setServerError(LABELS.errorServer);
       } finally {
         setSubmitting(false);
@@ -601,6 +950,22 @@ export function SpecialistForm({ mode, specialist, onSuccess, onClose }: Special
               )}
             </div>
           </section>
+
+          {/* ── Services section (edit only) ── */}
+          {!isCreate && specialist && (
+            <section>
+              <SectionHeader icon={Grid} label={LABELS.sectionServices} />
+              <ServicesSection specialistId={specialist.id} />
+            </section>
+          )}
+
+          {/* ── Schedule section (edit only) ── */}
+          {!isCreate && specialist && (
+            <section>
+              <SectionHeader icon={Calendar} label={LABELS.sectionSchedule} />
+              <ScheduleSection specialistId={specialist.id} />
+            </section>
+          )}
 
           {/* Server error */}
           {serverError && (
