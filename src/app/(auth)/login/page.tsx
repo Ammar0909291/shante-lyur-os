@@ -26,7 +26,7 @@ interface LoginApiResponse {
   message?: string;
 }
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get('redirect');
@@ -192,5 +192,14 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+
+export default function LoginPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <LoginForm />
+    </React.Suspense>
   );
 }

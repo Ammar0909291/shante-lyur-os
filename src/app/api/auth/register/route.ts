@@ -6,6 +6,8 @@ import { RegisterUseCase } from '@/application/use-cases/auth';
 import { RegisterUserSchema } from '@/application/dto';
 import { DomainError } from '@/domain/errors';
 
+const REGISTRATION_DISABLED = process.env.REGISTRATION_DISABLED === 'true';
+
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
 }
@@ -36,6 +38,10 @@ function setAuthCookies(
 
 
 export async function POST(req: NextRequest) {
+  if (REGISTRATION_DISABLED) {
+    return apiError('REGISTRATION_DISABLED', 'Registration is currently closed. Contact an administrator.', 403);
+  }
+
   try {
     const body: unknown = await req.json();
     const parsed = RegisterUserSchema.safeParse(body);

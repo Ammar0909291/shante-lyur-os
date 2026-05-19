@@ -8,6 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff } from 'lucide-react';
 
+// Registration is disabled when NEXT_PUBLIC_REGISTRATION_DISABLED=true
+// Admins create accounts via the admin panel instead
+const REGISTRATION_DISABLED = process.env.NEXT_PUBLIC_REGISTRATION_DISABLED === 'true';
+
 const registerSchema = z
   .object({
     firstName: z.string().min(2, 'Имя должно быть не менее 2 символов'),
@@ -27,6 +31,22 @@ type FieldErrors = Partial<Record<keyof RegisterFields, string>>;
 
 export default function RegisterPage() {
   const router = useRouter();
+
+  if (REGISTRATION_DISABLED) {
+    return (
+      <div className="animate-slide-up text-center">
+        <h2 className="font-serif text-2xl font-medium text-text-primary tracking-tight mb-3">
+          Регистрация закрыта
+        </h2>
+        <p className="text-sm text-text-secondary mb-6">
+          Самостоятельная регистрация отключена. Обратитесь к администратору студии для получения доступа.
+        </p>
+        <Link href="/login" className="text-sm text-champagne hover:text-champagne-light transition-colors">
+          Войти
+        </Link>
+      </div>
+    );
+  }
   const [fields, setFields] = React.useState<RegisterFields>({
     firstName: '',
     lastName: '',

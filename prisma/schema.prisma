@@ -70,6 +70,7 @@ model User {
   promoCodeUsages         PromoCodeUsage[]
   sentMessages            InternalMessage[] @relation("SentMessages")
   receivedMessages        InternalMessage[] @relation("ReceivedMessages")
+  passwordResetTokens     PasswordResetToken[]
 
   @@index([email])
   @@index([role, status])
@@ -109,6 +110,21 @@ model RefreshToken {
   @@index([userId])
   @@index([tokenHash])
   @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  token     String    @unique @db.Uuid
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId, createdAt])
+  @@map("password_reset_tokens")
 }
 
 // ═══════════════════════════════════════════════════════════════

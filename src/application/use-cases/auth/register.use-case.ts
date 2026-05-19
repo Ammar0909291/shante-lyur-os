@@ -79,10 +79,15 @@ export class RegisterUseCase {
 
     await this.refreshTokenRepo.create(refreshToken);
 
-    await this.emailService.sendTemplate(saved.email.value, 'welcome', {
-      firstName: saved.firstName,
-      verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${accessToken}`,
-    });
+    try {
+      await this.emailService.sendTemplate(saved.email.value, 'welcome', {
+        firstName: saved.firstName,
+        verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${accessToken}`,
+      });
+    } catch {
+      // Non-fatal: account is created; email delivery failure shouldn't block registration
+      console.error('[register] welcome email failed for:', saved.email.value);
+    }
 
     await this.eventBus.publish(
       new UserRegisteredEvent(saved.id, {

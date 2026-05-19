@@ -18,7 +18,7 @@ const PROTECTED_API_ROUTES = [
   '/api/user',
 ];
 
-const AUTH_ROUTES = ['/api/auth/login', '/api/auth/register'];
+const AUTH_ROUTES = ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/reset-password'];
 
 const PUBLIC_API_ROUTES = [
   ...AUTH_ROUTES,
@@ -28,10 +28,12 @@ const PUBLIC_API_ROUTES = [
   '/api/services',
 ];
 
-const ADMIN_ONLY = ['/api/admin'];
+// Only strictly user-management admin routes are locked to SUPER_ADMIN/ADMIN.
+// Revenue, specialists, and other management routes allow OPERATOR at the route level.
+const ADMIN_ONLY = ['/api/admin/users'];
 
 // Page routes that do NOT require authentication
-const PUBLIC_PAGE_ROUTES = ['/login', '/register', '/forgot-password'];
+const PUBLIC_PAGE_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
 
 function isProtectedRoute(pathname: string): boolean {
   return PROTECTED_API_ROUTES.some((route) => pathname.startsWith(route));
@@ -231,10 +233,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       return res;
     }
 
-    // Admin-only route check
+    // Admin-only route check (user management restricted to SUPER_ADMIN + ADMIN)
     if (isAdminRoute(pathname)) {
-      const adminRoles = ['SUPER_ADMIN', 'ADMIN'];
-      if (!adminRoles.includes(user.role)) {
+      if (!['SUPER_ADMIN', 'ADMIN'].includes(user.role)) {
         const res = jsonError('FORBIDDEN', 'Admin access required', 403);
         applyCorsHeaders(res, request);
         applySecurityHeaders(res);
