@@ -14,6 +14,7 @@ import {
 import { RescheduleAppointmentDto } from '@/application/dto';
 import { AuditLog } from '@/domain/entities';
 import { AuditAction } from '@/domain/enums';
+import { getLocalMinutes, getDayOfWeekInTz, getSalonTz } from '@/lib/timezone';
 
 export class RescheduleAppointmentUseCase {
   constructor(
@@ -66,16 +67,28 @@ export class RescheduleAppointmentUseCase {
       throw new ConflictError('Specialist is on vacation at new time');
     }
 
-    const dayOfWeek = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][dto.newStartAt.getDay()] as any;
+    // Timezone-safe working hours check
+    const tz = getSalonTz();
+    const dayOfWeek = getDayOfWeekInTz(dto.newStartAt, tz) as any;
     const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(appointment.specialistId, dayOfWeek, dto.newStartAt);
+
+    const apptStartMin = getLocalMinutes(dto.newStartAt, tz);
+    const apptEndMin   = getLocalMinutes(newEndAt, tz);
+
     const validSchedule = schedules.find(s => {
       if (!s.isActive || !s.isValidForDate(dto.newStartAt)) return false;
-      const startMin = s.startMinutes;
-      const endMin = s.endMinutes;
-      const apptStartMin = dto.newStartAt.getHours() * 60 + dto.newStartAt.getMinutes();
-      const apptEndMin = newEndAt.getHours() * 60 + newEndAt.getMinutes();
-      return apptStartMin >= startMin && apptEndMin <= endMin;
+      if (apptStartMin < s.startMinutes || apptEndMin > s.endMinutes) return false;
+
+      // Reject if appointment overlaps specialist's break
+      const bStart = s.breakStartMinutes;
+      const bEnd   = s.breakEndMinutes;
+      if (bStart !== undefined && bEnd !== undefined) {
+        if (apptStartMin < bEnd && apptEndMin > bStart) return false;
+      }
+
+      return true;
     });
+
     if (!validSchedule) {
       throw new ConflictError('New time is outside working hours');
     }

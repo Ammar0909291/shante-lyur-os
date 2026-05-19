@@ -6,8 +6,8 @@ import { RescheduleAppointmentUseCase } from '@/application/use-cases/booking';
 import { RescheduleAppointmentSchema } from '@/application/dto';
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
-import type { IEventBus } from '@/application/ports';
-import type { DomainEvent } from '@/domain/events';
+import { noopEventBus } from '@/lib/noop-event-bus';
+import { serializeAppointments } from '@/lib/appointment-serializer';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -15,11 +15,6 @@ function ok<T>(data: T, status = 200) {
 function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
-
-const noopEventBus: IEventBus = {
-  async publish(_event: DomainEvent): Promise<void> {},
-  subscribe(_eventType: string, _handler: (event: DomainEvent) => Promise<void>): void {},
-};
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -54,7 +49,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
     );
 
     const result = await useCase.execute(id, parsed.data, userId, role);
-    return ok(result);
+    const [serialized] = await serializeAppointments([result.appointment]);
+    return ok({ appointment: serialized });
   } catch (error) {
     if (error instanceof DomainError) {
       return apiError(error.code, error.message, error.statusCode);

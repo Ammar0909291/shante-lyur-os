@@ -9,8 +9,8 @@ import {
 import { UpdateAppointmentSchema, CancelAppointmentSchema } from '@/application/dto';
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
-import type { IEventBus } from '@/application/ports';
-import type { DomainEvent } from '@/domain/events';
+import { noopEventBus } from '@/lib/noop-event-bus';
+import { serializeAppointments } from '@/lib/appointment-serializer';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -18,11 +18,6 @@ function ok<T>(data: T, status = 200) {
 function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
-
-const noopEventBus: IEventBus = {
-  async publish(_event: DomainEvent): Promise<void> {},
-  subscribe(_eventType: string, _handler: (event: DomainEvent) => Promise<void>): void {},
-};
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -43,7 +38,8 @@ export async function GET(req: NextRequest, context: RouteContext) {
       return apiError('NOT_FOUND', `Appointment ${id} not found`, 404);
     }
 
-    return ok({ appointment });
+    const [serialized] = await serializeAppointments([appointment]);
+    return ok(serialized);
   } catch (error) {
     if (error instanceof DomainError) {
       return apiError(error.code, error.message, error.statusCode);
@@ -82,7 +78,8 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     );
 
     const result = await useCase.execute(id, parsed.data, userId, role);
-    return ok(result);
+    const [serialized] = await serializeAppointments([result.appointment]);
+    return ok({ appointment: serialized, oldStatus: result.oldStatus, newStatus: result.newStatus });
   } catch (error) {
     if (error instanceof DomainError) {
       return apiError(error.code, error.message, error.statusCode);
@@ -124,7 +121,8 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     );
 
     const result = await useCase.execute(id, parsed.data, userId, role);
-    return ok(result);
+    const [serialized] = await serializeAppointments([result.appointment]);
+    return ok({ appointment: serialized, refundPolicy: result.refundPolicy, refundsProcessed: result.refundsProcessed });
   } catch (error) {
     if (error instanceof DomainError) {
       return apiError(error.code, error.message, error.statusCode);

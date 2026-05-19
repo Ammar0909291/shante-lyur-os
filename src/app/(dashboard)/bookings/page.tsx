@@ -1,7 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Search, Calendar, Clock, Filter, MoreVertical, CheckCircle, Play, XCircle, AlertCircle } from 'lucide-react';
+import {
+  Plus, Search, Calendar, Clock, Filter,
+  MoreVertical, CheckCircle, Play, XCircle, AlertCircle, RefreshCw,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
@@ -23,7 +26,7 @@ function generateTimeSlots(startHour = 8, endHour = 21) {
   return slots;
 }
 
-const TIME_SLOTS = generateTimeSlots(8, 21);
+const ALL_TIME_SLOTS = generateTimeSlots(8, 21);
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -68,9 +71,14 @@ interface CustomerOption {
   phone?: string | null;
 }
 
+interface AvailabilitySlot {
+  startAt: string; // UTC ISO
+  label: string;   // HH:MM salon local
+}
+
 type StatusFilter = 'ALL' | 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
-// ── Label field ────────────────────────────────────────────────────────────
+// ── Shared helpers ─────────────────────────────────────────────────────────
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -90,6 +98,77 @@ function selectCls(hasError = false) {
   );
 }
 
+// ── Availability-aware time slot selector ──────────────────────────────────
+
+function TimeSlotSelect({
+  date,
+  specialistId,
+  locationId,
+  duration,
+  value,
+  onChange,
+  disabled,
+}: {
+  date: string;
+  specialistId: string;
+  locationId: string;
+  duration: number;
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const [slots, setSlots] = React.useState<AvailabilitySlot[] | null>(null);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!specialistId || !locationId || !date || duration < 15) {
+      setSlots(null);
+      return;
+    }
+    setLoading(true);
+    apiFetch(`/api/appointments/availability?specialistId=${specialistId}&locationId=${locationId}&date=${date}&duration=${duration}`)
+      .then(r => r.json())
+      .then(j => {
+        if (j.success) setSlots(j.data?.slots ?? []);
+        else setSlots(null);
+      })
+      .catch(() => setSlots(null))
+      .finally(() => setLoading(false));
+  }, [specialistId, locationId, date, duration]);
+
+  // If no availability data, fall back to all 15-min slots
+  const options = slots ?? ALL_TIME_SLOTS.map(s => ({ startAt: '', label: s.label }));
+  const isAvailabilityLoaded = slots !== null;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        disabled={disabled || loading}
+        className={cn(selectCls(), loading && 'opacity-60')}
+      >
+        <option value="">
+          {loading ? 'Загрузка слотов...' :
+            isAvailabilityLoaded && slots!.length === 0 ? 'Нет свободного времени' :
+            'Выберите время'}
+        </option>
+        {options.map(slot => (
+          <option key={slot.label} value={slot.startAt || slot.label}>
+            {slot.label}
+            {isAvailabilityLoaded ? ' ✓' : ''}
+          </option>
+        ))}
+      </select>
+      {isAvailabilityLoaded && (
+        <p className="text-[10px] text-text-tertiary px-1">
+          {slots!.length > 0 ? `${slots!.length} свободных слотов` : 'Нет доступного времени на эту дату'}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ── New Booking Modal ──────────────────────────────────────────────────────
 
 function NewBookingModal({
@@ -100,7 +179,7 @@ function NewBookingModal({
   onCreated: (apt: AppointmentItem) => void;
 }) {
   const [date, setDate] = React.useState(() => new Date().toISOString().split('T')[0]);
-  const [time, setTime] = React.useState('09:00');
+  const [timeValue, setTimeValue] = React.useState('');
   const [specialistId, setSpecialistId] = React.useState('');
   const [serviceId, setServiceId] = React.useState('');
   const [clientId, setClientId] = React.useState('');
@@ -119,7 +198,6 @@ function NewBookingModal({
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Load specialists, customers, and location on mount
   React.useEffect(() => {
     async function loadInitial() {
       const [specRes, custRes, locRes] = await Promise.all([
@@ -130,13 +208,8 @@ function NewBookingModal({
       const [specJson, custJson, locJson] = await Promise.all([
         specRes.json(), custRes.json(), locRes.json(),
       ]);
-
-      if (specJson.success) {
-        setSpecialists(specJson.data?.items ?? []);
-      }
-      if (custJson.success) {
-        setCustomers((custJson.data?.items ?? custJson.data ?? []) as CustomerOption[]);
-      }
+      if (specJson.success) setSpecialists(specJson.data?.items ?? []);
+      if (custJson.success) setCustomers((custJson.data?.items ?? custJson.data ?? []) as CustomerOption[]);
       if (locJson.success) {
         const locs = locJson.data?.items ?? [];
         if (locs.length > 0) setLocationId(locs[0].id as string);
@@ -147,20 +220,17 @@ function NewBookingModal({
     loadInitial();
   }, []);
 
-  // Load specialist's services when specialist changes
   React.useEffect(() => {
-    if (!specialistId) { setServices([]); setServiceId(''); return; }
+    if (!specialistId) { setServices([]); setServiceId(''); setTimeValue(''); return; }
     setLoadingServices(true);
     setServiceId('');
+    setTimeValue('');
     apiFetch(`/api/admin/specialists/${specialistId}/services`)
       .then(r => r.json())
-      .then(j => {
-        if (j.success) setServices(j.data?.items ?? []);
-      })
+      .then(j => { if (j.success) setServices(j.data?.items ?? []); })
       .finally(() => setLoadingServices(false));
   }, [specialistId]);
 
-  // Close on Escape
   React.useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && !submitting) onClose(); };
     window.addEventListener('keydown', handler);
@@ -180,6 +250,9 @@ function NewBookingModal({
   }, [customers, clientSearch]);
 
   const selectedService = services.find(s => s.serviceId === serviceId);
+  const effectiveDuration = selectedService
+    ? (selectedService.durationOverride ?? selectedService.baseDuration)
+    : 60;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -189,18 +262,24 @@ function NewBookingModal({
     if (!specialistId) { setError('Выберите специалиста'); return; }
     if (!serviceId || !selectedService) { setError('Выберите услугу'); return; }
     if (!locationId) { setError('Нет доступных локаций'); return; }
+    if (!timeValue) { setError('Выберите время записи'); return; }
 
-    const startAt = new Date(`${date}T${time}:00`);
-    const [, m] = time.split(':').map(Number);
-    if (![0, 15, 30, 45].includes(m)) {
-      setError('Время должно быть кратно 15 минутам (:00, :15, :30, :45)');
+    // timeValue is either a UTC ISO string (from availability) or a "HH:MM" label
+    let startAt: Date;
+    if (timeValue.includes('T')) {
+      startAt = new Date(timeValue);
+    } else {
+      startAt = new Date(`${date}T${timeValue}:00`);
+    }
+
+    if (isNaN(startAt.getTime())) {
+      setError('Некорректное время');
       return;
     }
 
     setSubmitting(true);
     try {
       const effectivePrice = selectedService.priceOverride ?? selectedService.basePrice;
-      const effectiveDuration = selectedService.durationOverride ?? selectedService.baseDuration;
 
       const res = await apiFetch('/api/appointments', {
         method: 'POST',
@@ -241,7 +320,6 @@ function NewBookingModal({
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={!submitting ? onClose : undefined} aria-hidden="true" />
       <div className="relative z-10 w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl bg-onyx border border-border-luxury shadow-2xl overflow-hidden">
 
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury shrink-0">
           <h2 id="new-booking-title" className="font-serif text-lg font-medium text-text-primary">Новая запись</h2>
           <button
@@ -254,33 +332,7 @@ function NewBookingModal({
           </button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
-
-          {/* Date + Time */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <FieldLabel>Дата</FieldLabel>
-              <input
-                type="date"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className={cn(selectCls(), '[color-scheme:dark]')}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <FieldLabel>
-                Время <span className="text-champagne text-[10px] normal-case tracking-normal">(:00/:15/:30/:45)</span>
-              </FieldLabel>
-              <select value={time} onChange={e => setTime(e.target.value)} className={selectCls()}>
-                {TIME_SLOTS.map(slot => (
-                  <option key={slot.value} value={slot.value}>{slot.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
 
           {/* Specialist */}
           <div className="flex flex-col gap-1.5">
@@ -294,9 +346,7 @@ function NewBookingModal({
             >
               <option value="">{loadingSpecialists ? 'Загрузка...' : 'Выберите специалиста'}</option>
               {specialists.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.firstName} {s.lastName}
-                </option>
+                <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
               ))}
             </select>
           </div>
@@ -306,7 +356,7 @@ function NewBookingModal({
             <FieldLabel>Услуга</FieldLabel>
             <select
               value={serviceId}
-              onChange={e => setServiceId(e.target.value)}
+              onChange={e => { setServiceId(e.target.value); setTimeValue(''); }}
               disabled={!specialistId || loadingServices || submitting}
               className={selectCls()}
               required
@@ -317,7 +367,7 @@ function NewBookingModal({
                     services.length === 0 ? 'Нет привязанных услуг' : 'Выберите услугу'}
               </option>
               {services.map(s => {
-                const price = s.priceOverride ?? s.basePrice;
+                const price    = s.priceOverride ?? s.basePrice;
                 const duration = s.durationOverride ?? s.baseDuration;
                 return (
                   <option key={s.serviceId} value={s.serviceId}>
@@ -326,6 +376,52 @@ function NewBookingModal({
                 );
               })}
             </select>
+          </div>
+
+          {/* Date + Time */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <FieldLabel>Дата</FieldLabel>
+              <input
+                type="date"
+                value={date}
+                onChange={e => { setDate(e.target.value); setTimeValue(''); }}
+                min={new Date().toISOString().split('T')[0]}
+                className={cn(selectCls(), '[color-scheme:dark]')}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <FieldLabel>
+                Время{' '}
+                {specialistId && locationId && serviceId && (
+                  <span className="text-green-400 text-[10px] normal-case tracking-normal font-normal">проверяется доступность</span>
+                )}
+              </FieldLabel>
+              {specialistId && locationId && serviceId ? (
+                <TimeSlotSelect
+                  date={date}
+                  specialistId={specialistId}
+                  locationId={locationId}
+                  duration={effectiveDuration}
+                  value={timeValue}
+                  onChange={setTimeValue}
+                  disabled={submitting}
+                />
+              ) : (
+                <select
+                  value={timeValue}
+                  onChange={e => setTimeValue(e.target.value)}
+                  disabled={submitting}
+                  className={selectCls()}
+                >
+                  <option value="">Выберите специалиста и услугу</option>
+                  {ALL_TIME_SLOTS.map(slot => (
+                    <option key={slot.value} value={slot.value}>{slot.label}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
 
           {/* Client search */}
@@ -387,7 +483,6 @@ function NewBookingModal({
           )}
         </form>
 
-        {/* Footer */}
         <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-border-luxury">
           <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
             Отмена
@@ -401,16 +496,144 @@ function NewBookingModal({
   );
 }
 
-// ── Action menu for a booking row ──────────────────────────────────────────
+// ── Reschedule Modal ───────────────────────────────────────────────────────
+
+function RescheduleModal({
+  apt,
+  onClose,
+  onRescheduled,
+}: {
+  apt: AppointmentItem;
+  onClose: () => void;
+  onRescheduled: (updated: AppointmentItem) => void;
+}) {
+  const [date, setDate] = React.useState(() => new Date().toISOString().split('T')[0]);
+  const [timeValue, setTimeValue] = React.useState('');
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && !submitting) onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose, submitting]);
+
+  const totalDuration = apt.totalDuration || apt.services.reduce((s, x) => s + x.duration, 0) || 60;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!timeValue) { setError('Выберите новое время'); return; }
+
+    let newStartAt: Date;
+    if (timeValue.includes('T')) {
+      newStartAt = new Date(timeValue);
+    } else {
+      newStartAt = new Date(`${date}T${timeValue}:00`);
+    }
+
+    if (isNaN(newStartAt.getTime())) { setError('Некорректное время'); return; }
+
+    setSubmitting(true);
+    try {
+      const res = await apiFetch(`/api/appointments/${apt.id}/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newStartAt: newStartAt.toISOString() }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setError(json.error?.message ?? 'Не удалось перенести запись');
+        return;
+      }
+      onRescheduled(json.data.appointment as AppointmentItem);
+      onClose();
+    } catch {
+      setError('Ошибка сети. Попробуйте ещё раз.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={!submitting ? onClose : undefined} aria-hidden="true" />
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-onyx border border-border-luxury shadow-2xl overflow-hidden">
+
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
+          <h2 className="font-serif text-lg font-medium text-text-primary">Перенести запись</h2>
+          <button onClick={onClose} disabled={submitting} className="p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors disabled:opacity-40" aria-label="Закрыть">✕</button>
+        </div>
+
+        <div className="px-6 py-4 border-b border-border-luxury bg-charcoal/30">
+          <p className="text-sm text-text-secondary">
+            <span className="font-medium text-text-primary">{apt.clientName}</span>
+            {' · '}{apt.serviceName}
+            {' · '}{apt.specialistName}
+          </p>
+          <p className="text-xs text-text-tertiary mt-1">
+            Текущее время: {formatTime(new Date(apt.startAt))} ({totalDuration} мин)
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} noValidate className="px-6 py-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <FieldLabel>Новая дата</FieldLabel>
+              <input
+                type="date"
+                value={date}
+                onChange={e => { setDate(e.target.value); setTimeValue(''); }}
+                min={new Date().toISOString().split('T')[0]}
+                className={cn(selectCls(), '[color-scheme:dark]')}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <FieldLabel>
+                Новое время{' '}
+                <span className="text-green-400 text-[10px] normal-case tracking-normal font-normal">доступность</span>
+              </FieldLabel>
+              <TimeSlotSelect
+                date={date}
+                specialistId={apt.specialistId}
+                locationId={apt.locationId}
+                duration={totalDuration}
+                value={timeValue}
+                onChange={setTimeValue}
+                disabled={submitting}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div role="alert" className="rounded-lg px-4 py-3 bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={submitting}>Отмена</Button>
+            <Button type="submit" variant="primary" size="sm" isLoading={submitting}>Перенести</Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Action menu ────────────────────────────────────────────────────────────
 
 function BookingActions({
   apt,
   onStatusChange,
   onCancel,
+  onReschedule,
 }: {
   apt: AppointmentItem;
   onStatusChange: (id: string, status: string) => void;
   onCancel: (id: string) => void;
+  onReschedule: (apt: AppointmentItem) => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -423,13 +646,14 @@ function BookingActions({
     return () => document.removeEventListener('mousedown', onClick);
   }, [open]);
 
-  const canConfirm   = apt.status === 'PENDING' || apt.status === 'RESCHEDULED';
-  const canStart     = apt.status === 'CONFIRMED';
-  const canComplete  = apt.status === 'IN_PROGRESS';
-  const canNoShow    = apt.status === 'IN_PROGRESS';
-  const canCancel    = ['PENDING', 'CONFIRMED', 'RESCHEDULED'].includes(apt.status);
+  const canConfirm    = apt.status === 'PENDING' || apt.status === 'RESCHEDULED';
+  const canStart      = apt.status === 'CONFIRMED';
+  const canComplete   = apt.status === 'IN_PROGRESS';
+  const canNoShow     = apt.status === 'IN_PROGRESS';
+  const canReschedule = ['PENDING', 'CONFIRMED', 'RESCHEDULED'].includes(apt.status);
+  const canCancel     = ['PENDING', 'CONFIRMED', 'RESCHEDULED'].includes(apt.status);
 
-  if (!canConfirm && !canStart && !canComplete && !canNoShow && !canCancel) return null;
+  if (!canConfirm && !canStart && !canComplete && !canNoShow && !canReschedule && !canCancel) return null;
 
   return (
     <div ref={ref} className="relative">
@@ -443,7 +667,7 @@ function BookingActions({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-8 z-20 w-48 rounded-xl bg-onyx border border-border-luxury shadow-2xl overflow-hidden">
+        <div className="absolute right-0 top-8 z-20 w-52 rounded-xl bg-onyx border border-border-luxury shadow-2xl overflow-hidden">
           {canConfirm && (
             <button
               onClick={() => { setOpen(false); onStatusChange(apt.id, 'CONFIRMED'); }}
@@ -480,6 +704,15 @@ function BookingActions({
               Не явился
             </button>
           )}
+          {canReschedule && (
+            <button
+              onClick={() => { setOpen(false); onReschedule(apt); }}
+              className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-text-secondary hover:text-sky-400 hover:bg-sky-500/8 transition-colors text-left"
+            >
+              <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+              Перенести
+            </button>
+          )}
           {canCancel && (
             <button
               onClick={() => { setOpen(false); onCancel(apt.id); }}
@@ -495,16 +728,18 @@ function BookingActions({
   );
 }
 
-// ── Booking row ────────────────────────────────────────────────────────────
+// ── Booking row (desktop) ──────────────────────────────────────────────────
 
 function BookingRow({
   apt,
   onStatusChange,
   onCancel,
+  onReschedule,
 }: {
   apt: AppointmentItem;
   onStatusChange: (id: string, status: string) => void;
   onCancel: (id: string) => void;
+  onReschedule: (apt: AppointmentItem) => void;
 }) {
   const startAt = new Date(apt.startAt);
   return (
@@ -519,6 +754,9 @@ function BookingRow({
       <td className="px-4 py-4 text-sm text-text-secondary whitespace-nowrap">{apt.specialistName}</td>
       <td className="px-4 py-4 text-sm text-text-secondary whitespace-nowrap tabular-nums">
         {formatTime(startAt)}
+        {apt.totalDuration > 0 && (
+          <span className="text-text-tertiary ml-1 text-xs">({apt.totalDuration} мин)</span>
+        )}
       </td>
       <td className="px-4 py-4">
         <Badge variant={getAppointmentStatusBadgeVariant(apt.status)} dot>
@@ -529,22 +767,24 @@ function BookingRow({
         {formatCurrency(apt.totalPrice)}
       </td>
       <td className="px-4 py-4 text-right">
-        <BookingActions apt={apt} onStatusChange={onStatusChange} onCancel={onCancel} />
+        <BookingActions apt={apt} onStatusChange={onStatusChange} onCancel={onCancel} onReschedule={onReschedule} />
       </td>
     </tr>
   );
 }
 
-// ── Mobile booking card ────────────────────────────────────────────────────
+// ── Booking card (mobile) ──────────────────────────────────────────────────
 
 function BookingCard({
   apt,
   onStatusChange,
   onCancel,
+  onReschedule,
 }: {
   apt: AppointmentItem;
   onStatusChange: (id: string, status: string) => void;
   onCancel: (id: string) => void;
+  onReschedule: (apt: AppointmentItem) => void;
 }) {
   const startAt = new Date(apt.startAt);
   return (
@@ -554,7 +794,7 @@ function BookingCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <p className="font-medium text-text-primary text-sm truncate">{apt.clientName}</p>
-            <BookingActions apt={apt} onStatusChange={onStatusChange} onCancel={onCancel} />
+            <BookingActions apt={apt} onStatusChange={onStatusChange} onCancel={onCancel} onReschedule={onReschedule} />
           </div>
           <p className="text-xs text-text-tertiary mt-0.5 truncate">{apt.serviceName} · {apt.specialistName}</p>
           <div className="flex items-center gap-3 mt-2">
@@ -570,7 +810,7 @@ function BookingCard({
   );
 }
 
-// ── Cancel confirmation dialog ─────────────────────────────────────────────
+// ── Cancel dialog ──────────────────────────────────────────────────────────
 
 function CancelDialog({
   appointmentId,
@@ -642,22 +882,34 @@ export default function BookingsPage() {
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('ALL');
+  const [specialistFilter, setSpecialistFilter] = React.useState('');
+  const [specialists, setSpecialists] = React.useState<SpecialistOption[]>([]);
   const [showModal, setShowModal] = React.useState(false);
   const [cancelTarget, setCancelTarget] = React.useState<string | null>(null);
   const [cancelling, setCancelling] = React.useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = React.useState<AppointmentItem | null>(null);
   const [selectedDate, setSelectedDate] = React.useState(
     () => new Date().toISOString().split('T')[0],
   );
+
+  // Load specialists for filter
+  React.useEffect(() => {
+    apiFetch('/api/admin/specialists?limit=100&status=ACTIVE')
+      .then(r => r.json())
+      .then(j => { if (j.success) setSpecialists(j.data?.items ?? []); })
+      .catch(() => {});
+  }, []);
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      // Build query with correct parameter names (from/to, not startDate/endDate)
       const dayStart = `${selectedDate}T00:00:00.000Z`;
       const dayEnd   = `${selectedDate}T23:59:59.999Z`;
       const params = new URLSearchParams({ limit: '100', from: dayStart, to: dayEnd });
       if (statusFilter !== 'ALL') params.set('status', statusFilter);
+      if (specialistFilter) params.set('specialistId', specialistFilter);
+
       const res = await apiFetch(`/api/appointments?${params}`);
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -673,7 +925,7 @@ export default function BookingsPage() {
     }
   }
 
-  React.useEffect(() => { load(); }, [selectedDate, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { load(); }, [selectedDate, statusFilter, specialistFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = React.useMemo(() => {
     if (!search.trim()) return appointments;
@@ -685,10 +937,14 @@ export default function BookingsPage() {
     );
   }, [appointments, search]);
 
+  function showActionError(msg: string) {
+    setActionError(msg);
+    setTimeout(() => setActionError(null), 5000);
+  }
+
   async function handleStatusChange(id: string, status: string) {
     setActionError(null);
     const prev = appointments;
-    // Optimistic update
     setAppointments(list => list.map(a => a.id === id ? { ...a, status } : a));
     try {
       const res = await apiFetch(`/api/appointments/${id}`, {
@@ -699,14 +955,11 @@ export default function BookingsPage() {
       const json = await res.json();
       if (!res.ok || !json.success) {
         setAppointments(prev);
-        const msg = json.error?.message ?? 'Не удалось изменить статус';
-        setActionError(msg);
-        setTimeout(() => setActionError(null), 5000);
+        showActionError(json.error?.message ?? 'Не удалось изменить статус');
       }
     } catch {
       setAppointments(prev);
-      setActionError('Ошибка сети. Попробуйте ещё раз.');
-      setTimeout(() => setActionError(null), 5000);
+      showActionError('Ошибка сети. Попробуйте ещё раз.');
     }
   }
 
@@ -724,15 +977,17 @@ export default function BookingsPage() {
         setAppointments(list => list.map(a => a.id === id ? { ...a, status: 'CANCELLED' } : a));
         setCancelTarget(null);
       } else {
-        setActionError(json.error?.message ?? 'Не удалось отменить запись');
-        setTimeout(() => setActionError(null), 5000);
+        showActionError(json.error?.message ?? 'Не удалось отменить запись');
       }
     } catch {
-      setActionError('Ошибка сети. Попробуйте ещё раз.');
-      setTimeout(() => setActionError(null), 5000);
+      showActionError('Ошибка сети. Попробуйте ещё раз.');
     } finally {
       setCancelling(false);
     }
+  }
+
+  function handleRescheduled(updated: AppointmentItem) {
+    setAppointments(list => list.map(a => a.id === updated.id ? updated : a));
   }
 
   return (
@@ -767,7 +1022,8 @@ export default function BookingsPage() {
       {/* Filters */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex items-center gap-2">
+          {/* Date */}
+          <div className="flex items-center gap-2 shrink-0">
             <Calendar className="w-4 h-4 text-text-tertiary shrink-0" aria-hidden />
             <input
               type="date"
@@ -781,6 +1037,24 @@ export default function BookingsPage() {
               )}
             />
           </div>
+
+          {/* Specialist filter */}
+          <select
+            value={specialistFilter}
+            onChange={e => setSpecialistFilter(e.target.value)}
+            className={cn(
+              'h-10 rounded-lg px-3 text-sm shrink-0',
+              'bg-charcoal border border-border-luxury text-text-primary',
+              'focus:outline-none focus:border-champagne',
+            )}
+          >
+            <option value="">Все специалисты</option>
+            {specialists.map(s => (
+              <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+            ))}
+          </select>
+
+          {/* Search */}
           <div className="flex-1">
             <Input
               placeholder="Поиск по клиенту, специалисту или услуге..."
@@ -791,6 +1065,7 @@ export default function BookingsPage() {
           </div>
         </div>
 
+        {/* Status filter pills */}
         <div className="flex items-center gap-1 bg-charcoal rounded-lg p-1 border border-border-luxury overflow-x-auto shrink-0">
           <Filter className="w-4 h-4 text-text-tertiary mx-2 shrink-0" aria-hidden />
           {STATUS_FILTERS.map(f => (
@@ -810,7 +1085,7 @@ export default function BookingsPage() {
         </div>
       </div>
 
-      {/* Interval reminder */}
+      {/* 15-min interval reminder */}
       <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-champagne/6 border border-champagne/20">
         <Clock className="w-4 h-4 text-champagne shrink-0" aria-hidden />
         <p className="text-xs text-text-secondary">
@@ -872,6 +1147,7 @@ export default function BookingsPage() {
                     apt={apt}
                     onStatusChange={handleStatusChange}
                     onCancel={id => setCancelTarget(id)}
+                    onReschedule={setRescheduleTarget}
                   />
                 ))}
               </tbody>
@@ -888,6 +1164,7 @@ export default function BookingsPage() {
                 apt={apt}
                 onStatusChange={handleStatusChange}
                 onCancel={id => setCancelTarget(id)}
+                onReschedule={setRescheduleTarget}
               />
             ))}
           </div>
@@ -907,6 +1184,13 @@ export default function BookingsPage() {
           onConfirm={handleCancel}
           onDismiss={() => setCancelTarget(null)}
           submitting={cancelling}
+        />
+      )}
+      {rescheduleTarget && (
+        <RescheduleModal
+          apt={rescheduleTarget}
+          onClose={() => setRescheduleTarget(null)}
+          onRescheduled={handleRescheduled}
         />
       )}
     </div>

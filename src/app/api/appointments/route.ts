@@ -7,84 +7,14 @@ import { ListAppointmentsSchema, CreateAppointmentSchema } from '@/application/d
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
 import { ADMIN_ROLES } from '@/lib/admin-roles';
-import type { IEventBus } from '@/application/ports';
-import type { DomainEvent } from '@/domain/events';
-import type { Appointment } from '@/domain/entities';
+import { noopEventBus } from '@/lib/noop-event-bus';
+import { serializeAppointments } from '@/lib/appointment-serializer';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
 }
 function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
-}
-
-const noopEventBus: IEventBus = {
-  async publish(_event: DomainEvent): Promise<void> {},
-  subscribe(_eventType: string, _handler: (event: DomainEvent) => Promise<void>): void {},
-};
-
-async function serializeAppointments(items: Appointment[]) {
-  if (items.length === 0) return [];
-
-  const registry = DIRegistry.instance;
-
-  // Deduplicate IDs before fetching — avoids N+N queries for repeat specialists/clients
-  const uniqueClientIds = [...new Set(items.map(a => a.clientId))];
-  const uniqueSpecialistIds = [...new Set(items.map(a => a.specialistId))];
-
-  const [clientUsers, specialists] = await Promise.all([
-    Promise.all(uniqueClientIds.map(id => registry.userRepository.findById(id))),
-    Promise.all(uniqueSpecialistIds.map(id => registry.specialistRepository.findById(id))),
-  ]);
-
-  const specialistUserIds = [...new Set(specialists.filter(Boolean).map(s => s!.userId))];
-  const specialistUsers = await Promise.all(
-    specialistUserIds.map(id => registry.userRepository.findById(id))
-  );
-
-  const clientMap = new Map(uniqueClientIds.map((id, i) => [id, clientUsers[i]]));
-  const specialistMap = new Map(uniqueSpecialistIds.map((id, i) => [id, specialists[i]]));
-  const specialistUserMap = new Map(specialistUserIds.map((id, i) => [id, specialistUsers[i]]));
-
-  return items.map(a => {
-    const client = clientMap.get(a.clientId);
-    const specialist = specialistMap.get(a.specialistId);
-    const specialistUser = specialist ? specialistUserMap.get(specialist.userId) : null;
-
-    const clientName = client
-      ? `${client.firstName} ${client.lastName}`.trim()
-      : 'Клиент';
-    const specialistName = specialistUser
-      ? `${specialistUser.firstName} ${specialistUser.lastName}`.trim()
-      : 'Специалист';
-
-    const primaryService = a.services[0];
-
-    return {
-      id: a.id,
-      clientId: a.clientId,
-      clientName,
-      specialistId: a.specialistId,
-      specialistName,
-      locationId: a.locationId,
-      startAt: a.timeSlot.start.toISOString(),
-      endAt: a.timeSlot.end.toISOString(),
-      status: a.status,
-      services: a.services.map(s => ({
-        serviceId: s.serviceId,
-        name: s.name,
-        price: s.price.amount,
-        duration: s.duration,
-      })),
-      serviceName: primaryService?.name ?? '—',
-      totalPrice: a.totalPrice.amount,
-      totalDuration: a.totalDuration,
-      notes: a.notes ?? null,
-      source: a.source ?? null,
-      createdAt: a.createdAt.toISOString(),
-      updatedAt: a.updatedAt.toISOString(),
-    };
-  });
 }
 
 export async function GET(req: NextRequest) {
@@ -139,7 +69,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Admin/operator can book on behalf of a client by passing clientId in body
     const effectiveClientId =
       ADMIN_ROLES.includes(role) && parsed.data.clientId
         ? parsed.data.clientId
@@ -163,7 +92,6 @@ export async function POST(req: NextRequest) {
 
     const { appointment } = await useCase.execute(parsed.data, effectiveClientId, role);
 
-    // Serialize the created appointment
     const [serialized] = await serializeAppointments([appointment]);
     return ok(serialized, 201);
   } catch (error) {

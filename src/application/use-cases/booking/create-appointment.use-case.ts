@@ -18,6 +18,7 @@ import {
   INotificationRepository,
 } from '@/application/ports';
 import { CreateAppointmentDto } from '@/application/dto';
+import { getLocalMinutes, getDayOfWeekInTz, getSalonTz } from '@/lib/timezone';
 
 export interface CreateAppointmentResult {
   appointment: Appointment;
@@ -66,7 +67,6 @@ export class CreateAppointmentUseCase {
       throw new NotFoundError('Service', missing.join(', '));
     }
 
-    // Check all services are active
     const inactive = services.filter(s => !s.isActive);
     if (inactive.length > 0) {
       throw new ConflictError(`Services not available: ${inactive.map(s => s.name).join(', ')}`);
@@ -98,7 +98,7 @@ export class CreateAppointmentUseCase {
     const endAt = new Date(dto.startAt.getTime() + totalDuration * 60000);
     const timeRange = DateRange.create(dto.startAt, endAt);
 
-    // Check specialist availability
+    // Check specialist availability (existing appointments)
     const overlapping = await this.appointmentRepo.findOverlapping(specialist.id, timeRange);
     if (overlapping.length > 0) {
       throw new ConflictError('Time slot is not available', 'startAt');
@@ -116,17 +116,28 @@ export class CreateAppointmentUseCase {
       throw new ConflictError('Specialist is on vacation', 'startAt');
     }
 
-    // Check working schedule
-    const dayOfWeek = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][dto.startAt.getDay()] as any;
+    // Check working schedule — timezone-safe
+    const tz = getSalonTz();
+    const dayOfWeek = getDayOfWeekInTz(dto.startAt, tz) as any;
     const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(specialist.id, dayOfWeek, dto.startAt);
+
+    const apptStartMin = getLocalMinutes(dto.startAt, tz);
+    const apptEndMin   = getLocalMinutes(endAt, tz);
+
     const validSchedule = schedules.find(s => {
       if (!s.isActive || !s.isValidForDate(dto.startAt)) return false;
-      const startMin = s.startMinutes;
-      const endMin = s.endMinutes;
-      const apptStartMin = dto.startAt.getHours() * 60 + dto.startAt.getMinutes();
-      const apptEndMin = endAt.getHours() * 60 + endAt.getMinutes();
-      return apptStartMin >= startMin && apptEndMin <= endMin;
+      if (apptStartMin < s.startMinutes || apptEndMin > s.endMinutes) return false;
+
+      // Reject if appointment overlaps specialist's break
+      const bStart = s.breakStartMinutes;
+      const bEnd   = s.breakEndMinutes;
+      if (bStart !== undefined && bEnd !== undefined) {
+        if (apptStartMin < bEnd && apptEndMin > bStart) return false;
+      }
+
+      return true;
     });
+
     if (!validSchedule) {
       throw new ConflictError('Outside working hours', 'startAt');
     }
@@ -162,10 +173,8 @@ export class CreateAppointmentUseCase {
 
     const saved = await this.appointmentRepo.create(appointment);
 
-    // Update customer profile
-    await this.profileRepo.recordVisit(clientId, 0); // Visit recorded, amount updated on payment
+    await this.profileRepo.recordVisit(clientId, 0);
 
-    // Publish event
     await this.eventBus.publish(
       new AppointmentBookedEvent(saved.id, {
         clientId: saved.clientId,

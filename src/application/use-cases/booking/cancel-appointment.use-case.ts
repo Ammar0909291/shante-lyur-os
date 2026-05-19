@@ -61,6 +61,9 @@ export class CancelAppointmentUseCase {
       refundPolicy = 'full';
     }
 
+    // Capture status BEFORE calling cancel() which mutates the entity
+    const oldStatus = appointment.status;
+
     appointment.cancel(dto.reason as CancellationReason, actorId);
     const saved = await this.appointmentRepo.update(appointment);
 
@@ -129,7 +132,7 @@ export class CancelAppointmentUseCase {
         action: AuditAction.UPDATE,
         entityType: 'Appointment',
         entityId: appointment.id,
-        oldValues: { status: appointment.status },
+        oldValues: { status: oldStatus },
         newValues: { status: 'CANCELLED', reason: dto.reason },
       })
     );
