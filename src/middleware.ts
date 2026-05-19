@@ -16,9 +16,11 @@ const PROTECTED_API_ROUTES = [
   '/api/staff',
   '/api/sse',
   '/api/user',
+  '/api/auth/me',
+  '/api/auth/logout',
 ];
 
-const AUTH_ROUTES = ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/reset-password'];
+const AUTH_ROUTES = ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/refresh'];
 
 const PUBLIC_API_ROUTES = [
   ...AUTH_ROUTES,

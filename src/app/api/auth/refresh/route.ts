@@ -55,7 +55,6 @@ export async function POST(req: NextRequest) {
     const useCase = new RefreshTokenUseCase(
       registry.userRepository,
       registry.refreshTokenRepository,
-      registry.passwordHasher,
       registry.tokenService,
     );
 

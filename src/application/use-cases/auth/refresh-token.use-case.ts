@@ -1,9 +1,13 @@
 import { UnauthorizedError } from '@/domain/errors';
 import { RefreshToken } from '@/domain/entities';
+
+async function sha256Hex(value: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 import {
   IUserRepository,
   IRefreshTokenRepository,
-  IPasswordHasher,
   ITokenService,
 } from '@/application/ports';
 import { RefreshTokenDto } from '@/application/dto';
@@ -17,7 +21,6 @@ export class RefreshTokenUseCase {
   constructor(
     private readonly userRepo: IUserRepository,
     private readonly refreshTokenRepo: IRefreshTokenRepository,
-    private readonly passwordHasher: IPasswordHasher,
     private readonly tokenService: ITokenService,
   ) {}
 
@@ -35,7 +38,7 @@ export class RefreshTokenUseCase {
       throw new UnauthorizedError('User not found or inactive');
     }
 
-    const tokenHash = await this.passwordHasher.hash(dto.refreshToken);
+    const tokenHash = await sha256Hex(dto.refreshToken);
     const stored = await this.refreshTokenRepo.findByTokenHash(tokenHash);
     if (!stored || !stored.isValid) {
       // Security: revoke all tokens for this user if token reuse detected
@@ -63,7 +66,7 @@ export class RefreshTokenUseCase {
     const newRefreshToken = new RefreshToken({
       id: crypto.randomUUID(),
       userId: user.id,
-      tokenHash: await this.passwordHasher.hash(newRefreshTokenStr),
+      tokenHash: await sha256Hex(newRefreshTokenStr),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       replacedBy: stored.id,
       createdAt: new Date(),

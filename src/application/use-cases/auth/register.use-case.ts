@@ -1,5 +1,10 @@
 import { User, RefreshToken } from '@/domain/entities';
 import { UserRole, UserStatus } from '@/domain/enums';
+
+async function sha256Hex(value: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 import { Email, PhoneNumber } from '@/domain/value-objects';
 import { ConflictError } from '@/domain/errors';
 import { UserRegisteredEvent } from '@/domain/events';
@@ -71,7 +76,7 @@ export class RegisterUseCase {
     const refreshToken = new RefreshToken({
       id: crypto.randomUUID(),
       userId: saved.id,
-      tokenHash: await this.passwordHasher.hash(refreshTokenStr),
+      tokenHash: await sha256Hex(refreshTokenStr),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       ipAddress,
       createdAt: new Date(),
