@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { DIRegistry } from '@/infrastructure/config/di-registry';
-import { ListCustomersUseCase, CreateCustomerProfileUseCase } from '@/application/use-cases/crm';
+import { CreateCustomerProfileUseCase } from '@/application/use-cases/crm';
 import { ListCustomersSchema, CreateCustomerProfileSchema } from '@/application/dto';
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
@@ -39,8 +39,7 @@ export async function GET(req: NextRequest) {
     }
 
     const registry = DIRegistry.instance;
-    const useCase = new ListCustomersUseCase(registry.customerProfileRepository);
-    const result = await useCase.execute(parsed.data);
+    const result = await registry.customerProfileRepository.findManyWithUser(parsed.data);
 
     return ok(result);
   } catch (error) {

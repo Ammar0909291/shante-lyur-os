@@ -7,6 +7,11 @@ import { PrismaRefreshTokenRepository } from '../repositories/prisma-refresh-tok
 import { PrismaSessionRepository } from '../repositories/prisma-session.repository';
 import { PrismaAppointmentRepository } from '../repositories/prisma-appointment.repository';
 import { PrismaCustomerProfileRepository } from '../repositories/prisma-customer-profile.repository';
+import { PrismaCustomerAllergyRepository } from '../repositories/prisma-customer-allergy.repository';
+import { PrismaCustomerRestrictionRepository } from '../repositories/prisma-customer-restriction.repository';
+import { PrismaSpecialistNoteRepository } from '../repositories/prisma-specialist-note.repository';
+import { PrismaProcedureHistoryRepository } from '../repositories/prisma-procedure-history.repository';
+import { PrismaCustomerTagRepository } from '../repositories/prisma-customer-tag.repository';
 import { PrismaServiceRepository } from '../repositories/prisma-service.repository';
 import { PrismaLocationRepository } from '../repositories/prisma-location.repository';
 import { PrismaSpecialistRepository } from '../repositories/prisma-specialist.repository';
@@ -43,6 +48,11 @@ export class DIRegistry {
   readonly sessionRepository: PrismaSessionRepository;
   readonly appointmentRepository: PrismaAppointmentRepository;
   readonly customerProfileRepository: PrismaCustomerProfileRepository;
+  readonly customerAllergyRepository: PrismaCustomerAllergyRepository;
+  readonly customerRestrictionRepository: PrismaCustomerRestrictionRepository;
+  readonly specialistNoteRepository: PrismaSpecialistNoteRepository;
+  readonly procedureHistoryRepository: PrismaProcedureHistoryRepository;
+  readonly customerTagRepository: PrismaCustomerTagRepository;
   readonly serviceRepository: PrismaServiceRepository;
   readonly locationRepository: PrismaLocationRepository;
   readonly specialistRepository: PrismaSpecialistRepository;
@@ -77,6 +87,11 @@ export class DIRegistry {
     this.sessionRepository = new PrismaSessionRepository(db);
     this.appointmentRepository = new PrismaAppointmentRepository(db);
     this.customerProfileRepository = new PrismaCustomerProfileRepository(db);
+    this.customerAllergyRepository = new PrismaCustomerAllergyRepository(db);
+    this.customerRestrictionRepository = new PrismaCustomerRestrictionRepository(db);
+    this.specialistNoteRepository = new PrismaSpecialistNoteRepository(db);
+    this.procedureHistoryRepository = new PrismaProcedureHistoryRepository(db);
+    this.customerTagRepository = new PrismaCustomerTagRepository(db);
     this.serviceRepository = new PrismaServiceRepository(db);
     this.locationRepository = new PrismaLocationRepository(db);
     this.specialistRepository = new PrismaSpecialistRepository(db);

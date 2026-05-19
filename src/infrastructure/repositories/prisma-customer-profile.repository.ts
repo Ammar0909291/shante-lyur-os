@@ -3,6 +3,23 @@ import { ICustomerProfileRepository } from '@/application/ports/customer-profile
 import { CustomerProfile } from '@/domain/entities/customer-profile.entity';
 import { Money } from '@/domain/value-objects/money.vo';
 
+export interface CustomerListItem {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  totalVisits: number;
+  totalSpent: number;
+  loyaltyPoints: number;
+  loyaltyTier: string;
+  churnRiskScore: number | null;
+  lastVisitAt: Date | null;
+  createdAt: Date;
+  tags: Array<{ tag: string; color: string | null }>;
+}
+
 type CustomerProfileRow = {
   id: string;
   userId: string;
@@ -73,10 +90,7 @@ export class PrismaCustomerProfileRepository implements ICustomerProfileReposito
     limit?: number;
   }): Promise<{ items: CustomerProfile[]; total: number }> {
     const { loyaltyTier, minVisits, maxChurnRisk, page = 1, limit = 20 } = options;
-    const where: Prisma.CustomerProfileWhereInput = {};
-    if (loyaltyTier) where.loyaltyTier = loyaltyTier;
-    if (minVisits != null) where.totalVisits = { gte: minVisits };
-    if (maxChurnRisk != null) where.churnRiskScore = { lte: maxChurnRisk };
+    const where = this.buildWhere(options);
 
     const [raws, total] = await Promise.all([
       this.db.customerProfile.findMany({
@@ -87,7 +101,76 @@ export class PrismaCustomerProfileRepository implements ICustomerProfileReposito
       }),
       this.db.customerProfile.count({ where }),
     ]);
+    // suppress unused warnings
+    void loyaltyTier; void minVisits; void maxChurnRisk;
     return { items: raws.map(r => this.toDomain(r)), total };
+  }
+
+  async findManyWithUser(options: {
+    search?: string;
+    loyaltyTier?: string;
+    minVisits?: number;
+    maxChurnRisk?: number;
+    page?: number;
+    limit?: number;
+  }): Promise<{ items: CustomerListItem[]; total: number }> {
+    const { page = 1, limit = 20 } = options;
+    const where = this.buildWhere(options);
+
+    const [rows, total] = await Promise.all([
+      this.db.customerProfile.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: { user: true, tags: true },
+      }),
+      this.db.customerProfile.count({ where }),
+    ]);
+
+    const items: CustomerListItem[] = rows.map(r => ({
+      id: r.id,
+      userId: r.userId,
+      firstName: r.user.firstName,
+      lastName: r.user.lastName,
+      email: r.user.email,
+      phone: r.user.phone ?? null,
+      totalVisits: r.totalVisits,
+      totalSpent: Number(r.totalSpent),
+      loyaltyPoints: r.loyaltyPoints,
+      loyaltyTier: r.loyaltyTier,
+      churnRiskScore: r.churnRiskScore ? Number(r.churnRiskScore) : null,
+      lastVisitAt: r.lastVisitAt,
+      createdAt: r.createdAt,
+      tags: r.tags.map(t => ({ tag: t.tag, color: t.color })),
+    }));
+
+    return { items, total };
+  }
+
+  private buildWhere(options: {
+    search?: string;
+    loyaltyTier?: string;
+    minVisits?: number;
+    maxChurnRisk?: number;
+  }): Prisma.CustomerProfileWhereInput {
+    const { search, loyaltyTier, minVisits, maxChurnRisk } = options;
+    const where: Prisma.CustomerProfileWhereInput = {};
+    if (loyaltyTier) where.loyaltyTier = loyaltyTier;
+    if (minVisits != null) where.totalVisits = { gte: minVisits };
+    if (maxChurnRisk != null) where.churnRiskScore = { lte: maxChurnRisk };
+    if (search) {
+      const q = search.trim();
+      where.user = {
+        OR: [
+          { firstName: { contains: q, mode: 'insensitive' } },
+          { lastName: { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } },
+          { phone: { contains: q, mode: 'insensitive' } },
+        ],
+      };
+    }
+    return where;
   }
 
   async create(profile: CustomerProfile): Promise<CustomerProfile> {
