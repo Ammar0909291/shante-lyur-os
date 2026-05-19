@@ -19,7 +19,8 @@ export class CreateUserUseCase {
   ) {}
 
   async execute(dto: CreateUserDto, actorId: string, actorRole: UserRole) {
-    if (!actorRole.can('user:create')) {
+    const allowedRoles: UserRole[] = [UserRole.ADMIN, UserRole.SUPER_ADMIN];
+    if (!allowedRoles.includes(actorRole)) {
       throw new ForbiddenError();
     }
 

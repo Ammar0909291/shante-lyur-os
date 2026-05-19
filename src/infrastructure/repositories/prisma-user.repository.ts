@@ -41,22 +41,29 @@ export class PrismaUserRepository implements UserRepositoryPort {
   }
 
   async findByPhone(phone: string): Promise<User | null> {
-    const raw = await this.db.user.findUnique({ where: { phone } });
+    const raw = await this.db.user.findFirst({ where: { phone } });
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findMany(options: { role?: UserRole; status?: UserStatus; page?: number; limit?: number }): Promise<{ items: User[]; total: number }> {
-    const { role, status, page = 1, limit = 20 } = options;
+  async findMany(options: { role?: UserRole; status?: UserStatus; search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ items: User[]; total: number }> {
+    const { role, status, search, page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = options;
     const where: Prisma.UserWhereInput = {};
     if (role) where.role = role;
     if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const [items, total] = await Promise.all([
       this.db.user.findMany({
         where,
         skip: (page - 1) * limit,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [sortBy]: sortOrder },
       }),
       this.db.user.count({ where }),
     ]);

@@ -1,18 +1,18 @@
-import { PaymentGatewayPort } from '@/application/ports/payment-gateway.port';
-import { PaymentStatus } from '@/domain/enums/payment-status.enum';
+import { IPaymentGateway, PaymentGatewayInitResult, PaymentGatewayVerifyResult } from '@/application/ports/payment-gateway.port';
+import { Money } from '@/domain/value-objects/money.vo';
 
-export class YooKassaGateway implements PaymentGatewayPort {
+export class YooKassaGateway implements IPaymentGateway {
+  readonly name = 'YOOKASSA';
   private readonly shopId = process.env.YOOKASSA_SHOP_ID ?? '';
   private readonly secretKey = process.env.YOOKASSA_SECRET_KEY ?? '';
 
   async createPayment(params: {
-    appointmentId: string;
-    amount: number;
-    currency: string;
+    amount: Money;
     description: string;
+    orderId: string;
     returnUrl: string;
-    idempotencyKey?: string;
-  }): Promise<{ providerPaymentId: string; status: PaymentStatus; redirectUrl?: string }> {
+    metadata?: Record<string, unknown>;
+  }): Promise<PaymentGatewayInitResult> {
     if (!this.shopId || !this.secretKey) {
       throw new Error('YooKassa credentials not configured (YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY)');
     }
@@ -21,14 +21,14 @@ export class YooKassaGateway implements PaymentGatewayPort {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Idempotence-Key': params.idempotencyKey ?? crypto.randomUUID(),
+        'Idempotence-Key': params.metadata?.idempotencyKey as string ?? crypto.randomUUID(),
         Authorization: `Basic ${Buffer.from(`${this.shopId}:${this.secretKey}`).toString('base64')}`,
       },
       body: JSON.stringify({
-        amount: { value: params.amount.toFixed(2), currency: params.currency },
+        amount: { value: params.amount.amount.toFixed(2), currency: params.amount.currency },
         description: params.description,
         confirmation: { type: 'redirect', return_url: params.returnUrl },
-        metadata: { appointmentId: params.appointmentId },
+        metadata: { orderId: params.orderId, ...params.metadata },
         capture: true,
       }),
     });
@@ -41,26 +41,27 @@ export class YooKassaGateway implements PaymentGatewayPort {
     const data = await response.json();
     return {
       providerPaymentId: data.id,
-      status: PaymentStatus.PENDING,
-      redirectUrl: data.confirmation?.confirmation_url,
+      paymentUrl: data.confirmation?.confirmation_url ?? '',
     };
   }
 
   async verifyWebhook(
     payload: unknown,
-    _signature?: string,
-  ): Promise<{ paid: boolean; providerPaymentId: string; status: PaymentStatus }> {
-    const body = payload as { object?: { id?: string; status?: string; paid?: boolean } };
+    _signature: string,
+  ): Promise<PaymentGatewayVerifyResult> {
+    const body = payload as { object?: { id?: string; status?: string; paid?: boolean; amount?: { value?: string } } };
     const obj = body?.object ?? {};
     const paid = obj.paid === true || obj.status === 'succeeded';
-    const status = paid ? PaymentStatus.CAPTURED : PaymentStatus.FAILED;
-    return { paid, providerPaymentId: obj.id ?? '', status };
+    const success = paid;
+    const amount = parseFloat(obj.amount?.value ?? '0');
+    return { success, providerPaymentId: obj.id ?? '', amount };
   }
 
-  async refund(
-    providerPaymentId: string,
-    amount: number,
-  ): Promise<{ status: PaymentStatus }> {
+  async refund(params: {
+    providerPaymentId: string;
+    amount: Money;
+    reason?: string;
+  }): Promise<{ success: boolean; providerRefundId?: string }> {
     if (!this.shopId || !this.secretKey) {
       throw new Error('YooKassa credentials not configured');
     }
@@ -73,16 +74,17 @@ export class YooKassaGateway implements PaymentGatewayPort {
         Authorization: `Basic ${Buffer.from(`${this.shopId}:${this.secretKey}`).toString('base64')}`,
       },
       body: JSON.stringify({
-        payment_id: providerPaymentId,
-        amount: { value: amount.toFixed(2), currency: 'RUB' },
+        payment_id: params.providerPaymentId,
+        amount: { value: params.amount.amount.toFixed(2), currency: params.amount.currency },
+        description: params.reason,
       }),
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`YooKassa refund failed: ${err}`);
+      return { success: false };
     }
 
-    return { status: PaymentStatus.FULLY_REFUNDED };
+    const data = await response.json();
+    return { success: true, providerRefundId: data.id };
   }
 }

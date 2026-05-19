@@ -1,9 +1,9 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const nodemailer = require('nodemailer') as typeof import('nodemailer');
 
-import { EmailServicePort } from '@/application/ports/email-service.port';
+import { IEmailService } from '@/application/ports/email-service.port';
 
-export class SmtpEmailService implements EmailServicePort {
+export class SmtpEmailService implements IEmailService {
   private _transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 
   private getTransporter() {
@@ -26,21 +26,23 @@ export class SmtpEmailService implements EmailServicePort {
     return this._transporter;
   }
 
-  async send(to: string, subject: string, html: string, text?: string): Promise<void> {
+  async send(to: string, subject: string, body: string, options?: { html?: string; attachments?: Array<{ filename: string; content: Buffer }> }): Promise<void> {
     const from = process.env.SMTP_FROM ?? 'noreply@shantelyur.ru';
+    const html = options?.html ?? body;
     await this.getTransporter().sendMail({
       from,
       to,
       subject,
-      text: text ?? html.replace(/<[^>]*>/g, ''),
+      text: body.replace(/<[^>]*>/g, ''),
       html,
+      attachments: options?.attachments,
     });
   }
 
   async sendTemplate(to: string, template: string, variables: Record<string, string>): Promise<void> {
     const html = this.renderTemplate(template, variables);
     const subject = this.getSubjectForTemplate(template);
-    await this.send(to, subject, html);
+    await this.send(to, subject, html, { html });
   }
 
   private renderTemplate(template: string, vars: Record<string, string>): string {

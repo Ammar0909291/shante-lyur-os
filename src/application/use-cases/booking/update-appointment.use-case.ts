@@ -1,6 +1,6 @@
 import { AppointmentStatus, UserRole, canTransitionStatus } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ValidationError } from '@/domain/errors';
-import { AppointmentConfirmedEvent, AppointmentCancelledEvent, AppointmentNoShowEvent } from '@/domain/events';
+import { AppointmentConfirmedEvent, AppointmentNoShowEvent } from '@/domain/events';
 import {
   IAppointmentRepository,
   IUserRepository,
@@ -8,17 +8,17 @@ import {
   IEventBus,
   INotificationRepository,
 } from '@/application/ports';
-import { UpdateAppointmentDto, CancelAppointmentDto } from '@/application/dto';
+import { UpdateAppointmentDto } from '@/application/dto';
 import { AuditLog } from '@/domain/entities';
 import { AuditAction } from '@/domain/enums';
 
 export class UpdateAppointmentStatusUseCase {
   constructor(
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly userRepo: IUserRepository,
+    _userRepo: IUserRepository,
     private readonly auditLogRepo: IAuditLogRepository,
     private readonly eventBus: IEventBus,
-    private readonly notificationRepo: INotificationRepository,
+    _notificationRepo: INotificationRepository,
   ) {}
 
   async execute(
@@ -45,7 +45,7 @@ export class UpdateAppointmentStatusUseCase {
     }
 
     const oldStatus = appointment.status;
-    const newStatus = dto.status;
+    const newStatus = dto.status as AppointmentStatus;
 
     // Validate transition
     if (!canTransitionStatus(oldStatus, newStatus)) {

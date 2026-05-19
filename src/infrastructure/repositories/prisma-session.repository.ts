@@ -1,32 +1,43 @@
 import { PrismaClient } from '@prisma/client';
-import { SessionRepositoryPort } from '@/application/ports/session-repository.port';
+import { ISessionRepository } from '@/application/ports/session-repository.port';
 import { Session } from '@/domain/entities/session.entity';
 
-export class PrismaSessionRepository implements SessionRepositoryPort {
+type RawSession = {
+  id: string;
+  userId: string;
+  token: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  expiresAt: Date;
+  createdAt: Date;
+};
+
+export class PrismaSessionRepository implements ISessionRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; userId: string; ipAddress: string | null; userAgent: string | null; createdAt: Date; expiresAt: Date }): Session {
-    return Session.reconstitute({
+  private toDomain(raw: RawSession): Session {
+    return new Session({
       id: raw.id,
       userId: raw.userId,
+      token: raw.token,
       ipAddress: raw.ipAddress ?? undefined,
       userAgent: raw.userAgent ?? undefined,
-      createdAt: raw.createdAt,
       expiresAt: raw.expiresAt,
+      createdAt: raw.createdAt,
     });
   }
 
-  async findById(id: string): Promise<Session | null> {
-    const raw = await this.db.session.findUnique({ where: { id } });
-    return raw ? this.toDomain(raw) : null;
+  async findByToken(token: string): Promise<Session | null> {
+    const raw = await this.db.session.findUnique({ where: { token } });
+    return raw ? this.toDomain(raw as unknown as RawSession) : null;
   }
 
-  async findActiveByUserId(userId: string): Promise<Session[]> {
+  async findByUser(userId: string): Promise<Session[]> {
     const raws = await this.db.session.findMany({
       where: { userId, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
     });
-    return raws.map(r => this.toDomain(r));
+    return raws.map(r => this.toDomain(r as unknown as RawSession));
   }
 
   async create(session: Session): Promise<Session> {
@@ -34,17 +45,22 @@ export class PrismaSessionRepository implements SessionRepositoryPort {
       data: {
         id: session.id,
         userId: session.userId,
+        token: session.token,
         ipAddress: session.ipAddress,
         userAgent: session.userAgent,
         createdAt: session.createdAt,
         expiresAt: session.expiresAt,
       },
     });
-    return this.toDomain(raw);
+    return this.toDomain(raw as unknown as RawSession);
   }
 
-  async delete(id: string): Promise<void> {
-    await this.db.session.delete({ where: { id } });
+  async deleteByToken(token: string): Promise<void> {
+    await this.db.session.deleteMany({ where: { token } });
+  }
+
+  async deleteByUser(userId: string): Promise<void> {
+    await this.db.session.deleteMany({ where: { userId } });
   }
 
   async deleteExpired(): Promise<number> {
