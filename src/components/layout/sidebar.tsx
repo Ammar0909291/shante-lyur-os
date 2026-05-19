@@ -16,21 +16,22 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLang } from '@/context/lang-context';
 
 interface NavItem {
-  label: string;
+  key: keyof ReturnType<typeof useLang>['t']['nav'];
   href: string;
   icon: React.ElementType;
 }
 
-const navItems: NavItem[] = [
-  { label: 'Дашборд', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Записи', href: '/bookings', icon: Calendar },
-  { label: 'Клиенты', href: '/clients', icon: Users },
-  { label: 'Специалисты', href: '/specialists', icon: Sparkles },
-  { label: 'Услуги', href: '/services', icon: Flower2 },
-  { label: 'Аналитика', href: '/analytics', icon: BarChart3 },
-  { label: 'Настройки', href: '/settings', icon: Settings },
+const NAV_ITEMS: NavItem[] = [
+  { key: 'dashboard',   href: '/dashboard',   icon: LayoutDashboard },
+  { key: 'bookings',    href: '/bookings',    icon: Calendar },
+  { key: 'clients',     href: '/clients',     icon: Users },
+  { key: 'specialists', href: '/specialists', icon: Sparkles },
+  { key: 'services',    href: '/services',    icon: Flower2 },
+  { key: 'analytics',   href: '/analytics',   icon: BarChart3 },
+  { key: 'settings',    href: '/settings',    icon: Settings },
 ];
 
 interface SidebarProps {
@@ -41,6 +42,7 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(false);
+  const { t } = useLang();
 
   return (
     <>
@@ -128,7 +130,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Основная навигация">
-          {navItems.map(({ label, href, icon: Icon }) => {
+          {NAV_ITEMS.map(({ key, href, icon: Icon }) => {
+            const label = t.nav[key];
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link

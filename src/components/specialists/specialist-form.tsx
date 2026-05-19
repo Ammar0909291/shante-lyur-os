@@ -13,6 +13,7 @@ import { X, User, Briefcase, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { apiFetch } from '@/lib/api-fetch';
 
 // ── Localization constants ──────────────────────────────────────────────────
 const LABELS = {
@@ -301,7 +302,7 @@ export function SpecialistForm({ mode, specialist, onSuccess, onClose }: Special
       setStatusMessage(LABELS.creatingUser);
       try {
         // Step 1: create user with SPECIALIST role
-        const userRes = await fetch('/api/admin/users', {
+        const userRes = await apiFetch('/api/admin/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -326,7 +327,7 @@ export function SpecialistForm({ mode, specialist, onSuccess, onClose }: Special
         // Step 2: create specialist profile
         setStatusMessage(LABELS.creatingProfile);
         const commissionRate = parseFloat(createState.commissionRate) / 100;
-        const specRes = await fetch('/api/admin/specialists', {
+        const specRes = await apiFetch('/api/admin/specialists', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -363,7 +364,7 @@ export function SpecialistForm({ mode, specialist, onSuccess, onClose }: Special
       setStatusMessage(LABELS.saving);
       try {
         const commissionRate = parseFloat(editState.commissionRate) / 100;
-        const res = await fetch(`/api/admin/specialists/${specialist!.id}`, {
+        const res = await apiFetch(`/api/admin/specialists/${specialist!.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

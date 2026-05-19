@@ -144,14 +144,19 @@ export async function POST(req: NextRequest) {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email.value,
+      phone: user.phone?.value ?? null,
       bio: saved.bio ?? null,
       specialization: saved.specialization ?? null,
       experienceYears: saved.experienceYears ?? null,
+      rating: saved.rating ?? null,
+      reviewCount: saved.reviewCount,
       commissionRate: saved.commissionRate,
       status: saved.status,
       color: saved.color?.value ?? null,
       sortOrder: saved.sortOrder,
+      isActive: saved.isActive,
       createdAt: saved.createdAt,
+      updatedAt: saved.updatedAt,
     }, 201);
   } catch (error) {
     if (error instanceof DomainError) return apiError(error.code, error.message, error.statusCode);

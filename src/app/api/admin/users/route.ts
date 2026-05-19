@@ -111,7 +111,19 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    return ok({ user: saved }, 201);
+    return ok({
+      user: {
+        id: saved.id,
+        email: saved.email.value,
+        firstName: saved.firstName,
+        lastName: saved.lastName,
+        role: saved.role,
+        status: saved.status,
+        emailVerified: saved.emailVerified,
+        createdAt: saved.createdAt,
+        updatedAt: saved.updatedAt,
+      },
+    }, 201);
   } catch (error) {
     if (error instanceof DomainError) {
       return apiError(error.code, error.message, error.statusCode);

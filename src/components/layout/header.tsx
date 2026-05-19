@@ -1,11 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { Bell, Menu, LogOut, User, ChevronDown } from 'lucide-react';
+import { Bell, Menu, LogOut, User, ChevronDown, Sun, Moon } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import { useAuth } from '@/context/auth-context';
+import { useTheme } from '@/context/theme-context';
+import { useLang } from '@/context/lang-context';
 
 interface HeaderProps {
   title: string;
@@ -14,17 +16,16 @@ interface HeaderProps {
 
 function useClock() {
   const [now, setNow] = React.useState<Date | null>(null);
-
   React.useEffect(() => {
     setNow(new Date());
-    const interval = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
   }, []);
-
   return now;
 }
 
 function NotificationBell() {
+  const { t } = useLang();
   const [hasNew] = React.useState(true);
   return (
     <button
@@ -34,31 +35,82 @@ function NotificationBell() {
         'transition-all duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
       )}
-      aria-label="Уведомления"
+      aria-label={t.header.notifications}
     >
       <Bell className="w-5 h-5" />
       {hasNew && (
         <span
           className="absolute top-2 right-2 w-2 h-2 rounded-full bg-champagne"
-          aria-label="Есть новые уведомления"
+          aria-label="new"
         />
       )}
     </button>
   );
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: 'Суперадминистратор',
-  ADMIN:       'Администратор',
-  OPERATOR:    'Оператор',
-  SPECIALIST:  'Специалист',
-  CLIENT:      'Клиент',
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  const { t } = useLang();
+  const label = theme === 'dark' ? t.header.lightMode : t.header.darkMode;
+  return (
+    <button
+      onClick={toggleTheme}
+      className={cn(
+        'p-2.5 rounded-xl',
+        'text-text-secondary hover:text-text-primary hover:bg-charcoal',
+        'transition-all duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
+      )}
+      aria-label={label}
+      title={label}
+    >
+      {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+    </button>
+  );
+}
+
+function LangToggle() {
+  const { t, toggleLang } = useLang();
+  return (
+    <button
+      onClick={toggleLang}
+      className={cn(
+        'px-2.5 py-1.5 rounded-xl',
+        'text-xs font-semibold tracking-wider',
+        'text-text-secondary hover:text-text-primary hover:bg-charcoal',
+        'transition-all duration-150 border border-border-luxury',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
+      )}
+      aria-label="Switch language"
+      title="Switch language"
+    >
+      {t.header.langToggle}
+    </button>
+  );
+}
+
+const ROLE_LABELS: Record<string, Record<string, string>> = {
+  ru: {
+    SUPER_ADMIN: 'Суперадминистратор',
+    ADMIN:       'Администратор',
+    OPERATOR:    'Оператор',
+    SPECIALIST:  'Специалист',
+    CLIENT:      'Клиент',
+  },
+  en: {
+    SUPER_ADMIN: 'Super Admin',
+    ADMIN:       'Admin',
+    OPERATOR:    'Operator',
+    SPECIALIST:  'Specialist',
+    CLIENT:      'Client',
+  },
 };
 
 function UserMenu() {
   const { user, logout } = useAuth();
-  const fullName = user ? `${user.firstName} ${user.lastName}` : 'Пользователь';
-  const roleLabel = user ? (ROLE_LABELS[user.role] ?? user.role) : '';
+  const { t, lang } = useLang();
+  const fullName = user ? `${user.firstName} ${user.lastName}` : (lang === 'ru' ? 'Пользователь' : 'User');
+  const roleLabel = user ? (ROLE_LABELS[lang]?.[user.role] ?? user.role) : '';
 
   return (
     <DropdownMenu.Root>
@@ -69,7 +121,7 @@ function UserMenu() {
             'hover:bg-charcoal transition-all duration-150',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
           )}
-          aria-label="Меню пользователя"
+          aria-label={lang === 'ru' ? 'Меню пользователя' : 'User menu'}
         >
           <Avatar name={fullName} size="sm" />
           <div className="hidden sm:flex flex-col items-start">
@@ -106,7 +158,7 @@ function UserMenu() {
               )}
             >
               <User className="w-4 h-4" aria-hidden="true" />
-              Профиль
+              {t.header.profile}
             </DropdownMenu.Item>
 
             <DropdownMenu.Separator className="my-1 h-px bg-border-luxury" />
@@ -122,7 +174,7 @@ function UserMenu() {
               onSelect={logout}
             >
               <LogOut className="w-4 h-4" aria-hidden="true" />
-              Выйти
+              {t.header.logout}
             </DropdownMenu.Item>
           </div>
         </DropdownMenu.Content>
@@ -143,7 +195,6 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
       )}
     >
       <div className="flex items-center gap-3">
-        {/* Mobile menu trigger */}
         <button
           onClick={onMobileMenuOpen}
           className={cn(
@@ -151,7 +202,7 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
             'text-text-secondary hover:text-text-primary hover:bg-charcoal',
             'transition-colors',
           )}
-          aria-label="Открыть меню"
+          aria-label={title}
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -161,8 +212,7 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
         </h1>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2">
-        {/* Date/time display */}
+      <div className="flex items-center gap-1 sm:gap-1.5">
         {now && (
           <div className="hidden md:flex flex-col items-end mr-2">
             <span className="text-xs text-text-secondary">{formatDate(now)}</span>
@@ -170,6 +220,8 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
           </div>
         )}
 
+        <LangToggle />
+        <ThemeToggle />
         <NotificationBell />
         <div className="w-px h-6 bg-border-luxury mx-1 hidden sm:block" aria-hidden="true" />
         <UserMenu />

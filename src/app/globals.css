@@ -39,6 +39,24 @@
   --color-info: #7898C4;
 }
 
+/* ─── Light mode overrides ───────────────────────────────────────────── */
+.light {
+  --color-obsidian: #F5F0EB;
+  --color-onyx: #FFFFFF;
+  --color-charcoal: #EDE8E2;
+  --color-mist: #FAF7F4;
+  --color-parchment: #F5F0EA;
+  --color-text-primary: #18181B;
+  --color-text-secondary: #52525B;
+  --color-text-tertiary: #71717A;
+  --color-border: #E4DDD5;
+  --color-border-light: #D0C8C0;
+  --color-success: #5A8A57;
+  --color-warning: #B8924A;
+  --color-error: #A05050;
+  --color-info: #4878A8;
+}
+
 /* ─── Base Styles ────────────────────────────────────────────────────── */
 @layer base {
   *,

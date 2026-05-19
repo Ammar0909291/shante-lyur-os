@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Playfair_Display } from 'next/font/google';
+import { ThemeProvider } from '@/context/theme-context';
+import { LangProvider } from '@/context/lang-context';
 import './globals.css';
 
 const inter = Inter({
@@ -22,21 +24,10 @@ export const metadata: Metadata = {
   },
   description:
     'Elite cosmetology, massage & wellness management platform. Manage your luxury spa with precision and elegance.',
-  keywords: [
-    'wellness',
-    'spa',
-    'cosmetology',
-    'massage',
-    'luxury',
-    'booking',
-    'management',
-  ],
+  keywords: ['wellness', 'spa', 'cosmetology', 'massage', 'luxury', 'booking', 'management'],
   authors: [{ name: 'Shante Lyur' }],
   creator: 'Shante Lyur',
-  robots: {
-    index: false,
-    follow: false,
-  },
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
@@ -45,18 +36,36 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// Inline script that runs before hydration to prevent theme flash.
+const themeScript = `
+(function(){
+  try{
+    var t=localStorage.getItem('sl-theme');
+    var cls=document.documentElement.classList;
+    if(t==='light'){cls.remove('dark');cls.add('light');}
+    else{cls.add('dark');cls.remove('light');}
+  }catch(e){}
+})();
+`;
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="ru"
       className={`dark ${inter.variable} ${playfairDisplay.variable}`}
       suppressHydrationWarning
     >
-      <body className={`${inter.className} antialiased`}>{children}</body>
+      <head>
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className={`${inter.className} antialiased`}>
+        <ThemeProvider>
+          <LangProvider>
+            {children}
+          </LangProvider>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

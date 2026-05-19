@@ -5,29 +5,32 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { AuthProvider, useAuth } from '@/context/auth-context';
-
-const pageTitles: Record<string, string> = {
-  '/dashboard':   'Дашборд',
-  '/bookings':    'Записи',
-  '/clients':     'Клиенты',
-  '/specialists': 'Специалисты',
-  '/services':    'Услуги',
-  '/analytics':   'Аналитика',
-  '/settings':    'Настройки',
-};
-
-function getTitle(pathname: string): string {
-  for (const [route, title] of Object.entries(pageTitles)) {
-    if (pathname === route || pathname.startsWith(`${route}/`)) return title;
-  }
-  return 'Shante Lyur';
-}
+import { useLang } from '@/context/lang-context';
 
 // Inner layout — rendered only after auth context is ready
 function DashboardInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isLoading } = useAuth();
+  const { t } = useLang();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
+  const PAGE_TITLE_KEYS: Record<string, keyof typeof t.nav> = {
+    '/dashboard':   'dashboard',
+    '/bookings':    'bookings',
+    '/clients':     'clients',
+    '/specialists': 'specialists',
+    '/services':    'services',
+    '/analytics':   'analytics',
+    '/settings':    'settings',
+  };
+
+  function getTitle(p: string): string {
+    for (const [route, key] of Object.entries(PAGE_TITLE_KEYS)) {
+      if (p === route || p.startsWith(`${route}/`)) return t.nav[key];
+    }
+    return 'Shante Lyur';
+  }
+
   const title = getTitle(pathname);
 
   // Show a minimal loading screen while session is being verified.
