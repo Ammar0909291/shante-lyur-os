@@ -1,4 +1,28 @@
 import { Money } from '@/domain/value-objects';
+import { PaymentStatus } from '@/domain/enums/payment-status.enum';
+
+export interface PaymentGatewayPort {
+  createPayment(params: {
+    appointmentId: string;
+    amount: number;
+    currency: string;
+    description: string;
+    returnUrl: string;
+    idempotencyKey?: string;
+  }): Promise<{
+    providerPaymentId: string;
+    status: PaymentStatus;
+    redirectUrl?: string;
+  }>;
+  verifyWebhook(payload: unknown, signature?: string): Promise<{
+    paid: boolean;
+    providerPaymentId: string;
+    status: PaymentStatus;
+  }>;
+  refund(providerPaymentId: string, amount: number): Promise<{
+    status: PaymentStatus;
+  }>;
+}
 
 export interface PaymentGatewayInitResult {
   paymentUrl: string;
