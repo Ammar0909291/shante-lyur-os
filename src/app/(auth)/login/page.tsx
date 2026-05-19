@@ -63,8 +63,9 @@ export default function LoginPage() {
         return;
       }
 
-      const body = await res.json().catch(() => ({})) as { message?: string };
-      setServerError(body.message ?? 'Неверный email или пароль');
+      const body = await res.json().catch(() => ({})) as { error?: { code?: string; message?: string }; message?: string };
+      const msg = body.error?.message ?? body.message ?? `Ошибка ${res.status}`;
+      setServerError(msg);
     } catch {
       setServerError('Ошибка соединения. Попробуйте позже.');
     } finally {
