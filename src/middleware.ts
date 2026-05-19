@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { ROLE_BLOCKED_PAGES, blockedRedirect } from '@/lib/permissions';
 
 // ---------------------------------------------------------------------------
 // Route classification
@@ -173,6 +174,20 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         loginUrl.searchParams.set('redirect', pathname);
       }
       return NextResponse.redirect(loginUrl);
+    }
+
+    // CLIENT role has no access to the internal CRM dashboard
+    if (user.role === 'CLIENT') {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    // Role-based page guard — redirect blocked pages to safe default
+    const blocked = ROLE_BLOCKED_PAGES[user.role];
+    if (blocked) {
+      const isBlocked = blocked.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
+      if (isBlocked) {
+        return NextResponse.redirect(new URL(blockedRedirect(user.role), request.url));
+      }
     }
 
     // Authenticated — inject identity headers into page request (SSR routes can use them)

@@ -20,6 +20,8 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   logout: () => Promise<void>;
+  /** Returns true if the current user has at least one of the given roles. */
+  hasRole: (...roles: string[]) => boolean;
 }
 
 // ── Context ───────────────────────────────────────────────────────────────────
@@ -28,6 +30,7 @@ const AuthContext = React.createContext<AuthContextValue>({
   user: null,
   isLoading: true,
   logout: async () => {},
+  hasRole: () => false,
 });
 
 export function useAuth(): AuthContextValue {
@@ -75,6 +78,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const hasRole = React.useCallback((...roles: string[]): boolean => {
+    if (!user) return false;
+    return roles.includes(user.role);
+  }, [user]);
+
   const logout = React.useCallback(async () => {
     try {
       await fetch('/api/auth/logout', {
@@ -88,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

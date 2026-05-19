@@ -1,20 +1,31 @@
 'use client';
 
 import * as React from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { useLang } from '@/context/lang-context';
+import { ROLE_BLOCKED_PAGES, blockedRedirect } from '@/lib/permissions';
 
 // Inner layout — rendered only after auth context is ready
 function DashboardInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { isLoading } = useAuth();
+  const router = useRouter();
+  const { isLoading, user } = useAuth();
   const { t } = useLang();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
-  const PAGE_TITLE_KEYS: Record<string, keyof typeof t.nav> = {
+  // Client-side role guard — mirrors middleware but catches hydration edge cases
+  React.useEffect(() => {
+    if (isLoading || !user) return;
+    const blocked = ROLE_BLOCKED_PAGES[user.role];
+    if (!blocked) return;
+    const isBlocked = blocked.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    if (isBlocked) router.replace(blockedRedirect(user.role));
+  }, [pathname, user, isLoading, router]);
+
+  const PAGE_TITLE_KEYS: Record<string, string> = {
     '/dashboard':   'dashboard',
     '/bookings':    'bookings',
     '/clients':     'clients',
@@ -22,11 +33,13 @@ function DashboardInner({ children }: { children: React.ReactNode }) {
     '/services':    'services',
     '/analytics':   'analytics',
     '/settings':    'settings',
+    '/schedule':    'schedule',
+    '/chat':        'chat',
   };
 
   function getTitle(p: string): string {
     for (const [route, key] of Object.entries(PAGE_TITLE_KEYS)) {
-      if (p === route || p.startsWith(`${route}/`)) return t.nav[key];
+      if (p === route || p.startsWith(`${route}/`)) return t.nav[key] ?? 'Shante Lyur';
     }
     return 'Shante Lyur';
   }

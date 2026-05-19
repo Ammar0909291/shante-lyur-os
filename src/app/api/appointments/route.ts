@@ -37,8 +37,17 @@ export async function GET(req: NextRequest) {
     }
 
     const registry = DIRegistry.instance;
+
+    // Specialists may only see their own appointments — resolve userId → specialistId
+    let dto = parsed.data;
+    if (role === UserRole.SPECIALIST) {
+      const specialist = await registry.specialistRepository.findByUserId(userId);
+      if (!specialist) return apiError('NOT_FOUND', 'Specialist profile not found', 404);
+      dto = { ...parsed.data, specialistId: specialist.id };
+    }
+
     const useCase = new ListAppointmentsUseCase(registry.appointmentRepository);
-    const result = await useCase.execute(parsed.data, userId, role);
+    const result = await useCase.execute(dto, userId, role);
 
     const serialized = await serializeAppointments(result.items);
     return ok({ items: serialized, total: result.total });
