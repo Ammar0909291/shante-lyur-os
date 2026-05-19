@@ -8,10 +8,12 @@ const RU = {
   nav: {
     dashboard:   'Дашборд',
     bookings:    'Записи',
+    schedule:    'Расписание',
     clients:     'Клиенты',
     specialists: 'Специалисты',
     services:    'Услуги',
     analytics:   'Аналитика',
+    chat:        'Чат',
     settings:    'Настройки',
   },
   header: {
@@ -41,10 +43,12 @@ const EN = {
   nav: {
     dashboard:   'Dashboard',
     bookings:    'Bookings',
+    schedule:    'Schedule',
     clients:     'Clients',
     specialists: 'Specialists',
     services:    'Services',
     analytics:   'Analytics',
+    chat:        'Chat',
     settings:    'Settings',
   },
   header: {

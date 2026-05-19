@@ -6,10 +6,12 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Calendar,
+  CalendarDays,
   Users,
   Sparkles,
   Flower2,
   BarChart3,
+  MessageSquare,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -17,21 +19,26 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/context/lang-context';
+import { useAuth } from '@/context/auth-context';
 
 interface NavItem {
-  key: keyof ReturnType<typeof useLang>['t']['nav'];
+  key: string;
   href: string;
   icon: React.ElementType;
+  roles?: string[];
+  comingSoon?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { key: 'dashboard',   href: '/dashboard',   icon: LayoutDashboard },
-  { key: 'bookings',    href: '/bookings',    icon: Calendar },
-  { key: 'clients',     href: '/clients',     icon: Users },
-  { key: 'specialists', href: '/specialists', icon: Sparkles },
-  { key: 'services',    href: '/services',    icon: Flower2 },
-  { key: 'analytics',   href: '/analytics',   icon: BarChart3 },
-  { key: 'settings',    href: '/settings',    icon: Settings },
+  { key: 'dashboard',   href: '/dashboard',              icon: LayoutDashboard },
+  { key: 'bookings',    href: '/bookings',               icon: Calendar },
+  { key: 'schedule',   href: '/bookings?view=timeline', icon: CalendarDays },
+  { key: 'clients',    href: '/clients',                icon: Users },
+  { key: 'specialists', href: '/specialists',            icon: Sparkles,   roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'services',   href: '/services',               icon: Flower2,    roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'analytics',  href: '/analytics',              icon: BarChart3,  roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { key: 'chat',       href: '/chat',                   icon: MessageSquare, comingSoon: true },
+  { key: 'settings',   href: '/settings',               icon: Settings,   roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
 
 interface SidebarProps {
@@ -43,6 +50,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(false);
   const { t } = useLang();
+  const { user } = useAuth();
+
+  const role = user?.role ?? 'OPERATOR';
+
+  const visibleItems = NAV_ITEMS.filter(item => {
+    if (!item.roles) return true;
+    return item.roles.includes(role);
+  });
 
   return (
     <>
@@ -130,34 +145,42 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Основная навигация">
-          {NAV_ITEMS.map(({ key, href, icon: Icon }) => {
-            const label = t.nav[key];
-            const isActive = pathname === href || pathname.startsWith(`${href}/`);
+          {visibleItems.map(({ key, href, icon: Icon, comingSoon }) => {
+            const label = t.nav[key] ?? key;
+            const isActive = !comingSoon && (pathname === href || (href !== '/bookings?view=timeline' && pathname.startsWith(`${href}/`)));
             return (
               <Link
                 key={href}
-                href={href}
-                onClick={onMobileClose}
+                href={comingSoon ? '#' : href}
+                onClick={comingSoon ? (e) => e.preventDefault() : onMobileClose}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl',
                   'text-sm font-medium transition-all duration-150',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
                   isActive
                     ? 'bg-champagne/8 text-champagne shadow-champagne-sm'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-white/4',
+                    : comingSoon
+                      ? 'text-text-tertiary/50 cursor-default'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-white/4',
                   collapsed && 'lg:justify-center lg:px-0',
                 )}
                 aria-current={isActive ? 'page' : undefined}
                 title={collapsed ? label : undefined}
+                aria-disabled={comingSoon}
               >
                 <Icon
                   className={cn(
                     'w-5 h-5 shrink-0 transition-colors',
-                    isActive ? 'text-champagne' : 'text-text-tertiary group-hover:text-text-primary',
+                    isActive ? 'text-champagne' : comingSoon ? 'text-text-tertiary/40' : 'text-text-tertiary group-hover:text-text-primary',
                   )}
                   aria-hidden="true"
                 />
-                <span className={cn('truncate', collapsed && 'lg:hidden')}>{label}</span>
+                <span className={cn('truncate flex-1', collapsed && 'lg:hidden')}>{label}</span>
+                {comingSoon && !collapsed && (
+                  <span className="ml-auto text-[9px] uppercase tracking-wider text-text-tertiary/60 border border-border-luxury rounded px-1 py-0.5 lg:block hidden">
+                    скоро
+                  </span>
+                )}
                 {isActive && !collapsed && (
                   <span className="ml-auto w-1 h-4 rounded-full bg-champagne shrink-0" aria-hidden="true" />
                 )}

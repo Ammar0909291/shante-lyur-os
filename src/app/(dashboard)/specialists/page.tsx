@@ -8,7 +8,8 @@
  */
 
 import * as React from 'react';
-import { Plus, Search, Filter, MoreVertical, Edit2, UserX, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Search, Filter, MoreVertical, Edit2, UserX, RefreshCw, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge, getSpecialistStatusBadgeVariant, getSpecialistStatusLabel } from '@/components/ui/badge';
@@ -40,6 +41,7 @@ const LABELS = {
   noResultsHint: 'Попробуйте изменить поисковый запрос или фильтры',
   experienceYears: (n: number) => pluralize(n, 'год', 'года', 'лет'),
   commission: (rate: number) => `${Math.round(rate * 100)}%`,
+  btnSchedule: 'Расписание',
   btnEdit: 'Редактировать',
   btnDeactivate: 'Деактивировать',
   btnActivate: 'Активировать',
@@ -98,6 +100,14 @@ function ActionMenu({
 
       {open && (
         <div className="absolute right-0 top-8 z-20 w-44 rounded-xl bg-onyx border border-border-luxury shadow-2xl overflow-hidden">
+          <Link
+            href={`/bookings?view=timeline&specialistId=${specialist.id}`}
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors text-left"
+          >
+            <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+            {LABELS.btnSchedule}
+          </Link>
           <button
             onClick={() => { setOpen(false); onEdit(); }}
             className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors text-left"

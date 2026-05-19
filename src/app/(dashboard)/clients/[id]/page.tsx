@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
   ArrowLeft, Phone, Mail, Calendar, AlertTriangle, FileText,
-  Tag, Clock, Star, TrendingUp, Shield, ChevronRight, Plus, X, Loader2,
+  Tag, Clock, Star, TrendingUp, Shield, ChevronRight, Plus, X, Loader2, CalendarPlus,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -580,10 +580,17 @@ export default function ClientDetailPage() {
 
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in max-w-4xl">
-      {/* Back */}
-      <Link href="/clients" className="flex items-center gap-2 text-sm text-text-tertiary hover:text-text-primary transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Клиенты
-      </Link>
+      {/* Back + actions */}
+      <div className="flex items-center justify-between gap-4">
+        <Link href="/clients" className="flex items-center gap-2 text-sm text-text-tertiary hover:text-text-primary transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Клиенты
+        </Link>
+        <Link href={`/bookings?clientId=${client.id}`}>
+          <Button variant="primary" size="sm" leftIcon={<CalendarPlus className="w-4 h-4" />}>
+            Записать
+          </Button>
+        </Link>
+      </div>
 
       {/* Header card */}
       <div className="bg-onyx border border-border-luxury rounded-2xl p-6">
