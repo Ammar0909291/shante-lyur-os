@@ -5,6 +5,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { formatCurrency, formatClientRef } from '@/lib/utils';
+import { AddClientButton } from './_components/AddClientButton';
 
 const LOYALTY_LABEL: Record<string, string> = {
   BRONZE: 'Бронза',
@@ -72,6 +73,7 @@ export default async function ClientsPage({
             {total.toLocaleString('ru-RU')} клиентов в базе
           </p>
         </div>
+        <AddClientButton />
       </div>
 
       {/* Search */}

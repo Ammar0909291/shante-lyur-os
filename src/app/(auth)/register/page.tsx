@@ -82,8 +82,8 @@ export default function RegisterPage() {
         return;
       }
 
-      const body = await res.json().catch(() => ({})) as { message?: string };
-      setServerError(body.message ?? 'Ошибка регистрации. Попробуйте позже.');
+      const body = await res.json().catch(() => ({})) as { error?: { message?: string }; message?: string };
+      setServerError(body.error?.message ?? body.message ?? 'Ошибка регистрации. Попробуйте позже.');
     } catch {
       setServerError('Ошибка соединения. Попробуйте позже.');
     } finally {

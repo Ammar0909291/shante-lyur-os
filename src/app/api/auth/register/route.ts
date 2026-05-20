@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const accessToken = jwt.sign({ sub: user.id, email: user.email, role: user.role }, ACCESS_SECRET, { expiresIn: '8h' });
+    const accessToken = jwt.sign({ sub: user.id, email: user.email, role: user.role, type: 'access' }, ACCESS_SECRET, { expiresIn: '8h' });
     const refreshStr = jwt.sign({ sub: user.id, v: Date.now() }, REFRESH_SECRET, { expiresIn: '7d' });
 
     await prisma.refreshToken.create({

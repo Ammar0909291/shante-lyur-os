@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { TrendingUp, Users, ShoppingBag, Award, Calendar } from 'lucide-react';
+import { TrendingUp, Users, ShoppingBag, Award, Calendar, Plus } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency } from '@/lib/utils';
+import { RecordSaleModal } from './_components/RecordSaleModal';
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: 'Администратор',
@@ -66,6 +67,7 @@ export default function SalesPage() {
   const [data, setData] = React.useState<SalesData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [activePreset, setActivePreset] = React.useState(1); // 7 days default
+  const [showRecordSale, setShowRecordSale] = React.useState(false);
 
   const fetchData = React.useCallback(async (days: number) => {
     setLoading(true);
@@ -95,7 +97,14 @@ export default function SalesPage() {
           <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Продажи</h2>
           <p className="text-text-secondary mt-1 text-sm">Аналитика продаж по сотрудникам</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setShowRecordSale(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Записать продажу
+          </button>
           {PRESETS.map((p, i) => (
             <button
               key={p.label}
@@ -271,6 +280,16 @@ export default function SalesPage() {
             )}
           </div>
         </>
+      )}
+
+      {showRecordSale && (
+        <RecordSaleModal
+          onClose={() => setShowRecordSale(false)}
+          onSaved={() => {
+            setShowRecordSale(false);
+            fetchData(PRESETS[activePreset].days);
+          }}
+        />
       )}
     </div>
   );

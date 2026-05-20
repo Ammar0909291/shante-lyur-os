@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     });
 
     const accessToken = jwt.sign(
-      { sub: user.id, email: user.email, role: user.role },
+      { sub: user.id, email: user.email, role: user.role, type: 'access' },
       ACCESS_SECRET,
       { expiresIn: '8h' },
     );

@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     await prisma.refreshToken.update({ where: { id: stored.id }, data: { revokedAt: new Date() } });
 
-    const accessToken = jwt.sign({ sub: user.id, email: user.email, role: user.role }, ACCESS_SECRET, { expiresIn: '8h' });
+    const accessToken = jwt.sign({ sub: user.id, email: user.email, role: user.role, type: 'access' }, ACCESS_SECRET, { expiresIn: '8h' });
     const newRefresh = jwt.sign({ sub: user.id, v: Date.now() }, REFRESH_SECRET, { expiresIn: '7d' });
 
     await prisma.refreshToken.create({

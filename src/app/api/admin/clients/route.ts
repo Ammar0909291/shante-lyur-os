@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const Schema = z.object({
       firstName: z.string().min(1).max(100),
       lastName: z.string().min(1).max(100),
-      phone: z.string().min(7).max(30),
+      phone: z.string().min(7).max(30).optional(),
       email: z.string().email().optional(),
     });
     const parsed = Schema.safeParse(body);
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         passwordHash,
         firstName,
         lastName,
-        phone,
+        phone: phone ?? null,
         role: 'CLIENT',
         status: 'ACTIVE',
         emailVerified: false,
