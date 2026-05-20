@@ -1,10 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { User, Mail, Phone, Shield, Clock, LogOut, Edit2, Check, X } from 'lucide-react';
-import { Avatar } from '@/components/ui/avatar';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface MeData {
   id: string;
@@ -61,7 +59,6 @@ function formatDateTime(iso: string | null): string {
 }
 
 export default function ProfilePage() {
-  const router = useRouter();
   const [me, setMe] = React.useState<MeData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [editing, setEditing] = React.useState(false);

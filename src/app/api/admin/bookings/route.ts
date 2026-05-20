@@ -50,7 +50,11 @@ export async function GET(req: NextRequest) {
     const { page, limit, from, to, status, specialistId } = parsed.data;
 
     const where: Record<string, unknown> = {};
-    if (status) where.status = status;
+    if (status) {
+      // Support comma-separated values: status=CONFIRMED,COMPLETED
+      const statuses = status.split(',').map((s) => s.trim()).filter(Boolean);
+      where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
+    }
     if (specialistId) where.specialistId = specialistId;
     if (from || to) {
       where.startAt = {};

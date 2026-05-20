@@ -163,12 +163,10 @@ export async function GET(req: NextRequest) {
     }));
 
     // Resolve specialist names
-    const allSpecialistIds = [
-      ...new Set([
-        ...topSpecialistsRaw.map((s) => s.specialistId),
-        ...specialistPerfRaw.map((s) => s.specialistId),
-      ]),
-    ];
+    const allSpecialistIds = Array.from(new Set([
+      ...topSpecialistsRaw.map((s) => s.specialistId),
+      ...specialistPerfRaw.map((s) => s.specialistId),
+    ]));
     const specialists = allSpecialistIds.length > 0
       ? await prisma.specialist.findMany({
           where: { id: { in: allSpecialistIds } },
@@ -188,7 +186,7 @@ export async function GET(req: NextRequest) {
     const serviceMap = new Map(services.map((s) => [s.id, s]));
 
     // Client metrics
-    const uniqueClientIds = [...new Set(appointments.map((a) => a.clientId))];
+    const uniqueClientIds = Array.from(new Set(appointments.map((a) => a.clientId)));
     let newClientsCount = 0;
     let returningClientsCount = 0;
 
