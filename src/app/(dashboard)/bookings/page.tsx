@@ -24,7 +24,7 @@ interface Booking {
 interface Specialist { id: string; firstName: string; lastName: string; specialization: string | null; }
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; }
 interface Location { id: string; name: string; }
-interface Client { id: string; firstName: string; lastName: string; email: string; phone?: string | null; }
+interface Client { id: string; firstName: string; lastName: string; email: string; phone?: string | null; clientRef?: string; }
 
 const STATUS_FILTERS = [
   { value: '', label: 'Все' },
@@ -395,10 +395,15 @@ export default function BookingsPage() {
                 {selectedClient ? (
                   <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-obsidian border border-champagne/40">
                     <Avatar name={`${selectedClient.firstName} ${selectedClient.lastName}`} size="sm" />
-                    <span className="text-sm text-text-primary flex-1">
-                      {selectedClient.firstName} {selectedClient.lastName}
-                      {selectedClient.phone && <span className="text-text-tertiary text-xs ml-2">{selectedClient.phone}</span>}
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-text-primary">{selectedClient.firstName} {selectedClient.lastName}</span>
+                        {selectedClient.clientRef && (
+                          <span className="text-[10px] font-mono text-champagne bg-champagne/10 px-1.5 py-0.5 rounded">{selectedClient.clientRef}</span>
+                        )}
+                      </div>
+                      {selectedClient.phone && <p className="text-xs text-text-tertiary">{selectedClient.phone}</p>}
+                    </div>
                     <button
                       type="button"
                       onClick={() => { setSelectedClient(null); setClientSearch(''); setClients([]); }}
@@ -438,7 +443,12 @@ export default function BookingsPage() {
                           >
                             <Avatar name={`${c.firstName} ${c.lastName}`} size="sm" />
                             <div>
-                              <p className="text-sm text-text-primary">{c.firstName} {c.lastName}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm text-text-primary">{c.firstName} {c.lastName}</p>
+                                {c.clientRef && (
+                                  <span className="text-[10px] font-mono text-champagne bg-champagne/10 px-1.5 py-0.5 rounded">{c.clientRef}</span>
+                                )}
+                              </div>
                               <p className="text-xs text-text-tertiary">{c.email}{c.phone ? ` · ${c.phone}` : ''}</p>
                             </div>
                           </button>

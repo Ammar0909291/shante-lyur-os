@@ -33,6 +33,14 @@ export async function GET(req: NextRequest) {
         from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         groupBy = 'day';
         break;
+      case '3m':
+        from = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        groupBy = 'month';
+        break;
+      case '6m':
+        from = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+        groupBy = 'month';
+        break;
       case '1y':
         from = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
         groupBy = 'month';

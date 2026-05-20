@@ -45,6 +45,11 @@ export function formatDateTime(date: Date | string): string {
   }).format(new Date(date));
 }
 
+/** Derives a stable display reference from a UUID: CL-3B7E4F2A */
+export function formatClientRef(uuid: string): string {
+  return 'CL-' + uuid.replace(/-/g, '').substring(0, 8).toUpperCase();
+}
+
 export function getInitials(name: string): string {
   return name
     .split(' ')

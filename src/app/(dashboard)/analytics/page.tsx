@@ -5,7 +5,7 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
-import { TrendingUp, Calendar, CheckCircle, Target } from 'lucide-react';
+import { TrendingUp, Calendar, CheckCircle, Target, Download } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 
 interface SeriesPoint { date: string; revenue: number; bookings: number; }
@@ -26,6 +26,8 @@ const RANGES = [
   { value: '1d', label: '1 день' },
   { value: '7d', label: '7 дней' },
   { value: '30d', label: '1 месяц' },
+  { value: '3m', label: '3 месяца' },
+  { value: '6m', label: '6 месяцев' },
   { value: '1y', label: '1 год' },
 ];
 
@@ -72,6 +74,61 @@ function MetricCard({ icon, label, value, sub }: { icon: React.ReactNode; label:
   );
 }
 
+function exportToExcel(data: AnalyticsData, range: string) {
+  // Dynamic import to keep xlsx out of initial bundle
+  import('xlsx').then((XLSX) => {
+    const wb = XLSX.utils.book_new();
+    const rangeLabel = RANGES.find((r) => r.value === range)?.label ?? range;
+
+    // Sheet 1: Summary
+    const summaryRows = [
+      ['Shante Lyur OS — Аналитика', '', `Период: ${rangeLabel}`],
+      [],
+      ['Показатель', 'Значение'],
+      ['Выручка (₽)', data.summary.totalRevenue],
+      ['Всего записей', data.summary.totalBookings],
+      ['Завершено', data.summary.completedCount],
+      ['Конверсия (%)', data.summary.completionRate],
+      ['Средний чек (₽)', data.summary.avgTicket],
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
+    ws1['!cols'] = [{ wch: 24 }, { wch: 16 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Сводка');
+
+    // Sheet 2: Revenue series
+    const seriesRows = [
+      ['Дата', 'Выручка (₽)', 'Записей'],
+      ...data.series.map((p) => [p.date, p.revenue, p.bookings]),
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(seriesRows);
+    ws2['!cols'] = [{ wch: 14 }, { wch: 16 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Динамика');
+
+    // Sheet 3: Status breakdown
+    const statusRows = [
+      ['Статус', 'Количество'],
+      ...data.statusBreakdown.map((s) => [s.label, s.count]),
+    ];
+    const ws3 = XLSX.utils.aoa_to_sheet(statusRows);
+    ws3['!cols'] = [{ wch: 20 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws3, 'По статусам');
+
+    // Sheet 4: Top specialists
+    if (data.topSpecialists.length > 0) {
+      const specRows = [
+        ['Специалист', 'Выручка (₽)', 'Записей'],
+        ...data.topSpecialists.map((s) => [s.name, s.revenue, s.count]),
+      ];
+      const ws4 = XLSX.utils.aoa_to_sheet(specRows);
+      ws4['!cols'] = [{ wch: 26 }, { wch: 16 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb, ws4, 'Специалисты');
+    }
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `shante-lyur-analytics-${dateStr}.xlsx`);
+  });
+}
+
 export default function AnalyticsPage() {
   const [range, setRange] = React.useState('30d');
   const [data, setData] = React.useState<AnalyticsData | null>(null);
@@ -102,12 +159,27 @@ export default function AnalyticsPage() {
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
       {/* Header + range filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Аналитика</h2>
-          <p className="text-text-secondary mt-1 text-sm">Операционная отчётность студии</p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Аналитика</h2>
+            <p className="text-text-secondary mt-1 text-sm">Операционная отчётность студии</p>
+          </div>
+          {data && (
+            <button
+              onClick={() => exportToExcel(data, range)}
+              className={cn(
+                'inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium',
+                'bg-onyx border border-border-luxury text-text-secondary',
+                'hover:text-text-primary hover:border-champagne/40 transition-all',
+              )}
+            >
+              <Download className="w-4 h-4" />
+              Экспорт Excel
+            </button>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {RANGES.map((r) => (
             <button
               key={r.value}
