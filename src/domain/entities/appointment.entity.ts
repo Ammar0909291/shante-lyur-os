@@ -162,4 +162,32 @@ export class Appointment extends BaseEntity {
     if (this.specialistId !== other.specialistId) return false;
     return this._timeSlot.overlaps(other.timeSlot);
   }
+
+  static reconstitute(props: {
+    id: string;
+    clientId: string;
+    specialistId: string;
+    locationId: string;
+    startAt: Date;
+    endAt: Date;
+    status: AppointmentStatus;
+    services: AppointmentServiceItem[];
+    totalPrice: Money;
+    totalDuration: number;
+    notes?: string;
+    cancellationReason?: CancellationReason;
+    cancelledAt?: Date;
+    cancelledBy?: string;
+    noShowAt?: Date;
+    checkedInAt?: Date;
+    checkedOutAt?: Date;
+    source?: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }): Appointment {
+    return new Appointment({
+      ...props,
+      timeSlot: DateRange.create(props.startAt, props.endAt),
+    });
+  }
 }

@@ -6,7 +6,7 @@
 
 /* ─── CSS Custom Properties ─────────────────────────────────────────── */
 :root {
-  /* Backgrounds */
+  /* Backgrounds (dark defaults) */
   --color-obsidian: #0A0A0F;
   --color-onyx: #13131A;
   --color-charcoal: #1E1E2A;
@@ -38,6 +38,48 @@
   --color-error: #C47878;
   --color-info: #7898C4;
 }
+
+/* ─── Light Theme ────────────────────────────────────────────────────── */
+html.light {
+  --color-obsidian: #F4F0EB;
+  --color-onyx: #EDE9E3;
+  --color-charcoal: #E5DFD7;
+  --color-text-primary: #1C1814;
+  --color-text-secondary: #5C5751;
+  --color-text-tertiary: #8C8780;
+  --color-border: #D4CEC6;
+  --color-border-light: #C4BEB6;
+}
+
+html.light body {
+  background-color: #F4F0EB;
+  color: #1C1814;
+}
+
+/* Override Tailwind static color utilities for light theme */
+html.light .bg-obsidian { background-color: #F4F0EB !important; }
+html.light .bg-onyx { background-color: #EDE9E3 !important; }
+html.light .bg-charcoal { background-color: #E5DFD7 !important; }
+html.light .bg-charcoal\/50 { background-color: rgba(229, 223, 215, 0.5) !important; }
+html.light .hover\:bg-charcoal\/50:hover { background-color: rgba(229, 223, 215, 0.5) !important; }
+html.light .hover\:bg-charcoal:hover { background-color: #E5DFD7 !important; }
+html.light .focus\:bg-charcoal:focus { background-color: #E5DFD7 !important; }
+html.light .text-text-primary { color: #1C1814 !important; }
+html.light .text-text-secondary { color: #5C5751 !important; }
+html.light .text-text-tertiary { color: #8C8780 !important; }
+html.light .border-border-luxury { border-color: #D4CEC6 !important; }
+html.light .divide-border-luxury > * + * { border-color: #D4CEC6 !important; }
+html.light .border-border-light { border-color: #C4BEB6 !important; }
+
+/* Header surface in light theme */
+html.light .bg-onyx\/80 {
+  background-color: rgba(237, 233, 227, 0.85) !important;
+}
+
+/* Scrollbar for light theme */
+html.light ::-webkit-scrollbar-track { background: #EDE9E3; }
+html.light ::-webkit-scrollbar-thumb { background: #C4BEB6; }
+html.light * { scrollbar-color: #C4BEB6 #EDE9E3; }
 
 /* ─── Base Styles ────────────────────────────────────────────────────── */
 @layer base {

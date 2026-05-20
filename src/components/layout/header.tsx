@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Bell, Menu, LogOut, User, ChevronDown } from 'lucide-react';
+import { Bell, Menu, LogOut, User, ChevronDown, Sun, Moon } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
@@ -21,6 +21,38 @@ function useClock() {
   }, []);
 
   return now;
+}
+
+function ThemeToggle() {
+  const [isDark, setIsDark] = React.useState(true);
+
+  React.useEffect(() => {
+    setIsDark(!document.documentElement.classList.contains('light'));
+  }, []);
+
+  const toggle = () => {
+    const html = document.documentElement;
+    const goLight = html.classList.contains('dark');
+    html.classList.toggle('dark', !goLight);
+    html.classList.toggle('light', goLight);
+    try { localStorage.setItem('theme', goLight ? 'light' : 'dark'); } catch {}
+    setIsDark(!goLight);
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      className={cn(
+        'p-2.5 rounded-xl',
+        'text-text-secondary hover:text-text-primary hover:bg-charcoal',
+        'transition-all duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
+      )}
+      aria-label={isDark ? 'Светлая тема' : 'Тёмная тема'}
+    >
+      {isDark ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
+    </button>
+  );
 }
 
 function NotificationBell() {
@@ -165,6 +197,7 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
           </div>
         )}
 
+        <ThemeToggle />
         <NotificationBell />
         <div className="w-px h-6 bg-border-luxury mx-1 hidden sm:block" aria-hidden="true" />
         <UserMenu />

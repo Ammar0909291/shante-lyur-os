@@ -12,7 +12,7 @@ datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
   directUrl  = env("DIRECT_URL")
-  extensions = [pgcrypto, uuid_ossp]
+  extensions = [pgcrypto, uuid_ossp(map: "uuid-ossp")]
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -59,6 +59,7 @@ model User {
   specialist     Specialist?
   customerProfile CustomerProfile?
   notifications  Notification[]
+  clientAppointments Appointment[] @relation("ClientAppointments")
 
   @@index([email])
   @@index([role, status])
