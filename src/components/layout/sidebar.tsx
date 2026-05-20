@@ -69,11 +69,10 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         {/* Logo area */}
         <div
           className={cn(
-            'flex items-center h-16 shrink-0 px-4 border-b border-border-luxury',
-            collapsed ? 'lg:justify-center' : 'justify-between',
+            'flex items-center h-16 shrink-0 px-4 border-b border-border-luxury justify-between',
           )}
         >
-          <div className={cn('flex items-center gap-3', collapsed && 'lg:justify-center')}>
+          <div className={cn('flex items-center gap-3')}>
             {/* Monogram */}
             <div
               className={cn(
@@ -114,7 +113,6 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               'hidden lg:flex p-1.5 rounded-md',
               'text-text-tertiary hover:text-text-primary hover:bg-charcoal',
               'transition-colors',
-              collapsed && 'hidden',
             )}
             aria-label={collapsed ? 'Развернуть' : 'Свернуть'}
           >
