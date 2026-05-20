@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Sparkles, Plus, X, Star, MoreVertical, Power, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
@@ -170,6 +171,12 @@ function SpecialistCard({
           )}
         </div>
       )}
+      <Link
+        href={`/specialists/${specialist.id}`}
+        className="block text-center py-1.5 rounded-lg border border-border-luxury text-xs text-text-tertiary hover:text-champagne hover:border-champagne/40 transition-colors mt-1"
+      >
+        Профиль специалиста →
+      </Link>
     </div>
   );
 }

@@ -20,6 +20,7 @@ const STATUS_LABELS: Record<string, string> = {
 export async function GET(req: NextRequest) {
   try {
     const range = req.nextUrl.searchParams.get('range') ?? '30d';
+    const specialistIdFilter = req.nextUrl.searchParams.get('specialistId') ?? undefined;
     const now = new Date();
     let from: Date;
     let groupBy: 'day' | 'month';
@@ -50,28 +51,33 @@ export async function GET(req: NextRequest) {
         groupBy = 'day';
     }
 
+    const baseWhere = {
+      startAt: { gte: from, lte: now },
+      ...(specialistIdFilter ? { specialistId: specialistIdFilter } : {}),
+    };
+
     const [appointments, statusRows, revenueAgg, avgAgg, topSpecialists] = await Promise.all([
       prisma.appointment.findMany({
-        where: { startAt: { gte: from, lte: now } },
+        where: baseWhere,
         select: { startAt: true, totalPrice: true, status: true },
         orderBy: { startAt: 'asc' },
       }),
       prisma.appointment.groupBy({
         by: ['status'],
-        where: { startAt: { gte: from, lte: now } },
+        where: baseWhere,
         _count: { id: true },
       }),
       prisma.appointment.aggregate({
-        where: { startAt: { gte: from, lte: now }, status: 'COMPLETED' },
+        where: { ...baseWhere, status: 'COMPLETED' },
         _sum: { totalPrice: true },
       }),
       prisma.appointment.aggregate({
-        where: { startAt: { gte: from, lte: now }, status: 'COMPLETED' },
+        where: { ...baseWhere, status: 'COMPLETED' },
         _avg: { totalPrice: true },
       }),
       prisma.appointment.groupBy({
         by: ['specialistId'],
-        where: { startAt: { gte: from, lte: now }, status: 'COMPLETED' },
+        where: { ...baseWhere, status: 'COMPLETED' },
         _sum: { totalPrice: true },
         _count: { id: true },
         orderBy: { _sum: { totalPrice: 'desc' } },

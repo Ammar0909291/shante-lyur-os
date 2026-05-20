@@ -129,16 +129,29 @@ function exportToExcel(data: AnalyticsData, range: string) {
   });
 }
 
+interface SpecialistOption { id: string; firstName: string; lastName: string; }
+
 export default function AnalyticsPage() {
   const [range, setRange] = React.useState('30d');
+  const [specialistId, setSpecialistId] = React.useState('');
+  const [specialists, setSpecialists] = React.useState<SpecialistOption[]>([]);
   const [data, setData] = React.useState<AnalyticsData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
+    fetch('/api/specialists?limit=100&status=ACTIVE')
+      .then((r) => r.json())
+      .then((json) => { if (json.success) setSpecialists(json.data.items ?? []); })
+      .catch(() => {});
+  }, []);
+
+  React.useEffect(() => {
     setLoading(true);
     setError('');
-    fetch(`/api/analytics?range=${range}`)
+    const q = new URLSearchParams({ range });
+    if (specialistId) q.set('specialistId', specialistId);
+    fetch(`/api/analytics?${q}`)
       .then((r) => r.json())
       .then((json) => {
         if (json.success) setData(json.data);
@@ -146,7 +159,7 @@ export default function AnalyticsPage() {
       })
       .catch(() => setError('Сетевая ошибка'))
       .finally(() => setLoading(false));
-  }, [range]);
+  }, [range, specialistId]);
 
   const chartSeries = data?.series.map((p) => ({
     ...p,
@@ -179,7 +192,7 @@ export default function AnalyticsPage() {
             </button>
           )}
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-wrap gap-2 items-center">
           {RANGES.map((r) => (
             <button
               key={r.value}
@@ -194,6 +207,24 @@ export default function AnalyticsPage() {
               {r.label}
             </button>
           ))}
+          {specialists.length > 0 && (
+            <select
+              value={specialistId}
+              onChange={(e) => setSpecialistId(e.target.value)}
+              className={cn(
+                'px-3.5 py-1.5 rounded-xl text-sm cursor-pointer',
+                'bg-onyx border text-text-secondary transition-colors',
+                specialistId
+                  ? 'border-champagne/40 text-text-primary'
+                  : 'border-border-luxury hover:text-text-primary hover:bg-charcoal',
+              )}
+            >
+              <option value="">Все специалисты</option>
+              {specialists.map((s) => (
+                <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 

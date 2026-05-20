@@ -17,7 +17,15 @@ export async function GET(req: NextRequest) {
     const q = (req.nextUrl.searchParams.get('q') ?? req.nextUrl.searchParams.get('search') ?? '').trim();
     const limit = Math.min(20, Math.max(1, Number(req.nextUrl.searchParams.get('limit') ?? '10')));
 
-    if (!q) return ok({ items: [] });
+    if (!q) {
+      const recent = await prisma.user.findMany({
+        where: { role: 'CLIENT' },
+        select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+      });
+      return ok({ items: recent.map((u) => ({ id: u.id, firstName: u.firstName, lastName: u.lastName, email: u.email, phone: u.phone, clientRef: formatClientRef(u.id) })) });
+    }
 
     // Check if query looks like a client reference (CL-XXXXXXXX or just hex chars)
     const refMatch = q.match(/^(?:CL-)?([0-9A-Fa-f]{4,8})$/);

@@ -139,6 +139,11 @@ export default function BookingsPage() {
   const [clientDropdown, setClientDropdown] = React.useState(false);
   const [clientLoading, setClientLoading] = React.useState(false);
 
+  const [showCreateForm, setShowCreateForm] = React.useState(false);
+  const [createForm, setCreateForm] = React.useState({ firstName: '', lastName: '', phone: '', email: '' });
+  const [createError, setCreateError] = React.useState('');
+  const [creating, setCreating] = React.useState(false);
+
   const [form, setForm] = React.useState({
     specialistId: '',
     locationId: '',
@@ -186,13 +191,16 @@ export default function BookingsPage() {
     if (showModal) fetchFormData();
   }, [showModal, fetchFormData]);
 
-  // Debounced client search — uses public endpoint
+  // Client search with debounce — shows recent clients when empty
   React.useEffect(() => {
-    if (!clientSearch.trim()) { setClients([]); return; }
+    if (!clientDropdown) return;
     setClientLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/clients/search?q=${encodeURIComponent(clientSearch)}&limit=10`);
+        const url = clientSearch.trim()
+          ? `/api/clients/search?q=${encodeURIComponent(clientSearch)}&limit=10`
+          : `/api/clients/search?limit=10`;
+        const res = await fetch(url);
         const json = await res.json();
         if (json.success) setClients(json.data.items);
       } catch {
@@ -200,9 +208,40 @@ export default function BookingsPage() {
       } finally {
         setClientLoading(false);
       }
-    }, 250);
+    }, clientSearch.trim() ? 250 : 0);
     return () => clearTimeout(timer);
-  }, [clientSearch]);
+  }, [clientSearch, clientDropdown]);
+
+  const handleCreateClient = async () => {
+    if (!createForm.firstName.trim() || !createForm.lastName.trim()) { setCreateError('Имя и фамилия обязательны'); return; }
+    if (!createForm.phone.trim()) { setCreateError('Телефон обязателен'); return; }
+    setCreating(true);
+    setCreateError('');
+    try {
+      const res = await fetch('/api/admin/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: createForm.firstName.trim(),
+          lastName: createForm.lastName.trim(),
+          phone: createForm.phone.trim(),
+          email: createForm.email.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) { setCreateError(json.error?.message ?? 'Ошибка создания'); return; }
+      setSelectedClient(json.data);
+      setClientDropdown(false);
+      setClientSearch('');
+      setClients([]);
+      setShowCreateForm(false);
+      setCreateForm({ firstName: '', lastName: '', phone: '', email: '' });
+    } catch {
+      setCreateError('Сетевая ошибка');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const selectedService = services.find((s) => s.id === form.serviceId);
 
@@ -255,6 +294,9 @@ export default function BookingsPage() {
     setSelectedClient(null);
     setClientSearch('');
     setClients([]);
+    setShowCreateForm(false);
+    setCreateError('');
+    setCreateForm({ firstName: '', lastName: '', phone: '', email: '' });
   };
 
   return (
@@ -417,8 +459,8 @@ export default function BookingsPage() {
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
                     <input
                       value={clientSearch}
-                      onChange={(e) => { setClientSearch(e.target.value); setClientDropdown(true); }}
-                      onFocus={() => setClientDropdown(true)}
+                      onChange={(e) => { setClientSearch(e.target.value); setClientDropdown(true); setShowCreateForm(false); }}
+                      onFocus={() => { setClientDropdown(true); setShowCreateForm(false); }}
                       onBlur={() => setTimeout(() => setClientDropdown(false), 200)}
                       placeholder="Имя, email или телефон..."
                       className={cn(inputCls, 'pl-10')}
@@ -427,8 +469,11 @@ export default function BookingsPage() {
                     {clientLoading && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-champagne/30 border-t-champagne rounded-full animate-spin" />
                     )}
-                    {clientDropdown && clients.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg z-30 max-h-48 overflow-y-auto animate-slide-down">
+                    {clientDropdown && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg z-30 max-h-72 overflow-y-auto animate-slide-down">
+                        {!clientSearch.trim() && clients.length > 0 && (
+                          <p className="px-3 pt-2.5 pb-1 text-[10px] font-medium text-text-tertiary uppercase tracking-wider">Недавние клиенты</p>
+                        )}
                         {clients.map((c) => (
                           <button
                             key={c.id}
@@ -438,6 +483,7 @@ export default function BookingsPage() {
                               setClientDropdown(false);
                               setClientSearch('');
                               setClients([]);
+                              setShowCreateForm(false);
                             }}
                             className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-charcoal transition-colors text-left"
                           >
@@ -453,11 +499,70 @@ export default function BookingsPage() {
                             </div>
                           </button>
                         ))}
-                      </div>
-                    )}
-                    {clientDropdown && clientSearch.trim() && !clientLoading && clients.length === 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg z-30 px-3 py-4 text-center">
-                        <p className="text-sm text-text-tertiary">Клиент не найден</p>
+                        {clientSearch.trim() && !clientLoading && clients.length === 0 && !showCreateForm && (
+                          <div className="px-3 py-3 text-center">
+                            <p className="text-sm text-text-tertiary mb-2">Клиент не найден</p>
+                          </div>
+                        )}
+                        {!showCreateForm ? (
+                          <button
+                            type="button"
+                            onMouseDown={() => { setShowCreateForm(true); setCreateError(''); setCreateForm({ firstName: '', lastName: '', phone: '', email: '' }); }}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-champagne hover:bg-charcoal transition-colors border-t border-border-luxury"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Создать нового клиента
+                          </button>
+                        ) : (
+                          <div className="p-3 border-t border-border-luxury space-y-2.5">
+                            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">Новый клиент</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                value={createForm.firstName}
+                                onChange={(e) => setCreateForm((f) => ({ ...f, firstName: e.target.value }))}
+                                placeholder="Имя *"
+                                className={cn(inputCls, 'py-2 text-xs')}
+                                autoFocus
+                              />
+                              <input
+                                value={createForm.lastName}
+                                onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))}
+                                placeholder="Фамилия *"
+                                className={cn(inputCls, 'py-2 text-xs')}
+                              />
+                            </div>
+                            <input
+                              value={createForm.phone}
+                              onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))}
+                              placeholder="Телефон *"
+                              className={cn(inputCls, 'py-2 text-xs')}
+                            />
+                            <input
+                              value={createForm.email}
+                              onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                              placeholder="Email (необязательно)"
+                              className={cn(inputCls, 'py-2 text-xs')}
+                            />
+                            {createError && <p className="text-xs text-red-400">{createError}</p>}
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setShowCreateForm(false)}
+                                className="flex-1 py-1.5 rounded-lg border border-border-luxury text-xs text-text-secondary hover:text-text-primary transition-colors"
+                              >
+                                Отмена
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCreateClient}
+                                disabled={creating}
+                                className="flex-1 py-1.5 rounded-lg bg-champagne text-obsidian text-xs font-medium hover:bg-champagne-light transition-colors disabled:opacity-50"
+                              >
+                                {creating ? 'Создание...' : 'Создать'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

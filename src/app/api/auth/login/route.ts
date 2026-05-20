@@ -25,7 +25,7 @@ function setAuthCookies(
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 15 * 60,
+    maxAge: 8 * 60 * 60,
   });
   response.cookies.set('refresh_token', refreshToken, {
     httpOnly: true,

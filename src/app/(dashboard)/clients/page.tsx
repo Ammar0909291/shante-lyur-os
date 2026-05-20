@@ -1,9 +1,10 @@
 import * as React from 'react';
+import Link from 'next/link';
 import { Users, Star } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { prisma } from '@/infrastructure/config/prisma-client';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatClientRef } from '@/lib/utils';
 
 const LOYALTY_LABEL: Record<string, string> = {
   BRONZE: 'Бронза',
@@ -107,14 +108,17 @@ export default async function ClientsPage({
               </thead>
               <tbody className="divide-y divide-border-luxury">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-charcoal/50 transition-colors">
+                  <tr key={u.id} className="hover:bg-charcoal/50 transition-colors group">
                     <td className="px-6 py-3.5">
-                      <div className="flex items-center gap-3">
+                      <Link href={`/clients/${u.id}`} className="flex items-center gap-3">
                         <Avatar name={`${u.firstName} ${u.lastName}`} size="sm" />
-                        <span className="font-medium text-text-primary">
-                          {u.firstName} {u.lastName}
-                        </span>
-                      </div>
+                        <div>
+                          <span className="font-medium text-text-primary group-hover:text-champagne transition-colors">
+                            {u.firstName} {u.lastName}
+                          </span>
+                          <p className="text-[10px] font-mono text-text-tertiary">{formatClientRef(u.id)}</p>
+                        </div>
+                      </Link>
                     </td>
                     <td className="px-4 py-3.5 text-text-secondary">{u.email}</td>
                     <td className="px-4 py-3.5">
@@ -144,7 +148,7 @@ export default async function ClientsPage({
           {/* Mobile list */}
           <div className="sm:hidden divide-y divide-border-luxury">
             {users.map((u) => (
-              <div key={u.id} className="px-4 py-4 flex items-start gap-3">
+              <Link key={u.id} href={`/clients/${u.id}`} className="px-4 py-4 flex items-start gap-3 hover:bg-charcoal/50 transition-colors">
                 <Avatar name={`${u.firstName} ${u.lastName}`} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
@@ -172,7 +176,7 @@ export default async function ClientsPage({
                     )}
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
