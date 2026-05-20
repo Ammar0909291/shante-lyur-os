@@ -2,15 +2,16 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Menu, LogOut, User, ChevronDown, Sun, Moon, Check } from 'lucide-react';
+import { Bell, Menu, LogOut, User, ChevronDown, Sun, Moon, Check, ChevronRight } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import { useLanguage } from '@/contexts/language';
 import { UIVersionToggle } from '@/next-ui/components/UIVersionToggle';
 
-interface HeaderProps {
+interface Props {
   title: string;
+  breadcrumb?: string[];
   onMobileMenuOpen?: () => void;
 }
 
@@ -32,8 +33,7 @@ const dropdownContentCls = cn(
 
 const dropdownItemCls = cn(
   'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer',
-  'text-text-secondary',
-  'hover:text-text-primary hover:bg-charcoal',
+  'text-text-secondary hover:text-text-primary hover:bg-charcoal',
   'focus:outline-none focus:bg-charcoal focus:text-text-primary',
   'transition-colors outline-none select-none',
 );
@@ -58,32 +58,20 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className={cn(
-        'p-2.5 rounded-xl',
-        'text-text-secondary hover:text-text-primary hover:bg-charcoal',
-        'transition-all duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
-      )}
+      className="p-2.5 rounded-xl text-text-secondary hover:text-text-primary hover:bg-charcoal transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40"
       aria-label={isDark ? t('header.theme.light') : t('header.theme.dark')}
     >
-      {isDark ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
+      {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
     </button>
   );
 }
 
 function LanguageToggle() {
   const { lang, setLang } = useLanguage();
-
   return (
     <button
       onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
-      className={cn(
-        'px-2 py-1.5 rounded-lg text-xs font-semibold tracking-wider',
-        'border border-border-luxury',
-        'text-text-secondary hover:text-text-primary hover:border-champagne/40',
-        'transition-all duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
-      )}
+      className="px-2 py-1.5 rounded-lg text-xs font-semibold tracking-wider border border-border-luxury text-text-secondary hover:text-text-primary hover:border-champagne/40 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40"
       aria-label={lang === 'ru' ? 'Switch to English' : 'Переключить на русский'}
     >
       {lang === 'ru' ? 'EN' : 'RU'}
@@ -91,16 +79,9 @@ function LanguageToggle() {
   );
 }
 
-interface Notification {
-  id: string;
-  text: string;
-  time: string;
-  read: boolean;
-}
-
 function NotificationBell() {
   const { t } = useLanguage();
-  const [notifications, setNotifications] = React.useState<Notification[]>([]);
+  const [notifications, setNotifications] = React.useState<{ id: string; text: string; time: string; read: boolean }[]>([]);
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -120,19 +101,13 @@ function NotificationBell() {
   }, [t]);
 
   const unread = notifications.filter((n) => !n.read).length;
-
   const markAllRead = () => setNotifications((ns) => ns.map((n) => ({ ...n, read: true })));
 
   return (
     <DropdownMenu.Root open={open} onOpenChange={setOpen}>
       <DropdownMenu.Trigger asChild>
         <button
-          className={cn(
-            'relative p-2.5 rounded-xl',
-            'text-text-secondary hover:text-text-primary hover:bg-charcoal',
-            'transition-all duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
-          )}
+          className="relative p-2.5 rounded-xl text-text-secondary hover:text-text-primary hover:bg-charcoal transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40"
           aria-label={t('header.notifications')}
         >
           <Bell className="w-5 h-5" />
@@ -141,27 +116,16 @@ function NotificationBell() {
           )}
         </button>
       </DropdownMenu.Trigger>
-
       <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          className={dropdownContentCls}
-          align="end"
-          sideOffset={8}
-          style={{ zIndex: 200 }}
-        >
+        <DropdownMenu.Content className={dropdownContentCls} align="end" sideOffset={8} style={{ zIndex: 200 }}>
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-luxury">
             <p className="text-sm font-medium text-text-primary">{t('header.notifications')}</p>
             {unread > 0 && (
-              <button
-                onClick={markAllRead}
-                className="text-xs text-champagne hover:text-champagne-light transition-colors"
-              >
-                <Check className="w-3.5 h-3.5 inline mr-1" />
-                Прочитать все
+              <button onClick={markAllRead} className="text-xs text-champagne hover:text-champagne-light transition-colors">
+                <Check className="w-3.5 h-3.5 inline mr-1" />Прочитать все
               </button>
             )}
           </div>
-
           {notifications.length === 0 ? (
             <div className="px-3 py-6 text-center">
               <p className="text-sm text-text-tertiary">{t('header.notifications.empty')}</p>
@@ -169,16 +133,8 @@ function NotificationBell() {
           ) : (
             <div className="py-1">
               {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={cn(
-                    'px-3 py-2.5 flex items-start gap-2',
-                    !n.read && 'bg-champagne/4',
-                  )}
-                >
-                  {!n.read && (
-                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-champagne shrink-0" />
-                  )}
+                <div key={n.id} className={cn('px-3 py-2.5 flex items-start gap-2', !n.read && 'bg-champagne/4')}>
+                  {!n.read && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-champagne shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-text-primary leading-snug">{n.text}</p>
                     <p className="text-xs text-text-tertiary mt-0.5">{n.time}</p>
@@ -226,11 +182,7 @@ function UserMenu() {
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         <button
-          className={cn(
-            'flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl',
-            'hover:bg-charcoal transition-all duration-150',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
-          )}
+          className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-charcoal transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40"
           aria-label={t('header.profile')}
         >
           <Avatar name={fullName} size="sm" />
@@ -241,36 +193,22 @@ function UserMenu() {
           <ChevronDown className="w-4 h-4 text-text-tertiary hidden sm:block" aria-hidden="true" />
         </button>
       </DropdownMenu.Trigger>
-
       <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          className={dropdownContentCls}
-          align="end"
-          sideOffset={8}
-          style={{ zIndex: 200 }}
-        >
+        <DropdownMenu.Content className={dropdownContentCls} align="end" sideOffset={8} style={{ zIndex: 200 }}>
           <div className="px-3 py-2.5 border-b border-border-luxury">
             <p className="text-sm font-medium text-text-primary">{fullName}</p>
             <p className="text-xs text-text-tertiary mt-0.5">{me?.email ?? ''}</p>
           </div>
-
           <div className="p-1">
             <DropdownMenu.Item className={dropdownItemCls} onSelect={() => router.push('/profile')}>
-              <User className="w-4 h-4" aria-hidden="true" />
-              {t('header.myProfile')}
+              <User className="w-4 h-4" />{t('header.myProfile')}
             </DropdownMenu.Item>
-
             <DropdownMenu.Separator className="my-1 h-px bg-border-luxury" />
-
             <DropdownMenu.Item
-              className={cn(
-                dropdownItemCls,
-                'text-red-400 hover:text-red-300 hover:bg-red-500/10 focus:bg-red-500/10 focus:text-red-300',
-              )}
+              className={cn(dropdownItemCls, 'text-red-400 hover:text-red-300 hover:bg-red-500/10 focus:bg-red-500/10 focus:text-red-300')}
               onSelect={handleLogout}
             >
-              <LogOut className="w-4 h-4" aria-hidden="true" />
-              {t('header.logout')}
+              <LogOut className="w-4 h-4" />{t('header.logout')}
             </DropdownMenu.Item>
           </div>
         </DropdownMenu.Content>
@@ -279,7 +217,7 @@ function UserMenu() {
   );
 }
 
-export function Header({ title, onMobileMenuOpen }: HeaderProps) {
+export function NextUIHeader({ title, breadcrumb, onMobileMenuOpen }: Props) {
   const now = useClock();
 
   return (
@@ -293,18 +231,26 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={onMobileMenuOpen}
-          className={cn(
-            'lg:hidden p-2 rounded-lg',
-            'text-text-secondary hover:text-text-primary hover:bg-charcoal',
-            'transition-colors',
-          )}
+          className="lg:hidden p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors"
           aria-label="Открыть меню"
         >
           <Menu className="w-5 h-5" />
         </button>
-        <h1 className="font-serif text-xl font-medium text-text-primary tracking-tight">
-          {title}
-        </h1>
+
+        {/* Breadcrumb / title */}
+        <div className="flex items-center gap-1.5">
+          {breadcrumb && breadcrumb.length > 0 && (
+            <>
+              {breadcrumb.map((crumb, i) => (
+                <React.Fragment key={i}>
+                  <span className="text-xs text-text-tertiary">{crumb}</span>
+                  <ChevronRight className="w-3 h-3 text-text-tertiary/50" />
+                </React.Fragment>
+              ))}
+            </>
+          )}
+          <h1 className="font-serif text-xl font-medium text-text-primary tracking-tight">{title}</h1>
+        </div>
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
@@ -314,6 +260,7 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
             <span className="text-[10px] text-text-tertiary">{formatTime(now)}</span>
           </div>
         )}
+        {/* UI version toggle — always visible in Next UI header */}
         <UIVersionToggle compact />
         <div className="w-px h-6 bg-border-luxury mx-1 hidden sm:block" aria-hidden="true" />
         <LanguageToggle />

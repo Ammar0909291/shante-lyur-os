@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { LanguageProvider, useLanguage } from '@/contexts/language';
+import { UIVersionProvider, useUIVersion } from '@/contexts/ui-version';
+import { NextUIShell } from '@/next-ui/layouts/NextUIShell';
 
 const PAGE_KEYS: Record<string, string> = {
   '/dashboard': 'page.dashboard',
@@ -26,7 +28,7 @@ function getKey(pathname: string): string {
   return 'Shante Lyur';
 }
 
-function DashboardShell({ children }: { children: React.ReactNode }) {
+function LegacyShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
@@ -53,10 +55,21 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function ShellRouter({ children }: { children: React.ReactNode }) {
+  const { version } = useUIVersion();
+
+  if (version === 'next') {
+    return <NextUIShell>{children}</NextUIShell>;
+  }
+  return <LegacyShell>{children}</LegacyShell>;
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <LanguageProvider>
-      <DashboardShell>{children}</DashboardShell>
+      <UIVersionProvider>
+        <ShellRouter>{children}</ShellRouter>
+      </UIVersionProvider>
     </LanguageProvider>
   );
 }
