@@ -15,7 +15,7 @@ export async function GET() {
     const services = await prisma.service.findMany({
       where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      select: { id: true, name: true, basePrice: true, baseDuration: true },
+      select: { id: true, name: true, basePrice: true, baseDuration: true, category: true },
     });
 
     return ok(services.map((s) => ({ ...s, basePrice: Number(s.basePrice) })));

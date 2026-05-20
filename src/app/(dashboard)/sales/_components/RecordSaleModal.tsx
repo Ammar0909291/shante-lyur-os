@@ -56,7 +56,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
   React.useEffect(() => {
     Promise.all([
       fetch('/api/specialists?limit=100').then((r) => r.json()),
-      fetch('/api/services?limit=100&isActive=true').then((r) => r.json()),
+      fetch('/api/admin/services').then((r) => r.json()),
       fetch('/api/locations').then((r) => r.json()),
       fetch('/api/admin/users?limit=100').then((r) => r.json()),
     ]).then(([sp, sv, loc, staff]) => {
@@ -97,6 +97,25 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
   const selectedService = services.find((s) => s.id === serviceId);
   const autoPrice = selectedService ? selectedService.basePrice * quantity : 0;
+
+  function getSpecialistCategories(specialization: string): string[] {
+    const s = specialization.toLowerCase();
+    const cats: string[] = [];
+    if (s.includes('массаж') || s.includes('spa') || s.includes('спа')) cats.push('MASSAGE');
+    if (s.includes('косметолог') || s.includes('уходов') || s.includes('лицо') || s.includes('фейс')) cats.push('COSMETOLOGY', 'FACIAL');
+    if (s.includes('инъекц')) cats.push('INJECTION');
+    if (s.includes('лазер')) cats.push('LASER', 'HAIR_REMOVAL');
+    if (s.includes('эпиляц')) cats.push('HAIR_REMOVAL');
+    return Array.from(new Set(cats));
+  }
+
+  const selectedSpecialistObj = specialists.find((s) => s.id === specialistId);
+  const filteredServices = React.useMemo(() => {
+    if (!selectedSpecialistObj?.specialization) return services;
+    const cats = getSpecialistCategories(selectedSpecialistObj.specialization);
+    if (cats.length === 0) return services;
+    return services.filter((s) => cats.includes(s.category));
+  }, [selectedSpecialistObj, services]);
   const effectivePrice = priceOverride !== '' ? parseFloat(priceOverride) : autoPrice;
 
   function selectClient(c: ClientResult) {
@@ -209,7 +228,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
             <label className="block text-xs font-medium text-text-secondary mb-1.5">Специалист *</label>
             <select
               value={specialistId}
-              onChange={(e) => setSpecialistId(e.target.value)}
+              onChange={(e) => { setSpecialistId(e.target.value); setServiceId(''); setPriceOverride(''); }}
               disabled={saving}
               className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
             >
@@ -233,7 +252,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
               className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
             >
               <option value="">Выберите услугу</option>
-              {services.map((s) => (
+              {filteredServices.map((s) => (
                 <option key={s.id} value={s.id}>{s.name} — {s.basePrice.toLocaleString('ru-RU')} ₽ / {s.baseDuration} мин</option>
               ))}
             </select>

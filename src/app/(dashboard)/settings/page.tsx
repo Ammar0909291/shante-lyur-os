@@ -215,7 +215,8 @@ export default function SettingsPage() {
         {/* Studio info */}
         <SectionCard title="О студии" description="Информация о салоне">
           <InfoRow label="Название" value="Shante Lyur" />
-          <InfoRow label="Город" value="Москва" />
+          <InfoRow label="Адрес" value="Свердловская область, Екатеринбург, улица Малышева, 3" />
+          <InfoRow label="Город" value="Екатеринбург" />
           <InfoRow label="Система" value="Shante Lyur OS" />
           <InfoRow label="Версия" value="3.0.0" accent />
         </SectionCard>

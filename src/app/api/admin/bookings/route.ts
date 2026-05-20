@@ -13,7 +13,7 @@ function apiError(code: string, message: string, status: number, details?: Recor
 
 const ListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  limit: z.coerce.number().int().min(1).max(1000).default(50),
   from: z.string().optional(),
   to: z.string().optional(),
   status: z.string().optional(),
@@ -78,6 +78,16 @@ export async function GET(req: NextRequest) {
       prisma.appointment.count({ where }),
     ]);
 
+    // Batch-resolve seller names
+    const sellerIds = Array.from(new Set(appointments.map((a) => a.soldByUserId).filter(Boolean) as string[]));
+    const sellerUsers = sellerIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: sellerIds } },
+          select: { id: true, firstName: true, lastName: true },
+        })
+      : [];
+    const sellerMap = new Map(sellerUsers.map((u) => [u.id, `${u.firstName} ${u.lastName}`]));
+
     const items = appointments.map((a) => ({
       id: a.id,
       clientId: a.clientId,
@@ -93,6 +103,8 @@ export async function GET(req: NextRequest) {
       totalPrice: Number(a.totalPrice),
       totalDuration: a.totalDuration,
       notes: a.notes,
+      soldByUserId: a.soldByUserId ?? null,
+      soldByName: a.soldByUserId ? (sellerMap.get(a.soldByUserId) ?? null) : null,
       services: a.services.map((s) => ({
         serviceId: s.serviceId,
         name: s.service.name,

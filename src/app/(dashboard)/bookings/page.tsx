@@ -10,6 +10,7 @@ import { cn, formatTime, formatCurrency } from '@/lib/utils';
 
 interface Booking {
   id: string;
+  clientId: string;
   clientName: string;
   clientEmail: string;
   specialistId: string;
@@ -21,11 +22,13 @@ interface Booking {
   totalPrice: number;
   totalDuration: number;
   notes: string | null;
+  soldByUserId: string | null;
+  soldByName: string | null;
   services: { serviceId: string; name: string; price: number; duration: number }[];
 }
 
 interface Specialist { id: string; firstName: string; lastName: string; specialization: string | null; }
-interface Service { id: string; name: string; basePrice: number; baseDuration: number; }
+interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; }
 interface Location { id: string; name: string; }
 interface Client { id: string; firstName: string; lastName: string; email: string; phone?: string | null; clientRef?: string; }
 interface StaffUser { id: string; firstName: string; lastName: string; role: string; }
@@ -287,6 +290,26 @@ export default function BookingsPage() {
 
   const selectedService = allServices.find((s) => s.id === form.serviceId);
 
+  // Map specialist specialization text → allowed service categories
+  function getSpecialistCategories(specialization: string): string[] {
+    const s = specialization.toLowerCase();
+    const cats: string[] = [];
+    if (s.includes('массаж') || s.includes('spa') || s.includes('спа')) cats.push('MASSAGE');
+    if (s.includes('косметолог') || s.includes('уходов') || s.includes('лицо') || s.includes('фейс')) cats.push('COSMETOLOGY', 'FACIAL');
+    if (s.includes('инъекц')) cats.push('INJECTION');
+    if (s.includes('лазер')) cats.push('LASER', 'HAIR_REMOVAL');
+    if (s.includes('эпиляц')) cats.push('HAIR_REMOVAL');
+    return Array.from(new Set(cats));
+  }
+
+  const selectedSpecialist = allSpecialists.find((s) => s.id === form.specialistId);
+  const filteredServices = React.useMemo(() => {
+    if (!selectedSpecialist?.specialization) return allServices;
+    const cats = getSpecialistCategories(selectedSpecialist.specialization);
+    if (cats.length === 0) return allServices;
+    return allServices.filter((s) => cats.includes(s.category));
+  }, [selectedSpecialist, allServices]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClient) { setFormError('Выберите клиента'); return; }
@@ -332,10 +355,12 @@ export default function BookingsPage() {
 
       const XLSX = await import('xlsx');
       const rows = (json.data.items as Booking[]).map((b) => ({
+        'ID клиента': b.clientId,
         'Клиент': b.clientName,
         'Email': b.clientEmail,
         'Специалист': b.specialistName,
-        'Услуга': b.services[0]?.name ?? '',
+        'Продавец': b.soldByName ?? '—',
+        'Услуга': b.services.map((s) => s.name).join(', '),
         'Дата': new Date(b.startAt).toLocaleDateString('ru-RU'),
         'Время': new Date(b.startAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
         'Длит. (мин)': b.totalDuration,
@@ -346,7 +371,7 @@ export default function BookingsPage() {
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows);
-      ws['!cols'] = [20, 25, 20, 25, 12, 8, 10, 15, 12, 20, 30].map((w) => ({ wch: w }));
+      ws['!cols'] = [18, 22, 25, 22, 20, 28, 12, 8, 10, 15, 14, 20, 30].map((w) => ({ wch: w }));
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Записи');
 
@@ -689,7 +714,7 @@ export default function BookingsPage() {
               {/* Specialist */}
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Специалист *</span>
-                <select required value={form.specialistId} onChange={(e) => setForm((f) => ({ ...f, specialistId: e.target.value }))} className={selectCls}>
+                <select required value={form.specialistId} onChange={(e) => setForm((f) => ({ ...f, specialistId: e.target.value, serviceId: '' }))} className={selectCls}>
                   <option value="">Выберите специалиста</option>
                   {allSpecialists.map((s) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}{s.specialization ? ` — ${s.specialization}` : ''}</option>)}
                 </select>
@@ -700,7 +725,7 @@ export default function BookingsPage() {
                 <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Услуга *</span>
                 <select required value={form.serviceId} onChange={(e) => setForm((f) => ({ ...f, serviceId: e.target.value }))} className={selectCls}>
                   <option value="">Выберите услугу</option>
-                  {allServices.map((s) => <option key={s.id} value={s.id}>{s.name} — {s.baseDuration} мин · {s.basePrice.toLocaleString('ru-RU')} ₽</option>)}
+                  {filteredServices.map((s) => <option key={s.id} value={s.id}>{s.name} — {s.baseDuration} мин · {s.basePrice.toLocaleString('ru-RU')} ₽</option>)}
                 </select>
               </label>
 
