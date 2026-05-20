@@ -65,9 +65,14 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const search = req.nextUrl.searchParams.get('search') ?? '';
-    const page = Math.max(1, Number(req.nextUrl.searchParams.get('page') ?? '1'));
-    const limit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get('limit') ?? '50')));
+    const search      = req.nextUrl.searchParams.get('search') ?? '';
+    const page        = Math.max(1, Number(req.nextUrl.searchParams.get('page') ?? '1'));
+    const limit       = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get('limit') ?? '50')));
+    const showArchived = req.nextUrl.searchParams.get('archived') === 'true';
+
+    const statusFilter = showArchived
+      ? { status: 'SUSPENDED' as const }
+      : { status: { not: 'SUSPENDED' as const } };
 
     const where = search
       ? {
@@ -77,8 +82,9 @@ export async function GET(req: NextRequest) {
             { email: { contains: search, mode: 'insensitive' as const } },
           ],
           role: 'CLIENT' as const,
+          ...statusFilter,
         }
-      : { role: 'CLIENT' as const };
+      : { role: 'CLIENT' as const, ...statusFilter };
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({

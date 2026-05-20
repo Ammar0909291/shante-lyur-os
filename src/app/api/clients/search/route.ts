@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     if (!q) {
       const recent = await prisma.user.findMany({
-        where: { role: 'CLIENT' },
+        where: { role: 'CLIENT', status: { not: 'SUSPENDED' } },
         select: { id: true, firstName: true, lastName: true, email: true, phone: true },
         orderBy: { createdAt: 'desc' },
         take: limit,
@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
     const users = await prisma.user.findMany({
       where: {
         role: 'CLIENT',
+        status: { not: 'SUSPENDED' },
         OR: [
           { firstName: { contains: q, mode: 'insensitive' } },
           { lastName: { contains: q, mode: 'insensitive' } },

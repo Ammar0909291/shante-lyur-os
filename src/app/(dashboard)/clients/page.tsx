@@ -1,6 +1,6 @@
 import * as React from 'react';
 import Link from 'next/link';
-import { Users, Star } from 'lucide-react';
+import { Users, Star, Archive } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { prisma } from '@/infrastructure/config/prisma-client';
@@ -23,8 +23,12 @@ const LOYALTY_VARIANT: Record<string, 'default' | 'gold' | 'success' | 'info'> =
   VIP: 'success',
 };
 
-async function getClients(page: number, search: string) {
+async function getClients(page: number, search: string, showArchived: boolean) {
   const limit = 50;
+  const statusFilter = showArchived
+    ? { status: 'SUSPENDED' as const }
+    : { status: { not: 'SUSPENDED' as const } };
+
   const where = search
     ? {
         OR: [
@@ -33,8 +37,9 @@ async function getClients(page: number, search: string) {
           { email: { contains: search, mode: 'insensitive' as const } },
         ],
         role: 'CLIENT' as const,
+        ...statusFilter,
       }
-    : { role: 'CLIENT' as const };
+    : { role: 'CLIENT' as const, ...statusFilter };
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({
@@ -57,12 +62,13 @@ async function getClients(page: number, search: string) {
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; search?: string }>;
+  searchParams: Promise<{ page?: string; search?: string; archived?: string }>;
 }) {
   const sp = await searchParams;
-  const page = Math.max(1, Number(sp.page ?? '1'));
-  const search = sp.search ?? '';
-  const { users, total, limit } = await getClients(page, search);
+  const page         = Math.max(1, Number(sp.page ?? '1'));
+  const search       = sp.search ?? '';
+  const showArchived = sp.archived === 'true';
+  const { users, total, limit } = await getClients(page, search, showArchived);
   const totalPages = Math.ceil(total / limit);
 
   return (
@@ -71,10 +77,23 @@ export default async function ClientsPage({
         <div>
           <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Клиенты</h2>
           <p className="text-text-secondary mt-1 text-sm">
-            {total.toLocaleString('ru-RU')} клиентов в базе
+            {total.toLocaleString('ru-RU')} {showArchived ? 'архивных клиентов' : 'активных клиентов'}
           </p>
         </div>
-        <AddClientButton />
+        <div className="flex items-center gap-3">
+          <Link
+            href={showArchived ? '/clients' : '/clients?archived=true'}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+              showArchived
+                ? 'border-champagne/40 bg-champagne/10 text-champagne'
+                : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal'
+            }`}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            {showArchived ? 'Активные клиенты' : 'Архивные'}
+          </Link>
+          {!showArchived && <AddClientButton />}
+        </div>
       </div>
 
       {/* Live search */}
@@ -188,7 +207,7 @@ export default async function ClientsPage({
           <div className="flex gap-2">
             {page > 1 && (
               <a
-                href={`?page=${page - 1}${search ? `&search=${encodeURIComponent(search)}` : ''}`}
+                href={`?page=${page - 1}${search ? `&search=${encodeURIComponent(search)}` : ''}${showArchived ? '&archived=true' : ''}`}
                 className="px-3 py-1.5 text-sm rounded-lg border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors"
               >
                 ← Назад
@@ -196,7 +215,7 @@ export default async function ClientsPage({
             )}
             {page < totalPages && (
               <a
-                href={`?page=${page + 1}${search ? `&search=${encodeURIComponent(search)}` : ''}`}
+                href={`?page=${page + 1}${search ? `&search=${encodeURIComponent(search)}` : ''}${showArchived ? '&archived=true' : ''}`}
                 className="px-3 py-1.5 text-sm rounded-lg border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors"
               >
                 Вперёд →

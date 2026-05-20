@@ -170,6 +170,20 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Set firstVisitAt on CustomerProfile if this is the client's first booking
+    await prisma.customerProfile.upsert({
+      where:  { userId: clientId },
+      create: { id: randomUUID(), userId: clientId, firstVisitAt: startAt, loyaltyTier: 'BRONZE' },
+      update: { firstVisitAt: undefined }, // only update below if still null
+    }).then(async (profile) => {
+      if (!profile.firstVisitAt) {
+        await prisma.customerProfile.update({
+          where: { userId: clientId },
+          data:  { firstVisitAt: startAt },
+        });
+      }
+    }).catch(() => { /* non-fatal — booking already succeeded */ });
+
     return ok({
       id: appointment.id,
       clientName: `${appointment.client.firstName} ${appointment.client.lastName}`,

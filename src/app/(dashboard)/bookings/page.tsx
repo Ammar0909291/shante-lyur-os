@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Calendar as CalendarIcon, Plus, X, Search, ChevronDown, Download, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
@@ -346,6 +347,20 @@ export default function BookingsPage() {
     setCreateForm({ firstName: '', lastName: '', phone: '', email: '' });
   };
 
+  const updateBookingStatus = React.useCallback(async (bookingId: string, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/appointments/${bookingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setBookings((prev) => prev.map((b) => b.id === bookingId ? { ...b, status: newStatus } : b));
+      }
+    } catch { /* silent — list will refresh on next load */ }
+  }, []);
+
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -544,16 +559,24 @@ export default function BookingsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Дата / Время</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Длит.</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Статус</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Сумма</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Сумма</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Действие</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-luxury">
-                {bookings.map((b) => (
+                {bookings.map((b) => {
+                  const canComplete = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(b.status);
+                  const canCancel   = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(b.status);
+                  const canProgress = b.status === 'CONFIRMED';
+                  return (
                   <tr key={b.id} className="hover:bg-charcoal/50 transition-colors">
                     <td className="px-6 py-3.5">
                       <div className="flex items-center gap-3">
                         <Avatar name={b.clientName} size="sm" />
-                        <span className="font-medium text-text-primary whitespace-nowrap">{b.clientName}</span>
+                        <div>
+                          <span className="font-medium text-text-primary whitespace-nowrap">{b.clientName}</span>
+                          <Link href={`/clients/${b.clientId}`} className="block text-[10px] text-champagne hover:underline">{b.clientId.substring(0, 8).toUpperCase()}</Link>
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-text-secondary max-w-[180px] truncate">{b.services[0]?.name ?? '—'}</td>
@@ -568,11 +591,39 @@ export default function BookingsPage() {
                         {getAppointmentStatusLabel(b.status)}
                       </Badge>
                     </td>
-                    <td className="px-6 py-3.5 text-right font-medium text-text-primary tabular-nums whitespace-nowrap">
+                    <td className="px-4 py-3.5 text-right font-medium text-text-primary tabular-nums whitespace-nowrap">
                       {formatCurrency(b.totalPrice)}
                     </td>
+                    <td className="px-4 py-3.5">
+                      {(canComplete || canCancel || canProgress) && (
+                        <div className="flex items-center gap-1">
+                          {canProgress && (
+                            <button
+                              onClick={() => updateBookingStatus(b.id, 'IN_PROGRESS')}
+                              title="В процессе"
+                              className="px-2 py-1 rounded-lg text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors whitespace-nowrap"
+                            >▶ Начато</button>
+                          )}
+                          {canComplete && (
+                            <button
+                              onClick={() => updateBookingStatus(b.id, 'COMPLETED')}
+                              title="Завершить"
+                              className="px-2 py-1 rounded-lg text-[10px] font-medium bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors whitespace-nowrap"
+                            >✓ Завершить</button>
+                          )}
+                          {canCancel && (
+                            <button
+                              onClick={() => updateBookingStatus(b.id, 'CANCELLED')}
+                              title="Отменить"
+                              className="px-2 py-1 rounded-lg text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors whitespace-nowrap"
+                            >✕</button>
+                          )}
+                        </div>
+                      )}
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
