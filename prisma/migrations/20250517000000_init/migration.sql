@@ -2,7 +2,6 @@
 -- Generated: 2026-05-17 (fixed: native PostgreSQL enum types)
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ═══════════════════════════════════════════════════════════════
 -- ENUM TYPES (must be created before tables that use them)
