@@ -83,7 +83,9 @@ function normalize(raw: unknown): AppointmentRow[] | null {
 }
 
 export default function DashboardPage() {
-  const greeting = getGreeting();
+  // getGreeting() uses new Date() which differs server (UTC) vs client (local tz).
+  // Initialise to null and set on mount to avoid hydration mismatch / error overlay.
+  const [greeting, setGreeting] = React.useState<string | null>(null);
   const [openClient, setOpenClient] = React.useState(false);
   const [openAppointment, setOpenAppointment] = React.useState(false);
   const [openBlock, setOpenBlock] = React.useState(false);
@@ -107,13 +109,14 @@ export default function DashboardPage() {
   }, []);
 
   React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { setGreeting(getGreeting()); }, []);
 
   return (
     <div className="p-6 lg:p-8 space-y-8 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">
-            {greeting}, Администратор
+            {greeting ? `${greeting}, Администратор` : 'Добро пожаловать, Администратор'}
           </h2>
           <p className="text-text-secondary mt-1 text-sm">
             Вот что происходит в вашей студии сегодня
@@ -171,7 +174,7 @@ export default function DashboardPage() {
                   </td>
                   <td className="px-4 py-4 text-text-secondary max-w-[180px] truncate">{apt.service}</td>
                   <td className="px-4 py-4 text-text-secondary whitespace-nowrap">{apt.specialist}</td>
-                  <td className="px-4 py-4 text-text-secondary whitespace-nowrap tabular-nums">{formatTime(apt.time)}</td>
+                  <td className="px-4 py-4 text-text-secondary whitespace-nowrap tabular-nums" suppressHydrationWarning>{formatTime(apt.time)}</td>
                   <td className="px-4 py-4">
                     <Badge variant={getAppointmentStatusBadgeVariant(apt.status)} dot>
                       {getAppointmentStatusLabel(apt.status)}
@@ -195,7 +198,7 @@ export default function DashboardPage() {
                 </div>
                 <p className="text-xs text-text-secondary mt-0.5 truncate">{apt.service}</p>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="text-xs text-text-tertiary">{formatTime(apt.time)}</span>
+                  <span className="text-xs text-text-tertiary" suppressHydrationWarning>{formatTime(apt.time)}</span>
                   <span className="text-xs text-text-tertiary">·</span>
                   <span className="text-xs text-text-tertiary">{apt.specialist}</span>
                   <span className="text-xs font-medium text-champagne ml-auto">{formatCurrency(apt.amount)}</span>

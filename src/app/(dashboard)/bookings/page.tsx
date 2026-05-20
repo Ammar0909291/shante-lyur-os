@@ -199,9 +199,9 @@ export default function BookingsPage() {
                   </td>
                   <td className="px-4 py-4 text-text-secondary max-w-[180px] truncate">{booking.service}</td>
                   <td className="px-4 py-4 text-text-secondary whitespace-nowrap">{booking.specialist}</td>
-                  <td className="px-4 py-4 text-text-secondary whitespace-nowrap tabular-nums">
-                    <div>{formatDate(booking.time)}</div>
-                    <div className="text-xs text-text-tertiary">{formatTime(booking.time)}</div>
+                  <td className="px-4 py-4 text-text-secondary whitespace-nowrap tabular-nums" suppressHydrationWarning>
+                    <div suppressHydrationWarning>{formatDate(booking.time)}</div>
+                    <div className="text-xs text-text-tertiary" suppressHydrationWarning>{formatTime(booking.time)}</div>
                   </td>
                   <td className="px-4 py-4">
                     <Badge variant={getAppointmentStatusBadgeVariant(booking.status)} dot>
@@ -229,7 +229,7 @@ export default function BookingsPage() {
                 </div>
                 <p className="text-xs text-text-secondary mt-0.5 truncate">{booking.service}</p>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="text-xs text-text-tertiary">{formatTime(booking.time)}</span>
+                  <span className="text-xs text-text-tertiary" suppressHydrationWarning>{formatTime(booking.time)}</span>
                   <span className="text-xs text-text-tertiary">·</span>
                   <span className="text-xs text-text-tertiary">{booking.specialist}</span>
                   <span className="text-xs font-medium text-champagne ml-auto">{formatCurrency(booking.amount)}</span>
