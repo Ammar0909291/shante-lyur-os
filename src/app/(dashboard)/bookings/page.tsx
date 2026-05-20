@@ -19,20 +19,29 @@ interface Booking {
   time: Date;
   status: string;
   amount: number;
+  category?: string;
 }
 
 const mockBookings: Booking[] = [
-  { id: '1', client: 'Анна Соколова', service: 'Гиалуроновый лифтинг', specialist: 'Мария Петрова', time: new Date('2025-05-19T09:00:00'), status: 'CONFIRMED', amount: 1200000 },
-  { id: '2', client: 'Елена Морозова', service: 'Антивозрастной массаж лица', specialist: 'Ольга Козлова', time: new Date('2025-05-19T10:30:00'), status: 'CONFIRMED', amount: 800000 },
-  { id: '3', client: 'Светлана Ким', service: 'Пилинг & Детокс', specialist: 'Мария Петрова', time: new Date('2025-05-19T11:00:00'), status: 'PENDING', amount: 650000 },
-  { id: '4', client: 'Ирина Волкова', service: 'Ароматерапевтический массаж', specialist: 'Наталья Васильева', time: new Date('2025-05-19T12:00:00'), status: 'COMPLETED', amount: 700000 },
-  { id: '5', client: 'Татьяна Лебедева', service: 'Лазерная эпиляция', specialist: 'Ольга Козлова', time: new Date('2025-05-19T13:30:00'), status: 'CONFIRMED', amount: 1500000 },
-  { id: '6', client: 'Наталья Попова', service: 'Биоревитализация', specialist: 'Дарья Смирнова', time: new Date('2025-05-20T10:00:00'), status: 'PENDING', amount: 1800000 },
-  { id: '7', client: 'Ольга Новикова', service: 'Нейромышечный массаж', specialist: 'Наталья Васильева', time: new Date('2025-05-20T14:00:00'), status: 'CANCELLED', amount: 900000 },
-  { id: '8', client: 'Марина Зайцева', service: 'Глубокое увлажнение', specialist: 'Мария Петрова', time: new Date('2025-05-21T09:00:00'), status: 'CONFIRMED', amount: 550000 },
-  { id: '9', client: 'Валерия Орлова', service: 'Контурная пластика', specialist: 'Дарья Смирнова', time: new Date('2025-05-21T11:30:00'), status: 'PENDING', amount: 2200000 },
-  { id: '10', client: 'Юлия Миронова', service: 'RF-лифтинг', specialist: 'Ольга Козлова', time: new Date('2025-05-22T10:00:00'), status: 'CONFIRMED', amount: 1400000 },
+  { id: '1', client: 'Анна Соколова', service: 'Гиалуроновый лифтинг', specialist: 'Мария Петрова', time: new Date('2025-05-19T09:00:00'), status: 'CONFIRMED', amount: 1200000, category: 'INJECTION' },
+  { id: '2', client: 'Елена Морозова', service: 'Антивозрастной массаж лица', specialist: 'Ольга Козлова', time: new Date('2025-05-19T10:30:00'), status: 'CONFIRMED', amount: 800000, category: 'MASSAGE' },
+  { id: '3', client: 'Светлана Ким', service: 'Пилинг & Детокс', specialist: 'Мария Петрова', time: new Date('2025-05-19T11:00:00'), status: 'PENDING', amount: 650000, category: 'COSMETOLOGY' },
+  { id: '4', client: 'Ирина Волкова', service: 'Ароматерапевтический массаж', specialist: 'Наталья Васильева', time: new Date('2025-05-19T12:00:00'), status: 'COMPLETED', amount: 700000, category: 'MASSAGE' },
+  { id: '5', client: 'Татьяна Лебедева', service: 'Лазерная эпиляция', specialist: 'Ольга Козлова', time: new Date('2025-05-19T13:30:00'), status: 'CONFIRMED', amount: 1500000, category: 'LASER' },
+  { id: '6', client: 'Наталья Попова', service: 'Биоревитализация', specialist: 'Дарья Смирнова', time: new Date('2025-05-20T10:00:00'), status: 'PENDING', amount: 1800000, category: 'INJECTION' },
+  { id: '7', client: 'Ольга Новикова', service: 'Нейромышечный массаж', specialist: 'Наталья Васильева', time: new Date('2025-05-20T14:00:00'), status: 'CANCELLED', amount: 900000, category: 'MASSAGE' },
+  { id: '8', client: 'Марина Зайцева', service: 'Глубокое увлажнение', specialist: 'Мария Петрова', time: new Date('2025-05-21T09:00:00'), status: 'CONFIRMED', amount: 550000, category: 'FACIAL' },
+  { id: '9', client: 'Валерия Орлова', service: 'Контурная пластика', specialist: 'Дарья Смирнова', time: new Date('2025-05-21T11:30:00'), status: 'PENDING', amount: 2200000, category: 'INJECTION' },
+  { id: '10', client: 'Юлия Миронова', service: 'RF-лифтинг', specialist: 'Ольга Козлова', time: new Date('2025-05-22T10:00:00'), status: 'CONFIRMED', amount: 1400000, category: 'LASER' },
 ];
+
+const CATEGORIES = [
+  { id: 'MASSAGE', label: 'Массаж' },
+  { id: 'COSMETOLOGY', label: 'Косметология' },
+  { id: 'INJECTION', label: 'Инъекции' },
+  { id: 'LASER', label: 'Лазер' },
+  { id: 'FACIAL', label: 'Уход за лицом' },
+] as const;
 
 const STATUSES = ['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'] as const;
 type StatusFilter = typeof STATUSES[number];
@@ -43,7 +52,7 @@ interface ApiAppointment {
   id: string;
   client?: { fullName?: string };
   clientName?: string;
-  service?: { name?: string };
+  service?: { name?: string; category?: string };
   serviceName?: string;
   specialist?: { fullName?: string };
   specialistName?: string;
@@ -51,6 +60,7 @@ interface ApiAppointment {
   status: string;
   totalAmount?: number;
   amount?: number;
+  category?: string;
 }
 
 function normalize(raw: unknown): Booking[] | null {
@@ -68,17 +78,25 @@ function normalize(raw: unknown): Booking[] | null {
     time: new Date(a.startAt),
     status: a.status,
     amount: a.totalAmount ?? a.amount ?? 0,
+    category: a.category ?? a.service?.category,
   }));
 }
 
 export default function BookingsPage() {
   const [bookings, setBookings] = React.useState<Booking[]>(mockBookings);
   const [filter, setFilter] = React.useState<StatusFilter>('ALL');
+  const [categoryFilter, setCategoryFilter] = React.useState('');
+  const [specialistFilter, setSpecialistFilter] = React.useState('');
   const [search, setSearch] = React.useState('');
   const [showCreate, setShowCreate] = React.useState(false);
   const [selected, setSelected] = React.useState<AppointmentLike | null>(null);
   const [showFilters, setShowFilters] = React.useState(false);
   const t = useT();
+
+  const specialists = React.useMemo(() => {
+    const names = Array.from(new Set(bookings.map((b) => b.specialist).filter((s) => s !== '—')));
+    return names.sort();
+  }, [bookings]);
 
   const statusLabels: Record<StatusFilter, string> = {
     ALL: t('filter.all'),
@@ -102,13 +120,15 @@ export default function BookingsPage() {
   const filtered = React.useMemo(() => {
     return bookings.filter((b) => {
       if (filter !== 'ALL' && b.status !== filter) return false;
+      if (categoryFilter && b.category !== categoryFilter) return false;
+      if (specialistFilter && b.specialist !== specialistFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!b.client.toLowerCase().includes(q) && !b.service.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [bookings, filter, search]);
+  }, [bookings, filter, categoryFilter, specialistFilter, search]);
 
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
@@ -142,21 +162,106 @@ export default function BookingsPage() {
       </div>
 
       {showFilters && (
-        <div className="flex items-center gap-2 flex-wrap">
-          {STATUSES.map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={cn(
-                'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-                filter === s
-                  ? 'bg-champagne/8 text-champagne border-champagne/30'
-                  : 'border-border-luxury text-text-secondary hover:text-text-primary hover:border-champagne/40',
-              )}
-            >
-              {statusLabels[s]}
-            </button>
-          ))}
+        <div className="bg-onyx border border-border-luxury rounded-2xl p-4 space-y-4">
+          {/* Status filter */}
+          <div>
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary mb-2">Статус</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {STATUSES.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setFilter(s)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                    filter === s
+                      ? 'bg-champagne/8 text-champagne border-champagne/30'
+                      : 'border-border-luxury text-text-secondary hover:text-text-primary hover:border-champagne/40',
+                  )}
+                >
+                  {statusLabels[s]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Category filter */}
+          <div>
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary mb-2">Категория</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setCategoryFilter('')}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                  !categoryFilter
+                    ? 'bg-champagne/8 text-champagne border-champagne/30'
+                    : 'border-border-luxury text-text-secondary hover:text-text-primary hover:border-champagne/40',
+                )}
+              >
+                Все
+              </button>
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setCategoryFilter(categoryFilter === cat.id ? '' : cat.id)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                    categoryFilter === cat.id
+                      ? 'bg-champagne/8 text-champagne border-champagne/30'
+                      : 'border-border-luxury text-text-secondary hover:text-text-primary hover:border-champagne/40',
+                  )}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Specialist filter */}
+          <div>
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-text-tertiary mb-2">Специалист</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => setSpecialistFilter('')}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                  !specialistFilter
+                    ? 'bg-champagne/8 text-champagne border-champagne/30'
+                    : 'border-border-luxury text-text-secondary hover:text-text-primary hover:border-champagne/40',
+                )}
+              >
+                Все
+              </button>
+              {specialists.map((sp) => (
+                <button
+                  key={sp}
+                  onClick={() => setSpecialistFilter(specialistFilter === sp ? '' : sp)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                    specialistFilter === sp
+                      ? 'bg-champagne/8 text-champagne border-champagne/30'
+                      : 'border-border-luxury text-text-secondary hover:text-text-primary hover:border-champagne/40',
+                  )}
+                >
+                  {sp}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Active filter summary + clear */}
+          {(filter !== 'ALL' || categoryFilter || specialistFilter) && (
+            <div className="flex items-center justify-between pt-1 border-t border-border-luxury">
+              <span className="text-xs text-text-tertiary">
+                Активных фильтров: {[filter !== 'ALL', !!categoryFilter, !!specialistFilter].filter(Boolean).length}
+              </span>
+              <button
+                onClick={() => { setFilter('ALL'); setCategoryFilter(''); setSpecialistFilter(''); }}
+                className="text-xs text-champagne hover:underline transition-colors"
+              >
+                Сбросить все
+              </button>
+            </div>
+          )}
         </div>
       )}
 
