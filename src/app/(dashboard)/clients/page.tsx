@@ -13,11 +13,11 @@ const LOYALTY_LABEL: Record<string, string> = {
   PLATINUM: 'Платина',
   VIP: 'VIP',
 };
-const LOYALTY_VARIANT: Record<string, 'default' | 'champagne' | 'success' | 'info'> = {
+const LOYALTY_VARIANT: Record<string, 'default' | 'gold' | 'success' | 'info'> = {
   BRONZE: 'default',
   SILVER: 'default',
-  GOLD: 'champagne',
-  PLATINUM: 'champagne',
+  GOLD: 'gold',
+  PLATINUM: 'gold',
   VIP: 'success',
 };
 

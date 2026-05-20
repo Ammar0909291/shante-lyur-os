@@ -60,6 +60,8 @@ model User {
   customerProfile CustomerProfile?
   notifications  Notification[]
   clientAppointments Appointment[] @relation("ClientAppointments")
+  messagesSent     InternalMessage[] @relation("MessagesSent")
+  messagesReceived InternalMessage[] @relation("MessagesReceived")
 
   @@index([email])
   @@index([role, status])
@@ -877,4 +879,25 @@ model DailyMetrics {
 
   @@index([date])
   @@map("daily_metrics")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INTERNAL STAFF MESSAGING
+// ═══════════════════════════════════════════════════════════════
+
+model InternalMessage {
+  id         String    @id @default(uuid()) @db.Uuid
+  fromUserId String    @map("from_user_id") @db.Uuid
+  toUserId   String    @map("to_user_id") @db.Uuid
+  body       String    @db.Text
+  readAt     DateTime? @map("read_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  fromUser   User      @relation("MessagesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User      @relation("MessagesReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([fromUserId, toUserId])
+  @@index([toUserId, readAt])
+  @@index([createdAt])
+  @@map("internal_messages")
 }

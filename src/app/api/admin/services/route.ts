@@ -54,6 +54,11 @@ const PatchSchema = z.object({
   isActive: z.boolean().optional(),
   sortOrder: z.coerce.number().int().min(0).optional(),
   basePrice: z.coerce.number().min(0).optional(),
+  name: z.string().min(1).max(255).optional(),
+  category: z.enum(['COSMETOLOGY', 'MASSAGE', 'INJECTION', 'LASER', 'BODY_CONTOURING', 'HAIR_REMOVAL', 'FACIAL', 'OTHER']).optional(),
+  baseDuration: z.coerce.number().int().min(1).max(480).optional(),
+  description: z.string().max(2000).nullable().optional(),
+  requiresConsultation: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -98,7 +103,7 @@ export async function PATCH(req: NextRequest) {
       data: parsed.data,
     });
 
-    return ok({ id: service.id, isActive: service.isActive });
+    return ok({ id: service.id, name: service.name, category: service.category, basePrice: Number(service.basePrice), baseDuration: service.baseDuration, description: service.description, requiresConsultation: service.requiresConsultation, isActive: service.isActive, sortOrder: service.sortOrder });
   } catch (error) {
     if (error instanceof Error) return apiError('INTERNAL_ERROR', error.message, 500);
     return apiError('INTERNAL_ERROR', 'An unexpected error occurred', 500);

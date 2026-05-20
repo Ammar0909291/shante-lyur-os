@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Sun, Moon, Globe, Bell, Shield, Info, Check } from 'lucide-react';
+import { Sun, Moon, Globe, Bell, Shield, Info, Check, CreditCard, Store, Users, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
 
@@ -17,18 +17,8 @@ function SectionCard({ title, description, children }: { title: string; descript
   );
 }
 
-function ToggleRow({
-  icon,
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  description?: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
+function ToggleRow({ icon, label, description, checked, onChange }: {
+  icon: React.ReactNode; label: string; description?: string; checked: boolean; onChange: (v: boolean) => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 px-6 py-4">
@@ -41,72 +31,85 @@ function ToggleRow({
       </div>
       <button
         onClick={() => onChange(!checked)}
-        className={cn(
-          'relative w-11 h-6 rounded-full transition-colors shrink-0',
-          checked ? 'bg-champagne' : 'bg-charcoal border border-border-luxury',
-        )}
+        className={cn('relative w-11 h-6 rounded-full transition-colors shrink-0', checked ? 'bg-champagne' : 'bg-charcoal border border-border-luxury')}
         aria-pressed={checked}
       >
-        <span
-          className={cn(
-            'absolute top-1 w-4 h-4 rounded-full transition-transform bg-white shadow-sm',
-            checked ? 'translate-x-6' : 'translate-x-1',
-          )}
-        />
+        <span className={cn('absolute top-1 w-4 h-4 rounded-full transition-transform bg-white shadow-sm', checked ? 'translate-x-6' : 'translate-x-1')} />
       </button>
     </div>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-4 px-6 py-4">
       <p className="text-sm text-text-secondary">{label}</p>
-      <p className="text-sm font-medium text-text-primary">{value}</p>
+      <p className={cn('text-sm font-medium', accent ? 'text-champagne' : 'text-text-primary')}>{value}</p>
     </div>
   );
 }
 
 export default function SettingsPage() {
   const { lang, setLang } = useLanguage();
-
   const [isDark, setIsDark] = React.useState(true);
-  const [emailNotif, setEmailNotif] = React.useState(false);
-  const [bookingAlerts, setBookingAlerts] = React.useState(true);
   const [savedMsg, setSavedMsg] = React.useState(false);
+
+  const [clientConfirmEmail, setClientConfirmEmail] = React.useState(true);
+  const [clientReminderEmail, setClientReminderEmail] = React.useState(true);
+  const [clientCancelEmail, setClientCancelEmail] = React.useState(true);
+  const [clientSmsSend, setClientSmsSend] = React.useState(false);
+  const [specNewBooking, setSpecNewBooking] = React.useState(true);
+  const [specCancellation, setSpecCancellation] = React.useState(true);
+  const [specDailySummary, setSpecDailySummary] = React.useState(false);
+  const [cashEnabled, setCashEnabled] = React.useState(true);
+  const [cardTerminalEnabled, setCardTerminalEnabled] = React.useState(true);
+  const [onlinePaymentsEnabled, setOnlinePaymentsEnabled] = React.useState(false);
+  const [autoConfirm, setAutoConfirm] = React.useState(false);
+  const [showRevenue, setShowRevenue] = React.useState(true);
 
   React.useEffect(() => {
     setIsDark(!document.documentElement.classList.contains('light'));
     try {
-      setEmailNotif(localStorage.getItem('notif_email') === '1');
-      setBookingAlerts(localStorage.getItem('notif_booking') !== '0');
+      const stored = localStorage.getItem('settings');
+      if (stored) {
+        const s = JSON.parse(stored) as Record<string, boolean>;
+        if (s.clientConfirmEmail !== undefined) setClientConfirmEmail(s.clientConfirmEmail);
+        if (s.clientReminderEmail !== undefined) setClientReminderEmail(s.clientReminderEmail);
+        if (s.clientCancelEmail !== undefined) setClientCancelEmail(s.clientCancelEmail);
+        if (s.clientSmsSend !== undefined) setClientSmsSend(s.clientSmsSend);
+        if (s.specNewBooking !== undefined) setSpecNewBooking(s.specNewBooking);
+        if (s.specCancellation !== undefined) setSpecCancellation(s.specCancellation);
+        if (s.specDailySummary !== undefined) setSpecDailySummary(s.specDailySummary);
+        if (s.cashEnabled !== undefined) setCashEnabled(s.cashEnabled);
+        if (s.cardTerminalEnabled !== undefined) setCardTerminalEnabled(s.cardTerminalEnabled);
+        if (s.onlinePaymentsEnabled !== undefined) setOnlinePaymentsEnabled(s.onlinePaymentsEnabled);
+        if (s.autoConfirm !== undefined) setAutoConfirm(s.autoConfirm);
+        if (s.showRevenue !== undefined) setShowRevenue(s.showRevenue);
+      }
     } catch {}
   }, []);
 
+  const save = (patch: Record<string, unknown>) => {
+    try {
+      const stored = localStorage.getItem('settings');
+      const existing = stored ? (JSON.parse(stored) as Record<string, unknown>) : {};
+      localStorage.setItem('settings', JSON.stringify({ ...existing, ...patch }));
+    } catch {}
+    flash();
+  };
+
   const toggleTheme = (dark: boolean) => {
     setIsDark(dark);
-    const html = document.documentElement;
-    html.classList.toggle('light', !dark);
-    html.classList.toggle('dark', dark);
+    document.documentElement.classList.toggle('light', !dark);
+    document.documentElement.classList.toggle('dark', dark);
     try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch {}
     flash();
   };
 
-  const updateEmailNotif = (v: boolean) => {
-    setEmailNotif(v);
-    try { localStorage.setItem('notif_email', v ? '1' : '0'); } catch {}
-    flash();
-  };
+  const flash = () => { setSavedMsg(true); setTimeout(() => setSavedMsg(false), 2000); };
 
-  const updateBookingAlerts = (v: boolean) => {
-    setBookingAlerts(v);
-    try { localStorage.setItem('notif_booking', v ? '1' : '0'); } catch {}
-    flash();
-  };
-
-  const flash = () => {
-    setSavedMsg(true);
-    setTimeout(() => setSavedMsg(false), 2000);
+  const tog = (setter: (v: boolean) => void, key: string, val: boolean) => {
+    setter(val); save({ [key]: val });
   };
 
   return (
@@ -127,7 +130,6 @@ export default function SettingsPage() {
       <div className="space-y-5 max-w-2xl">
         {/* Appearance */}
         <SectionCard title="Внешний вид" description="Тема и язык интерфейса">
-          {/* Theme */}
           <div className="px-6 py-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0">
@@ -139,41 +141,21 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 ml-11">
-              <button
-                onClick={() => toggleTheme(true)}
-                className={cn(
-                  'flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm transition-colors',
-                  isDark
-                    ? 'border-champagne/40 bg-champagne/5 text-text-primary'
-                    : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
-                )}
-              >
-                <Moon className="w-4 h-4 text-champagne" />
-                Тёмная
-                {isDark && <Check className="w-3.5 h-3.5 text-champagne ml-auto" />}
-              </button>
-              <button
-                onClick={() => toggleTheme(false)}
-                className={cn(
-                  'flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm transition-colors',
-                  !isDark
-                    ? 'border-champagne/40 bg-champagne/5 text-text-primary'
-                    : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
-                )}
-              >
-                <Sun className="w-4 h-4 text-champagne" />
-                Светлая
-                {!isDark && <Check className="w-3.5 h-3.5 text-champagne ml-auto" />}
-              </button>
+              {[{ dark: true, label: 'Тёмная', Icon: Moon }, { dark: false, label: 'Светлая', Icon: Sun }].map(({ dark, label, Icon }) => (
+                <button key={label} onClick={() => toggleTheme(dark)}
+                  className={cn('flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm transition-colors',
+                    isDark === dark ? 'border-champagne/40 bg-champagne/5 text-text-primary' : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal')}
+                >
+                  <Icon className="w-4 h-4 text-champagne" />
+                  {label}
+                  {isDark === dark && <Check className="w-3.5 h-3.5 text-champagne ml-auto" />}
+                </button>
+              ))}
             </div>
           </div>
-
-          {/* Language */}
           <div className="px-6 py-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0">
-                <Globe className="w-4 h-4" />
-              </div>
+              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0"><Globe className="w-4 h-4" /></div>
               <div>
                 <p className="text-sm font-medium text-text-primary">Язык</p>
                 <p className="text-xs text-text-tertiary mt-0.5">Язык интерфейса</p>
@@ -181,15 +163,9 @@ export default function SettingsPage() {
             </div>
             <div className="grid grid-cols-2 gap-3 ml-11">
               {(['ru', 'en'] as const).map((l) => (
-                <button
-                  key={l}
-                  onClick={() => { setLang(l); flash(); }}
-                  className={cn(
-                    'flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm transition-colors',
-                    lang === l
-                      ? 'border-champagne/40 bg-champagne/5 text-text-primary'
-                      : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
-                  )}
+                <button key={l} onClick={() => { setLang(l); flash(); }}
+                  className={cn('flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm transition-colors',
+                    lang === l ? 'border-champagne/40 bg-champagne/5 text-text-primary' : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal')}
                 >
                   <span className="text-base">{l === 'ru' ? '🇷🇺' : '🇬🇧'}</span>
                   {l === 'ru' ? 'Русский' : 'English'}
@@ -200,42 +176,58 @@ export default function SettingsPage() {
           </div>
         </SectionCard>
 
-        {/* Notifications */}
-        <SectionCard title="Уведомления" description="Управление оповещениями системы">
-          <ToggleRow
-            icon={<Bell className="w-4 h-4" />}
-            label="Email-уведомления"
-            description="Отправлять уведомления о новых записях на email"
-            checked={emailNotif}
-            onChange={updateEmailNotif}
-          />
-          <ToggleRow
-            icon={<Bell className="w-4 h-4" />}
-            label="Оповещения о записях"
-            description="Показывать счётчик новых записей в шапке"
-            checked={bookingAlerts}
-            onChange={updateBookingAlerts}
-          />
+        {/* Client Notifications */}
+        <SectionCard title="Уведомления клиентам" description="Автоматические оповещения для клиентов">
+          <ToggleRow icon={<Bell className="w-4 h-4" />} label="Подтверждение записи (Email)" description="Отправлять email при создании записи" checked={clientConfirmEmail} onChange={(v) => tog(setClientConfirmEmail, 'clientConfirmEmail', v)} />
+          <ToggleRow icon={<Bell className="w-4 h-4" />} label="Напоминание за 24 часа (Email)" description="Отправлять напоминание накануне визита" checked={clientReminderEmail} onChange={(v) => tog(setClientReminderEmail, 'clientReminderEmail', v)} />
+          <ToggleRow icon={<Bell className="w-4 h-4" />} label="Уведомление об отмене (Email)" description="Информировать клиента при отмене записи" checked={clientCancelEmail} onChange={(v) => tog(setClientCancelEmail, 'clientCancelEmail', v)} />
+          <ToggleRow icon={<Bell className="w-4 h-4" />} label="SMS-уведомления" description="Требует настройки SMS-шлюза (задайте SMS_PROVIDER_KEY)" checked={clientSmsSend} onChange={(v) => tog(setClientSmsSend, 'clientSmsSend', v)} />
+        </SectionCard>
+
+        {/* Specialist Notifications */}
+        <SectionCard title="Уведомления специалистам" description="Оповещения для сотрудников">
+          <ToggleRow icon={<Sparkles className="w-4 h-4" />} label="Новая запись" description="Уведомлять специалиста о новых записях к нему" checked={specNewBooking} onChange={(v) => tog(setSpecNewBooking, 'specNewBooking', v)} />
+          <ToggleRow icon={<Sparkles className="w-4 h-4" />} label="Отмена или перенос" description="Уведомлять об отменах и переносах" checked={specCancellation} onChange={(v) => tog(setSpecCancellation, 'specCancellation', v)} />
+          <ToggleRow icon={<Sparkles className="w-4 h-4" />} label="Утренняя сводка" description="Расписание на день отправляется утром" checked={specDailySummary} onChange={(v) => tog(setSpecDailySummary, 'specDailySummary', v)} />
+        </SectionCard>
+
+        {/* Payment Settings */}
+        <SectionCard title="Оплата" description="Методы оплаты и платёжные шлюзы">
+          <ToggleRow icon={<CreditCard className="w-4 h-4" />} label="Наличные" description="Принимать оплату наличными" checked={cashEnabled} onChange={(v) => tog(setCashEnabled, 'cashEnabled', v)} />
+          <ToggleRow icon={<CreditCard className="w-4 h-4" />} label="Банковский терминал" description="Оплата картой через терминал на кассе" checked={cardTerminalEnabled} onChange={(v) => tog(setCardTerminalEnabled, 'cardTerminalEnabled', v)} />
+          <ToggleRow icon={<CreditCard className="w-4 h-4" />} label="Онлайн-оплата" description="YooKassa / Robokassa (задайте ключи API в .env)" checked={onlinePaymentsEnabled} onChange={(v) => tog(setOnlinePaymentsEnabled, 'onlinePaymentsEnabled', v)} />
+          <div className="px-6 py-3">
+            <p className="text-xs text-text-tertiary">
+              Переменные окружения для онлайн-оплаты:
+              <span className="text-champagne font-mono ml-1">YOOKASSA_SHOP_ID</span>,
+              <span className="text-champagne font-mono ml-1">YOOKASSA_SECRET_KEY</span>,
+              <span className="text-champagne font-mono ml-1">ROBOKASSA_MERCHANT_LOGIN</span>
+            </p>
+          </div>
+        </SectionCard>
+
+        {/* Operational */}
+        <SectionCard title="Операционные настройки" description="Поведение системы записи">
+          <ToggleRow icon={<Store className="w-4 h-4" />} label="Автоподтверждение записей" description="Автоматически подтверждать новые записи без ручной проверки" checked={autoConfirm} onChange={(v) => tog(setAutoConfirm, 'autoConfirm', v)} />
+          <ToggleRow icon={<Users className="w-4 h-4" />} label="Выручка видна специалистам" description="Разрешить специалистам видеть свою выручку в профиле" checked={showRevenue} onChange={(v) => tog(setShowRevenue, 'showRevenue', v)} />
         </SectionCard>
 
         {/* Studio info */}
-        <SectionCard title="Студия" description="Информация о салоне">
+        <SectionCard title="О студии" description="Информация о салоне">
           <InfoRow label="Название" value="Shante Lyur" />
           <InfoRow label="Город" value="Москва" />
           <InfoRow label="Система" value="Shante Lyur OS" />
-          <InfoRow label="Версия" value="1.0.0" />
+          <InfoRow label="Версия" value="3.0.0" accent />
         </SectionCard>
 
         {/* Security */}
-        <SectionCard title="Безопасность" description="Параметры доступа">
+        <SectionCard title="Безопасность" description="Параметры доступа и сессий">
           <div className="px-6 py-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0">
-                <Shield className="w-4 h-4" />
-              </div>
+              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0"><Shield className="w-4 h-4" /></div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-text-primary">Сессия администратора</p>
-                <p className="text-xs text-text-tertiary mt-0.5">Сессия активна · токен действует 8 часов</p>
+                <p className="text-xs text-text-tertiary mt-0.5">Токен действует 8 часов · автоматическое обновление при активности</p>
               </div>
               <div className="flex items-center gap-1.5 text-xs text-champagne bg-champagne/10 px-2.5 py-1 rounded-lg">
                 <span className="w-1.5 h-1.5 rounded-full bg-champagne" />
@@ -245,14 +237,14 @@ export default function SettingsPage() {
           </div>
           <div className="px-6 py-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0">
-                <Info className="w-4 h-4" />
+              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0"><Info className="w-4 h-4" /></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-primary">Двухфакторная аутентификация (TOTP)</p>
+                <p className="text-xs text-text-tertiary mt-0.5">
+                  Повышает безопасность входа через приложения типа Google Authenticator. Реализация запланирована.
+                </p>
               </div>
-              <div>
-                <p className="text-sm font-medium text-text-primary">Двухфакторная аутентификация</p>
-                <p className="text-xs text-text-tertiary mt-0.5">Будет доступно в следующем обновлении</p>
-              </div>
-              <span className="text-xs text-text-tertiary bg-charcoal px-2.5 py-1 rounded-lg border border-border-luxury ml-auto">Скоро</span>
+              <span className="text-xs text-text-tertiary bg-charcoal px-2.5 py-1 rounded-lg border border-border-luxury ml-auto shrink-0">Запланировано</span>
             </div>
           </div>
         </SectionCard>
