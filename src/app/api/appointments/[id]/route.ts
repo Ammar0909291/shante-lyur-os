@@ -35,6 +35,28 @@ function computeLoyaltyTier(visits: number, spent: number): string {
   return 'BRONZE';
 }
 
+async function syncSpecialistRevenue(appointmentId: string, specialistId: string, amount: number, startAt: Date): Promise<void> {
+  const { randomUUID } = await import('crypto');
+  // Upsert a RevenueRecord for this appointment (idempotent by appointmentId)
+  const existing = await prisma.revenueRecord.findFirst({ where: { appointmentId } });
+  if (!existing) {
+    await prisma.revenueRecord.create({
+      data: {
+        id: randomUUID(),
+        date: startAt,
+        type: 'SERVICE_PAYMENT',
+        amount,
+        specialistId,
+        appointmentId,
+      },
+    });
+  }
+}
+
+async function removeSpecialistRevenue(appointmentId: string): Promise<void> {
+  await prisma.revenueRecord.deleteMany({ where: { appointmentId } });
+}
+
 async function syncClientProfile(clientId: string): Promise<void> {
   const [completedAgg, firstAppt, lastAppt] = await Promise.all([
     prisma.appointment.aggregate({
@@ -119,7 +141,7 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     const existing = await prisma.appointment.findUnique({
       where: { id },
-      select: { id: true, status: true, clientId: true },
+      select: { id: true, status: true, clientId: true, specialistId: true, startAt: true, totalPrice: true },
     });
     if (!existing) return apiError('NOT_FOUND', 'Appointment not found', 404);
 
@@ -138,9 +160,17 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       select: { id: true, status: true, clientId: true, startAt: true, endAt: true, totalPrice: true },
     });
 
-    // Sync client stats whenever appointment reaches a terminal or important state
-    if (newStatus === 'COMPLETED' || newStatus === 'CANCELLED' || newStatus === 'NO_SHOW') {
-      await syncClientProfile(existing.clientId);
+    // Sync client + specialist stats on terminal states
+    if (newStatus === 'COMPLETED') {
+      await Promise.all([
+        syncClientProfile(existing.clientId),
+        syncSpecialistRevenue(id, existing.specialistId, Number(existing.totalPrice), existing.startAt),
+      ]);
+    } else if (newStatus === 'CANCELLED' || newStatus === 'NO_SHOW') {
+      await Promise.all([
+        syncClientProfile(existing.clientId),
+        removeSpecialistRevenue(id),
+      ]);
     }
 
     return ok(updated);
@@ -169,7 +199,10 @@ export async function DELETE(_req: NextRequest, context: RouteContext) {
       data:  { status: 'CANCELLED' },
     });
 
-    await syncClientProfile(existing.clientId);
+    await Promise.all([
+      syncClientProfile(existing.clientId),
+      removeSpecialistRevenue(id),
+    ]);
 
     return ok({ id, status: 'CANCELLED' });
   } catch (error) {

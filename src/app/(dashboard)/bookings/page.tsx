@@ -29,7 +29,7 @@ interface Booking {
 }
 
 interface Specialist { id: string; firstName: string; lastName: string; specialization: string | null; }
-interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; }
+interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; isActive?: boolean; }
 interface Location { id: string; name: string; }
 interface Client { id: string; firstName: string; lastName: string; email: string; phone?: string | null; clientRef?: string; }
 interface StaffUser { id: string; firstName: string; lastName: string; role: string; }
@@ -305,10 +305,11 @@ export default function BookingsPage() {
 
   const selectedSpecialist = allSpecialists.find((s) => s.id === form.specialistId);
   const filteredServices = React.useMemo(() => {
-    if (!selectedSpecialist?.specialization) return allServices;
+    const active = allServices.filter((s) => s.isActive !== false);
+    if (!selectedSpecialist?.specialization) return active;
     const cats = getSpecialistCategories(selectedSpecialist.specialization);
-    if (cats.length === 0) return allServices;
-    return allServices.filter((s) => cats.includes(s.category));
+    if (cats.length === 0) return active;
+    return active.filter((s) => cats.includes(s.category));
   }, [selectedSpecialist, allServices]);
 
   const handleSubmit = async (e: React.FormEvent) => {
