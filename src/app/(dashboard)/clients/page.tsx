@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { formatCurrency, formatClientRef } from '@/lib/utils';
 import { AddClientButton } from './_components/AddClientButton';
+import { ClientSearchBox } from './_components/ClientSearchBox';
 
 const LOYALTY_LABEL: Record<string, string> = {
   BRONZE: 'Бронза',
@@ -76,16 +77,10 @@ export default async function ClientsPage({
         <AddClientButton />
       </div>
 
-      {/* Search */}
-      <form method="GET" className="mb-6">
-        <input
-          type="text"
-          name="search"
-          defaultValue={search}
-          placeholder="Поиск по имени или email..."
-          className="w-full sm:w-80 px-4 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all"
-        />
-      </form>
+      {/* Live search */}
+      <div className="mb-6">
+        <ClientSearchBox defaultValue={search} />
+      </div>
 
       {users.length === 0 ? (
         <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-24 gap-4">

@@ -38,6 +38,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
   const [serviceId, setServiceId] = React.useState('');
   const [locationId, setLocationId] = React.useState('');
   const [soldByUserId, setSoldByUserId] = React.useState('');
+  const [quantity, setQuantity] = React.useState(1);
   const [startAt, setStartAt] = React.useState(() => {
     const d = new Date();
     d.setSeconds(0, 0);
@@ -95,7 +96,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
   }, [debouncedQuery]);
 
   const selectedService = services.find((s) => s.id === serviceId);
-  const autoPrice = selectedService ? selectedService.basePrice : 0;
+  const autoPrice = selectedService ? selectedService.basePrice * quantity : 0;
   const effectivePrice = priceOverride !== '' ? parseFloat(priceOverride) : autoPrice;
 
   function selectClient(c: ClientResult) {
@@ -119,6 +120,14 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
     setSaving(true);
     try {
       const service = services.find((s) => s.id === serviceId)!;
+      // Distribute total price evenly across quantity
+      const pricePerUnit = Math.round((effectivePrice / quantity) * 100) / 100;
+      const serviceEntries = Array.from({ length: quantity }, (_, i) => ({
+        serviceId,
+        price: pricePerUnit,
+        duration: service.baseDuration,
+        sortOrder: i,
+      }));
       const res = await fetch('/api/admin/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -127,12 +136,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
           specialistId,
           locationId,
           startAt: new Date(startAt).toISOString(),
-          services: [{
-            serviceId,
-            price: effectivePrice,
-            duration: service.baseDuration,
-            sortOrder: 0,
-          }],
+          services: serviceEntries,
           notes: notes.trim() || undefined,
           source: 'admin',
           soldByUserId: soldByUserId || undefined,
@@ -235,21 +239,40 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
             </select>
           </div>
 
-          {/* Price */}
-          <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1.5">
-              Цена (₽){selectedService ? ` · базовая: ${selectedService.basePrice.toLocaleString('ru-RU')} ₽` : ''}
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={priceOverride !== '' ? priceOverride : (selectedService ? String(selectedService.basePrice) : '')}
-              onChange={(e) => setPriceOverride(e.target.value)}
-              placeholder="Цена услуги"
-              disabled={saving}
-              className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
-            />
+          {/* Quantity + Price row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">Количество</label>
+              <input
+                type="number"
+                min="1"
+                max="20"
+                step="1"
+                value={quantity}
+                onChange={(e) => {
+                  const q = Math.max(1, Math.min(20, parseInt(e.target.value) || 1));
+                  setQuantity(q);
+                  setPriceOverride('');
+                }}
+                disabled={saving}
+                className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1.5">
+                Итого (₽){selectedService && quantity > 1 ? ` · ${selectedService.basePrice.toLocaleString('ru-RU')} × ${quantity}` : ''}
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={priceOverride !== '' ? priceOverride : (selectedService ? String(selectedService.basePrice * quantity) : '')}
+                onChange={(e) => setPriceOverride(e.target.value)}
+                placeholder="Сумма"
+                disabled={saving}
+                className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
+              />
+            </div>
           </div>
 
           {/* Location */}
