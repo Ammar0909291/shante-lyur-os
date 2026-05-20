@@ -118,14 +118,13 @@ export default function BookingsPage() {
   const fetchFormData = React.useCallback(async () => {
     const [specRes, svcRes, locRes] = await Promise.all([
       fetch('/api/specialists?limit=100'),
-      fetch('/api/services?limit=100'),
+      fetch('/api/catalog'),
       fetch('/api/locations'),
     ]);
     const [specJson, svcJson, locJson] = await Promise.all([specRes.json(), svcRes.json(), locRes.json()]);
     if (specJson.success) setSpecialists(specJson.data.items ?? []);
     if (svcJson.success) {
-      const svcData = svcJson.data;
-      setServices(Array.isArray(svcData) ? svcData : (svcData?.items ?? []));
+      setServices(Array.isArray(svcJson.data) ? svcJson.data : (svcJson.data?.items ?? []));
     }
     if (locJson.success) setLocations(locJson.data ?? []);
   }, []);
