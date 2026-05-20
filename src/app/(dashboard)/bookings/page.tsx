@@ -1,11 +1,26 @@
+'use client';
+
 import * as React from 'react';
 import { Calendar, Plus, Filter, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
-import { formatTime, formatDate, formatCurrency } from '@/lib/utils';
+import { formatTime, formatDate, formatCurrency, cn } from '@/lib/utils';
+import { CreateAppointmentDialog } from '@/components/dialogs/create-appointment-dialog';
+import { AppointmentDetailDialog, type AppointmentLike } from '@/components/dialogs/appointment-detail-dialog';
+import { apiGet } from '@/lib/api-client';
 
-const mockBookings = [
+interface Booking {
+  id: string;
+  client: string;
+  service: string;
+  specialist: string;
+  time: Date;
+  status: string;
+  amount: number;
+}
+
+const mockBookings: Booking[] = [
   { id: '1', client: 'Анна Соколова', service: 'Гиалуроновый лифтинг', specialist: 'Мария Петрова', time: new Date('2025-05-19T09:00:00'), status: 'CONFIRMED', amount: 1200000 },
   { id: '2', client: 'Елена Морозова', service: 'Антивозрастной массаж лица', specialist: 'Ольга Козлова', time: new Date('2025-05-19T10:30:00'), status: 'CONFIRMED', amount: 800000 },
   { id: '3', client: 'Светлана Ким', service: 'Пилинг & Детокс', specialist: 'Мария Петрова', time: new Date('2025-05-19T11:00:00'), status: 'PENDING', amount: 650000 },
@@ -18,36 +33,102 @@ const mockBookings = [
   { id: '10', client: 'Юлия Миронова', service: 'RF-лифтинг', specialist: 'Ольга Козлова', time: new Date('2025-05-22T10:00:00'), status: 'CONFIRMED', amount: 1400000 },
 ];
 
+const STATUSES = ['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'] as const;
+type StatusFilter = typeof STATUSES[number];
+
+const statusLabels: Record<StatusFilter, string> = {
+  ALL: 'Все',
+  PENDING: 'Ожидание',
+  CONFIRMED: 'Подтверждено',
+  COMPLETED: 'Завершено',
+  CANCELLED: 'Отменено',
+};
+
+interface ApiAppointment {
+  id: string;
+  client?: { fullName?: string };
+  clientName?: string;
+  service?: { name?: string };
+  serviceName?: string;
+  specialist?: { fullName?: string };
+  specialistName?: string;
+  startAt: string;
+  status: string;
+  totalAmount?: number;
+  amount?: number;
+}
+
+function normalize(raw: unknown): Booking[] | null {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && 'items' in (raw as Record<string, unknown>)
+      ? (raw as { items: unknown[] }).items
+      : null;
+  if (!Array.isArray(list)) return null;
+  return (list as ApiAppointment[]).map((a) => ({
+    id: String(a.id),
+    client: a.client?.fullName ?? a.clientName ?? 'Клиент',
+    service: a.service?.name ?? a.serviceName ?? 'Услуга',
+    specialist: a.specialist?.fullName ?? a.specialistName ?? '—',
+    time: new Date(a.startAt),
+    status: a.status,
+    amount: a.totalAmount ?? a.amount ?? 0,
+  }));
+}
+
 export default function BookingsPage() {
+  const [bookings, setBookings] = React.useState<Booking[]>(mockBookings);
+  const [filter, setFilter] = React.useState<StatusFilter>('ALL');
+  const [search, setSearch] = React.useState('');
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [selected, setSelected] = React.useState<AppointmentLike | null>(null);
+  const [showFilters, setShowFilters] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    try {
+      const data = await apiGet<unknown>('/api/appointments?limit=100', { silent: true });
+      const rows = normalize(data);
+      if (rows && rows.length > 0) setBookings(rows);
+    } catch {
+      // keep mock
+    }
+  }, []);
+  React.useEffect(() => { void load(); }, [load]);
+
+  const filtered = React.useMemo(() => {
+    return bookings.filter((b) => {
+      if (filter !== 'ALL' && b.status !== filter) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (!b.client.toLowerCase().includes(q) && !b.service.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [bookings, filter, search]);
+
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">
-            Записи
-          </h2>
-          <p className="text-text-secondary mt-1 text-sm">
-            Управление записями клиентов
-          </p>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Записи</h2>
+          <p className="text-text-secondary mt-1 text-sm">Управление записями клиентов</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="secondary" size="sm" leftIcon={<Filter className="w-4 h-4" />}>
+          <Button variant="secondary" size="sm" leftIcon={<Filter className="w-4 h-4" />} onClick={() => setShowFilters((v) => !v)}>
             Фильтры
           </Button>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
             Новая запись
           </Button>
         </div>
       </div>
 
-      {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Всего записей', value: mockBookings.length },
-          { label: 'Подтверждено', value: mockBookings.filter((b) => b.status === 'CONFIRMED').length },
-          { label: 'Ожидают', value: mockBookings.filter((b) => b.status === 'PENDING').length },
-          { label: 'Завершено', value: mockBookings.filter((b) => b.status === 'COMPLETED').length },
+          { label: 'Всего записей', value: bookings.length },
+          { label: 'Подтверждено', value: bookings.filter((b) => b.status === 'CONFIRMED').length },
+          { label: 'Ожидают', value: bookings.filter((b) => b.status === 'PENDING').length },
+          { label: 'Завершено', value: bookings.filter((b) => b.status === 'COMPLETED').length },
         ].map(({ label, value }) => (
           <div key={label} className="bg-onyx border border-border-luxury rounded-xl px-4 py-3">
             <p className="text-xs text-text-tertiary">{label}</p>
@@ -56,20 +137,38 @@ export default function BookingsPage() {
         ))}
       </div>
 
-      {/* Table */}
+      {showFilters && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                filter === s
+                  ? 'bg-champagne/8 text-champagne border-champagne/30'
+                  : 'border-border-luxury text-text-secondary hover:text-text-primary hover:border-champagne/40',
+              )}
+            >
+              {statusLabels[s]}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-champagne" />
-            <h3 className="font-serif text-base font-medium text-text-primary">
-              Все записи
-            </h3>
+            <h3 className="font-serif text-base font-medium text-text-primary">Все записи</h3>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary" />
               <input
                 type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Поиск..."
                 className="bg-charcoal border border-border-luxury rounded-lg pl-8 pr-3 py-1.5 text-xs text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-1 focus:ring-champagne/40 w-40"
               />
@@ -77,7 +176,6 @@ export default function BookingsPage() {
           </div>
         </div>
 
-        {/* Desktop table */}
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -91,8 +189,8 @@ export default function BookingsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-luxury">
-              {mockBookings.map((booking) => (
-                <tr key={booking.id} className="hover:bg-charcoal/50 transition-colors cursor-pointer">
+              {filtered.map((booking) => (
+                <tr key={booking.id} onClick={() => setSelected(booking)} className="hover:bg-charcoal/50 transition-colors cursor-pointer">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <Avatar name={booking.client} size="sm" />
@@ -110,26 +208,24 @@ export default function BookingsPage() {
                       {getAppointmentStatusLabel(booking.status)}
                     </Badge>
                   </td>
-                  <td className="px-6 py-4 text-right font-medium text-text-primary tabular-nums whitespace-nowrap">
-                    {formatCurrency(booking.amount)}
-                  </td>
+                  <td className="px-6 py-4 text-right font-medium text-text-primary tabular-nums whitespace-nowrap">{formatCurrency(booking.amount)}</td>
                 </tr>
               ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={6} className="px-6 py-10 text-center text-sm text-text-tertiary">Записей не найдено</td></tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Mobile list */}
         <div className="sm:hidden divide-y divide-border-luxury">
-          {mockBookings.map((booking) => (
-            <div key={booking.id} className="px-4 py-4 flex items-start gap-3">
+          {filtered.map((booking) => (
+            <button key={booking.id} onClick={() => setSelected(booking)} className="w-full text-left px-4 py-4 flex items-start gap-3 hover:bg-charcoal/50 transition-colors">
               <Avatar name={booking.client} size="sm" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium text-text-primary text-sm truncate">{booking.client}</span>
-                  <Badge variant={getAppointmentStatusBadgeVariant(booking.status)}>
-                    {getAppointmentStatusLabel(booking.status)}
-                  </Badge>
+                  <Badge variant={getAppointmentStatusBadgeVariant(booking.status)}>{getAppointmentStatusLabel(booking.status)}</Badge>
                 </div>
                 <p className="text-xs text-text-secondary mt-0.5 truncate">{booking.service}</p>
                 <div className="flex items-center gap-3 mt-1">
@@ -139,10 +235,18 @@ export default function BookingsPage() {
                   <span className="text-xs font-medium text-champagne ml-auto">{formatCurrency(booking.amount)}</span>
                 </div>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
+
+      <CreateAppointmentDialog open={showCreate} onOpenChange={setShowCreate} onCreated={load} />
+      <AppointmentDetailDialog
+        appointment={selected}
+        open={!!selected}
+        onOpenChange={(o) => { if (!o) setSelected(null); }}
+        onChanged={load}
+      />
     </div>
   );
 }

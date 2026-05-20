@@ -1,10 +1,12 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, Menu, LogOut, User, ChevronDown } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
+import { toast } from '@/hooks/use-toast';
 
 interface HeaderProps {
   title: string;
@@ -23,37 +25,105 @@ function useClock() {
   return now;
 }
 
+const mockNotifications = [
+  { id: '1', title: 'Новая запись', body: 'Анна Соколова записалась на 09:00', time: '5 мин назад', unread: true },
+  { id: '2', title: 'Подтверждение', body: 'Елена Морозова подтвердила визит', time: '15 мин назад', unread: true },
+  { id: '3', title: 'Платёж получен', body: '12 000 ₽ от Светлана Ким', time: '45 мин назад', unread: true },
+  { id: '4', title: 'Отмена записи', body: 'Ольга Новикова отменила запись', time: '2 ч назад', unread: false },
+  { id: '5', title: 'Новый отзыв', body: '5★ от Татьяна Лебедева', time: '3 ч назад', unread: false },
+  { id: '6', title: 'Напоминание', body: 'Завтра — 8 записей', time: 'Вчера', unread: false },
+  { id: '7', title: 'Обновление системы', body: 'Версия 3.0.0 установлена', time: '2 дня назад', unread: false },
+];
+
 function NotificationBell() {
-  const [hasNew] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
+  const unread = mockNotifications.filter((n) => n.unread).length;
+
   return (
-    <button
-      className={cn(
-        'relative p-2.5 rounded-xl',
-        'text-text-secondary hover:text-text-primary hover:bg-charcoal',
-        'transition-all duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
-      )}
-      aria-label="Уведомления"
-    >
-      <Bell className="w-5 h-5" />
-      {hasNew && (
-        <span
-          className="absolute top-2 right-2 w-2 h-2 rounded-full bg-champagne"
-          aria-label="Есть новые уведомления"
-        />
-      )}
-    </button>
+    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+      <DropdownMenu.Trigger asChild>
+        <button
+          className={cn(
+            'relative p-2.5 rounded-xl',
+            'text-text-secondary hover:text-text-primary hover:bg-charcoal',
+            'transition-all duration-150',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
+          )}
+          aria-label="Уведомления"
+        >
+          <Bell className="w-5 h-5" />
+          {unread > 0 && (
+            <span
+              className="absolute top-2 right-2 w-2 h-2 rounded-full bg-champagne"
+              aria-label={`${unread} новых уведомлений`}
+            />
+          )}
+        </button>
+      </DropdownMenu.Trigger>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          className={cn(
+            'z-50 w-80 max-h-[28rem] overflow-hidden flex flex-col rounded-xl',
+            'bg-onyx border border-border-luxury shadow-luxury-lg',
+            'animate-slide-down origin-top-right',
+          )}
+          align="end"
+          sideOffset={8}
+        >
+          <div className="px-4 py-3 border-b border-border-luxury flex items-center justify-between">
+            <p className="text-sm font-medium text-text-primary">Уведомления</p>
+            <span className="text-[10px] text-text-tertiary uppercase tracking-wider">{unread} новых</span>
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y divide-border-luxury">
+            {mockNotifications.slice(0, 10).map((n) => (
+              <DropdownMenu.Item
+                key={n.id}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  toast(n.body);
+                }}
+                className={cn(
+                  'flex flex-col gap-0.5 px-4 py-3 cursor-pointer',
+                  'focus:outline-none focus:bg-charcoal',
+                  n.unread && 'bg-champagne/[0.03]',
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-text-primary">{n.title}</p>
+                  <span className="text-[10px] text-text-tertiary shrink-0">{n.time}</span>
+                </div>
+                <p className="text-xs text-text-secondary line-clamp-2">{n.body}</p>
+              </DropdownMenu.Item>
+            ))}
+          </div>
+          <div className="px-4 py-2 border-t border-border-luxury">
+            <button
+              onClick={() => { toast('Все уведомления прочитаны'); setOpen(false); }}
+              className="text-xs text-champagne hover:text-champagne-light transition-colors"
+            >
+              Отметить все прочитанными
+            </button>
+          </div>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
 
 function UserMenu() {
+  const router = useRouter();
   const handleLogout = React.useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
+      toast.success('Вы вышли из системы');
     } finally {
       window.location.href = '/login';
     }
   }, []);
+  const handleProfile = React.useCallback(() => {
+    router.push('/settings');
+  }, [router]);
 
   return (
     <DropdownMenu.Root>
@@ -99,6 +169,7 @@ function UserMenu() {
                 'focus:outline-none focus:bg-charcoal focus:text-text-primary',
                 'transition-colors',
               )}
+              onSelect={handleProfile}
             >
               <User className="w-4 h-4" aria-hidden="true" />
               Профиль

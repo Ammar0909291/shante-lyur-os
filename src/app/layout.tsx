@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Playfair_Display } from 'next/font/google';
 import './globals.css';
+import { Toaster } from '@/components/ui/toaster';
 
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
@@ -56,7 +57,10 @@ export default function RootLayout({
       className={`dark ${inter.variable} ${playfairDisplay.variable}`}
       suppressHydrationWarning
     >
-      <body className={`${inter.className} antialiased`}>{children}</body>
+      <body className={`${inter.className} antialiased`}>
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }
