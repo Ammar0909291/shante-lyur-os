@@ -12,21 +12,22 @@ export async function GET(req: NextRequest) {
   const fromDate = params.get('from') ? new Date(params.get('from')!) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const toDate = params.get('to') ? new Date(params.get('to')!) : new Date();
 
+  const statusList = ['CONFIRMED', 'COMPLETED'] as const;
   const dateFilter = { startAt: { gte: fromDate, lte: toDate } };
-  const statusFilter = { status: { in: ['CONFIRMED', 'COMPLETED'] as const } };
+  const statusFilter = { status: { in: [...statusList] } };
 
   const [salesByStaff, totals, dailySales] = await Promise.all([
     prisma.appointment.groupBy({
       by: ['soldByUserId'],
       where: { soldByUserId: { not: null }, ...statusFilter, ...dateFilter },
-      _count: { id: true },
+      _count: { _all: true },
       _sum: { totalPrice: true },
       orderBy: { _sum: { totalPrice: 'desc' } },
     }),
 
     prisma.appointment.aggregate({
       where: { ...statusFilter, ...dateFilter },
-      _count: { id: true },
+      _count: { _all: true },
       _sum: { totalPrice: true },
     }),
 
@@ -55,8 +56,8 @@ export async function GET(req: NextRequest) {
 
   const leaderboard = salesByStaff.map((row) => {
     const seller = sellerMap.get(row.soldByUserId!);
-    const revenue = Number(row._sum.totalPrice ?? 0);
-    const count = row._count.id;
+    const revenue = Number(row._sum?.totalPrice ?? 0);
+    const count = row._count?._all ?? 0;
     return {
       userId: row.soldByUserId!,
       name: seller ? `${seller.firstName} ${seller.lastName}` : 'Неизвестно',
@@ -70,8 +71,8 @@ export async function GET(req: NextRequest) {
   return ok({
     leaderboard,
     totals: {
-      revenue: Number(totals._sum.totalPrice ?? 0),
-      count: totals._count.id,
+      revenue: Number(totals._sum?.totalPrice ?? 0),
+      count: totals._count?._all ?? 0,
     },
     daily: dailySales.map((d) => ({
       day: d.day,

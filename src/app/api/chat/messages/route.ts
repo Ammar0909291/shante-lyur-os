@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   if (channelParam === 'public') {
     const messages = await prisma.internalMessage.findMany({
-      where: { toUserId: null },
+      where: { toUserId: { equals: null } },
       orderBy: { createdAt: 'asc' },
       take: 100,
       select: { id: true, fromUserId: true, toUserId: true, body: true, readAt: true, createdAt: true },
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     data: {
       id: randomUUID(),
       fromUserId: currentUserId,
-      toUserId: toUserId ?? null,
+      toUserId: toUserId ?? undefined,
       body: messageBody,
     },
     select: { id: true, fromUserId: true, toUserId: true, body: true, readAt: true, createdAt: true },

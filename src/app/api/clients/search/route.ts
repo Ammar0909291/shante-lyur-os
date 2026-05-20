@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
               ]
             : []),
           // UUID prefix search (for CL- reference lookup)
-          ...(uuidPrefix ? [{ id: { startsWith: uuidPrefix } }] : []),
+          ...(uuidPrefix ? [{ email: { contains: uuidPrefix, mode: 'insensitive' as const } }] : []),
         ],
       },
       select: { id: true, firstName: true, lastName: true, email: true, phone: true },

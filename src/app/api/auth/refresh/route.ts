@@ -1,79 +1,61 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { DIRegistry } from '@/infrastructure/config/di-registry';
-import { RefreshTokenUseCase } from '@/application/use-cases/auth';
-import { RefreshTokenSchema } from '@/application/dto';
-import { DomainError } from '@/domain/errors';
+import jwt from 'jsonwebtoken';
+import { createHash } from 'crypto';
+import { prisma } from '@/infrastructure/config/prisma-client';
 
-function ok<T>(data: T, status = 200) {
-  return NextResponse.json({ success: true, data }, { status });
-}
-function apiError(code: string, message: string, status: number) {
-  return NextResponse.json({ success: false, error: { code, message } }, { status });
-}
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET ?? 'dev-access-secret-change-me';
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET ?? 'dev-refresh-secret-change-me';
 
-function setAuthCookies(response: NextResponse, accessToken: string, refreshToken: string): void {
-  response.cookies.set('access_token', accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 15 * 60,
-  });
-  response.cookies.set('refresh_token', refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60,
-  });
+function sha256(s: string) { return createHash('sha256').update(s).digest('hex'); }
+function fail(code: string, msg: string, status: number) {
+  return NextResponse.json({ success: false, error: { code, message: msg } }, { status });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // Prefer cookie, fall back to Authorization header bearer, then body
     const cookieToken = req.cookies.get('refresh_token')?.value;
-    const authHeader = req.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
-
+    const auth = req.headers.get('authorization');
+    const bearerToken = auth?.startsWith('Bearer ') ? auth.slice(7) : undefined;
     let refreshToken: string | undefined = cookieToken ?? bearerToken;
 
     if (!refreshToken) {
-      const body: unknown = await req.json().catch(() => null);
-      const parsed = RefreshTokenSchema.safeParse(body);
-      if (parsed.success) {
-        refreshToken = parsed.data.refreshToken;
-      }
+      const body = await req.json().catch(() => null);
+      if (body && typeof body?.refreshToken === 'string') refreshToken = body.refreshToken;
     }
+    if (!refreshToken) return fail('VALIDATION_ERROR', 'Refresh token required', 400);
 
-    if (!refreshToken) {
-      return apiError('VALIDATION_ERROR', 'Refresh token is required', 400);
-    }
+    let payload: { sub: string };
+    try { payload = jwt.verify(refreshToken, REFRESH_SECRET) as { sub: string }; }
+    catch { return fail('UNAUTHORIZED', 'Invalid token', 401); }
 
-    const registry = DIRegistry.instance;
-    const useCase = new RefreshTokenUseCase(
-      registry.userRepository,
-      registry.refreshTokenRepository,
-      registry.passwordHasher,
-      registry.tokenService,
-    );
+    const stored = await prisma.refreshToken.findFirst({ where: { tokenHash: sha256(refreshToken), revokedAt: null } });
+    if (!stored || stored.expiresAt < new Date()) return fail('UNAUTHORIZED', 'Token expired or revoked', 401);
 
-    const result = await useCase.execute({ refreshToken });
+    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user) return fail('UNAUTHORIZED', 'User not found', 401);
 
-    const response = ok({
-      accessToken: result.accessToken,
+    await prisma.refreshToken.update({ where: { id: stored.id }, data: { revokedAt: new Date() } });
+
+    const accessToken = jwt.sign({ sub: user.id, email: user.email, role: user.role }, ACCESS_SECRET, { expiresIn: '8h' });
+    const newRefresh = jwt.sign({ sub: user.id, v: Date.now() }, REFRESH_SECRET, { expiresIn: '7d' });
+
+    await prisma.refreshToken.create({
+      data: { id: crypto.randomUUID(), userId: user.id, tokenHash: sha256(newRefresh), expiresAt: new Date(Date.now() + 7 * 86400000) },
     });
 
-    setAuthCookies(response, result.accessToken, result.refreshToken);
-    return response;
-  } catch (error) {
-    if (error instanceof DomainError) {
-      return apiError(error.code, error.message, error.statusCode);
-    }
-    if (error instanceof Error) {
-      return apiError('INTERNAL_ERROR', error.message, 500);
-    }
-    return apiError('INTERNAL_ERROR', 'An unexpected error occurred', 500);
+    const res = NextResponse.json({
+      success: true,
+      data: {
+        user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, status: user.status },
+        accessToken,
+      },
+    });
+    res.cookies.set('access_token', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 28800 });
+    res.cookies.set('refresh_token', newRefresh, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 7 * 86400 });
+    return res;
+  } catch (e) {
+    return fail('INTERNAL_ERROR', e instanceof Error ? e.message : 'Unknown', 500);
   }
 }

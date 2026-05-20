@@ -31,8 +31,8 @@ export async function GET(req: NextRequest) {
   });
 
   const partnerIdSet = new Set([
-    ...sent.map((m) => m.toUserId),
-    ...received.map((m) => m.fromUserId),
+    ...sent.map((m) => m.toUserId).filter((id): id is string => id !== null),
+    ...received.map((m) => m.fromUserId).filter((id): id is string => id !== null),
   ]);
   const partnerIds = Array.from(partnerIdSet);
 
@@ -41,10 +41,10 @@ export async function GET(req: NextRequest) {
     select: { id: true, firstName: true, lastName: true, role: true },
   });
 
-  const specRows = await prisma.specialist.findMany({
+  const specRows = partnerIds.length > 0 ? await prisma.specialist.findMany({
     where: { userId: { in: partnerIds } },
     select: { userId: true, specialization: true, color: true },
-  });
+  }) : [];
   const specMap = new Map(specRows.map((s) => [s.userId, s]));
 
   // Build conversation list with last message + unread count

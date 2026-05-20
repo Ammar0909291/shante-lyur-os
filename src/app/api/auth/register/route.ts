@@ -1,92 +1,75 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { DIRegistry } from '@/infrastructure/config/di-registry';
-import { RegisterUseCase } from '@/application/use-cases/auth';
-import { RegisterUserSchema } from '@/application/dto';
-import { DomainError } from '@/domain/errors';
+import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { createHash } from 'crypto';
+import { prisma } from '@/infrastructure/config/prisma-client';
 
-function ok<T>(data: T, status = 200) {
-  return NextResponse.json({ success: true, data }, { status });
-}
-function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
-  return NextResponse.json({ success: false, error: { code, message, ...( details ? { details } : {}) } }, { status });
-}
+const Schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  phone: z.string().optional(),
+});
 
-function setAuthCookies(
-  response: NextResponse,
-  accessToken: string,
-  refreshToken: string,
-): void {
-  response.cookies.set('access_token', accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 15 * 60, // 15 minutes
-  });
-  response.cookies.set('refresh_token', refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 7 * 24 * 60 * 60, // 7 days
-  });
-}
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET ?? 'dev-access-secret-change-me';
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET ?? 'dev-refresh-secret-change-me';
 
-// Minimal no-op event bus for use-cases that require IEventBus
-const noopEventBus = {
-  async publish() { /* no-op */ },
-  subscribe() { /* no-op */ },
-};
+function sha256(s: string) { return createHash('sha256').update(s).digest('hex'); }
 
 export async function POST(req: NextRequest) {
   try {
-    const body: unknown = await req.json();
-    const parsed = RegisterUserSchema.safeParse(body);
+    const body = await req.json().catch(() => null);
+    const parsed = Schema.safeParse(body);
     if (!parsed.success) {
-      return apiError('VALIDATION_ERROR', 'Invalid request body', 400, {
-        issues: parsed.error.issues,
-      });
+      return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid request', details: { issues: parsed.error.issues } } }, { status: 400 });
     }
 
-    const registry = DIRegistry.instance;
-    const useCase = new RegisterUseCase(
-      registry.userRepository,
-      registry.refreshTokenRepository,
-      registry.passwordHasher,
-      registry.tokenService,
-      registry.emailService,
-      noopEventBus,
-    );
+    const { email, password, firstName, lastName, phone } = parsed.data;
 
-    const ipAddress = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? undefined;
-    const result = await useCase.execute(parsed.data, ipAddress ?? undefined);
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return NextResponse.json({ success: false, error: { code: 'CONFLICT', message: 'Email already registered' } }, { status: 409 });
+    }
 
-    const response = ok(
-      {
-        user: {
-          id: result.user.id,
-          email: result.user.email.value,
-          firstName: result.user.firstName,
-          lastName: result.user.lastName,
-          role: result.user.role,
-          status: result.user.status,
-        },
-        accessToken: result.accessToken,
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        id: crypto.randomUUID(),
+        email,
+        passwordHash,
+        firstName,
+        lastName,
+        phone: phone ?? null,
+        role: 'CLIENT',
+        status: 'ACTIVE',
+        emailVerified: false,
+        phoneVerified: false,
+        failedLogins: 0,
       },
-      201,
-    );
+    });
 
-    setAuthCookies(response, result.accessToken, result.refreshToken);
-    return response;
-  } catch (error) {
-    if (error instanceof DomainError) {
-      return apiError(error.code, error.message, error.statusCode, error.details);
-    }
-    if (error instanceof Error) {
-      return apiError('INTERNAL_ERROR', error.message, 500);
-    }
-    return apiError('INTERNAL_ERROR', 'An unexpected error occurred', 500);
+    const accessToken = jwt.sign({ sub: user.id, email: user.email, role: user.role }, ACCESS_SECRET, { expiresIn: '8h' });
+    const refreshStr = jwt.sign({ sub: user.id, v: Date.now() }, REFRESH_SECRET, { expiresIn: '7d' });
+
+    await prisma.refreshToken.create({
+      data: { id: crypto.randomUUID(), userId: user.id, tokenHash: sha256(refreshStr), expiresAt: new Date(Date.now() + 7 * 86400000) },
+    });
+
+    const res = NextResponse.json({
+      success: true,
+      data: {
+        user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, status: user.status },
+        accessToken,
+      },
+    }, { status: 201 });
+    res.cookies.set('access_token', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 28800 });
+    res.cookies.set('refresh_token', refreshStr, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 7 * 86400 });
+    return res;
+  } catch (e) {
+    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: e instanceof Error ? e.message : 'Unknown' } }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { Prisma, SpecialistStatus } from '@prisma/client';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { DomainError } from '@/domain/errors';
 
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
     }
 
     const { page, limit, status } = parsed.data;
-    const where = status ? { status } : {};
+    const where: Prisma.SpecialistWhereInput = status ? { status: status as SpecialistStatus } : {};
 
     const [specialists, total] = await Promise.all([
       prisma.specialist.findMany({
