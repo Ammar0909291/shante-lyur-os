@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { Sun, Moon, Globe, Bell, Shield, Info, Check, CreditCard, Store, Users, Sparkles } from 'lucide-react';
+import { Sun, Moon, Globe, Bell, Shield, Info, Check, CreditCard, Store, Users, Sparkles, Monitor, Layers, AlignJustify } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
+import { useUIVersion } from '@/contexts/ui-version';
 
 function SectionCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -49,8 +50,30 @@ function InfoRow({ label, value, accent }: { label: string; value: string; accen
   );
 }
 
+// ── Appearance: UI Mode selector ───────────────────────────────────────
+const UI_MODES = [
+  {
+    value: 'legacy' as const,
+    label: 'Classic CRM',
+    labelRu: 'Классический CRM',
+    desc: 'Стабильный рабочий интерфейс. Все привычные функции.',
+  },
+  {
+    value: 'next' as const,
+    label: 'Luxury Executive',
+    labelRu: 'Luxury Executive',
+    desc: 'Премиум-интерфейс. Улучшенная аналитика и визуализация.',
+  },
+] as const;
+
+const DENSITY_OPTIONS = [
+  { value: 'comfortable' as const, label: 'Комфортный', desc: 'Стандартные отступы. Удобно для длинных сессий.' },
+  { value: 'compact'     as const, label: 'Компактный', desc: 'Более плотная сетка. Больше данных на экране.' },
+] as const;
+
 export default function SettingsPage() {
   const { lang, setLang } = useLanguage();
+  const { version: uiMode, setVersion: setUiMode, density, setDensity } = useUIVersion();
   const [isDark, setIsDark] = React.useState(true);
   const [savedMsg, setSavedMsg] = React.useState(false);
 
@@ -128,23 +151,73 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-5 max-w-2xl">
-        {/* Appearance */}
-        <SectionCard title="Внешний вид" description="Тема и язык интерфейса">
-          <div className="px-6 py-4">
-            <div className="flex items-center gap-3 mb-3">
+
+        {/* ── Appearance ─────────────────────────────────────────────────── */}
+        <SectionCard title="Внешний вид" description="Интерфейс, тема и плотность">
+
+          {/* UI Mode */}
+          <div className="px-6 py-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0">
+                <Monitor className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary">Режим интерфейса</p>
+                <p className="text-xs text-text-tertiary mt-0.5">Выберите рабочее пространство</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 ml-11">
+              {UI_MODES.map((mode) => (
+                <button
+                  key={mode.value}
+                  onClick={() => { setUiMode(mode.value); flash(); }}
+                  className={cn(
+                    'relative flex flex-col items-start gap-1.5 px-4 py-3.5 rounded-xl border text-left transition-all duration-150',
+                    uiMode === mode.value
+                      ? 'border-champagne/40 bg-champagne/5 text-text-primary'
+                      : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
+                  )}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                      <Layers className="w-3.5 h-3.5 text-champagne shrink-0" />
+                      <span className="text-sm font-medium">{mode.labelRu}</span>
+                    </div>
+                    {uiMode === mode.value && (
+                      <Check className="w-3.5 h-3.5 text-champagne shrink-0" />
+                    )}
+                  </div>
+                  <p className="text-xs text-text-tertiary leading-relaxed">{mode.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Theme */}
+          <div className="px-6 py-5 border-t border-border-luxury">
+            <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0">
                 {isDark ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
               </div>
               <div>
-                <p className="text-sm font-medium text-text-primary">Тема</p>
-                <p className="text-xs text-text-tertiary mt-0.5">Выберите светлую или тёмную тему</p>
+                <p className="text-sm font-medium text-text-primary">Цветовая тема</p>
+                <p className="text-xs text-text-tertiary mt-0.5">Применяется к обоим режимам</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 ml-11">
-              {[{ dark: true, label: 'Тёмная', Icon: Moon }, { dark: false, label: 'Светлая', Icon: Sun }].map(({ dark, label, Icon }) => (
-                <button key={label} onClick={() => toggleTheme(dark)}
-                  className={cn('flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm transition-colors',
-                    isDark === dark ? 'border-champagne/40 bg-champagne/5 text-text-primary' : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal')}
+              {[
+                { dark: true,  label: 'Тёмная',  Icon: Moon },
+                { dark: false, label: 'Светлая', Icon: Sun  },
+              ].map(({ dark, label, Icon }) => (
+                <button
+                  key={label}
+                  onClick={() => toggleTheme(dark)}
+                  className={cn(
+                    'flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm transition-colors',
+                    isDark === dark
+                      ? 'border-champagne/40 bg-champagne/5 text-text-primary'
+                      : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
+                  )}
                 >
                   <Icon className="w-4 h-4 text-champagne" />
                   {label}
@@ -153,9 +226,51 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
-          <div className="px-6 py-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0"><Globe className="w-4 h-4" /></div>
+
+          {/* Density */}
+          <div className="px-6 py-5 border-t border-border-luxury">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0">
+                <AlignJustify className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary">Плотность</p>
+                <p className="text-xs text-text-tertiary mt-0.5">Компактность элементов интерфейса</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 ml-11">
+              {DENSITY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setDensity(opt.value); flash(); }}
+                  className={cn(
+                    'flex flex-col items-start gap-1 px-4 py-3.5 rounded-xl border text-left transition-all duration-150',
+                    density === opt.value
+                      ? 'border-champagne/40 bg-champagne/5 text-text-primary'
+                      : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
+                  )}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-sm font-medium">{opt.label}</span>
+                    {density === opt.value && <Check className="w-3.5 h-3.5 text-champagne shrink-0" />}
+                  </div>
+                  <p className="text-xs text-text-tertiary leading-relaxed">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
+            {density === 'compact' && uiMode === 'legacy' && (
+              <p className="text-xs text-text-tertiary mt-3 ml-11 bg-charcoal/50 rounded-lg px-3 py-2 border border-border-luxury">
+                Компактный режим применяется к Luxury интерфейсу. Переключитесь на Luxury Executive для эффекта.
+              </p>
+            )}
+          </div>
+
+          {/* Language */}
+          <div className="px-6 py-5 border-t border-border-luxury">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0">
+                <Globe className="w-4 h-4" />
+              </div>
               <div>
                 <p className="text-sm font-medium text-text-primary">Язык</p>
                 <p className="text-xs text-text-tertiary mt-0.5">Язык интерфейса</p>
@@ -163,9 +278,15 @@ export default function SettingsPage() {
             </div>
             <div className="grid grid-cols-2 gap-3 ml-11">
               {(['ru', 'en'] as const).map((l) => (
-                <button key={l} onClick={() => { setLang(l); flash(); }}
-                  className={cn('flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm transition-colors',
-                    lang === l ? 'border-champagne/40 bg-champagne/5 text-text-primary' : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal')}
+                <button
+                  key={l}
+                  onClick={() => { setLang(l); flash(); }}
+                  className={cn(
+                    'flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm transition-colors',
+                    lang === l
+                      ? 'border-champagne/40 bg-champagne/5 text-text-primary'
+                      : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
+                  )}
                 >
                   <span className="text-base">{l === 'ru' ? '🇷🇺' : '🇬🇧'}</span>
                   {l === 'ru' ? 'Русский' : 'English'}

@@ -9,6 +9,11 @@ interface UIVersionToggleProps {
   compact?: boolean;
 }
 
+const MODES = [
+  { value: 'legacy' as const, label: 'Классика',     compactLabel: 'CRM'    },
+  { value: 'next'   as const, label: 'Luxury',        compactLabel: 'Luxury' },
+] as const;
+
 export function UIVersionToggle({ compact = false }: UIVersionToggleProps) {
   const { version, setVersion } = useUIVersion();
 
@@ -21,40 +26,31 @@ export function UIVersionToggle({ compact = false }: UIVersionToggleProps) {
         compact ? 'h-7' : 'h-8',
       )}
       role="group"
-      aria-label="Версия интерфейса"
+      aria-label="Режим интерфейса"
     >
-      <button
-        onClick={() => setVersion('legacy')}
-        className={cn(
-          'flex items-center gap-1.5 px-3 h-full transition-all duration-150',
-          version === 'legacy'
-            ? 'bg-charcoal text-text-primary'
-            : 'text-text-tertiary hover:text-text-secondary',
-        )}
-        title="Legacy UI"
-      >
-        {!compact && <Layers className="w-3 h-3" />}
-        <span>Legacy</span>
-      </button>
-
-      <div className="w-px h-full bg-border-luxury" aria-hidden="true" />
-
-      <button
-        onClick={() => setVersion('next')}
-        className={cn(
-          'flex items-center gap-1.5 px-3 h-full transition-all duration-150',
-          version === 'next'
-            ? 'bg-champagne/10 text-champagne'
-            : 'text-text-tertiary hover:text-text-secondary',
-        )}
-        title="Next UI"
-      >
-        {!compact && <Layers className="w-3 h-3" />}
-        <span>Next UI</span>
-        {version === 'next' && (
-          <span className="w-1.5 h-1.5 rounded-full bg-champagne" aria-hidden="true" />
-        )}
-      </button>
+      {MODES.map((mode, i) => (
+        <React.Fragment key={mode.value}>
+          {i > 0 && <div className="w-px h-full bg-border-luxury" aria-hidden="true" />}
+          <button
+            onClick={() => setVersion(mode.value)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 h-full transition-all duration-150',
+              version === mode.value
+                ? mode.value === 'next'
+                  ? 'bg-champagne/10 text-champagne'
+                  : 'bg-charcoal text-text-primary'
+                : 'text-text-tertiary hover:text-text-secondary',
+            )}
+            title={mode.label}
+          >
+            {!compact && <Layers className="w-3 h-3 shrink-0" />}
+            <span>{compact ? mode.compactLabel : mode.label}</span>
+            {version === mode.value && mode.value === 'next' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-champagne shrink-0" aria-hidden="true" />
+            )}
+          </button>
+        </React.Fragment>
+      ))}
     </div>
   );
 }

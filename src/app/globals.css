@@ -406,6 +406,26 @@ html.light .border-border-luxury.px-2 { border-color: #C8C2BA !important; }
 .stagger-3 { animation-delay: 0.15s; }
 .stagger-4 { animation-delay: 0.2s; }
 
+/* ─── Compact Density Mode ───────────────────────────────────────────── */
+/* Applied when data-density="compact" is on the layout root.
+   Only Next UI pages opt into this — Classic UI is never affected. */
+[data-density="compact"][data-ui="next"] main .density-page {
+  padding: 1rem;
+}
+@media (min-width: 1024px) {
+  [data-density="compact"][data-ui="next"] main .density-page {
+    padding: 1.25rem;
+  }
+}
+[data-density="compact"][data-ui="next"] main .density-card-header {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+[data-density="compact"][data-ui="next"] main .density-row {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
 /* ─── Utilities ──────────────────────────────────────────────────────── */
 @layer utilities {
   .bg-obsidian { background-color: var(--color-obsidian); }

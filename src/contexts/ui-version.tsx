@@ -3,47 +3,60 @@
 import * as React from 'react';
 
 export type UIVersion = 'legacy' | 'next';
+export type UIDensity = 'comfortable' | 'compact';
 
-const STORAGE_KEY = 'sl-ui-version';
+const VERSION_KEY = 'sl-ui-version';
+const DENSITY_KEY = 'sl-ui-density';
 
-interface UIVersionCtx {
+interface AppearanceCtx {
   version: UIVersion;
+  density: UIDensity;
   setVersion: (v: UIVersion) => void;
+  setDensity: (d: UIDensity) => void;
   toggle: () => void;
 }
 
-const Ctx = React.createContext<UIVersionCtx>({
+const Ctx = React.createContext<AppearanceCtx>({
   version: 'legacy',
+  density: 'comfortable',
   setVersion: () => {},
+  setDensity: () => {},
   toggle: () => {},
 });
 
 export function UIVersionProvider({ children }: { children: React.ReactNode }) {
   const [version, setVersionState] = React.useState<UIVersion>('legacy');
+  const [density, setDensityState] = React.useState<UIDensity>('comfortable');
   const [hydrated, setHydrated] = React.useState(false);
 
   React.useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY) as UIVersion | null;
-      if (stored === 'legacy' || stored === 'next') setVersionState(stored);
+      const v = localStorage.getItem(VERSION_KEY) as UIVersion | null;
+      if (v === 'legacy' || v === 'next') setVersionState(v);
+      const d = localStorage.getItem(DENSITY_KEY) as UIDensity | null;
+      if (d === 'comfortable' || d === 'compact') setDensityState(d);
     } catch {}
     setHydrated(true);
   }, []);
 
   const setVersion = React.useCallback((v: UIVersion) => {
     setVersionState(v);
-    try { localStorage.setItem(STORAGE_KEY, v); } catch {}
+    try { localStorage.setItem(VERSION_KEY, v); } catch {}
+  }, []);
+
+  const setDensity = React.useCallback((d: UIDensity) => {
+    setDensityState(d);
+    try { localStorage.setItem(DENSITY_KEY, d); } catch {}
   }, []);
 
   const toggle = React.useCallback(() => {
     setVersion(version === 'legacy' ? 'next' : 'legacy');
   }, [version, setVersion]);
 
-  // Prevent flash: render nothing until localStorage is read
   if (!hydrated) return null;
 
   return (
-    <Ctx.Provider value={{ version, setVersion, toggle }}>
+    <Ctx.Provider value={{ version, density, setVersion, setDensity, toggle }}>
       {children}
     </Ctx.Provider>
   );
@@ -52,3 +65,6 @@ export function UIVersionProvider({ children }: { children: React.ReactNode }) {
 export function useUIVersion() {
   return React.useContext(Ctx);
 }
+
+// Alias — preferred name going forward
+export const useAppearance = useUIVersion;

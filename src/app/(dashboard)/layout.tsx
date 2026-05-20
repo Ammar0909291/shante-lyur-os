@@ -7,6 +7,7 @@ import { Header } from '@/components/layout/header';
 import { LanguageProvider, useLanguage } from '@/contexts/language';
 import { UIVersionProvider, useUIVersion } from '@/contexts/ui-version';
 import { NextUIShell } from '@/next-ui/layouts/NextUIShell';
+import { cn } from '@/lib/utils';
 
 const PAGE_KEYS: Record<string, string> = {
   '/dashboard': 'page.dashboard',
@@ -56,12 +57,34 @@ function LegacyShell({ children }: { children: React.ReactNode }) {
 }
 
 function ShellRouter({ children }: { children: React.ReactNode }) {
-  const { version } = useUIVersion();
+  const { version, density } = useUIVersion();
+  const [visible, setVisible] = React.useState(true);
+  const prevVersion = React.useRef(version);
 
-  if (version === 'next') {
-    return <NextUIShell>{children}</NextUIShell>;
-  }
-  return <LegacyShell>{children}</LegacyShell>;
+  // Fade out → swap shell → fade in on version change
+  React.useEffect(() => {
+    if (prevVersion.current === version) return;
+    setVisible(false);
+    const t = setTimeout(() => {
+      prevVersion.current = version;
+      setVisible(true);
+    }, 120);
+    return () => clearTimeout(t);
+  }, [version]);
+
+  const shell = version === 'next'
+    ? <NextUIShell density={density}>{children}</NextUIShell>
+    : <LegacyShell>{children}</LegacyShell>;
+
+  return (
+    <div
+      className={cn('transition-opacity duration-150', !visible && 'opacity-0')}
+      data-density={density}
+      data-ui={version}
+    >
+      {shell}
+    </div>
+  );
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { NextUISidebar } from './NextUISidebar';
 import { NextUIHeader } from './NextUIHeader';
 import { useLanguage } from '@/contexts/language';
+import type { UIDensity } from '@/contexts/ui-version';
 
 const PAGE_KEYS: Record<string, string> = {
   '/dashboard':   'page.dashboard',
@@ -28,9 +29,10 @@ function getKey(pathname: string): string {
 
 interface Props {
   children: React.ReactNode;
+  density?: UIDensity;
 }
 
-export function NextUIShell({ children }: Props) {
+export function NextUIShell({ children, density = 'comfortable' }: Props) {
   const pathname = usePathname();
   const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
@@ -39,7 +41,7 @@ export function NextUIShell({ children }: Props) {
   const title = (key.startsWith('page.') || key.startsWith('nav.')) ? t(key) : key;
 
   return (
-    <div className="flex h-screen bg-obsidian overflow-hidden">
+    <div className="flex h-screen bg-obsidian overflow-hidden" data-density={density}>
       <NextUISidebar
         mobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
