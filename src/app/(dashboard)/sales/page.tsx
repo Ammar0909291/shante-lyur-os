@@ -100,8 +100,9 @@ export default function SalesPage() {
     setRecentLoading(true);
     try {
       const to = new Date();
-      const from = days === 0 ? new Date(to.toDateString()) : new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-      const res = await fetch(`/api/admin/bookings?status=CONFIRMED&from=${toIso(from)}&to=${toIso(to)}&limit=20`);
+      const from = days === 0 ? new Date(new Date().setHours(0, 0, 0, 0)) : new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      // Use full ISO timestamps so today's bookings are included (toIso strips time, causing midnight cutoff)
+      const res = await fetch(`/api/admin/bookings?status=CONFIRMED&from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}&limit=50`);
       const json = await res.json();
       if (json.success) setRecentSales(json.data?.items ?? []);
     } finally {
@@ -308,85 +309,83 @@ export default function SalesPage() {
             )}
           </div>
 
-          {/* Recent Sales Records */}
-          <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-border-luxury">
-              <h3 className="font-serif text-lg font-medium text-text-primary">Последние продажи</h3>
-              <p className="text-xs text-text-tertiary mt-0.5">Записи за выбранный период</p>
-            </div>
-
-            {recentLoading ? (
-              <div className="flex justify-center py-10">
-                <div className="w-6 h-6 border-2 border-champagne/30 border-t-champagne rounded-full animate-spin" />
-              </div>
-            ) : recentSales.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <ShoppingBag className="w-8 h-8 text-text-tertiary" />
-                <p className="text-sm text-text-secondary">Продаж за период нет</p>
-              </div>
-            ) : (
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border-luxury">
-                      <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Клиент</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Услуга</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Специалист</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Дата</th>
-                      <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Сумма</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border-luxury">
-                    {recentSales.map((sale) => (
-                      <tr key={sale.id} className="hover:bg-charcoal/50 transition-colors">
-                        <td className="px-6 py-3.5">
-                          <div className="flex items-center gap-2">
-                            <Avatar name={sale.clientName} size="sm" />
-                            <span className="font-medium text-text-primary">{sale.clientName}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3.5 text-text-secondary max-w-[200px]">
-                          {sale.services.map((s) => s.name).join(', ')}
-                        </td>
-                        <td className="px-4 py-3.5 text-text-secondary">{sale.specialistName}</td>
-                        <td className="px-4 py-3.5 text-text-tertiary text-xs">
-                          {new Date(sale.startAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td className="px-6 py-3.5 text-right font-semibold text-champagne tabular-nums">
-                          {formatCurrency(sale.totalPrice)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Mobile list */}
-            {!recentLoading && recentSales.length > 0 && (
-              <div className="sm:hidden divide-y divide-border-luxury">
-                {recentSales.map((sale) => (
-                  <div key={sale.id} className="px-4 py-4">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-2">
-                        <Avatar name={sale.clientName} size="sm" />
-                        <span className="text-sm font-medium text-text-primary">{sale.clientName}</span>
-                      </div>
-                      <span className="font-semibold text-champagne tabular-nums">{formatCurrency(sale.totalPrice)}</span>
-                    </div>
-                    <p className="text-xs text-text-tertiary ml-8">
-                      {sale.services.map((s) => s.name).join(', ')} · {sale.specialistName}
-                    </p>
-                    <p className="text-[10px] text-text-tertiary ml-8 mt-0.5">
-                      {new Date(sale.startAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </>
       )}
+
+      {/* Recent Sales Records — renders independently of analytics loading */}
+      <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-luxury">
+          <h3 className="font-serif text-lg font-medium text-text-primary">Последние продажи</h3>
+          <p className="text-xs text-text-tertiary mt-0.5">Записи за выбранный период</p>
+        </div>
+
+        {recentLoading ? (
+          <div className="flex justify-center py-10">
+            <div className="w-6 h-6 border-2 border-champagne/30 border-t-champagne rounded-full animate-spin" />
+          </div>
+        ) : recentSales.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <ShoppingBag className="w-8 h-8 text-text-tertiary" />
+            <p className="text-sm text-text-secondary">Продаж за период нет</p>
+          </div>
+        ) : (
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border-luxury">
+                  <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Клиент</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Услуга</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Специалист</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Дата</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Сумма</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-luxury">
+                {recentSales.map((sale) => (
+                  <tr key={sale.id} className="hover:bg-charcoal/50 transition-colors">
+                    <td className="px-6 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <Avatar name={sale.clientName} size="sm" />
+                        <span className="font-medium text-text-primary">{sale.clientName}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 text-text-secondary max-w-[200px]">
+                      {sale.services.map((s) => s.name).join(', ')}
+                    </td>
+                    <td className="px-4 py-3.5 text-text-secondary">{sale.specialistName}</td>
+                    <td className="px-4 py-3.5 text-text-tertiary text-xs">
+                      {new Date(sale.startAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="px-6 py-3.5 text-right font-semibold text-champagne tabular-nums">
+                      {formatCurrency(sale.totalPrice)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="sm:hidden divide-y divide-border-luxury">
+          {!recentLoading && recentSales.map((sale) => (
+            <div key={sale.id} className="px-4 py-4">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <Avatar name={sale.clientName} size="sm" />
+                  <span className="text-sm font-medium text-text-primary">{sale.clientName}</span>
+                </div>
+                <span className="font-semibold text-champagne tabular-nums">{formatCurrency(sale.totalPrice)}</span>
+              </div>
+              <p className="text-xs text-text-tertiary ml-8">
+                {sale.services.map((s) => s.name).join(', ')} · {sale.specialistName}
+              </p>
+              <p className="text-[10px] text-text-tertiary ml-8 mt-0.5">
+                {new Date(sale.startAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {showRecordSale && (
         <RecordSaleModal

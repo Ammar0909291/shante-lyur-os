@@ -45,15 +45,21 @@ async function main() {
   // ─── Location ────────────────────────────────────────────────
   const location = await prisma.location.upsert({
     where: { id: '00000000-0000-0000-0000-000000000001' },
-    update: {},
+    update: {
+      name: 'Shante Lyur — Екатеринбург',
+      address: 'улица Малышева, 3',
+      city: 'Екатеринбург',
+      phone: '+7 (343) 000-00-00',
+      timezone: 'Asia/Yekaterinburg',
+    },
     create: {
       id: '00000000-0000-0000-0000-000000000001',
-      name: 'Shante Lyur — Центральный',
-      address: 'ул. Пушкина, д. 10, офис 5',
-      city: 'Москва',
-      phone: '+7 (495) 123-45-67',
+      name: 'Shante Lyur — Екатеринбург',
+      address: 'улица Малышева, 3',
+      city: 'Екатеринбург',
+      phone: '+7 (343) 000-00-00',
       email: 'info@shantelyur.ru',
-      timezone: 'Europe/Moscow',
+      timezone: 'Asia/Yekaterinburg',
       sortOrder: 0,
     },
   });

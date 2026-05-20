@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, Menu, LogOut, User, ChevronDown, Sun, Moon, Check } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn, formatDate, formatTime } from '@/lib/utils';
@@ -201,6 +202,7 @@ const ROLE_LABEL: Record<string, string> = {
 
 function UserMenu() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [me, setMe] = React.useState<{ firstName: string; lastName: string; email: string; role: string } | null>(null);
 
   React.useEffect(() => {
@@ -252,7 +254,7 @@ function UserMenu() {
           </div>
 
           <div className="p-1">
-            <DropdownMenu.Item className={dropdownItemCls}>
+            <DropdownMenu.Item className={dropdownItemCls} onSelect={() => router.push('/profile')}>
               <User className="w-4 h-4" aria-hidden="true" />
               {t('header.myProfile')}
             </DropdownMenu.Item>

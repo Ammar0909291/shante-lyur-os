@@ -13,9 +13,10 @@ const PAGE_KEYS: Record<string, string> = {
   '/specialists': 'page.specialists',
   '/services': 'page.services',
   '/analytics': 'page.analytics',
-  '/sales': 'nav.sales',
+  '/sales': 'page.sales',
   '/chat': 'nav.chat',
   '/settings': 'page.settings',
+  '/profile': 'page.profile',
 };
 
 function getKey(pathname: string): string {
@@ -31,7 +32,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   const key = getKey(pathname);
-  const title = key.startsWith('page.') ? t(key) : key;
+  const title = (key.startsWith('page.') || key.startsWith('nav.')) ? t(key) : key;
 
   return (
     <div className="flex h-screen bg-obsidian overflow-hidden">
