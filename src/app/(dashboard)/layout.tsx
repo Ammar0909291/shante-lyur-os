@@ -4,29 +4,32 @@ import * as React from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
+import { LanguageProvider, useLanguage } from '@/contexts/language';
 
-const pageTitles: Record<string, string> = {
-  '/dashboard': 'Дашборд',
-  '/bookings': 'Записи',
-  '/clients': 'Клиенты',
-  '/specialists': 'Специалисты',
-  '/services': 'Услуги',
-  '/analytics': 'Аналитика',
-  '/settings': 'Настройки',
+const PAGE_KEYS: Record<string, string> = {
+  '/dashboard': 'page.dashboard',
+  '/bookings': 'page.bookings',
+  '/clients': 'page.clients',
+  '/specialists': 'page.specialists',
+  '/services': 'page.services',
+  '/analytics': 'page.analytics',
+  '/settings': 'page.settings',
 };
 
-function getTitle(pathname: string): string {
-  for (const [route, title] of Object.entries(pageTitles)) {
-    if (pathname === route || pathname.startsWith(`${route}/`)) return title;
+function getKey(pathname: string): string {
+  for (const [route, key] of Object.entries(PAGE_KEYS)) {
+    if (pathname === route || pathname.startsWith(`${route}/`)) return key;
   }
   return 'Shante Lyur';
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
-  const title = getTitle(pathname);
+  const key = getKey(pathname);
+  const title = key.startsWith('page.') ? t(key) : key;
 
   return (
     <div className="flex h-screen bg-obsidian overflow-hidden">
@@ -34,18 +37,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         mobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
       />
-
-      {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header
           title={title}
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
         />
-
         <main className="flex-1 overflow-y-auto">
           {children}
         </main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <LanguageProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </LanguageProvider>
   );
 }

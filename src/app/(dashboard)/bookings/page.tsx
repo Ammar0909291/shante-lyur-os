@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Calendar, Plus, X, Search } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, X, Search, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
+import { Calendar } from '@/components/ui/calendar';
 import { cn, formatTime, formatCurrency } from '@/lib/utils';
 
 interface Booking {
@@ -23,7 +24,7 @@ interface Booking {
 interface Specialist { id: string; firstName: string; lastName: string; specialization: string | null; }
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; }
 interface Location { id: string; name: string; }
-interface Client { id: string; firstName: string; lastName: string; email: string; }
+interface Client { id: string; firstName: string; lastName: string; email: string; phone?: string | null; }
 
 const STATUS_FILTERS = [
   { value: '', label: 'Все' },
@@ -65,6 +66,59 @@ const selectCls = cn(
   'transition-all',
 );
 
+function DatePickerField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const display = value
+    ? new Date(value + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    : 'Выберите дату';
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          inputCls,
+          'flex items-center justify-between text-left',
+          !value && 'text-text-tertiary',
+        )}
+      >
+        <span className="flex items-center gap-2">
+          <CalendarIcon className="w-4 h-4 text-text-tertiary shrink-0" />
+          {display}
+        </span>
+        <ChevronDown className={cn('w-4 h-4 text-text-tertiary transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg z-30 animate-slide-down">
+          <Calendar
+            value={value}
+            onChange={(v) => { onChange(v); setOpen(false); }}
+            minDate={(() => { const d = new Date(); d.setHours(0,0,0,0); return d; })()}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BookingsPage() {
   const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [total, setTotal] = React.useState(0);
@@ -83,6 +137,7 @@ export default function BookingsPage() {
   const [clients, setClients] = React.useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = React.useState<Client | null>(null);
   const [clientDropdown, setClientDropdown] = React.useState(false);
+  const [clientLoading, setClientLoading] = React.useState(false);
 
   const [form, setForm] = React.useState({
     specialistId: '',
@@ -107,7 +162,7 @@ export default function BookingsPage() {
         setTotal(json.data.total);
       }
     } catch {
-      // network error — leave existing data
+      // leave existing data
     } finally {
       setLoading(false);
     }
@@ -117,15 +172,13 @@ export default function BookingsPage() {
 
   const fetchFormData = React.useCallback(async () => {
     const [specRes, svcRes, locRes] = await Promise.all([
-      fetch('/api/specialists?limit=100'),
+      fetch('/api/specialists?limit=100&status=ACTIVE'),
       fetch('/api/catalog'),
       fetch('/api/locations'),
     ]);
     const [specJson, svcJson, locJson] = await Promise.all([specRes.json(), svcRes.json(), locRes.json()]);
     if (specJson.success) setSpecialists(specJson.data.items ?? []);
-    if (svcJson.success) {
-      setServices(Array.isArray(svcJson.data) ? svcJson.data : (svcJson.data?.items ?? []));
-    }
+    if (svcJson.success) setServices(Array.isArray(svcJson.data) ? svcJson.data : (svcJson.data?.items ?? []));
     if (locJson.success) setLocations(locJson.data ?? []);
   }, []);
 
@@ -133,18 +186,21 @@ export default function BookingsPage() {
     if (showModal) fetchFormData();
   }, [showModal, fetchFormData]);
 
-  // Debounced client search
+  // Debounced client search — uses public endpoint
   React.useEffect(() => {
     if (!clientSearch.trim()) { setClients([]); return; }
+    setClientLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/admin/clients?search=${encodeURIComponent(clientSearch)}&limit=10`);
+        const res = await fetch(`/api/clients/search?q=${encodeURIComponent(clientSearch)}&limit=10`);
         const json = await res.json();
         if (json.success) setClients(json.data.items);
       } catch {
         // ignore
+      } finally {
+        setClientLoading(false);
       }
-    }, 300);
+    }, 250);
     return () => clearTimeout(timer);
   }, [clientSearch]);
 
@@ -156,6 +212,7 @@ export default function BookingsPage() {
     if (!form.specialistId) { setFormError('Выберите специалиста'); return; }
     if (!form.locationId) { setFormError('Выберите локацию'); return; }
     if (!selectedService) { setFormError('Выберите услугу'); return; }
+    if (!form.date) { setFormError('Выберите дату'); return; }
 
     setSubmitting(true);
     setFormError('');
@@ -178,10 +235,7 @@ export default function BookingsPage() {
       });
 
       const json = await res.json();
-      if (!json.success) {
-        setFormError(json.error?.message ?? 'Ошибка создания записи');
-        return;
-      }
+      if (!json.success) { setFormError(json.error?.message ?? 'Ошибка создания записи'); return; }
 
       setShowModal(false);
       setSelectedClient(null);
@@ -205,7 +259,6 @@ export default function BookingsPage() {
 
   return (
     <div className="p-6 lg:p-8 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Записи</h2>
@@ -236,14 +289,13 @@ export default function BookingsPage() {
         ))}
       </div>
 
-      {/* Bookings list */}
       {loading ? (
         <div className="bg-onyx border border-border-luxury rounded-2xl flex items-center justify-center py-24">
           <div className="w-6 h-6 border-2 border-champagne/30 border-t-champagne rounded-full animate-spin" />
         </div>
       ) : bookings.length === 0 ? (
         <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-24 gap-4">
-          <Calendar className="w-12 h-12 text-text-tertiary" />
+          <CalendarIcon className="w-12 h-12 text-text-tertiary" />
           <p className="text-text-secondary text-sm">Записей нет</p>
           <Button variant="secondary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
             Создать запись
@@ -251,7 +303,6 @@ export default function BookingsPage() {
         </div>
       ) : (
         <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
-          {/* Desktop table */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -273,13 +324,9 @@ export default function BookingsPage() {
                         <span className="font-medium text-text-primary whitespace-nowrap">{b.clientName}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-text-secondary max-w-[180px] truncate">
-                      {b.services[0]?.name ?? '—'}
-                    </td>
+                    <td className="px-4 py-4 text-text-secondary max-w-[180px] truncate">{b.services[0]?.name ?? '—'}</td>
                     <td className="px-4 py-4 text-text-secondary whitespace-nowrap">{b.specialistName}</td>
-                    <td className="px-4 py-4 text-text-secondary whitespace-nowrap tabular-nums">
-                      {formatTime(new Date(b.startAt))}
-                    </td>
+                    <td className="px-4 py-4 text-text-secondary whitespace-nowrap tabular-nums">{formatTime(new Date(b.startAt))}</td>
                     <td className="px-4 py-4">
                       <Badge variant={getAppointmentStatusBadgeVariant(b.status)} dot>
                         {getAppointmentStatusLabel(b.status)}
@@ -294,7 +341,6 @@ export default function BookingsPage() {
             </table>
           </div>
 
-          {/* Mobile list */}
           <div className="sm:hidden divide-y divide-border-luxury">
             {bookings.map((b) => (
               <div key={b.id} className="px-4 py-4 flex items-start gap-3">
@@ -320,17 +366,12 @@ export default function BookingsPage() {
         </div>
       )}
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6">
           <p className="text-sm text-text-tertiary">Страница {page} из {totalPages}</p>
           <div className="flex gap-2">
-            {page > 1 && (
-              <Button variant="secondary" size="sm" onClick={() => setPage((p) => p - 1)}>← Назад</Button>
-            )}
-            {page < totalPages && (
-              <Button variant="secondary" size="sm" onClick={() => setPage((p) => p + 1)}>Вперёд →</Button>
-            )}
+            {page > 1 && <Button variant="secondary" size="sm" onClick={() => setPage((p) => p - 1)}>← Назад</Button>}
+            {page < totalPages && <Button variant="secondary" size="sm" onClick={() => setPage((p) => p + 1)}>Вперёд →</Button>}
           </div>
         </div>
       )}
@@ -342,10 +383,7 @@ export default function BookingsPage() {
           <div className="relative bg-onyx border border-border-luxury rounded-2xl w-full max-w-lg shadow-luxury-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
               <h3 className="font-serif text-lg font-medium text-text-primary">Новая запись</h3>
-              <button
-                onClick={closeModal}
-                className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
-              >
+              <button onClick={closeModal} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -359,6 +397,7 @@ export default function BookingsPage() {
                     <Avatar name={`${selectedClient.firstName} ${selectedClient.lastName}`} size="sm" />
                     <span className="text-sm text-text-primary flex-1">
                       {selectedClient.firstName} {selectedClient.lastName}
+                      {selectedClient.phone && <span className="text-text-tertiary text-xs ml-2">{selectedClient.phone}</span>}
                     </span>
                     <button
                       type="button"
@@ -376,11 +415,15 @@ export default function BookingsPage() {
                       onChange={(e) => { setClientSearch(e.target.value); setClientDropdown(true); }}
                       onFocus={() => setClientDropdown(true)}
                       onBlur={() => setTimeout(() => setClientDropdown(false), 200)}
-                      placeholder="Поиск по имени или email..."
+                      placeholder="Имя, email или телефон..."
                       className={cn(inputCls, 'pl-10')}
+                      autoComplete="off"
                     />
+                    {clientLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-champagne/30 border-t-champagne rounded-full animate-spin" />
+                    )}
                     {clientDropdown && clients.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg z-10 max-h-48 overflow-y-auto">
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg z-30 max-h-48 overflow-y-auto animate-slide-down">
                         {clients.map((c) => (
                           <button
                             key={c.id}
@@ -396,10 +439,15 @@ export default function BookingsPage() {
                             <Avatar name={`${c.firstName} ${c.lastName}`} size="sm" />
                             <div>
                               <p className="text-sm text-text-primary">{c.firstName} {c.lastName}</p>
-                              <p className="text-xs text-text-tertiary">{c.email}</p>
+                              <p className="text-xs text-text-tertiary">{c.email}{c.phone ? ` · ${c.phone}` : ''}</p>
                             </div>
                           </button>
                         ))}
+                      </div>
+                    )}
+                    {clientDropdown && clientSearch.trim() && !clientLoading && clients.length === 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg z-30 px-3 py-4 text-center">
+                        <p className="text-sm text-text-tertiary">Клиент не найден</p>
                       </div>
                     )}
                   </div>
@@ -409,12 +457,7 @@ export default function BookingsPage() {
               {/* Specialist */}
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Специалист *</span>
-                <select
-                  required
-                  value={form.specialistId}
-                  onChange={(e) => setForm((f) => ({ ...f, specialistId: e.target.value }))}
-                  className={selectCls}
-                >
+                <select required value={form.specialistId} onChange={(e) => setForm((f) => ({ ...f, specialistId: e.target.value }))} className={selectCls}>
                   <option value="">Выберите специалиста</option>
                   {specialists.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -427,17 +470,10 @@ export default function BookingsPage() {
               {/* Service */}
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Услуга *</span>
-                <select
-                  required
-                  value={form.serviceId}
-                  onChange={(e) => setForm((f) => ({ ...f, serviceId: e.target.value }))}
-                  className={selectCls}
-                >
+                <select required value={form.serviceId} onChange={(e) => setForm((f) => ({ ...f, serviceId: e.target.value }))} className={selectCls}>
                   <option value="">Выберите услугу</option>
                   {services.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} — {s.baseDuration} мин · {s.basePrice.toLocaleString('ru-RU')} ₽
-                    </option>
+                    <option key={s.id} value={s.id}>{s.name} — {s.baseDuration} мин · {s.basePrice.toLocaleString('ru-RU')} ₽</option>
                   ))}
                 </select>
               </label>
@@ -445,12 +481,7 @@ export default function BookingsPage() {
               {/* Location */}
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Локация *</span>
-                <select
-                  required
-                  value={form.locationId}
-                  onChange={(e) => setForm((f) => ({ ...f, locationId: e.target.value }))}
-                  className={selectCls}
-                >
+                <select required value={form.locationId} onChange={(e) => setForm((f) => ({ ...f, locationId: e.target.value }))} className={selectCls}>
                   <option value="">Выберите локацию</option>
                   {locations.map((l) => (
                     <option key={l.id} value={l.id}>{l.name}</option>
@@ -460,24 +491,13 @@ export default function BookingsPage() {
 
               {/* Date & Time */}
               <div className="grid grid-cols-2 gap-4">
-                <label className="space-y-1.5">
+                <div className="space-y-1.5">
                   <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Дата *</span>
-                  <input
-                    required
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                    className={inputCls}
-                  />
-                </label>
+                  <DatePickerField value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} />
+                </div>
                 <label className="space-y-1.5">
                   <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Время *</span>
-                  <select
-                    required
-                    value={form.time}
-                    onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
-                    className={selectCls}
-                  >
+                  <select required value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} className={selectCls}>
                     {TIME_OPTIONS.map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
@@ -488,13 +508,9 @@ export default function BookingsPage() {
               {selectedService && (
                 <div className="px-4 py-3 rounded-xl bg-charcoal/50 border border-border-luxury text-sm">
                   <p className="text-text-secondary">
-                    Длительность:{' '}
-                    <span className="text-text-primary font-medium">{selectedService.baseDuration} мин</span>
+                    Длительность: <span className="text-text-primary font-medium">{selectedService.baseDuration} мин</span>
                     {' · '}
-                    Стоимость:{' '}
-                    <span className="text-champagne font-medium">
-                      {selectedService.basePrice.toLocaleString('ru-RU')} ₽
-                    </span>
+                    Стоимость: <span className="text-champagne font-medium">{selectedService.basePrice.toLocaleString('ru-RU')} ₽</span>
                   </p>
                 </div>
               )}
@@ -512,15 +528,11 @@ export default function BookingsPage() {
               </label>
 
               {formError && (
-                <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                  {formError}
-                </p>
+                <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{formError}</p>
               )}
 
               <div className="flex gap-3 pt-2">
-                <Button type="button" variant="secondary" className="flex-1" onClick={closeModal}>
-                  Отмена
-                </Button>
+                <Button type="button" variant="secondary" className="flex-1" onClick={closeModal}>Отмена</Button>
                 <Button type="submit" variant="primary" className="flex-1" disabled={submitting}>
                   {submitting ? 'Создание...' : 'Создать запись'}
                 </Button>

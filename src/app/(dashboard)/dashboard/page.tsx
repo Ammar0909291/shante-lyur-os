@@ -1,4 +1,5 @@
 import * as React from 'react';
+import Link from 'next/link';
 import {
   Calendar,
   TrendingUp,
@@ -10,7 +11,6 @@ import {
 import { StatCard } from '@/components/ui/stat-card';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { formatTime, formatCurrency, getGreeting } from '@/lib/utils';
 import { prisma } from '@/infrastructure/config/prisma-client';
 
@@ -90,52 +90,77 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="secondary" size="sm" leftIcon={<Clock className="w-4 h-4" />}>
-            Заблокировать время
-          </Button>
-          <Button variant="secondary" size="sm" leftIcon={<UserPlus className="w-4 h-4" />}>
-            Клиент
-          </Button>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+          <Link
+            href="/bookings"
+            className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-lg bg-charcoal text-text-primary border border-border-luxury hover:border-border-light hover:bg-charcoal/80 transition-all"
+          >
+            <Clock className="w-4 h-4" />
+            Расписание
+          </Link>
+          <Link
+            href="/clients"
+            className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-lg bg-charcoal text-text-primary border border-border-luxury hover:border-border-light hover:bg-charcoal/80 transition-all"
+          >
+            <UserPlus className="w-4 h-4" />
+            Клиенты
+          </Link>
+          <Link
+            href="/bookings"
+            className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg text-obsidian bg-champagne hover:brightness-105 transition-all shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
             Запись
-          </Button>
+          </Link>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        <StatCard
-          title="Записи сегодня"
-          value={data.todayBookings}
-          subtitle={`${data.pendingCount} ожидают подтверждения`}
-          icon={<Calendar className="w-5 h-5" />}
-        />
-        <StatCard
-          title="Выручка за месяц"
-          value={formatCurrency(data.revenueMtd)}
-          subtitle="завершённые записи"
-          trend={data.revenueTrend !== 0 ? { value: Math.abs(data.revenueTrend), positive: data.revenueTrend >= 0, label: 'vs пред. месяц' } : undefined}
-          icon={<TrendingUp className="w-5 h-5" />}
-        />
-        <StatCard
-          title="Активные клиенты"
-          value={data.totalClients}
-          subtitle={`+${data.newClientsThisMonth} за этот месяц`}
-          icon={<Users className="w-5 h-5" />}
-        />
+        <Link href="/bookings" className="block hover:scale-[1.01] transition-transform">
+          <StatCard
+            title="Записи сегодня"
+            value={data.todayBookings}
+            subtitle={`${data.pendingCount} ожидают подтверждения`}
+            icon={<Calendar className="w-5 h-5" />}
+          />
+        </Link>
+        <Link href="/analytics" className="block hover:scale-[1.01] transition-transform">
+          <StatCard
+            title="Выручка за месяц"
+            value={formatCurrency(data.revenueMtd)}
+            subtitle="завершённые записи"
+            trend={data.revenueTrend !== 0 ? { value: Math.abs(data.revenueTrend), positive: data.revenueTrend >= 0, label: 'vs пред. месяц' } : undefined}
+            icon={<TrendingUp className="w-5 h-5" />}
+          />
+        </Link>
+        <Link href="/clients" className="block hover:scale-[1.01] transition-transform sm:col-span-2 xl:col-span-1">
+          <StatCard
+            title="Активные клиенты"
+            value={data.totalClients}
+            subtitle={`+${data.newClientsThisMonth} за этот месяц`}
+            icon={<Users className="w-5 h-5" />}
+          />
+        </Link>
       </div>
 
       <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
-          <h3 className="font-serif text-lg font-medium text-text-primary">
-            Записи на сегодня
-          </h3>
-          <span className="text-xs text-text-tertiary">{data.appointments.length} записей</span>
+          <h3 className="font-serif text-lg font-medium text-text-primary">Записи на сегодня</h3>
+          <Link href="/bookings" className="text-xs text-champagne hover:text-champagne-light transition-colors">
+            Все записи →
+          </Link>
         </div>
 
         {data.appointments.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <Calendar className="w-10 h-10 text-text-tertiary" />
             <p className="text-text-secondary text-sm">На сегодня записей нет</p>
+            <Link
+              href="/bookings"
+              className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg text-obsidian bg-champagne hover:brightness-105 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Создать запись
+            </Link>
           </div>
         ) : (
           <>

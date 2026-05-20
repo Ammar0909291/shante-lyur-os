@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Bell, Menu, LogOut, User, ChevronDown, Sun, Moon } from 'lucide-react';
+import { Bell, Menu, LogOut, User, ChevronDown, Sun, Moon, Check } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
+import { useLanguage } from '@/contexts/language';
 
 interface HeaderProps {
   title: string;
@@ -13,17 +14,30 @@ interface HeaderProps {
 
 function useClock() {
   const [now, setNow] = React.useState<Date | null>(null);
-
   React.useEffect(() => {
     setNow(new Date());
-    const interval = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
   }, []);
-
   return now;
 }
 
+const dropdownContentCls = cn(
+  'min-w-52 rounded-xl overflow-hidden',
+  'bg-onyx border border-border-luxury shadow-luxury-lg',
+  'animate-slide-down origin-top-right',
+);
+
+const dropdownItemCls = cn(
+  'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer',
+  'text-text-secondary',
+  'hover:text-text-primary hover:bg-charcoal',
+  'focus:outline-none focus:bg-charcoal focus:text-text-primary',
+  'transition-colors outline-none select-none',
+);
+
 function ThemeToggle() {
+  const { t } = useLanguage();
   const [isDark, setIsDark] = React.useState(true);
 
   React.useEffect(() => {
@@ -48,41 +62,140 @@ function ThemeToggle() {
         'transition-all duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
       )}
-      aria-label={isDark ? 'Светлая тема' : 'Тёмная тема'}
+      aria-label={isDark ? t('header.theme.light') : t('header.theme.dark')}
     >
       {isDark ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
     </button>
   );
 }
 
-function NotificationBell() {
-  const [hasNew] = React.useState(true);
+function LanguageToggle() {
+  const { lang, setLang } = useLanguage();
+
   return (
     <button
+      onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
       className={cn(
-        'relative p-2.5 rounded-xl',
-        'text-text-secondary hover:text-text-primary hover:bg-charcoal',
+        'px-2 py-1.5 rounded-lg text-xs font-semibold tracking-wider',
+        'border border-border-luxury',
+        'text-text-secondary hover:text-text-primary hover:border-champagne/40',
         'transition-all duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
       )}
-      aria-label="Уведомления"
+      aria-label={lang === 'ru' ? 'Switch to English' : 'Переключить на русский'}
     >
-      <Bell className="w-5 h-5" />
-      {hasNew && (
-        <span
-          className="absolute top-2 right-2 w-2 h-2 rounded-full bg-champagne"
-          aria-label="Есть новые уведомления"
-        />
-      )}
+      {lang === 'ru' ? 'EN' : 'RU'}
     </button>
   );
 }
 
+interface Notification {
+  id: string;
+  text: string;
+  time: string;
+  read: boolean;
+}
+
+function NotificationBell() {
+  const { t } = useLanguage();
+  const [notifications, setNotifications] = React.useState<Notification[]>([]);
+  const [open, setOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    fetch('/api/admin/bookings?status=PENDING&limit=3')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data.total > 0) {
+          setNotifications([{
+            id: 'pending',
+            text: `${json.data.total} ${t('header.notifications.pending')}`,
+            time: formatTime(new Date()),
+            read: false,
+          }]);
+        }
+      })
+      .catch(() => {});
+  }, [t]);
+
+  const unread = notifications.filter((n) => !n.read).length;
+
+  const markAllRead = () => setNotifications((ns) => ns.map((n) => ({ ...n, read: true })));
+
+  return (
+    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+      <DropdownMenu.Trigger asChild>
+        <button
+          className={cn(
+            'relative p-2.5 rounded-xl',
+            'text-text-secondary hover:text-text-primary hover:bg-charcoal',
+            'transition-all duration-150',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
+          )}
+          aria-label={t('header.notifications')}
+        >
+          <Bell className="w-5 h-5" />
+          {unread > 0 && (
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-champagne" />
+          )}
+        </button>
+      </DropdownMenu.Trigger>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          className={dropdownContentCls}
+          align="end"
+          sideOffset={8}
+          style={{ zIndex: 200 }}
+        >
+          <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-luxury">
+            <p className="text-sm font-medium text-text-primary">{t('header.notifications')}</p>
+            {unread > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-xs text-champagne hover:text-champagne-light transition-colors"
+              >
+                <Check className="w-3.5 h-3.5 inline mr-1" />
+                Прочитать все
+              </button>
+            )}
+          </div>
+
+          {notifications.length === 0 ? (
+            <div className="px-3 py-6 text-center">
+              <p className="text-sm text-text-tertiary">{t('header.notifications.empty')}</p>
+            </div>
+          ) : (
+            <div className="py-1">
+              {notifications.map((n) => (
+                <div
+                  key={n.id}
+                  className={cn(
+                    'px-3 py-2.5 flex items-start gap-2',
+                    !n.read && 'bg-champagne/4',
+                  )}
+                >
+                  {!n.read && (
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-champagne shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary leading-snug">{n.text}</p>
+                    <p className="text-xs text-text-tertiary mt-0.5">{n.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
 function UserMenu() {
+  const { t } = useLanguage();
+
   const handleLogout = React.useCallback(async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } finally {
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } finally {
       window.location.href = '/login';
     }
   }, []);
@@ -96,12 +209,12 @@ function UserMenu() {
             'hover:bg-charcoal transition-all duration-150',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
           )}
-          aria-label="Меню пользователя"
+          aria-label={t('header.profile')}
         >
           <Avatar name="Admin User" size="sm" />
           <div className="hidden sm:flex flex-col items-start">
-            <span className="text-sm font-medium text-text-primary leading-tight">Администратор</span>
-            <span className="text-[10px] text-text-tertiary uppercase tracking-wider">admin</span>
+            <span className="text-sm font-medium text-text-primary leading-tight">{t('header.admin')}</span>
+            <span className="text-[10px] text-text-tertiary uppercase tracking-wider">{t('header.role')}</span>
           </div>
           <ChevronDown className="w-4 h-4 text-text-tertiary hidden sm:block" aria-hidden="true" />
         </button>
@@ -109,47 +222,33 @@ function UserMenu() {
 
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className={cn(
-            'z-50 min-w-48 rounded-xl overflow-hidden',
-            'bg-onyx border border-border-luxury shadow-luxury-lg',
-            'animate-slide-down origin-top-right',
-          )}
+          className={dropdownContentCls}
           align="end"
           sideOffset={8}
+          style={{ zIndex: 200 }}
         >
           <div className="px-3 py-2.5 border-b border-border-luxury">
-            <p className="text-sm font-medium text-text-primary">Администратор</p>
+            <p className="text-sm font-medium text-text-primary">{t('header.admin')}</p>
             <p className="text-xs text-text-tertiary mt-0.5">admin@shantelyur.ru</p>
           </div>
 
           <div className="p-1">
-            <DropdownMenu.Item
-              className={cn(
-                'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm',
-                'text-text-secondary cursor-pointer',
-                'hover:text-text-primary hover:bg-charcoal',
-                'focus:outline-none focus:bg-charcoal focus:text-text-primary',
-                'transition-colors',
-              )}
-            >
+            <DropdownMenu.Item className={dropdownItemCls}>
               <User className="w-4 h-4" aria-hidden="true" />
-              Профиль
+              {t('header.myProfile')}
             </DropdownMenu.Item>
 
             <DropdownMenu.Separator className="my-1 h-px bg-border-luxury" />
 
             <DropdownMenu.Item
               className={cn(
-                'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm',
-                'text-red-400 cursor-pointer',
-                'hover:text-red-300 hover:bg-red-500/10',
-                'focus:outline-none focus:bg-red-500/10 focus:text-red-300',
-                'transition-colors',
+                dropdownItemCls,
+                'text-red-400 hover:text-red-300 hover:bg-red-500/10 focus:bg-red-500/10 focus:text-red-300',
               )}
               onSelect={handleLogout}
             >
               <LogOut className="w-4 h-4" aria-hidden="true" />
-              Выйти
+              {t('header.logout')}
             </DropdownMenu.Item>
           </div>
         </DropdownMenu.Content>
@@ -170,7 +269,6 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
       )}
     >
       <div className="flex items-center gap-3">
-        {/* Mobile menu trigger */}
         <button
           onClick={onMobileMenuOpen}
           className={cn(
@@ -182,21 +280,19 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
         >
           <Menu className="w-5 h-5" />
         </button>
-
         <h1 className="font-serif text-xl font-medium text-text-primary tracking-tight">
           {title}
         </h1>
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
-        {/* Date/time display */}
         {now && (
           <div className="hidden md:flex flex-col items-end mr-2">
             <span className="text-xs text-text-secondary">{formatDate(now)}</span>
             <span className="text-[10px] text-text-tertiary">{formatTime(now)}</span>
           </div>
         )}
-
+        <LanguageToggle />
         <ThemeToggle />
         <NotificationBell />
         <div className="w-px h-6 bg-border-luxury mx-1 hidden sm:block" aria-hidden="true" />
