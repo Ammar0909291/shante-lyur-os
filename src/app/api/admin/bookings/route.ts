@@ -33,6 +33,7 @@ const CreateSchema = z.object({
   })).min(1),
   notes: z.string().max(2000).optional(),
   source: z.enum(['web', 'phone', 'walkin', 'admin']).default('admin'),
+  soldByUserId: z.string().uuid().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -112,8 +113,8 @@ export async function POST(req: NextRequest) {
       return apiError('VALIDATION_ERROR', 'Invalid request body', 400, { issues: parsed.error.issues });
     }
 
-    const { clientId, specialistId, locationId, startAt, services, notes, source } = parsed.data;
-    const soldByUserId = req.headers.get('x-user-id') ?? undefined;
+    const { clientId, specialistId, locationId, startAt, services, notes, source, soldByUserId: bodySeller } = parsed.data;
+    const soldByUserId = bodySeller ?? req.headers.get('x-user-id') ?? undefined;
 
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
     const totalPrice = services.reduce((sum, s) => sum + s.price, 0);

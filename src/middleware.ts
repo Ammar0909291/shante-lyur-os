@@ -12,7 +12,13 @@ const PROTECTED_API_ROUTES = [
   '/api/payments',
 ];
 
-const AUTH_ROUTES = ['/api/auth/login', '/api/auth/register'];
+const AUTH_ROUTES = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/refresh',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+];
 
 const PUBLIC_API_ROUTES = [
   ...AUTH_ROUTES,

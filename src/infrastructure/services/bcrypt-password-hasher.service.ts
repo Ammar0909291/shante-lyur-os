@@ -11,4 +11,8 @@ export class BcryptPasswordHasher implements PasswordHasherPort {
   async compare(password: string, hash: string): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
+
+  async verify(password: string, hash: string): Promise<boolean> {
+    return bcrypt.compare(password, hash);
+  }
 }

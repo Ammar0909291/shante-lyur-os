@@ -6,6 +6,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { formatCurrency, formatClientRef } from '@/lib/utils';
+import { ClientActions } from '../_components/ClientActions';
 
 const LOYALTY_LABEL: Record<string, string> = {
   BRONZE: 'Бронза', SILVER: 'Серебро', GOLD: 'Золото', PLATINUM: 'Платина', VIP: 'VIP',
@@ -127,6 +128,12 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
               <span className="text-xs font-mono text-champagne bg-champagne/10 px-2 py-0.5 rounded">
                 {formatClientRef(user.id)}
               </span>
+              {user.status !== 'ACTIVE' && (
+                <Badge variant="warning">{user.status === 'INACTIVE' ? 'Отключён' : 'Архив'}</Badge>
+              )}
+            </div>
+            <div className="mt-2">
+              <ClientActions clientId={user.id} currentStatus={user.status} />
             </div>
 
             <div className="flex flex-wrap gap-4 mt-3">

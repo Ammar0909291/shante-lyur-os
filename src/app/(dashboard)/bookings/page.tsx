@@ -28,6 +28,7 @@ interface Specialist { id: string; firstName: string; lastName: string; speciali
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; }
 interface Location { id: string; name: string; }
 interface Client { id: string; firstName: string; lastName: string; email: string; phone?: string | null; clientRef?: string; }
+interface StaffUser { id: string; firstName: string; lastName: string; role: string; }
 
 const STATUS_FILTERS = [
   { value: '', label: 'Все' },
@@ -151,6 +152,7 @@ export default function BookingsPage() {
   const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [allSpecialists, setAllSpecialists] = React.useState<Specialist[]>([]);
   const [allServices, setAllServicesState] = React.useState<Service[]>([]);
+  const [allStaff, setAllStaff] = React.useState<StaffUser[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [exporting, setExporting] = React.useState(false);
@@ -184,6 +186,8 @@ export default function BookingsPage() {
     date: new Date().toISOString().split('T')[0],
     time: '10:00',
     notes: '',
+    soldByUserId: '',
+    priceOverride: '',
   });
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -229,15 +233,17 @@ export default function BookingsPage() {
   }, []);
 
   const fetchFormData = React.useCallback(async () => {
-    const [specRes, svcRes, locRes] = await Promise.all([
+    const [specRes, svcRes, locRes, staffRes] = await Promise.all([
       fetch('/api/specialists?limit=100&status=ACTIVE'),
       fetch('/api/catalog'),
       fetch('/api/locations'),
+      fetch('/api/chat/users'),
     ]);
-    const [specJson, svcJson, locJson] = await Promise.all([specRes.json(), svcRes.json(), locRes.json()]);
+    const [specJson, svcJson, locJson, staffJson] = await Promise.all([specRes.json(), svcRes.json(), locRes.json(), staffRes.json()]);
     if (specJson.success) setAllSpecialists(specJson.data.items ?? []);
     if (svcJson.success) setAllServicesState(Array.isArray(svcJson.data) ? svcJson.data : (svcJson.data?.items ?? []));
     if (locJson.success) setLocations(locJson.data ?? []);
+    if (staffJson.success) setAllStaff(staffJson.data ?? []);
   }, []);
 
   React.useEffect(() => {
@@ -290,6 +296,7 @@ export default function BookingsPage() {
     if (!form.date) { setFormError('Выберите дату'); return; }
     setSubmitting(true); setFormError('');
     const startAt = new Date(`${form.date}T${form.time}:00`);
+    const finalPrice = form.priceOverride !== '' ? Number(form.priceOverride) : selectedService.basePrice;
     try {
       const res = await fetch('/api/admin/bookings', {
         method: 'POST',
@@ -297,14 +304,15 @@ export default function BookingsPage() {
         body: JSON.stringify({
           clientId: selectedClient.id, specialistId: form.specialistId, locationId: form.locationId,
           startAt: startAt.toISOString(),
-          services: [{ serviceId: selectedService.id, price: selectedService.basePrice, duration: selectedService.baseDuration, sortOrder: 0 }],
+          services: [{ serviceId: selectedService.id, price: finalPrice, duration: selectedService.baseDuration, sortOrder: 0 }],
           notes: form.notes.trim() || undefined, source: 'admin',
+          soldByUserId: form.soldByUserId || undefined,
         }),
       });
       const json = await res.json();
       if (!json.success) { setFormError(json.error?.message ?? 'Ошибка создания записи'); return; }
       setShowModal(false); setSelectedClient(null); setClientSearch('');
-      setForm((f) => ({ ...f, specialistId: '', locationId: '', serviceId: '', notes: '' }));
+      setForm((f) => ({ ...f, specialistId: '', locationId: '', serviceId: '', notes: '', soldByUserId: '', priceOverride: '' }));
       fetchBookings();
     } catch { setFormError('Сетевая ошибка. Попробуйте снова.'); } finally { setSubmitting(false); }
   };
@@ -720,13 +728,35 @@ export default function BookingsPage() {
               </div>
 
               {selectedService && (
-                <div className="px-4 py-3 rounded-xl bg-charcoal/50 border border-border-luxury text-sm">
-                  <p className="text-text-secondary">
-                    Длительность: <span className="text-text-primary font-medium">{selectedService.baseDuration} мин</span>
-                    {' · '}
-                    Стоимость: <span className="text-champagne font-medium">{selectedService.basePrice.toLocaleString('ru-RU')} ₽</span>
-                  </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="px-4 py-3 rounded-xl bg-charcoal/50 border border-border-luxury text-sm col-span-2 sm:col-span-1">
+                    <p className="text-xs text-text-tertiary mb-1">Длительность</p>
+                    <p className="text-text-primary font-medium">{selectedService.baseDuration} мин</p>
+                  </div>
+                  <label className="block space-y-1.5 col-span-2 sm:col-span-1">
+                    <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Цена (₽)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.priceOverride !== '' ? form.priceOverride : selectedService.basePrice}
+                      onChange={(e) => setForm((f) => ({ ...f, priceOverride: e.target.value }))}
+                      placeholder={String(selectedService.basePrice)}
+                      className={inputCls}
+                    />
+                  </label>
                 </div>
+              )}
+
+              {/* Seller */}
+              {allStaff.length > 0 && (
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Продавец</span>
+                  <select value={form.soldByUserId} onChange={(e) => setForm((f) => ({ ...f, soldByUserId: e.target.value }))} className={selectCls}>
+                    <option value="">Текущий пользователь</option>
+                    {allStaff.map((s) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                  </select>
+                </label>
               )}
 
               {/* Notes */}

@@ -191,8 +191,27 @@ function NotificationBell() {
   );
 }
 
+const ROLE_LABEL: Record<string, string> = {
+  SUPER_ADMIN: 'Супер-администратор',
+  ADMIN: 'Администратор',
+  OPERATOR: 'Оператор',
+  SPECIALIST: 'Специалист',
+  CLIENT: 'Клиент',
+};
+
 function UserMenu() {
   const { t } = useLanguage();
+  const [me, setMe] = React.useState<{ firstName: string; lastName: string; email: string; role: string } | null>(null);
+
+  React.useEffect(() => {
+    fetch('/api/admin/users/me')
+      .then((r) => r.json())
+      .then((json) => { if (json.success) setMe(json.data); })
+      .catch(() => {});
+  }, []);
+
+  const fullName = me ? `${me.firstName} ${me.lastName}` : t('header.admin');
+  const roleLabel = me ? (ROLE_LABEL[me.role] ?? me.role) : t('header.role');
 
   const handleLogout = React.useCallback(async () => {
     try { await fetch('/api/auth/logout', { method: 'POST' }); } finally {
@@ -211,10 +230,10 @@ function UserMenu() {
           )}
           aria-label={t('header.profile')}
         >
-          <Avatar name="Admin User" size="sm" />
+          <Avatar name={fullName} size="sm" />
           <div className="hidden sm:flex flex-col items-start">
-            <span className="text-sm font-medium text-text-primary leading-tight">{t('header.admin')}</span>
-            <span className="text-[10px] text-text-tertiary uppercase tracking-wider">{t('header.role')}</span>
+            <span className="text-sm font-medium text-text-primary leading-tight">{fullName}</span>
+            <span className="text-[10px] text-text-tertiary uppercase tracking-wider">{roleLabel}</span>
           </div>
           <ChevronDown className="w-4 h-4 text-text-tertiary hidden sm:block" aria-hidden="true" />
         </button>
@@ -228,8 +247,8 @@ function UserMenu() {
           style={{ zIndex: 200 }}
         >
           <div className="px-3 py-2.5 border-b border-border-luxury">
-            <p className="text-sm font-medium text-text-primary">{t('header.admin')}</p>
-            <p className="text-xs text-text-tertiary mt-0.5">admin@shantelyur.ru</p>
+            <p className="text-sm font-medium text-text-primary">{fullName}</p>
+            <p className="text-xs text-text-tertiary mt-0.5">{me?.email ?? ''}</p>
           </div>
 
           <div className="p-1">
