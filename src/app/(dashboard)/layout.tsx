@@ -29,7 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const title = getTitle(pathname);
 
   return (
-    <div className="flex h-screen bg-obsidian overflow-hidden">
+    <div className="flex h-screen bg-[#F4F6FB] overflow-hidden">
       <Sidebar
         mobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
@@ -42,7 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           onMobileMenuOpen={() => setMobileMenuOpen(true)}
         />
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-hidden">
           {children}
         </main>
       </div>
