@@ -113,6 +113,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { clientId, specialistId, locationId, startAt, services, notes, source } = parsed.data;
+    const soldByUserId = req.headers.get('x-user-id') ?? undefined;
 
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
     const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
@@ -133,6 +134,7 @@ export async function POST(req: NextRequest) {
         totalDuration,
         notes,
         source,
+        soldByUserId,
         services: {
           create: services.map((s, i) => ({
             id: randomUUID(),

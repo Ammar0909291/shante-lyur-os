@@ -12,12 +12,12 @@ function apiError(message: string, status: number) {
 }
 
 export async function GET(req: NextRequest) {
-  const currentUserId = getCurrentUserId(req);
+  const currentUserId = getCurrentUserId(req) ?? req.headers.get('x-user-id');
   if (!currentUserId) return apiError('Unauthorized', 401);
 
-  // Get all unique conversation partners
+  // Get all unique conversation partners (exclude public channel where toUserId IS NULL)
   const sent = await prisma.internalMessage.findMany({
-    where: { fromUserId: currentUserId },
+    where: { fromUserId: currentUserId, toUserId: { not: null } },
     select: { toUserId: true, createdAt: true, body: true },
     orderBy: { createdAt: 'desc' },
     distinct: ['toUserId'],

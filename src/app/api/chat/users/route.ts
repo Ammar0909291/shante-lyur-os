@@ -13,14 +13,13 @@ function apiError(message: string, status: number) {
 }
 
 export async function GET(req: NextRequest) {
-  const currentUserId = getCurrentUserId(req);
+  const currentUserId = getCurrentUserId(req) ?? req.headers.get('x-user-id');
   if (!currentUserId) return apiError('Unauthorized', 401);
 
   const users = await prisma.user.findMany({
     where: {
       id: { not: currentUserId },
       role: { in: ['ADMIN', 'SPECIALIST', 'OPERATOR'] },
-      status: 'ACTIVE',
     },
     select: {
       id: true,

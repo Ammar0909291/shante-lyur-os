@@ -13,6 +13,7 @@ const PAGE_KEYS: Record<string, string> = {
   '/specialists': 'page.specialists',
   '/services': 'page.services',
   '/analytics': 'page.analytics',
+  '/sales': 'nav.sales',
   '/chat': 'nav.chat',
   '/settings': 'page.settings',
 };

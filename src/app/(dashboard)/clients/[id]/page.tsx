@@ -29,7 +29,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
   const { id } = await params;
 
   const [user, statusStats, topServiceRows] = await Promise.all([
-    prisma.user.findUnique({
+    prisma.user.findFirst({
       where: { id, role: 'CLIENT' },
       include: {
         customerProfile: {

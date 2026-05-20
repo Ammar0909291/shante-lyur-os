@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { MessageCircle, Send, Search, Circle } from 'lucide-react';
+import { MessageCircle, Send, Search, Circle, Globe } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -28,7 +28,7 @@ interface Conversation {
 interface Message {
   id: string;
   fromUserId: string;
-  toUserId: string;
+  toUserId: string | null;
   body: string;
   readAt: string | null;
   createdAt: string;
@@ -38,8 +38,11 @@ interface Message {
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: 'Администратор',
   SPECIALIST: 'Специалист',
-  RECEPTIONIST: 'Ресепшн',
+  OPERATOR: 'Оператор',
+  SUPER_ADMIN: 'Супер-администратор',
 };
+
+const PUBLIC_CHANNEL_ID = '__public__';
 
 function timeLabel(dateStr: string) {
   const d = new Date(dateStr);
@@ -62,13 +65,10 @@ export default function ChatPage() {
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Resolve current user from cookie via API
   React.useEffect(() => {
     fetch('/api/chat/users')
       .then((r) => r.json())
-      .then((json) => {
-        if (json.success) setStaff(json.data);
-      });
+      .then((json) => { if (json.success) setStaff(json.data); });
     fetchConversations();
   }, []);
 
@@ -81,11 +81,14 @@ export default function ChatPage() {
   const fetchMessages = React.useCallback(async (partnerId: string) => {
     setLoadingMessages(true);
     try {
-      const res = await fetch(`/api/chat/messages?with=${partnerId}`);
+      const url = partnerId === PUBLIC_CHANNEL_ID
+        ? '/api/chat/messages?channel=public'
+        : `/api/chat/messages?with=${partnerId}`;
+      const res = await fetch(url);
       const json = await res.json();
       if (json.success) {
         setMessages(json.data);
-        fetchConversations();
+        if (partnerId !== PUBLIC_CHANNEL_ID) fetchConversations();
       }
     } finally {
       setLoadingMessages(false);
@@ -100,7 +103,6 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // SSE for real-time messages
   React.useEffect(() => {
     const es = new EventSource('/api/chat/sse');
     es.onmessage = (e) => {
@@ -108,14 +110,12 @@ export default function ChatPage() {
         const payload = JSON.parse(e.data);
         if (payload.type === 'message') {
           const msg: Message = payload.message;
-          // If we're viewing this conversation, append it
-          if (
-            msg.fromUserId === activePartnerId ||
-            msg.toUserId === activePartnerId
-          ) {
+          const isPublic = msg.toUserId === null || payload.message?.channel === 'public';
+          if (isPublic && activePartnerId === PUBLIC_CHANNEL_ID) {
+            setMessages((prev) => [...prev, msg]);
+          } else if (!isPublic && (msg.fromUserId === activePartnerId || msg.toUserId === activePartnerId)) {
             setMessages((prev) => [...prev, msg]);
           }
-          // Update conversation list
           fetchConversations();
         }
       } catch {}
@@ -129,15 +129,16 @@ export default function ChatPage() {
     setDraft('');
     setSending(true);
     try {
+      const isPublic = activePartnerId === PUBLIC_CHANNEL_ID;
       const res = await fetch('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toUserId: activePartnerId, body }),
+        body: JSON.stringify(isPublic ? { body } : { toUserId: activePartnerId, body }),
       });
       const json = await res.json();
       if (json.success) {
         setMessages((prev) => [...prev, json.data]);
-        fetchConversations();
+        if (!isPublic) fetchConversations();
       }
     } finally {
       setSending(false);
@@ -157,7 +158,6 @@ export default function ChatPage() {
     setMessages([]);
   };
 
-  // Build merged partner list: existing conversations + all staff not yet in conversation
   const conversationPartnerIds = new Set(conversations.map((c) => c.partnerId));
   const staffNotInConversation = staff.filter((s) => !conversationPartnerIds.has(s.id));
 
@@ -171,31 +171,30 @@ export default function ChatPage() {
       )
     : staffNotInConversation;
 
-  const activePartner =
-    conversations.find((c) => c.partnerId === activePartnerId) ??
-    staff.find((s) => s.id === activePartnerId)
-      ? {
-          partnerName:
-            staff.find((s) => s.id === activePartnerId)
-              ? `${staff.find((s) => s.id === activePartnerId)!.firstName} ${staff.find((s) => s.id === activePartnerId)!.lastName}`
-              : '',
-          partnerRole: staff.find((s) => s.id === activePartnerId)?.role ?? '',
-          specialization: staff.find((s) => s.id === activePartnerId)?.specialization ?? null,
-          online: staff.find((s) => s.id === activePartnerId)?.online ?? false,
-        }
-      : null;
+  const activeStaff = staff.find((s) => s.id === activePartnerId);
+  const activeConv = conversations.find((c) => c.partnerId === activePartnerId);
+
+  const activePartnerName =
+    activePartnerId === PUBLIC_CHANNEL_ID ? 'Общий чат' :
+    activeConv?.partnerName ??
+    (activeStaff ? `${activeStaff.firstName} ${activeStaff.lastName}` : '');
+
+  const activePartnerSub =
+    activePartnerId === PUBLIC_CHANNEL_ID ? 'Все сотрудники' :
+    activeConv?.specialization ??
+    ROLE_LABEL[activeConv?.partnerRole ?? activeStaff?.role ?? ''] ?? '';
+
+  const activeIsOnline = activePartnerId !== PUBLIC_CHANNEL_ID && (activeStaff?.online ?? false);
 
   return (
     <div className="flex h-full animate-fade-in">
       {/* Sidebar */}
       <div className="w-72 shrink-0 border-r border-border-luxury flex flex-col">
-        {/* Header */}
         <div className="px-4 py-4 border-b border-border-luxury">
           <h2 className="font-serif text-lg font-medium text-text-primary">Чат сотрудников</h2>
           <p className="text-xs text-text-tertiary mt-0.5">Внутренняя переписка</p>
         </div>
 
-        {/* Search */}
         <div className="px-3 py-2 border-b border-border-luxury">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary" />
@@ -209,7 +208,26 @@ export default function ChatPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {/* Existing conversations */}
+          {/* Public channel — always at top when not searching */}
+          {!search && (
+            <button
+              onClick={() => openConversation(PUBLIC_CHANNEL_ID)}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-3 hover:bg-charcoal/60 transition-colors text-left border-b border-border-luxury',
+                activePartnerId === PUBLIC_CHANNEL_ID && 'bg-charcoal/80',
+              )}
+            >
+              <div className="w-8 h-8 rounded-full bg-champagne/10 flex items-center justify-center shrink-0">
+                <Globe className="w-4 h-4 text-champagne" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-primary">Общий чат</p>
+                <p className="text-xs text-text-tertiary">Все сотрудники</p>
+              </div>
+            </button>
+          )}
+
+          {/* Existing DM conversations */}
           {filteredConversations.map((c) => (
             <button
               key={c.partnerId}
@@ -253,7 +271,7 @@ export default function ChatPage() {
             </button>
           ))}
 
-          {/* Staff without conversation */}
+          {/* Staff without a DM yet */}
           {filteredStaff.length > 0 && (
             <>
               {filteredConversations.length > 0 && (
@@ -297,10 +315,10 @@ export default function ChatPage() {
             </>
           )}
 
-          {filteredConversations.length === 0 && filteredStaff.length === 0 && (
+          {filteredConversations.length === 0 && filteredStaff.length === 0 && search && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <MessageCircle className="w-8 h-8 text-text-tertiary" />
-              <p className="text-xs text-text-tertiary">Сотрудников нет</p>
+              <p className="text-xs text-text-tertiary">Сотрудников не найдено</p>
             </div>
           )}
         </div>
@@ -308,32 +326,32 @@ export default function ChatPage() {
 
       {/* Chat area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {activePartnerId && activePartner ? (
+        {activePartnerId ? (
           <>
-            {/* Partner header */}
             <div className="flex items-center gap-3 px-5 py-3.5 border-b border-border-luxury shrink-0">
-              <Avatar name={activePartner.partnerName} size="sm" />
+              {activePartnerId === PUBLIC_CHANNEL_ID ? (
+                <div className="w-8 h-8 rounded-full bg-champagne/10 flex items-center justify-center shrink-0">
+                  <Globe className="w-4 h-4 text-champagne" />
+                </div>
+              ) : (
+                <Avatar name={activePartnerName} size="sm" />
+              )}
               <div>
-                <p className="text-sm font-medium text-text-primary">{activePartner.partnerName}</p>
+                <p className="text-sm font-medium text-text-primary">{activePartnerName}</p>
                 <div className="flex items-center gap-1.5">
-                  {activePartner.online !== undefined && (
+                  {activePartnerId !== PUBLIC_CHANNEL_ID && (
                     <Circle
                       className={cn(
                         'w-1.5 h-1.5 fill-current',
-                        activePartner.online ? 'text-green-400' : 'text-text-tertiary',
+                        activeIsOnline ? 'text-green-400' : 'text-text-tertiary',
                       )}
                     />
                   )}
-                  <p className="text-xs text-text-tertiary">
-                    {activePartner.specialization ??
-                      ROLE_LABEL[activePartner.partnerRole] ??
-                      activePartner.partnerRole}
-                  </p>
+                  <p className="text-xs text-text-tertiary">{activePartnerSub}</p>
                 </div>
               </div>
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
               {loadingMessages ? (
                 <div className="flex justify-center pt-8">
@@ -342,7 +360,9 @@ export default function ChatPage() {
               ) : messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
                   <MessageCircle className="w-10 h-10 text-text-tertiary" />
-                  <p className="text-sm text-text-secondary">Начните переписку</p>
+                  <p className="text-sm text-text-secondary">
+                    {activePartnerId === PUBLIC_CHANNEL_ID ? 'Общий чат пуст' : 'Начните переписку'}
+                  </p>
                   <p className="text-xs text-text-tertiary">Напишите первое сообщение</p>
                 </div>
               ) : (
@@ -351,6 +371,14 @@ export default function ChatPage() {
                     key={msg.id}
                     className={cn('flex', msg.isOwn ? 'justify-end' : 'justify-start')}
                   >
+                    {!msg.isOwn && activePartnerId === PUBLIC_CHANNEL_ID && (
+                      <div className="w-7 h-7 rounded-full bg-charcoal border border-border-luxury flex items-center justify-center mr-2 mt-1 shrink-0 text-xs font-medium text-text-tertiary">
+                        {(() => {
+                          const s = staff.find((u) => u.id === msg.fromUserId);
+                          return s ? s.firstName[0] : '?';
+                        })()}
+                      </div>
+                    )}
                     <div
                       className={cn(
                         'max-w-[70%] px-3.5 py-2 rounded-2xl text-sm',
@@ -359,6 +387,14 @@ export default function ChatPage() {
                           : 'bg-charcoal text-text-primary rounded-bl-sm border border-border-luxury',
                       )}
                     >
+                      {!msg.isOwn && activePartnerId === PUBLIC_CHANNEL_ID && (
+                        <p className="text-[10px] font-semibold text-champagne mb-1">
+                          {(() => {
+                            const s = staff.find((u) => u.id === msg.fromUserId);
+                            return s ? `${s.firstName} ${s.lastName}` : 'Сотрудник';
+                          })()}
+                        </p>
+                      )}
                       <p className="whitespace-pre-wrap break-words">{msg.body}</p>
                       <p
                         className={cn(
@@ -376,7 +412,6 @@ export default function ChatPage() {
               <div ref={bottomRef} />
             </div>
 
-            {/* Input */}
             <div className="shrink-0 border-t border-border-luxury px-4 py-3">
               <div className="flex items-end gap-2">
                 <input
@@ -384,7 +419,7 @@ export default function ChatPage() {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Написать сообщение..."
+                  placeholder={activePartnerId === PUBLIC_CHANNEL_ID ? 'Написать в общий чат...' : 'Написать сообщение...'}
                   className="flex-1 px-3.5 py-2.5 rounded-xl text-sm bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all"
                 />
                 <button
@@ -409,7 +444,7 @@ export default function ChatPage() {
             </div>
             <div className="text-center">
               <p className="text-text-primary font-medium">Выберите собеседника</p>
-              <p className="text-sm text-text-tertiary mt-1">Выберите сотрудника слева для начала переписки</p>
+              <p className="text-sm text-text-tertiary mt-1">Или откройте общий чат сотрудников</p>
             </div>
           </div>
         )}

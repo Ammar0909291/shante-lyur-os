@@ -7,7 +7,7 @@ import { registerChatClient, unregisterChatClient } from '@/lib/chat-sse';
 const encoder = new TextEncoder();
 
 export async function GET(req: NextRequest) {
-  const userId = getCurrentUserId(req);
+  const userId = getCurrentUserId(req) ?? req.headers.get('x-user-id');
   if (!userId) {
     return new Response('Unauthorized', { status: 401 });
   }

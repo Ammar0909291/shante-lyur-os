@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings,
   MessageCircle,
+  ShoppingBag,
   ChevronLeft,
   ChevronRight,
   X,
@@ -32,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'nav.specialists', href: '/specialists', icon: Sparkles },
   { key: 'nav.services', href: '/services', icon: Flower2 },
   { key: 'nav.analytics', href: '/analytics', icon: BarChart3 },
+  { key: 'nav.sales', href: '/sales', icon: ShoppingBag },
   { key: 'nav.chat', href: '/chat', icon: MessageCircle },
   { key: 'nav.settings', href: '/settings', icon: Settings },
 ];
