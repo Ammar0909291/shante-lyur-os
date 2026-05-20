@@ -1,11 +1,27 @@
+'use client';
+
 import * as React from 'react';
 import { Users, Plus, Search, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
+import { CreateClientDialog } from '@/components/dialogs/create-client-dialog';
+import { ClientDetailDialog } from '@/components/dialogs/client-detail-dialog';
+import { apiGet } from '@/lib/api-client';
 
-const mockClients = [
+interface Client {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  visits: number;
+  totalSpent: number;
+  tier: string;
+  lastVisit: string;
+}
+
+const mockClients: Client[] = [
   { id: '1', name: 'Анна Соколова', email: 'a.sokolova@mail.ru', phone: '+7 (916) 123-45-67', visits: 24, totalSpent: 18600000, tier: 'GOLD', lastVisit: '15 мая 2025' },
   { id: '2', name: 'Елена Морозова', email: 'e.morozova@mail.ru', phone: '+7 (905) 234-56-78', visits: 18, totalSpent: 12400000, tier: 'SILVER', lastVisit: '12 мая 2025' },
   { id: '3', name: 'Светлана Ким', email: 's.kim@gmail.com', phone: '+7 (926) 345-67-89', visits: 7, totalSpent: 4200000, tier: 'BRONZE', lastVisit: '10 мая 2025' },
@@ -31,32 +47,49 @@ const tierLabels: Record<string, string> = {
 };
 
 export default function ClientsPage() {
+  const [clients, setClients] = React.useState<Client[]>(mockClients);
+  const [search, setSearch] = React.useState('');
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [selectedClient, setSelectedClient] = React.useState<Client | null>(null);
+
+  React.useEffect(() => {
+    apiGet<{ data: Client[] }>('/api/customers')
+      .then((res) => { if (res.data?.length) setClients(res.data); })
+      .catch(() => {/* use mock */});
+  }, []);
+
+  const filtered = clients.filter((c) =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.email.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone.includes(search),
+  );
+
+  function handleCreated() {
+    apiGet<{ data: Client[] }>('/api/customers')
+      .then((res) => { if (res.data?.length) setClients(res.data); })
+      .catch(() => {});
+  }
+
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">
-            Клиенты
-          </h2>
-          <p className="text-text-secondary mt-1 text-sm">
-            База клиентов студии
-          </p>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Клиенты</h2>
+          <p className="text-text-secondary mt-1 text-sm">База клиентов студии</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>
             Добавить клиента
           </Button>
         </div>
       </div>
 
-      {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Всего клиентов', value: '847' },
+          { label: 'Всего клиентов', value: clients.length.toString() },
           { label: 'Новых за месяц', value: '+23' },
-          { label: 'Активных', value: '612' },
-          { label: 'Среднее визитов', value: '8.4' },
+          { label: 'Активных', value: clients.filter((c) => c.visits > 0).length.toString() },
+          { label: 'Среднее визитов', value: clients.length ? (clients.reduce((s, c) => s + c.visits, 0) / clients.length).toFixed(1) : '0' },
         ].map(({ label, value }) => (
           <div key={label} className="bg-onyx border border-border-luxury rounded-xl px-4 py-3">
             <p className="text-xs text-text-tertiary">{label}</p>
@@ -65,26 +98,24 @@ export default function ClientsPage() {
         ))}
       </div>
 
-      {/* Client list */}
       <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-champagne" />
-            <h3 className="font-serif text-base font-medium text-text-primary">
-              Все клиенты
-            </h3>
+            <h3 className="font-serif text-base font-medium text-text-primary">Все клиенты</h3>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary" />
             <input
               type="search"
               placeholder="Поиск клиента..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="bg-charcoal border border-border-luxury rounded-lg pl-8 pr-3 py-1.5 text-xs text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-1 focus:ring-champagne/40 w-44"
             />
           </div>
         </div>
 
-        {/* Desktop table */}
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -98,8 +129,12 @@ export default function ClientsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-luxury">
-              {mockClients.map((client) => (
-                <tr key={client.id} className="hover:bg-charcoal/50 transition-colors cursor-pointer">
+              {filtered.map((client) => (
+                <tr
+                  key={client.id}
+                  className="hover:bg-charcoal/50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedClient(client)}
+                >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <Avatar name={client.name} size="sm" />
@@ -121,14 +156,24 @@ export default function ClientsPage() {
                   <td className="px-4 py-4 text-text-secondary text-xs">{client.lastVisit}</td>
                 </tr>
               ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-text-tertiary text-sm">
+                    Клиенты не найдены
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Mobile list */}
         <div className="sm:hidden divide-y divide-border-luxury">
-          {mockClients.map((client) => (
-            <div key={client.id} className="px-4 py-4 flex items-center gap-3">
+          {filtered.map((client) => (
+            <div
+              key={client.id}
+              className="px-4 py-4 flex items-center gap-3 cursor-pointer hover:bg-charcoal/50 transition-colors"
+              onClick={() => setSelectedClient(client)}
+            >
               <Avatar name={client.name} size="sm" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
@@ -141,6 +186,14 @@ export default function ClientsPage() {
           ))}
         </div>
       </div>
+
+      <CreateClientDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={handleCreated} />
+      <ClientDetailDialog
+        client={selectedClient}
+        open={!!selectedClient}
+        onOpenChange={(o) => { if (!o) setSelectedClient(null); }}
+        onChanged={handleCreated}
+      />
     </div>
   );
 }

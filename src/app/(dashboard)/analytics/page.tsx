@@ -1,40 +1,23 @@
-import * as React from 'react';
-import { BarChart3, TrendingUp, TrendingDown, Users, Calendar } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+'use client';
 
-const kpiCards = [
-  {
-    title: 'Выручка за май',
-    value: formatCurrency(48200000),
-    change: '+14%',
-    positive: true,
-    subtitle: 'vs апрель',
-    icon: TrendingUp,
-  },
-  {
-    title: 'Записей за май',
-    value: '312',
-    change: '+8%',
-    positive: true,
-    subtitle: 'vs апрель',
-    icon: Calendar,
-  },
-  {
-    title: 'Новых клиентов',
-    value: '47',
-    change: '-3%',
-    positive: false,
-    subtitle: 'vs апрель',
-    icon: Users,
-  },
-  {
-    title: 'Средний чек',
-    value: formatCurrency(154500),
-    change: '+6%',
-    positive: true,
-    subtitle: 'vs апрель',
-    icon: TrendingUp,
-  },
+import * as React from 'react';
+import { BarChart3, TrendingUp, TrendingDown, Users, Calendar, Download } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { apiGet } from '@/lib/api-client';
+import { toast } from '@/hooks/use-toast';
+
+const periods = [
+  { value: '2025-05', label: 'Май 2025' },
+  { value: '2025-04', label: 'Апрель 2025' },
+  { value: '2025-03', label: 'Март 2025' },
+];
+
+const defaultKpi = [
+  { title: 'Выручка за май', value: formatCurrency(48200000), change: '+14%', positive: true, subtitle: 'vs апрель', icon: TrendingUp },
+  { title: 'Записей за май', value: '312', change: '+8%', positive: true, subtitle: 'vs апрель', icon: Calendar },
+  { title: 'Новых клиентов', value: '47', change: '-3%', positive: false, subtitle: 'vs апрель', icon: Users },
+  { title: 'Средний чек', value: formatCurrency(154500), change: '+6%', positive: true, subtitle: 'vs апрель', icon: TrendingUp },
 ];
 
 const revenueByWeek = [
@@ -60,32 +43,60 @@ const topSpecialists = [
 ];
 
 export default function AnalyticsPage() {
-  const maxRevenue = Math.max(...revenueByWeek.map((w) => w.revenue));
+  const [period, setPeriod] = React.useState('2025-05');
+  const [weekData, setWeekData] = React.useState(revenueByWeek);
+  const maxRevenue = Math.max(...weekData.map((w) => w.revenue));
+
+  React.useEffect(() => {
+    const [year, month] = period.split('-');
+    apiGet<{ data: typeof revenueByWeek }>(`/api/admin/revenue?year=${year}&month=${month}`)
+      .then((res) => { if (res.data?.length) setWeekData(res.data); })
+      .catch(() => setWeekData(revenueByWeek));
+  }, [period]);
+
+  function handleExport() {
+    const rows = [
+      ['Неделя', 'Выручка (коп.)', 'Записей'],
+      ...weekData.map((w) => [w.week, w.revenue, w.appointments]),
+    ];
+    const csv = rows.map((r) => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analytics-${period}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Файл загружен');
+  }
+
+  const periodLabel = periods.find((p) => p.value === period)?.label ?? period;
 
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">
-            Аналитика
-          </h2>
-          <p className="text-text-secondary mt-1 text-sm">
-            Показатели студии — май 2025
-          </p>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Аналитика</h2>
+          <p className="text-text-secondary mt-1 text-sm">Показатели студии — {periodLabel}</p>
         </div>
         <div className="flex items-center gap-2">
-          <select className="bg-charcoal border border-border-luxury rounded-lg px-3 py-1.5 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-champagne/40">
-            <option>Май 2025</option>
-            <option>Апрель 2025</option>
-            <option>Март 2025</option>
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            className="bg-charcoal border border-border-luxury rounded-lg px-3 py-1.5 text-xs text-text-secondary focus:outline-none focus:ring-1 focus:ring-champagne/40"
+          >
+            {periods.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
           </select>
+          <Button variant="secondary" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />} onClick={handleExport}>
+            Экспорт
+          </Button>
         </div>
       </div>
 
-      {/* KPI cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {kpiCards.map(({ title, value, change, positive, subtitle, icon: Icon }) => (
+        {defaultKpi.map(({ title, value, change, positive, subtitle, icon: Icon }) => (
           <div key={title} className="bg-onyx border border-border-luxury rounded-2xl p-5">
             <div className="flex items-start justify-between">
               <div>
@@ -93,7 +104,7 @@ export default function AnalyticsPage() {
                 <p className="text-2xl font-semibold text-text-primary mt-1">{value}</p>
               </div>
               <div className="w-9 h-9 rounded-xl bg-champagne/8 flex items-center justify-center shrink-0">
-                <Icon className="w-4.5 h-4.5 text-champagne" />
+                <Icon className="w-4 h-4 text-champagne" />
               </div>
             </div>
             <div className="flex items-center gap-1.5 mt-3">
@@ -102,9 +113,7 @@ export default function AnalyticsPage() {
               ) : (
                 <TrendingDown className="w-3.5 h-3.5 text-red-400" />
               )}
-              <span className={`text-xs font-medium ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
-                {change}
-              </span>
+              <span className={`text-xs font-medium ${positive ? 'text-emerald-400' : 'text-red-400'}`}>{change}</span>
               <span className="text-xs text-text-tertiary">{subtitle}</span>
             </div>
           </div>
@@ -112,15 +121,14 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {/* Weekly revenue chart */}
         <div className="xl:col-span-2 bg-onyx border border-border-luxury rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-5">
             <BarChart3 className="w-4 h-4 text-champagne" />
             <h3 className="font-serif text-base font-medium text-text-primary">Выручка по неделям</h3>
           </div>
           <div className="flex items-end gap-4 h-40">
-            {revenueByWeek.map((week) => {
-              const heightPct = Math.round((week.revenue / maxRevenue) * 100);
+            {weekData.map((week) => {
+              const heightPct = maxRevenue > 0 ? Math.round((week.revenue / maxRevenue) * 100) : 0;
               return (
                 <div key={week.week} className="flex-1 flex flex-col items-center gap-2">
                   <span className="text-xs text-text-tertiary">{formatCurrency(week.revenue)}</span>
@@ -138,7 +146,6 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Top specialists */}
         <div className="bg-onyx border border-border-luxury rounded-2xl p-5">
           <h3 className="font-serif text-base font-medium text-text-primary mb-4">Топ специалистов</h3>
           <div className="space-y-3">
@@ -158,7 +165,6 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Top services */}
       <div className="bg-onyx border border-border-luxury rounded-2xl p-5">
         <h3 className="font-serif text-base font-medium text-text-primary mb-4">Топ услуг по выручке</h3>
         <div className="space-y-3">
@@ -166,15 +172,10 @@ export default function AnalyticsPage() {
             <div key={service.name} className="flex items-center gap-4">
               <span className="text-xs text-text-secondary w-40 shrink-0 truncate">{service.name}</span>
               <div className="flex-1 bg-charcoal rounded-full h-2 overflow-hidden">
-                <div
-                  className="h-full luxury-gradient rounded-full"
-                  style={{ width: `${service.share}%` }}
-                />
+                <div className="h-full luxury-gradient rounded-full" style={{ width: `${service.share}%` }} />
               </div>
               <span className="text-xs text-text-tertiary w-8 text-right shrink-0">{service.share}%</span>
-              <span className="text-xs font-medium text-text-primary w-24 text-right shrink-0">
-                {formatCurrency(service.revenue)}
-              </span>
+              <span className="text-xs font-medium text-text-primary w-24 text-right shrink-0">{formatCurrency(service.revenue)}</span>
             </div>
           ))}
         </div>
