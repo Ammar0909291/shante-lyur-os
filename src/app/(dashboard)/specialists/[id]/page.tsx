@@ -183,7 +183,7 @@ export default async function SpecialistProfilePage({ params }: { params: Promis
             {allStatusStats.map((s) => (
               <div key={s.status} className="bg-onyx px-5 py-4">
                 <p className="text-lg font-semibold text-text-primary tabular-nums">{s._count.id}</p>
-                <p className="text-xs text-text-tertiary mt-0.5">{STATUS_LABEL[s.status] ?? s.status}</p>
+                <p className="text-xs text-text-tertiary mt-0.5">{getAppointmentStatusLabel(s.status)}</p>
               </div>
             ))}
           </div>
