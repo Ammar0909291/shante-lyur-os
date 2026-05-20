@@ -11,6 +11,7 @@ import {
   SpecialistDetailDialog,
   type SpecialistLike,
 } from '@/components/dialogs/specialist-dialogs';
+import { useT } from '@/lib/i18n-context';
 
 const mockSpecialists: SpecialistLike[] = [
   { id: '1', name: 'Мария Петрова', specialization: 'Косметолог-эстетист', rating: 4.9, reviews: 124, appointmentsMonth: 68, status: 'ACTIVE', services: ['Гиалуроновый лифтинг', 'Пилинг', 'Биоревитализация'] },
@@ -36,6 +37,7 @@ export default function SpecialistsPage() {
   const [specialists, setSpecialists] = React.useState<SpecialistLike[]>(mockSpecialists);
   const [createOpen, setCreateOpen] = React.useState(false);
   const [selected, setSelected] = React.useState<SpecialistLike | null>(null);
+  const t = useT();
 
   React.useEffect(() => {
     apiGet<{ data: SpecialistLike[] }>('/api/specialists')
@@ -53,11 +55,11 @@ export default function SpecialistsPage() {
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Специалисты</h2>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('page.specialists')}</h2>
           <p className="text-text-secondary mt-1 text-sm">Команда студии Shante Lyur</p>
         </div>
         <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>
-          Добавить специалиста
+          {t('btn.addSpecialist')}
         </Button>
       </div>
 

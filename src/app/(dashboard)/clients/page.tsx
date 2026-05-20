@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Users, Plus, Search, Star } from 'lucide-react';
+import { Users, Plus, Search, Star, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,8 @@ import { formatCurrency } from '@/lib/utils';
 import { CreateClientDialog } from '@/components/dialogs/create-client-dialog';
 import { ClientDetailDialog } from '@/components/dialogs/client-detail-dialog';
 import { apiGet } from '@/lib/api-client';
+import { useT } from '@/lib/i18n-context';
+import * as XLSX from 'xlsx';
 
 interface Client {
   id: string;
@@ -51,6 +53,7 @@ export default function ClientsPage() {
   const [search, setSearch] = React.useState('');
   const [createOpen, setCreateOpen] = React.useState(false);
   const [selectedClient, setSelectedClient] = React.useState<Client | null>(null);
+  const t = useT();
 
   React.useEffect(() => {
     apiGet<{ data: Client[] }>('/api/customers')
@@ -70,16 +73,29 @@ export default function ClientsPage() {
       .catch(() => {});
   }
 
+  function handleExportXlsx() {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Имя', 'Email', 'Телефон', 'Визитов', 'Потрачено (₽)', 'Уровень', 'Последний визит'],
+      ...filtered.map((c) => [c.name, c.email, c.phone, c.visits, (c.totalSpent / 100).toFixed(2), tierLabels[c.tier] ?? c.tier, c.lastVisit]),
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Клиенты');
+    XLSX.writeFile(wb, 'clients.xlsx');
+  }
+
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Клиенты</h2>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('page.clients')}</h2>
           <p className="text-text-secondary mt-1 text-sm">База клиентов студии</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <Button variant="secondary" size="sm" leftIcon={<Download className="w-4 h-4" />} onClick={handleExportXlsx}>
+            {t('btn.export')}
+          </Button>
           <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>
-            Добавить клиента
+            {t('btn.addClient')}
           </Button>
         </div>
       </div>

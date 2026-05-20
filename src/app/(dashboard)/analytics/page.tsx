@@ -6,6 +6,8 @@ import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { apiGet } from '@/lib/api-client';
 import { toast } from '@/hooks/use-toast';
+import { useT } from '@/lib/i18n-context';
+import * as XLSX from 'xlsx';
 
 const periods = [
   { value: '2025-05', label: 'Май 2025' },
@@ -46,6 +48,7 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = React.useState('2025-05');
   const [weekData, setWeekData] = React.useState(revenueByWeek);
   const maxRevenue = Math.max(...weekData.map((w) => w.revenue));
+  const t = useT();
 
   React.useEffect(() => {
     const [year, month] = period.split('-');
@@ -55,18 +58,13 @@ export default function AnalyticsPage() {
   }, [period]);
 
   function handleExport() {
-    const rows = [
-      ['Неделя', 'Выручка (коп.)', 'Записей'],
-      ...weekData.map((w) => [w.week, w.revenue, w.appointments]),
-    ];
-    const csv = rows.map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `analytics-${period}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Неделя', 'Выручка (₽)', 'Записей'],
+      ...weekData.map((w) => [w.week, (w.revenue / 100).toFixed(2), w.appointments]),
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws, 'Аналитика');
+    XLSX.writeFile(wb, `analytics-${period}.xlsx`);
     toast.success('Файл загружен');
   }
 
@@ -76,7 +74,7 @@ export default function AnalyticsPage() {
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Аналитика</h2>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('page.analytics')}</h2>
           <p className="text-text-secondary mt-1 text-sm">Показатели студии — {periodLabel}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -90,7 +88,7 @@ export default function AnalyticsPage() {
             ))}
           </select>
           <Button variant="secondary" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />} onClick={handleExport}>
-            Экспорт
+            {t('btn.export')}
           </Button>
         </div>
       </div>

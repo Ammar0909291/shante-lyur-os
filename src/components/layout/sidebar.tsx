@@ -16,21 +16,22 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n-context';
 
 interface NavItem {
-  label: string;
+  labelKey: Parameters<ReturnType<typeof useT>>[0];
   href: string;
   icon: React.ElementType;
 }
 
 const navItems: NavItem[] = [
-  { label: 'Дашборд', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Записи', href: '/bookings', icon: Calendar },
-  { label: 'Клиенты', href: '/clients', icon: Users },
-  { label: 'Специалисты', href: '/specialists', icon: Sparkles },
-  { label: 'Услуги', href: '/services', icon: Flower2 },
-  { label: 'Аналитика', href: '/analytics', icon: BarChart3 },
-  { label: 'Настройки', href: '/settings', icon: Settings },
+  { labelKey: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { labelKey: 'nav.bookings', href: '/bookings', icon: Calendar },
+  { labelKey: 'nav.clients', href: '/clients', icon: Users },
+  { labelKey: 'nav.specialists', href: '/specialists', icon: Sparkles },
+  { labelKey: 'nav.services', href: '/services', icon: Flower2 },
+  { labelKey: 'nav.analytics', href: '/analytics', icon: BarChart3 },
+  { labelKey: 'nav.settings', href: '/settings', icon: Settings },
 ];
 
 interface SidebarProps {
@@ -41,6 +42,7 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(false);
+  const t = useT();
 
   return (
     <>
@@ -127,7 +129,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Основная навигация">
-          {navItems.map(({ label, href, icon: Icon }) => {
+          {navItems.map(({ labelKey, href, icon: Icon }) => {
+            const label = t(labelKey);
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link

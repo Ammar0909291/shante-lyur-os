@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
 import { apiGet } from '@/lib/api-client';
 import { ServiceFormDialog, type ServiceLike } from '@/components/dialogs/service-dialogs';
+import { useT } from '@/lib/i18n-context';
 
 const categories = [
   { id: 'all', label: 'Все' },
@@ -44,6 +45,7 @@ export default function ServicesPage() {
   const [activeCategory, setActiveCategory] = React.useState('all');
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editService, setEditService] = React.useState<ServiceLike | null>(null);
+  const t = useT();
 
   React.useEffect(() => {
     apiGet<{ data: ServiceLike[] }>('/api/services')
@@ -67,11 +69,11 @@ export default function ServicesPage() {
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Услуги</h2>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('page.services')}</h2>
           <p className="text-text-secondary mt-1 text-sm">Каталог услуг студии</p>
         </div>
         <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateOpen(true)}>
-          Добавить услугу
+          {t('btn.addService')}
         </Button>
       </div>
 

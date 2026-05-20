@@ -4,27 +4,29 @@ import * as React from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
+import { LangProvider, useT } from '@/lib/i18n-context';
 
-const pageTitles: Record<string, string> = {
-  '/dashboard': 'Дашборд',
-  '/bookings': 'Записи',
-  '/clients': 'Клиенты',
-  '/specialists': 'Специалисты',
-  '/services': 'Услуги',
-  '/analytics': 'Аналитика',
-  '/settings': 'Настройки',
+const pageKeys: Record<string, Parameters<ReturnType<typeof useT>>[0]> = {
+  '/dashboard': 'page.dashboard',
+  '/bookings': 'page.bookings',
+  '/clients': 'page.clients',
+  '/specialists': 'page.specialists',
+  '/services': 'page.services',
+  '/analytics': 'page.analytics',
+  '/settings': 'page.settings',
 };
 
-function getTitle(pathname: string): string {
-  for (const [route, title] of Object.entries(pageTitles)) {
-    if (pathname === route || pathname.startsWith(`${route}/`)) return title;
-  }
-  return 'Shante Lyur';
-}
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const t = useT();
+
+  function getTitle(path: string): string {
+    for (const [route, key] of Object.entries(pageKeys)) {
+      if (path === route || path.startsWith(`${route}/`)) return t(key);
+    }
+    return 'Shante Lyur';
+  }
 
   const title = getTitle(pathname);
 
@@ -47,5 +49,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <LangProvider>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </LangProvider>
   );
 }

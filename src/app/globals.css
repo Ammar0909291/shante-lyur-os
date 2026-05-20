@@ -39,6 +39,23 @@
   --color-info: #7898C4;
 }
 
+/* ─── Light Mode Overrides ───────────────────────────────────────────── */
+html.light {
+  --color-obsidian: #F8F5F0;
+  --color-onyx: #FFFFFF;
+  --color-charcoal: #F0EBE3;
+  --color-text-primary: #1A1A2E;
+  --color-text-secondary: #4A4A5E;
+  --color-text-tertiary: #7A7A8E;
+  --color-border: #D4C8B8;
+  --color-border-light: #C4B8A8;
+}
+
+html.light body {
+  background-color: var(--color-obsidian);
+  color: var(--color-text-primary);
+}
+
 /* ─── Base Styles ────────────────────────────────────────────────────── */
 @layer base {
   *,

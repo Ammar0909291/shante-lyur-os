@@ -2,11 +2,12 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Menu, LogOut, User, ChevronDown } from 'lucide-react';
+import { Bell, Menu, LogOut, User, ChevronDown, Sun, Moon } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
+import { useLang } from '@/lib/i18n-context';
 
 interface HeaderProps {
   title: string;
@@ -108,6 +109,60 @@ function NotificationBell() {
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
+  );
+}
+
+function ThemeToggle() {
+  const [dark, setDark] = React.useState(true);
+
+  React.useEffect(() => {
+    const stored = localStorage.getItem('theme');
+    const isDark = stored ? stored === 'dark' : true;
+    setDark(isDark);
+    document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.classList.toggle('light', !isDark);
+  }, []);
+
+  function toggle() {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle('dark', next);
+    document.documentElement.classList.toggle('light', !next);
+    localStorage.setItem('theme', next ? 'dark' : 'light');
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className={cn(
+        'p-2.5 rounded-xl',
+        'text-text-secondary hover:text-text-primary hover:bg-charcoal',
+        'transition-all duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
+      )}
+      aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+    </button>
+  );
+}
+
+function LangToggle() {
+  const { lang, setLang } = useLang();
+
+  return (
+    <button
+      onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+      className={cn(
+        'px-2 py-1.5 rounded-xl text-xs font-medium',
+        'text-text-secondary hover:text-text-primary hover:bg-charcoal',
+        'transition-all duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
+      )}
+      aria-label="Switch language"
+    >
+      {lang === 'ru' ? 'RU' : 'EN'}
+    </button>
   );
 }
 
@@ -236,6 +291,8 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
           </div>
         )}
 
+        <LangToggle />
+        <ThemeToggle />
         <NotificationBell />
         <div className="w-px h-6 bg-border-luxury mx-1 hidden sm:block" aria-hidden="true" />
         <UserMenu />

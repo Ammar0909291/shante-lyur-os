@@ -9,6 +9,7 @@ import { formatTime, formatDate, formatCurrency, cn } from '@/lib/utils';
 import { CreateAppointmentDialog } from '@/components/dialogs/create-appointment-dialog';
 import { AppointmentDetailDialog, type AppointmentLike } from '@/components/dialogs/appointment-detail-dialog';
 import { apiGet } from '@/lib/api-client';
+import { useT } from '@/lib/i18n-context';
 
 interface Booking {
   id: string;
@@ -36,13 +37,7 @@ const mockBookings: Booking[] = [
 const STATUSES = ['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'] as const;
 type StatusFilter = typeof STATUSES[number];
 
-const statusLabels: Record<StatusFilter, string> = {
-  ALL: 'Все',
-  PENDING: 'Ожидание',
-  CONFIRMED: 'Подтверждено',
-  COMPLETED: 'Завершено',
-  CANCELLED: 'Отменено',
-};
+// statusLabels is now computed dynamically via t() in the component
 
 interface ApiAppointment {
   id: string;
@@ -83,6 +78,15 @@ export default function BookingsPage() {
   const [showCreate, setShowCreate] = React.useState(false);
   const [selected, setSelected] = React.useState<AppointmentLike | null>(null);
   const [showFilters, setShowFilters] = React.useState(false);
+  const t = useT();
+
+  const statusLabels: Record<StatusFilter, string> = {
+    ALL: t('filter.all'),
+    PENDING: t('filter.pending'),
+    CONFIRMED: t('filter.confirmed'),
+    COMPLETED: t('filter.completed'),
+    CANCELLED: t('filter.cancelled'),
+  };
 
   const load = React.useCallback(async () => {
     try {
@@ -110,15 +114,15 @@ export default function BookingsPage() {
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Записи</h2>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('page.bookings')}</h2>
           <p className="text-text-secondary mt-1 text-sm">Управление записями клиентов</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="secondary" size="sm" leftIcon={<Filter className="w-4 h-4" />} onClick={() => setShowFilters((v) => !v)}>
-            Фильтры
+            {t('btn.filters')}
           </Button>
           <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
-            Новая запись
+            {t('btn.newBooking')}
           </Button>
         </div>
       </div>

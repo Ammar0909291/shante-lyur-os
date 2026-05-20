@@ -131,11 +131,8 @@ export function SpecialistDetailDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="secondary" size="sm" onClick={() => toast('Раздел в разработке')}>
-            Расписание
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => toast('Редактирование скоро будет доступно')}>
-            Редактировать
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+            Закрыть
           </Button>
         </DialogFooter>
       </DialogContent>
