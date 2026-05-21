@@ -12,14 +12,12 @@
  *   ✓  Duplicate email returns 409 (no double-creation)
  *   ✓  Missing required fields return 400
  *   ✓  Color from browser color picker (lowercase hex) is accepted
- *   ✗  BUG: POST response is missing `specialistType` field
+ *   ✓  BUG-001 (FIXED): POST response now includes `specialistType` field
  *      The booking wizard reads `specialistType` from specialist objects.
- *      When the UI re-fetches via GET after creation the field is present,
- *      but any code path that uses the POST response directly will silently
- *      receive undefined for this field.
- *   ✗  BUG: POST response is missing `allowedServiceIds` field
- *      Same root cause: POST response shape is a subset of GET response shape.
- *      Components that depend on a uniform specialist shape will break.
+ *      Fixed: POST handler now calls deriveSpecialistType() and includes the field.
+ *   ✓  BUG-001 (FIXED): POST response now includes `allowedServiceIds` field
+ *      Fixed: POST handler now returns `allowedServiceIds: []` for new specialists,
+ *      matching the shape returned by GET /api/specialists.
  */
 
 import { NextRequest } from 'next/server';
@@ -173,21 +171,7 @@ describe('POST /api/specialists — Specialist Creation', () => {
     expect(res.status).toBe(400);
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BUG EXPOSURE TEST #1 — POST response missing `specialistType`
-  //
-  // The booking wizard (src/app/(dashboard)/bookings/page.tsx) reads
-  // `specialist.specialistType` to filter services by category.
-  // GET /api/specialists returns this field.
-  // POST /api/specialists does NOT return this field.
-  //
-  // Any code that uses the POST response directly (instead of re-fetching via GET)
-  // will receive `undefined` for specialistType, causing silent service-filtering
-  // failures in the booking flow for newly-created specialists.
-  //
-  // EXPECTED: this test FAILS until the POST response is fixed to include
-  // `specialistType` (or the architecture is changed to always use GET data).
-  // ─────────────────────────────────────────────────────────────────────────────
+  // BUG-001 (FIXED) — POST response must include `specialistType`
   it('BUG: POST response includes specialistType needed by booking wizard', async () => {
     const body = makeCreateSpecialistBody({ specialization: 'Массажист SPA' });
     const user = makeSpecialistUser({ email: body.email, firstName: body.firstName, lastName: body.lastName });
@@ -206,14 +190,7 @@ describe('POST /api/specialists — Specialist Creation', () => {
     expect(['MASSAGE', 'COSMETOLOGY']).toContain(json.data.specialistType);
   });
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // BUG EXPOSURE TEST #2 — POST response missing `allowedServiceIds`
-  //
-  // The GET response always includes `allowedServiceIds: string[]`.
-  // The POST response does not include this field.
-  // Any component/hook that treats specialist objects as interchangeable
-  // (POST result vs GET list item) will encounter `undefined` for this field.
-  // ─────────────────────────────────────────────────────────────────────────────
+  // BUG-001 (FIXED) — POST response must include `allowedServiceIds`
   it('BUG: POST response includes allowedServiceIds for shape consistency with GET', async () => {
     const body = makeCreateSpecialistBody();
     const user = makeSpecialistUser({ email: body.email, firstName: body.firstName, lastName: body.lastName });
@@ -301,5 +278,70 @@ describe('GET /api/specialists → includes newly created specialist', () => {
     expect(json.data.page).toBe(2);
     expect(json.data.limit).toBe(10);
     expect(json.data.total).toBe(30);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REGRESSION LOCK — POST shape === GET /api/specialists list-item shape
+//
+// Guards against future regressions where a field is added to GET but not POST
+// (or vice-versa). Uses the same factory data for both calls so that field
+// values are identical, then strips timestamps before deep comparison.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Shape contract: POST response === GET /api/specialists list item', () => {
+  it('every field returned by POST is present on the GET list item with the same value', async () => {
+    const body = makeCreateSpecialistBody({ specialization: 'Массажист SPA' });
+    const user = makeSpecialistUser({ email: body.email, firstName: body.firstName, lastName: body.lastName });
+    const specialist = makeSpecialistRow(
+      user.id,
+      { firstName: user.firstName, lastName: user.lastName, email: user.email },
+      { specialization: 'Массажист SPA' },
+    );
+
+    // ── POST ──────────────────────────────────────────────────────────────────
+    mockFindUnique.mockResolvedValueOnce(null);
+    mockTransaction.mockResolvedValueOnce([user, specialist]);
+    const postRes = await POST(postReq(body));
+    const postJson = await postRes.json();
+    expect(postRes.status).toBe(201);
+
+    // ── GET (list, same underlying row) ───────────────────────────────────────
+    mockFindMany.mockResolvedValueOnce([
+      { ...specialist, user: { firstName: user.firstName, lastName: user.lastName, email: user.email }, services: [] },
+    ]);
+    mockCount.mockResolvedValueOnce(1);
+    const getRes = await GET(getReq({ status: 'ACTIVE' }));
+    const getJson = await getRes.json();
+    expect(getRes.status).toBe(200);
+    const getItem = getJson.data.items[0];
+
+    // Strip timestamps — both serialize the same Date but let's be explicit
+    // about what this test is and is not asserting.
+    const { createdAt: _postTs, ...postData } = postJson.data as Record<string, unknown>;
+    const { createdAt: _getTs,  ...getData  } = getItem   as Record<string, unknown>;
+
+    expect(postData).toEqual(getData);
+  });
+
+  it('POST response contains no extra keys absent from GET list item', async () => {
+    const body = makeCreateSpecialistBody();
+    const user = makeSpecialistUser({ email: body.email, firstName: body.firstName, lastName: body.lastName });
+    const specialist = makeSpecialistRow(user.id, { firstName: user.firstName, lastName: user.lastName, email: user.email });
+
+    mockFindUnique.mockResolvedValueOnce(null);
+    mockTransaction.mockResolvedValueOnce([user, specialist]);
+    const postRes = await POST(postReq(body));
+    const postData = (await postRes.json()).data as Record<string, unknown>;
+
+    mockFindMany.mockResolvedValueOnce([
+      { ...specialist, user: { firstName: user.firstName, lastName: user.lastName, email: user.email }, services: [] },
+    ]);
+    mockCount.mockResolvedValueOnce(1);
+    const getRes = await GET(getReq({ status: 'ACTIVE' }));
+    const getItem = (await getRes.json()).data.items[0] as Record<string, unknown>;
+
+    const postKeys = Object.keys(postData).sort();
+    const getKeys  = Object.keys(getItem).sort();
+    expect(postKeys).toEqual(getKeys);
   });
 });
