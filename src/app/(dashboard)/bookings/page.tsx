@@ -2,12 +2,21 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Calendar as CalendarIcon, Plus, X, Search, ChevronDown, Download, Filter } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, X, Search, ChevronDown, Download, Filter, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { Calendar } from '@/components/ui/calendar';
 import { cn, formatTime, formatCurrency } from '@/lib/utils';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
 
 interface Booking {
   id: string;
@@ -19,6 +28,7 @@ interface Booking {
   locationName: string;
   startAt: string;
   endAt: string;
+  createdAt: string;
   status: string;
   totalPrice: number;
   totalDuration: number;
@@ -97,6 +107,66 @@ function timeOptions() {
 const TIME_OPTIONS = timeOptions();
 const LIMIT = 50;
 
+const ANALYTICS_PERIODS = [
+  { value: 'week', label: 'Неделя' },
+  { value: 'month', label: 'Месяц' },
+  { value: 'year', label: 'Год' },
+] as const;
+type AnalyticsPeriod = (typeof ANALYTICS_PERIODS)[number]['value'];
+
+interface ChartPoint { label: string; bookings: number; revenue: number; }
+
+function buildAnalyticsQuery(period: AnalyticsPeriod): URLSearchParams {
+  const q = new URLSearchParams();
+  q.set('limit', '1000');
+  const now = new Date();
+  const ymd = (d: Date) => d.toISOString().split('T')[0];
+  if (period === 'week') {
+    const mon = new Date(now); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+    const sun = new Date(mon); sun.setDate(sun.getDate() + 6);
+    q.set('from', ymd(mon) + 'T00:00:00.000Z');
+    q.set('to', ymd(sun) + 'T23:59:59.999Z');
+  } else if (period === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    q.set('from', ymd(start) + 'T00:00:00.000Z');
+    q.set('to', ymd(end) + 'T23:59:59.999Z');
+  } else {
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear(), 11, 31);
+    q.set('from', ymd(start) + 'T00:00:00.000Z');
+    q.set('to', ymd(end) + 'T23:59:59.999Z');
+  }
+  return q;
+}
+
+function aggregateChartData(bookings: Booking[], period: AnalyticsPeriod): ChartPoint[] {
+  const map = new Map<string, { bookings: number; revenue: number }>();
+
+  for (const b of bookings) {
+    const d = new Date(b.startAt);
+    let key: string;
+    if (period === 'week') {
+      const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+      key = days[(d.getDay() + 6) % 7];
+    } else if (period === 'month') {
+      key = String(d.getDate()).padStart(2, '0');
+    } else {
+      key = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][d.getMonth()];
+    }
+    const cur = map.get(key) ?? { bookings: 0, revenue: 0 };
+    map.set(key, { bookings: cur.bookings + 1, revenue: cur.revenue + b.totalPrice });
+  }
+
+  if (period === 'week') {
+    return ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map((l) => ({ label: l, ...( map.get(l) ?? { bookings: 0, revenue: 0 }) }));
+  }
+  if (period === 'year') {
+    return ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'].map((l) => ({ label: l, ...( map.get(l) ?? { bookings: 0, revenue: 0 }) }));
+  }
+  return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([label, v]) => ({ label, ...v }));
+}
+
 const inputCls = cn(
   'w-full px-3.5 py-2.5 rounded-xl text-sm',
   'bg-obsidian border border-border-luxury',
@@ -158,6 +228,10 @@ export default function BookingsPage() {
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [exporting, setExporting] = React.useState(false);
+  const [showAnalytics, setShowAnalytics] = React.useState(false);
+  const [analyticsPeriod, setAnalyticsPeriod] = React.useState<AnalyticsPeriod>('week');
+  const [chartData, setChartData] = React.useState<ChartPoint[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = React.useState(false);
 
   // Filters
   const [statusFilter, setStatusFilter] = React.useState('');
@@ -223,6 +297,18 @@ export default function BookingsPage() {
   }, [buildQuery]);
 
   React.useEffect(() => { fetchBookings(); }, [fetchBookings]);
+
+  React.useEffect(() => {
+    if (!showAnalytics) return;
+    setAnalyticsLoading(true);
+    fetch(`/api/admin/bookings?${buildAnalyticsQuery(analyticsPeriod)}`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) setChartData(aggregateChartData(json.data.items as Booking[], analyticsPeriod));
+      })
+      .catch(() => {})
+      .finally(() => setAnalyticsLoading(false));
+  }, [showAnalytics, analyticsPeriod]);
 
   // Load filter options on mount
   React.useEffect(() => {
@@ -422,6 +508,18 @@ export default function BookingsPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowAnalytics((v) => !v)}
+            className={cn(
+              'flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm transition-colors',
+              showAnalytics
+                ? 'border-champagne/40 bg-champagne/5 text-champagne'
+                : 'border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
+            )}
+          >
+            <BarChart2 className="w-4 h-4" />
+            Аналитика
+          </button>
+          <button
             onClick={handleExport}
             disabled={exporting}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border-luxury text-sm text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors disabled:opacity-50"
@@ -434,6 +532,70 @@ export default function BookingsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Analytics panel */}
+      {showAnalytics && (
+        <div className="mb-6 bg-onyx border border-border-luxury rounded-2xl p-5 animate-fade-in">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-serif text-base font-medium text-text-primary">Аналитика записей</h3>
+            <div className="flex gap-1.5">
+              {ANALYTICS_PERIODS.map((p) => (
+                <button
+                  key={p.value}
+                  onClick={() => setAnalyticsPeriod(p.value)}
+                  className={cn(
+                    'px-3 py-1 rounded-lg text-xs transition-colors',
+                    analyticsPeriod === p.value
+                      ? 'bg-champagne text-obsidian font-medium'
+                      : 'bg-charcoal border border-border-luxury text-text-secondary hover:text-text-primary',
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {analyticsLoading ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="w-6 h-6 border-2 border-champagne/30 border-t-champagne rounded-full animate-spin" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Количество записей</p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={chartData} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                    <XAxis dataKey="label" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ background: 'var(--color-onyx)', border: '1px solid var(--color-border-luxury)', borderRadius: 12, color: 'var(--color-text-primary)', fontSize: 12 }}
+                      formatter={(v: number) => [v, 'Записей']}
+                    />
+                    <Bar dataKey="bookings" fill="#C9A84C" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Выручка (₽)</p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={chartData} margin={{ top: 0, right: 8, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                    <XAxis dataKey="label" tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}к` : String(v)} />
+                    <Tooltip
+                      contentStyle={{ background: 'var(--color-onyx)', border: '1px solid var(--color-border-luxury)', borderRadius: 12, color: 'var(--color-text-primary)', fontSize: 12 }}
+                      formatter={(v: number) => [`${v.toLocaleString('ru-RU')} ₽`, 'Выручка']}
+                    />
+                    <Bar dataKey="revenue" fill="#A67C00" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Date preset filter */}
       <div className="flex gap-2 flex-wrap mb-3">
@@ -566,6 +728,7 @@ export default function BookingsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Услуга</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Специалист</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Дата / Время</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Создан</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Длит.</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Статус</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Сумма</th>
@@ -593,6 +756,11 @@ export default function BookingsPage() {
                     <td className="px-4 py-3.5 text-text-secondary whitespace-nowrap tabular-nums">
                       <div>{new Date(b.startAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</div>
                       <div className="text-xs text-text-tertiary">{formatTime(new Date(b.startAt))}</div>
+                    </td>
+                    <td className="px-4 py-3.5 whitespace-nowrap tabular-nums">
+                      <div className="text-xs text-text-tertiary">{new Date(b.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</div>
+                      <div className="text-xs text-text-tertiary">{formatTime(new Date(b.createdAt))}</div>
+                      {b.soldByName && <div className="text-[10px] text-champagne/70 truncate max-w-[100px]">{b.soldByName}</div>}
                     </td>
                     <td className="px-4 py-3.5 text-text-tertiary whitespace-nowrap tabular-nums">{b.totalDuration} мин</td>
                     <td className="px-4 py-3.5">

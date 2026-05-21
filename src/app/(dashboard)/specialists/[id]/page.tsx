@@ -6,6 +6,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { formatCurrency } from '@/lib/utils';
+import { SpecialistEditClient } from '../_components/SpecialistEditClient';
 const SPEC_STATUS_LABEL: Record<string, string> = {
   ACTIVE: 'Активен', ON_VACATION: 'Отпуск', INACTIVE: 'Неактивен', TERMINATED: 'Уволен',
 };
@@ -110,6 +111,19 @@ export default async function SpecialistProfilePage({ params }: { params: Promis
               <Badge variant={isActive ? ('success' as const) : ('default' as const)} dot>
                 {SPEC_STATUS_LABEL[specialist.status] ?? specialist.status}
               </Badge>
+              <SpecialistEditClient
+                specialist={{
+                  id: specialist.id,
+                  firstName: specialist.user.firstName,
+                  lastName: specialist.user.lastName,
+                  phone: specialist.user.phone ?? null,
+                  specialization: specialist.specialization,
+                  bio: specialist.bio,
+                  experienceYears: specialist.experienceYears,
+                  status: specialist.status,
+                  color: specialist.color,
+                }}
+              />
             </div>
 
             {specialist.specialization && (
@@ -128,7 +142,6 @@ export default async function SpecialistProfilePage({ params }: { params: Promis
                 </span>
               )}
               <span>В команде: <span className="text-text-secondary">{monthsSince} мес.</span></span>
-              <span>Комиссия: <span className="text-text-secondary">{(Number(specialist.commissionRate) * 100).toFixed(0)}%</span></span>
             </div>
 
             {specialist.bio && (

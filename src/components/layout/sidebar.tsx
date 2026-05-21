@@ -25,20 +25,41 @@ interface NavItem {
   key: string;
   href: string;
   icon: React.ElementType;
+  roles?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
   { key: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
   { key: 'nav.bookings', href: '/bookings', icon: Calendar },
-  { key: 'nav.clients', href: '/clients', icon: Users },
-  { key: 'nav.specialists', href: '/specialists', icon: Sparkles },
-  { key: 'nav.services', href: '/services', icon: Flower2 },
-  { key: 'nav.analytics', href: '/analytics', icon: BarChart3 },
-  { key: 'nav.sales', href: '/sales', icon: ShoppingBag },
-  { key: 'nav.inventory', href: '/inventory', icon: Package },
+  { key: 'nav.clients', href: '/clients', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR', 'MANAGER'] },
+  { key: 'nav.specialists', href: '/specialists', icon: Sparkles, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.services', href: '/services', icon: Flower2, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.analytics', href: '/analytics', icon: BarChart3, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+  { key: 'nav.sales', href: '/sales', icon: ShoppingBag, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+  { key: 'nav.inventory', href: '/inventory', icon: Package, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
   { key: 'nav.chat', href: '/chat', icon: MessageCircle },
-  { key: 'nav.settings', href: '/settings', icon: Settings },
+  { key: 'nav.settings', href: '/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
+
+function getJwtRole(): string {
+  try {
+    if (typeof document === 'undefined') return '';
+    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+    if (!match) return '';
+    const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return (payload.role as string) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function useUserRole(): string {
+  const [role, setRole] = React.useState('');
+  React.useEffect(() => {
+    setRole(getJwtRole());
+  }, []);
+  return role;
+}
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -49,6 +70,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
   const [collapsed, setCollapsed] = React.useState(false);
+  const role = useUserRole();
+  const visibleItems = NAV_ITEMS.filter((item) => !item.roles || !role || item.roles.includes(role));
 
   return (
     <>
@@ -108,7 +131,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Основная навигация">
-          {NAV_ITEMS.map(({ key, href, icon: Icon }) => {
+          {visibleItems.map(({ key, href, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
             const label = t(key);
             return (

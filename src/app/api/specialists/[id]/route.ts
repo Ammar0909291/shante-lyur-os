@@ -12,6 +12,13 @@ function apiError(code: string, message: string, status: number) {
 const PatchSchema = z.object({
   status: z.enum(['ACTIVE', 'ON_VACATION', 'INACTIVE', 'TERMINATED']).optional(),
   sortOrder: z.number().int().min(0).optional(),
+  specialization: z.string().max(200).nullable().optional(),
+  bio: z.string().max(2000).nullable().optional(),
+  experienceYears: z.number().int().min(0).max(60).nullable().optional(),
+  color: z.string().max(20).nullable().optional(),
+  firstName: z.string().min(1).max(50).optional(),
+  lastName: z.string().min(1).max(50).optional(),
+  phone: z.string().max(30).nullable().optional(),
 });
 
 export async function PATCH(
@@ -23,10 +30,19 @@ export async function PATCH(
     const parsed = PatchSchema.safeParse(body);
     if (!parsed.success) return apiError('VALIDATION_ERROR', 'Invalid request body', 400);
 
+    const { firstName, lastName, phone, ...specialistFields } = parsed.data;
+
+    const userUpdate = Object.fromEntries(
+      Object.entries({ firstName, lastName, phone }).filter(([, v]) => v !== undefined),
+    );
+
     const specialist = await prisma.specialist.update({
       where: { id: params.id },
-      data: parsed.data,
-      include: { user: { select: { firstName: true, lastName: true, email: true } } },
+      data: {
+        ...specialistFields,
+        ...(Object.keys(userUpdate).length > 0 ? { user: { update: userUpdate } } : {}),
+      },
+      include: { user: { select: { firstName: true, lastName: true, email: true, phone: true } } },
     });
 
     return ok({
@@ -35,6 +51,11 @@ export async function PATCH(
       firstName: specialist.user.firstName,
       lastName: specialist.user.lastName,
       email: specialist.user.email,
+      phone: specialist.user.phone,
+      specialization: specialist.specialization,
+      bio: specialist.bio,
+      experienceYears: specialist.experienceYears,
+      color: specialist.color,
     });
   } catch (error) {
     if (error instanceof Error) return apiError('INTERNAL_ERROR', error.message, 500);
