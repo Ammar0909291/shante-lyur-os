@@ -14,6 +14,7 @@ interface Specialist {
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; isActive?: boolean; }
 interface Location { id: string; name: string; }
 interface ClientResult { id: string; firstName: string; lastName: string; email: string; phone: string | null; }
+interface Manager { id: string; name: string; role: string; }
 
 interface RecordSaleModalProps {
   onClose: () => void;
@@ -35,6 +36,7 @@ const selectCls = 'w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-lu
 export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
   const [specialists, setSpecialists] = React.useState<Specialist[]>([]);
   const [services, setServices] = React.useState<Service[]>([]);
+  const [managers, setManagers] = React.useState<Manager[]>([]);
   const [defaultLocationId, setDefaultLocationId] = React.useState('');
   const [defaultLocationName, setDefaultLocationName] = React.useState('');
 
@@ -44,6 +46,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
   const [selectedClient, setSelectedClient] = React.useState<ClientResult | null>(null);
 
   const [specialistId, setSpecialistId] = React.useState('');
+  const [managerId, setManagerId] = React.useState('');
   const [serviceId, setServiceId] = React.useState('');
   const [quantity, setQuantity] = React.useState(1);
   const [startAt, setStartAt] = React.useState(() => {
@@ -67,7 +70,8 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
       fetch('/api/specialists?limit=100&status=ACTIVE', { credentials: 'include' }).then((r) => r.json()),
       fetch('/api/admin/services', { credentials: 'include' }).then((r) => r.json()),
       fetch('/api/locations', { credentials: 'include' }).then((r) => r.json()),
-    ]).then(([sp, sv, loc]) => {
+      fetch('/api/admin/users?limit=100', { credentials: 'include' }).then((r) => r.json()),
+    ]).then(([sp, sv, loc, usr]) => {
       if (sp.success) {
         setSpecialists(
           (sp.data?.items ?? sp.data ?? []).map((s: {
@@ -100,6 +104,15 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
           setDefaultLocationName(locs[0].name);
         }
       }
+      if (usr.success) {
+        setManagers(
+          (usr.data?.items ?? []).map((u: { id: string; name?: string; firstName: string; lastName: string; role: string; }) => ({
+            id: u.id,
+            name: u.name ?? `${u.firstName} ${u.lastName}`.trim(),
+            role: u.role,
+          }))
+        );
+      }
     }).catch(() => {});
   }, []);
 
@@ -116,10 +129,14 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
   const selectedSpecialistObj = specialists.find((s) => s.id === specialistId);
 
-  // Filter services by specialist type: MASSAGIST sees only MASSAGE, COSMETOLOGIST sees only COSMETOLOGY
+  // Mirror backend booking validation: MASSAGE specialists → MASSAGE-category services only;
+  // all others → every non-MASSAGE category (COSMETOLOGY, INJECTION, LASER, FACIAL, etc.)
   const filteredServices = React.useMemo(() => {
     if (!selectedSpecialistObj) return services;
-    return services.filter((s) => s.category === selectedSpecialistObj.specialistType);
+    if (selectedSpecialistObj.specialistType === 'MASSAGE') {
+      return services.filter((s) => s.category === 'MASSAGE');
+    }
+    return services.filter((s) => s.category !== 'MASSAGE');
   }, [selectedSpecialistObj, services]);
 
   const selectedService = services.find((s) => s.id === serviceId);
@@ -169,6 +186,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
           services: serviceEntries,
           notes: notes.trim() || undefined,
           source: 'admin',
+          soldByUserId: managerId || undefined,
           allowOverlap,
         }),
       });
@@ -265,6 +283,24 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
               {specialists.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}{s.specialization ? ` — ${s.specialization}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Manager — who processed/recorded the sale (soldByUserId) */}
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">Менеджер (кто оформил)</label>
+            <select
+              value={managerId}
+              onChange={(e) => setManagerId(e.target.value)}
+              disabled={saving}
+              className={selectCls}
+            >
+              <option value="">Текущий пользователь (автоматически)</option>
+              {managers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} — {m.role}
                 </option>
               ))}
             </select>
