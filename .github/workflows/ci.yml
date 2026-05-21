@@ -184,11 +184,22 @@ jobs:
           JWT_ACCESS_SECRET: ${{ env.JWT_ACCESS_SECRET }}
           JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
 
-      - name: Start server + run E2E tests
-        run: |
-          npm run start &
-          npx wait-on http://localhost:3000 --timeout 30000
-          npx playwright test
+      - name: Start server
+        run: npm run start &
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          JWT_ACCESS_SECRET: ${{ env.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ env.JWT_REFRESH_SECRET }}
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+
+      - name: Wait for server to be ready
+        run: npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: Verify server is responding
+        run: curl --retry 5 --retry-delay 2 --retry-connrefused http://localhost:3000/api/health
+
+      - name: Run E2E tests
+        run: npx playwright test --timeout=30000
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           DATABASE_URL: ${{ env.DATABASE_URL }}
