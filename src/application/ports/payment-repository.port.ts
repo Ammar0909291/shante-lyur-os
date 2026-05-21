@@ -15,6 +15,7 @@ export interface IPaymentRepository {
   }): Promise<{ items: Payment[]; total: number }>;
   create(payment: Payment): Promise<Payment>;
   update(payment: Payment): Promise<Payment>;
+  findByIdempotencyKey(key: string): Promise<Payment | null>;
   getRevenueSummary(from: Date, to: Date): Promise<{
     totalRevenue: number;
     totalRefunds: number;

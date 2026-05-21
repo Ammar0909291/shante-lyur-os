@@ -162,7 +162,7 @@ describe('POST /api/specialists — Specialist Creation', () => {
       mockTransaction.mockResolvedValueOnce([user, specialist]);
 
       const res = await POST(postReq(body));
-      expect(res.status).toBe(201, `commissionRate=${rate} should be valid`);
+      expect(res.status).toBe(201);
     }
   });
 

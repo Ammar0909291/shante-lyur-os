@@ -159,9 +159,6 @@ export async function POST(req: NextRequest) {
       status: specialist.status,
       color: specialist.color,
       sortOrder: specialist.sortOrder,
-      createdAt: specialist.createdAt,
-      specialistType: deriveSpecialistType(specialist.specialization),
-      allowedServiceIds: [],
     }, 201);
   } catch (error) {
     if (error instanceof DomainError) return apiError(error.code, error.message, error.statusCode);

@@ -86,4 +86,8 @@ export class PromoCode extends BaseEntity {
     this._isActive = false;
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: PromoCodeProps): PromoCode {
+    return new PromoCode(props);
+  }
 }

@@ -4,13 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/infrastructure/config/prisma-client';
 
-function deriveSpecialistType(specialization: string | null): 'MASSAGE' | 'COSMETOLOGY' {
-  if (!specialization) return 'COSMETOLOGY';
-  const lower = specialization.toLowerCase();
-  if (lower.includes('массаж') || lower.includes('spa') || lower.includes('спа')) return 'MASSAGE';
-  return 'COSMETOLOGY';
-}
-
 function ok<T>(data: T) { return NextResponse.json({ success: true, data }); }
 function apiError(code: string, message: string, status: number) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
@@ -56,15 +49,12 @@ export async function GET(
   try {
     const specialist = await prisma.specialist.findUniqueOrThrow({
       where: { id: params.id },
-      include: {
-        user: { select: { firstName: true, lastName: true, email: true } },
-        services: { where: { isActive: true }, select: { serviceId: true } },
-      },
+      include: { user: { select: { firstName: true, lastName: true, email: true } } },
     });
 
     return ok({
       id: specialist.id,
-      userId: specialist.userId,
+      status: specialist.status,
       firstName: specialist.user.firstName,
       lastName: specialist.user.lastName,
       email: specialist.user.email,
@@ -74,12 +64,7 @@ export async function GET(
       rating: specialist.rating !== null ? Number(specialist.rating) : null,
       reviewCount: specialist.reviewCount,
       commissionRate: Number(specialist.commissionRate),
-      status: specialist.status,
       color: specialist.color,
-      sortOrder: specialist.sortOrder,
-      createdAt: specialist.createdAt,
-      allowedServiceIds: specialist.services.map((ss) => ss.serviceId),
-      specialistType: deriveSpecialistType(specialist.specialization),
     });
   } catch (error) {
     if (error instanceof Error) return apiError('INTERNAL_ERROR', error.message, 500);

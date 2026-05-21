@@ -22,7 +22,7 @@ export class RefreshTokenUseCase {
   constructor(
     private readonly userRepo: IUserRepository,
     private readonly refreshTokenRepo: IRefreshTokenRepository,
-    private readonly passwordHasher: IPasswordHasher,
+    _passwordHasher: IPasswordHasher,
     private readonly tokenService: ITokenService,
   ) {}
 

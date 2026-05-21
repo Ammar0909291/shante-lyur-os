@@ -1,4 +1,4 @@
-import { AppointmentStatus, UserRole } from '@/domain/enums';
+import { UserRole } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
 import { AppointmentCancelledEvent } from '@/domain/events';
 import { Money } from '@/domain/value-objects';
@@ -13,14 +13,14 @@ import {
 } from '@/application/ports';
 import { CancelAppointmentDto } from '@/application/dto';
 import { AuditLog, Refund } from '@/domain/entities';
-import { AuditAction, RefundStatus } from '@/domain/enums';
+import { AuditAction, RefundStatus, CancellationReason } from '@/domain/enums';
 
 export class CancelAppointmentUseCase {
   constructor(
     private readonly appointmentRepo: IAppointmentRepository,
     private readonly paymentRepo: IPaymentRepository,
     private readonly refundRepo: IRefundRepository,
-    private readonly promoCodeRepo: IPromoCodeRepository,
+    _promoCodeRepo: IPromoCodeRepository,
     private readonly auditLogRepo: IAuditLogRepository,
     private readonly eventBus: IEventBus,
     private readonly yookassaGateway: IPaymentGateway,
@@ -38,7 +38,6 @@ export class CancelAppointmentUseCase {
       throw new NotFoundError('Appointment', appointmentId);
     }
 
-    // Authorization
     if (actorRole === UserRole.CLIENT && appointment.clientId !== actorId) {
       throw new ForbiddenError();
     }
@@ -47,7 +46,6 @@ export class CancelAppointmentUseCase {
       throw new ConflictError('Cannot cancel appointment in current status');
     }
 
-    // Cancellation policy: 24h before = full refund, less = partial or none
     const hoursBefore = (appointment.startAt.getTime() - Date.now()) / 3600000;
     let refundPolicy: 'full' | 'partial' | 'none' = 'full';
     if (hoursBefore < 2) {
@@ -56,15 +54,14 @@ export class CancelAppointmentUseCase {
       refundPolicy = 'partial';
     }
 
-    // If admin/operator cancels, always full refund
     if ([UserRole.ADMIN, UserRole.OPERATOR, UserRole.SUPER_ADMIN].includes(actorRole)) {
       refundPolicy = 'full';
     }
 
-    appointment.cancel(dto.reason, actorId);
+    const reason = dto.reason as CancellationReason;
+    appointment.cancel(reason, actorId);
     const saved = await this.appointmentRepo.update(appointment);
 
-    // Process refunds if applicable
     const payments = await this.paymentRepo.findByAppointmentId(appointmentId);
     const successfulPayments = payments.filter(p => p.isSuccessful);
 
@@ -89,7 +86,6 @@ export class CancelAppointmentUseCase {
 
       await this.refundRepo.create(refund);
 
-      // Trigger gateway refund
       const gateway = payment.provider === 'YOOKASSA'
         ? this.yookassaGateway
         : payment.provider === 'ROBOKASSA'

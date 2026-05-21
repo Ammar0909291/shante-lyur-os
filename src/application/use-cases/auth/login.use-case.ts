@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { User, RefreshToken } from '@/domain/entities';
-import { UnauthorizedError, ValidationError } from '@/domain/errors';
+import { UnauthorizedError } from '@/domain/errors';
 import { Email } from '@/domain/value-objects';
 import {
   IUserRepository,

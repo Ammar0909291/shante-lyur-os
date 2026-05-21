@@ -139,13 +139,13 @@ describe('Translation content — salon-domain vocabulary', () => {
   it('RU uses Cyrillic for all nav labels', () => {
     const cyrillicRe = /[Ѐ-ӿ]/;
     for (const key of Object.keys(RU).filter((k) => k.startsWith('nav.'))) {
-      expect(cyrillicRe.test(t('ru', key))).toBe(true, `${key} has no Cyrillic characters`);
+      expect(cyrillicRe.test(t('ru', key))).toBe(true);
     }
   });
 
   it('EN uses only ASCII for all nav labels', () => {
     for (const key of Object.keys(EN).filter((k) => k.startsWith('nav.'))) {
-      expect(/^[\x20-\x7E]+$/.test(t('en', key))).toBe(true, `${key} contains non-ASCII`);
+      expect(/^[\x20-\x7E]+$/.test(t('en', key))).toBe(true);
     }
   });
 });

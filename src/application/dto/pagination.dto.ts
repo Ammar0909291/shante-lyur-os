@@ -9,10 +9,12 @@ export const PaginationSchema = z.object({
 
 export type PaginationDto = z.infer<typeof PaginationSchema>;
 
-export const DateRangeSchema = z.object({
+export const DateRangeBaseSchema = z.object({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
-}).refine(
+});
+
+export const DateRangeSchema = DateRangeBaseSchema.refine(
   (data) => !data.from || !data.to || data.from <= data.to,
   { message: 'from must be before or equal to to' }
 );

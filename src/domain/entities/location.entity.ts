@@ -40,4 +40,8 @@ export class Location extends BaseEntity {
     this._isActive = false;
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: LocationProps): Location {
+    return new Location(props);
+  }
 }

@@ -1,20 +1,34 @@
 import { PrismaClient } from '@prisma/client';
-import { BlockedTimeRepositoryPort } from '@/application/ports/blocked-time-repository.port';
+import { IBlockedTimeRepository } from '@/application/ports/blocked-time-repository.port';
 import { BlockedTime } from '@/domain/entities/blocked-time.entity';
+import { DateRange } from '@/domain/value-objects/date-range.vo';
 
-export class PrismaBlockedTimeRepository implements BlockedTimeRepositoryPort {
+type PrismaBlockedTime = {
+  id: string;
+  specialistId: string;
+  locationId: string | null;
+  startAt: Date;
+  endAt: Date;
+  reason: string | null;
+  isRecurring: boolean;
+  recurrenceRule: string | null;
+  createdAt: Date;
+};
+
+export class PrismaBlockedTimeRepository implements IBlockedTimeRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; specialistId: string; startAt: Date; endAt: Date; reason: string | null; createdBy: string; createdAt: Date; updatedAt: Date }): BlockedTime {
+  private toDomain(raw: PrismaBlockedTime): BlockedTime {
     return BlockedTime.reconstitute({
       id: raw.id,
       specialistId: raw.specialistId,
-      startAt: raw.startAt,
-      endAt: raw.endAt,
+      locationId: raw.locationId ?? undefined,
+      timeRange: DateRange.create(raw.startAt, raw.endAt),
       reason: raw.reason ?? undefined,
-      createdBy: raw.createdBy,
+      isRecurring: raw.isRecurring,
+      recurrenceRule: raw.recurrenceRule ?? undefined,
       createdAt: raw.createdAt,
-      updatedAt: raw.updatedAt,
+      updatedAt: raw.createdAt,
     });
   }
 
@@ -23,12 +37,34 @@ export class PrismaBlockedTimeRepository implements BlockedTimeRepositoryPort {
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findBySpecialistId(specialistId: string, start: Date, end: Date): Promise<BlockedTime[]> {
+  async findBySpecialist(specialistId: string, from?: Date, to?: Date): Promise<BlockedTime[]> {
     const raws = await this.db.blockedTime.findMany({
       where: {
         specialistId,
-        startAt: { lt: end },
-        endAt: { gt: start },
+        ...(from && to ? { startAt: { lt: to }, endAt: { gt: from } } : {}),
+      },
+      orderBy: { startAt: 'asc' },
+    });
+    return raws.map(r => this.toDomain(r));
+  }
+
+  async findByLocation(locationId: string, from?: Date, to?: Date): Promise<BlockedTime[]> {
+    const raws = await this.db.blockedTime.findMany({
+      where: {
+        locationId,
+        ...(from && to ? { startAt: { lt: to }, endAt: { gt: from } } : {}),
+      },
+      orderBy: { startAt: 'asc' },
+    });
+    return raws.map(r => this.toDomain(r));
+  }
+
+  async findOverlapping(specialistId: string, timeRange: DateRange): Promise<BlockedTime[]> {
+    const raws = await this.db.blockedTime.findMany({
+      where: {
+        specialistId,
+        startAt: { lt: timeRange.end },
+        endAt: { gt: timeRange.start },
       },
       orderBy: { startAt: 'asc' },
     });
@@ -40,10 +76,12 @@ export class PrismaBlockedTimeRepository implements BlockedTimeRepositoryPort {
       data: {
         id: bt.id,
         specialistId: bt.specialistId,
-        startAt: bt.startAt,
-        endAt: bt.endAt,
+        locationId: bt.locationId,
+        startAt: bt.timeRange.start,
+        endAt: bt.timeRange.end,
         reason: bt.reason,
-        createdBy: bt.createdBy,
+        isRecurring: bt.isRecurring,
+        recurrenceRule: bt.recurrenceRule,
       },
     });
     return this.toDomain(raw);
@@ -54,10 +92,12 @@ export class PrismaBlockedTimeRepository implements BlockedTimeRepositoryPort {
       where: { id: bt.id },
       data: {
         specialistId: bt.specialistId,
-        startAt: bt.startAt,
-        endAt: bt.endAt,
+        locationId: bt.locationId,
+        startAt: bt.timeRange.start,
+        endAt: bt.timeRange.end,
         reason: bt.reason,
-        updatedAt: new Date(),
+        isRecurring: bt.isRecurring,
+        recurrenceRule: bt.recurrenceRule,
       },
     });
     return this.toDomain(raw);

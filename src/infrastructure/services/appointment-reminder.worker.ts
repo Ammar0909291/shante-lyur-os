@@ -1,6 +1,6 @@
-import { AppointmentRepositoryPort } from '@/application/ports/appointment-repository.port';
-import { NotificationServicePort } from '@/application/ports/notification-service.port';
-import { UserRepositoryPort } from '@/application/ports/user-repository.port';
+import { IAppointmentRepository } from '@/application/ports/appointment-repository.port';
+import { INotificationService } from '@/application/ports/notification-service.port';
+import { IUserRepository } from '@/application/ports/user-repository.port';
 import { AppointmentStatus } from '@/domain/enums/appointment-status.enum';
 
 export class AppointmentReminderWorker {
@@ -8,9 +8,9 @@ export class AppointmentReminderWorker {
   private readonly INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
   constructor(
-    private readonly appointmentRepo: AppointmentRepositoryPort,
-    private readonly userRepo: UserRepositoryPort,
-    private readonly notificationService: NotificationServicePort,
+    private readonly appointmentRepo: IAppointmentRepository,
+    private readonly userRepo: IUserRepository,
+    private readonly notificationService: INotificationService,
   ) {}
 
   start(): void {
@@ -30,14 +30,14 @@ export class AppointmentReminderWorker {
       const tomorrowEnd = new Date(tomorrow);
       tomorrowEnd.setHours(23, 59, 59, 999);
 
-      const appointments = await this.appointmentRepo.findByDateRange(
-        tomorrow,
-        tomorrowEnd,
-        { status: [AppointmentStatus.CONFIRMED] }
-      );
+      const { items: appointments } = await this.appointmentRepo.findMany({
+        from: tomorrow,
+        to: tomorrowEnd,
+        status: AppointmentStatus.CONFIRMED,
+      });
 
       for (const appt of appointments) {
-        const user = await this.userRepo.findById(appt.customerId);
+        const user = await this.userRepo.findById(appt.clientId);
         if (!user) continue;
 
         const dateStr = appt.startAt.toLocaleDateString('ru-RU');

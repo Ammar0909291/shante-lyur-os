@@ -1,27 +1,28 @@
-import { PaymentStatus } from '@/domain/enums/payment-status.enum';
+import { IPaymentGateway, PaymentGatewayInitResult, PaymentGatewayVerifyResult } from '@/application/ports/payment-gateway.port';
+import { Money } from '@/domain/value-objects';
 
-export interface YooKassaCreateResult {
-  providerPaymentId: string;
-  status: PaymentStatus;
-  redirectUrl?: string;
-}
+export class YooKassaGateway implements IPaymentGateway {
+  readonly name = 'YOOKASSA';
 
-export interface YooKassaWebhookResult {
-  paid: boolean;
-  providerPaymentId: string;
-  status: PaymentStatus;
-}
-
-export class YooKassaGateway {
-  async createPayment(_params: unknown): Promise<YooKassaCreateResult> {
+  async createPayment(_params: {
+    amount: Money;
+    description: string;
+    orderId: string;
+    returnUrl: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<PaymentGatewayInitResult> {
     throw new Error('YooKassa payment gateway not configured. Set YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY.');
   }
 
-  async verifyWebhook(_payload: unknown, _signature?: string): Promise<YooKassaWebhookResult> {
+  async verifyWebhook(_payload: unknown, _signature: string): Promise<PaymentGatewayVerifyResult> {
     throw new Error('YooKassa payment gateway not configured.');
   }
 
-  async refund(_providerPaymentId: string, _amount: number): Promise<{ status: PaymentStatus }> {
+  async refund(_params: {
+    providerPaymentId: string;
+    amount: Money;
+    reason?: string;
+  }): Promise<{ success: boolean; providerRefundId?: string }> {
     throw new Error('YooKassa payment gateway not configured.');
   }
 }

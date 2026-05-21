@@ -39,4 +39,8 @@ export class AuditLog extends BaseEntity {
       createdAt: new Date(),
     });
   }
+
+  static reconstitute(props: AuditLogProps): AuditLog {
+    return new AuditLog(props);
+  }
 }

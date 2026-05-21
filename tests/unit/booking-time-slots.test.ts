@@ -142,7 +142,7 @@ describe('findNextAvailableSlots', () => {
       const s = new Date(slot);
       const e = new Date(s.getTime() + 90 * 60_000);
       const conflict = hasConflict(s, e, existing, MASSAGE_BUFFER_MS);
-      expect(conflict).toBe(false, `Slot ${slot} still conflicts`);
+      expect(conflict).toBe(false);
     }
   });
 
@@ -154,7 +154,7 @@ describe('findNextAvailableSlots', () => {
     for (const slot of slots) {
       const d = new Date(slot);
       const minutes = d.getUTCMinutes();
-      expect([0, 30]).toContain(minutes, `Slot ${slot} is not on a 30-min boundary`);
+      expect([0, 30]).toContain(minutes);
     }
   });
 
@@ -182,7 +182,7 @@ describe('findNextAvailableSlots', () => {
 
 // ─── 15-minute slot alignment (business rule documentation) ──────────────────
 describe('Slot alignment — :00/:15/:30/:45 boundaries', () => {
-  const FIFTEEN_MIN_MS = 15 * 60_000;
+
 
   it.each([
     ['2026-06-01T10:00:00Z', 0],

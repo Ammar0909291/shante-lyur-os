@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { TokenServicePort } from '@/application/ports/token-service.port';
+import { ITokenService } from '@/application/ports/token-service.port';
 import { UnauthorizedError } from '@/domain/errors/unauthorized-error';
 
 interface TokenPayload {
@@ -12,7 +12,7 @@ interface TokenPayload {
   exp: number;
 }
 
-export class JwtTokenService implements TokenServicePort {
+export class JwtTokenService implements ITokenService {
   private readonly ACCESS_SECRET: string;
   private readonly REFRESH_SECRET: string;
   private readonly ACCESS_EXPIRY = 15 * 60;        // 15 minutes in seconds

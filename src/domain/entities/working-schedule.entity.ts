@@ -85,4 +85,8 @@ export class WorkingSchedule extends BaseEntity {
     this._isActive = false;
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: WorkingScheduleProps): WorkingSchedule {
+    return new WorkingSchedule(props);
+  }
 }

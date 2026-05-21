@@ -24,3 +24,6 @@ export * from './sms-service.port';
 export * from './payment-gateway.port';
 export * from './realtime-service.port';
 export * from './event-bus.port';
+export * from './auth-service.port';
+export * from './notification-service.port';
+export * from './ai-prediction-service.port';

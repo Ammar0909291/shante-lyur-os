@@ -38,7 +38,6 @@ export async function POST(req: NextRequest) {
     const registry = DIRegistry.instance;
     const useCase = new ProcessWebhookUseCase(
       registry.paymentRepository,
-      registry.refundRepository,
       registry.yooKassaGateway,
       registry.robokassaGateway,
       noopEventBus,

@@ -22,11 +22,11 @@ export function makeRequest(
     for (const [k, v] of Object.entries(searchParams)) url.searchParams.set(k, v);
   }
 
-  const init: RequestInit = {
+  const init = {
     method,
     headers: { 'Content-Type': 'application/json', ...headers },
-  };
-  if (body !== undefined) init.body = JSON.stringify(body);
+  } as ConstructorParameters<typeof NextRequest>[1];
+  if (body !== undefined) (init as Record<string, unknown>).body = JSON.stringify(body);
 
   return new NextRequest(url.toString(), init);
 }

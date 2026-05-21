@@ -30,9 +30,12 @@ export class AIPrediction extends BaseEntity {
   recordActualOutcome(outcome: Record<string, unknown>): void {
     this.props.actualOutcome = outcome;
     if (this.props.prediction && this.props.confidence) {
-      // Simple accuracy calculation placeholder
-      this.props.accuracyDelta = this.props.confidence; // refined by actual comparison
+      this.props.accuracyDelta = this.props.confidence;
     }
     this.updatedAt = new Date();
+  }
+
+  static reconstitute(props: AIPredictionProps): AIPrediction {
+    return new AIPrediction(props);
   }
 }

@@ -1,10 +1,7 @@
-import { PaymentStatus, RefundStatus } from '@/domain/enums';
 import { NotFoundError, ValidationError } from '@/domain/errors';
-import { Money } from '@/domain/value-objects';
-import { PaymentReceivedEvent, PaymentFailedEvent } from '@/domain/events';
+import { PaymentReceivedEvent } from '@/domain/events';
 import {
   IPaymentRepository,
-  IRefundRepository,
   IPaymentGateway,
   IEventBus,
   IAuditLogRepository,
@@ -15,16 +12,15 @@ import {
 } from '@/application/ports';
 import { ProcessWebhookDto } from '@/application/dto';
 import { AuditLog, RevenueRecord } from '@/domain/entities';
-import { AuditAction, RevenueType } from '@/domain/enums';
+import { AuditAction, RevenueType, PaymentProvider } from '@/domain/enums';
 
 export class ProcessWebhookUseCase {
   private readonly gateways: Record<string, IPaymentGateway>;
 
   constructor(
     private readonly paymentRepo: IPaymentRepository,
-    private readonly refundRepo: IRefundRepository,
-    private readonly yookassaGateway: IPaymentGateway,
-    private readonly robokassaGateway: IPaymentGateway,
+    yookassaGateway: IPaymentGateway,
+    robokassaGateway: IPaymentGateway,
     private readonly eventBus: IEventBus,
     private readonly auditLogRepo: IAuditLogRepository,
     private readonly appointmentRepo: IAppointmentRepository,
@@ -51,14 +47,14 @@ export class ProcessWebhookUseCase {
 
     const payment = await this.paymentRepo.findByProviderPaymentId(
       result.providerPaymentId,
-      dto.provider as any
+      dto.provider as PaymentProvider
     );
     if (!payment) {
       throw new NotFoundError('Payment', result.providerPaymentId);
     }
 
     if (payment.isTerminal) {
-      return; // Already processed
+      return;
     }
 
     const oldStatus = payment.status;
@@ -70,7 +66,6 @@ export class ProcessWebhookUseCase {
     payment.markCaptured();
     await this.paymentRepo.update(payment);
 
-    // Calculate commissions
     const appointment = await this.appointmentRepo.findById(payment.appointmentId);
     if (appointment) {
       const specialist = await this.specialistRepo.findById(appointment.specialistId);
@@ -80,7 +75,6 @@ export class ProcessWebhookUseCase {
         payment.setCommissions(commission, specialistCommission);
         await this.paymentRepo.update(payment);
 
-        // Record revenue
         const revenue = new RevenueRecord({
           id: crypto.randomUUID(),
           date: new Date(),
@@ -93,7 +87,6 @@ export class ProcessWebhookUseCase {
         });
         await this.revenueRepo.create(revenue);
 
-        // Update customer profile
         await this.profileRepo.recordVisit(appointment.clientId, payment.amount.amount);
       }
     }
