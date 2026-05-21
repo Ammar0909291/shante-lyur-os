@@ -14,6 +14,11 @@ concurrency:
 env:
   NODE_VERSION: "20"
   DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shantelyur_test
+  # DIRECT_URL is required by prisma/schema.prisma (directUrl = env("DIRECT_URL")).
+  # In CI there is no connection pooler, so it is identical to DATABASE_URL.
+  # For production/Supabase: set DIRECT_URL to the "Direct connection" URL in
+  # your .env file (different from DATABASE_URL when using PgBouncer/Supavisor).
+  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/shantelyur_test
   JWT_ACCESS_SECRET: ci-access-secret-minimum-32-characters
   JWT_REFRESH_SECRET: ci-refresh-secret-minimum-32-characters
   NEXT_PUBLIC_APP_URL: http://localhost:3000
