@@ -104,7 +104,7 @@ function NotificationBell() {
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
-    fetch('/api/admin/bookings?status=PENDING&limit=3')
+    fetch('/api/admin/bookings?status=PENDING&limit=3', { credentials: 'include' })
       .then((r) => r.json())
       .then((json) => {
         if (json.success && json.data.total > 0) {
@@ -207,7 +207,7 @@ function UserMenu() {
   const [me, setMe] = React.useState<{ firstName: string; lastName: string; email: string; role: string } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/admin/users/me')
+    fetch('/api/admin/users/me', { credentials: 'include' })
       .then((r) => r.json())
       .then((json) => { if (json.success) setMe(json.data); })
       .catch(() => {});

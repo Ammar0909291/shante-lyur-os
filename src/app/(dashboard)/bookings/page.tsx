@@ -32,7 +32,6 @@ interface Specialist { id: string; firstName: string; lastName: string; speciali
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; isActive?: boolean; }
 interface Location { id: string; name: string; }
 interface Client { id: string; firstName: string; lastName: string; email: string; phone?: string | null; clientRef?: string; }
-interface StaffUser { id: string; firstName: string; lastName: string; role: string; }
 
 const STATUS_FILTERS = [
   { value: '', label: 'Все' },
@@ -156,7 +155,6 @@ export default function BookingsPage() {
   const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [allSpecialists, setAllSpecialists] = React.useState<Specialist[]>([]);
   const [allServices, setAllServicesState] = React.useState<Service[]>([]);
-  const [allStaff, setAllStaff] = React.useState<StaffUser[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [exporting, setExporting] = React.useState(false);
@@ -190,7 +188,6 @@ export default function BookingsPage() {
     date: new Date().toISOString().split('T')[0],
     time: '10:00',
     notes: '',
-    soldByUserId: '',
     priceOverride: '',
   });
 
@@ -212,7 +209,7 @@ export default function BookingsPage() {
   const fetchBookings = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/bookings?${buildQuery()}`);
+      const res = await fetch(`/api/admin/bookings?${buildQuery()}`, { credentials: 'include' });
       const json = await res.json();
       if (json.success) {
         setBookings(json.data.items);
@@ -228,8 +225,8 @@ export default function BookingsPage() {
   // Load filter options on mount
   React.useEffect(() => {
     Promise.all([
-      fetch('/api/specialists?limit=100&status=ACTIVE'),
-      fetch('/api/admin/services'),
+      fetch('/api/specialists?limit=100&status=ACTIVE', { credentials: 'include' }),
+      fetch('/api/admin/services', { credentials: 'include' }),
     ]).then(([sr, svcR]) => Promise.all([sr.json(), svcR.json()])).then(([specJson, svcJson]) => {
       if (specJson.success) setAllSpecialists(specJson.data.items ?? []);
       if (svcJson.success) setAllServicesState(Array.isArray(svcJson.data) ? svcJson.data : []);
@@ -237,17 +234,20 @@ export default function BookingsPage() {
   }, []);
 
   const fetchFormData = React.useCallback(async () => {
-    const [specRes, svcRes, locRes, staffRes] = await Promise.all([
-      fetch('/api/specialists?limit=100&status=ACTIVE'),
-      fetch('/api/catalog'),
-      fetch('/api/locations'),
-      fetch('/api/chat/users'),
+    const [specRes, svcRes, locRes] = await Promise.all([
+      fetch('/api/specialists?limit=100&status=ACTIVE', { credentials: 'include' }),
+      fetch('/api/catalog', { credentials: 'include' }),
+      fetch('/api/locations', { credentials: 'include' }),
     ]);
-    const [specJson, svcJson, locJson, staffJson] = await Promise.all([specRes.json(), svcRes.json(), locRes.json(), staffRes.json()]);
+    const [specJson, svcJson, locJson] = await Promise.all([specRes.json(), svcRes.json(), locRes.json()]);
     if (specJson.success) setAllSpecialists(specJson.data.items ?? []);
     if (svcJson.success) setAllServicesState(Array.isArray(svcJson.data) ? svcJson.data : (svcJson.data?.items ?? []));
-    if (locJson.success) setLocations(locJson.data ?? []);
-    if (staffJson.success) setAllStaff(staffJson.data ?? []);
+    if (locJson.success) {
+      const locs: Location[] = locJson.data ?? [];
+      setLocations(locs);
+      // Auto-select the only/default location
+      if (locs.length > 0) setForm((f) => ({ ...f, locationId: f.locationId || locs[0].id }));
+    }
   }, []);
 
   React.useEffect(() => {
@@ -263,7 +263,7 @@ export default function BookingsPage() {
         const url = clientSearch.trim()
           ? `/api/clients/search?q=${encodeURIComponent(clientSearch)}&limit=10`
           : `/api/clients/search?limit=10`;
-        const res = await fetch(url);
+        const res = await fetch(url, { credentials: 'include' });
         const json = await res.json();
         if (json.success) setClients(json.data.items);
       } catch {} finally { setClientLoading(false); }
@@ -279,6 +279,7 @@ export default function BookingsPage() {
       const res = await fetch('/api/admin/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ firstName: createForm.firstName.trim(), lastName: createForm.lastName.trim(), phone: createForm.phone.trim(), email: createForm.email.trim() || undefined }),
       });
       const json = await res.json();
@@ -304,7 +305,7 @@ export default function BookingsPage() {
     e.preventDefault();
     if (!selectedClient) { setFormError('Выберите клиента'); return; }
     if (!form.specialistId) { setFormError('Выберите специалиста'); return; }
-    if (!form.locationId) { setFormError('Выберите локацию'); return; }
+    if (!form.locationId) { setFormError('Не удалось определить локацию. Обновите страницу.'); return; }
     if (!selectedService) { setFormError('Выберите услугу'); return; }
     if (!form.date) { setFormError('Выберите дату'); return; }
     setSubmitting(true); setFormError('');
@@ -314,18 +315,18 @@ export default function BookingsPage() {
       const res = await fetch('/api/admin/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           clientId: selectedClient.id, specialistId: form.specialistId, locationId: form.locationId,
           startAt: startAt.toISOString(),
           services: [{ serviceId: selectedService.id, price: finalPrice, duration: selectedService.baseDuration, sortOrder: 0 }],
           notes: form.notes.trim() || undefined, source: 'admin',
-          soldByUserId: form.soldByUserId || undefined,
         }),
       });
       const json = await res.json();
       if (!json.success) { setFormError(json.error?.message ?? 'Ошибка создания записи'); return; }
       setShowModal(false); setSelectedClient(null); setClientSearch('');
-      setForm((f) => ({ ...f, specialistId: '', locationId: '', serviceId: '', notes: '', soldByUserId: '', priceOverride: '' }));
+      setForm((f) => ({ ...f, specialistId: '', serviceId: '', notes: '', priceOverride: '' }));
       fetchBookings();
     } catch { setFormError('Сетевая ошибка. Попробуйте снова.'); } finally { setSubmitting(false); }
   };
@@ -341,6 +342,7 @@ export default function BookingsPage() {
       const res = await fetch(`/api/appointments/${bookingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ status: newStatus }),
       });
       const json = await res.json();
@@ -353,7 +355,7 @@ export default function BookingsPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const res = await fetch(`/api/admin/bookings?${buildQuery(true)}`);
+      const res = await fetch(`/api/admin/bookings?${buildQuery(true)}`, { credentials: 'include' });
       const json = await res.json();
       if (!json.success) return;
 
@@ -775,14 +777,12 @@ export default function BookingsPage() {
                 )}
               </label>
 
-              {/* Location */}
-              <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Локация *</span>
-                <select required value={form.locationId} onChange={(e) => setForm((f) => ({ ...f, locationId: e.target.value }))} className={selectCls}>
-                  <option value="">Выберите локацию</option>
-                  {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </select>
-              </label>
+              {/* Location auto-resolved — shown as info, not editable */}
+              {locations[0] && (
+                <div className="px-3 py-2 rounded-xl border border-border-luxury bg-charcoal/30 text-xs text-text-tertiary">
+                  Локация: <span className="text-text-secondary">{locations[0].name}</span>
+                </div>
+              )}
 
               {/* Date & Time */}
               <div className="grid grid-cols-2 gap-4">
@@ -817,17 +817,6 @@ export default function BookingsPage() {
                     />
                   </label>
                 </div>
-              )}
-
-              {/* Seller */}
-              {allStaff.length > 0 && (
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Продавец</span>
-                  <select value={form.soldByUserId} onChange={(e) => setForm((f) => ({ ...f, soldByUserId: e.target.value }))} className={selectCls}>
-                    <option value="">Текущий пользователь</option>
-                    {allStaff.map((s) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
-                  </select>
-                </label>
               )}
 
               {/* Notes */}
