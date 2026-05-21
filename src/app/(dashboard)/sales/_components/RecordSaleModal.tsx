@@ -56,6 +56,8 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
+  const [conflictSlots, setConflictSlots] = React.useState<string[]>([]);
+  const [allowOverlap, setAllowOverlap] = React.useState(false);
 
   const debouncedQuery = useDebounce(clientQuery, 250);
 
@@ -133,7 +135,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
+    setError(''); setConflictSlots([]);
 
     if (!selectedClient) { setError('Выберите клиента'); return; }
     if (!specialistId) { setError('Выберите специалиста'); return; }
@@ -145,7 +147,6 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
     setSaving(true);
     try {
       const service = services.find((s) => s.id === serviceId)!;
-      // Distribute total price across quantity units. Each unit gets effectivePrice/quantity.
       const pricePerUnit = quantity > 1
         ? Math.round((effectivePrice / quantity) * 100) / 100
         : effectivePrice;
@@ -168,12 +169,18 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
           services: serviceEntries,
           notes: notes.trim() || undefined,
           source: 'admin',
-          // soldByUserId intentionally omitted — resolved server-side from x-user-id header
+          allowOverlap,
         }),
       });
 
-      const json = await res.json() as { success: boolean; error?: { message?: string } };
+      const json = await res.json() as {
+        success: boolean;
+        error?: { code?: string; message?: string; details?: { nextAvailableSlots?: string[] } };
+      };
       if (!res.ok || !json.success) {
+        if (json.error?.code === 'CONFLICT') {
+          setConflictSlots(json.error?.details?.nextAvailableSlots ?? []);
+        }
         setError(json.error?.message ?? 'Ошибка при записи');
         return;
       }
@@ -184,6 +191,15 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
     } finally {
       setSaving(false);
     }
+  }
+
+  function applyConflictSlot(isoSlot: string) {
+    const d = new Date(isoSlot);
+    // datetime-local value format: "YYYY-MM-DDTHH:mm" (local time)
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000)
+      .toISOString().slice(0, 16);
+    setStartAt(local);
+    setError(''); setConflictSlots([]); setAllowOverlap(false);
   }
 
   return (
@@ -349,7 +365,40 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
           </div>
 
           {error && (
-            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</p>
+            <div className="space-y-2">
+              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</p>
+              {conflictSlots.length > 0 && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 space-y-2">
+                  <p className="text-xs font-medium text-amber-400">Ближайшие свободные слоты:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {conflictSlots.map((slot) => {
+                      const d = new Date(slot);
+                      const label = d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                      return (
+                        <button
+                          key={slot}
+                          type="button"
+                          disabled={saving}
+                          onClick={() => applyConflictSlot(slot)}
+                          className="px-2.5 py-1 rounded-lg text-xs bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 transition-colors"
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allowOverlap}
+                      onChange={(e) => setAllowOverlap(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded accent-champagne"
+                    />
+                    <span className="text-xs text-text-tertiary">Принудительная запись (только для администраторов)</span>
+                  </label>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="flex gap-3 pt-1">

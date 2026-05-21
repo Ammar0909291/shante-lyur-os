@@ -11,6 +11,48 @@ function apiError(code: string, message: string, status: number, details?: Recor
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
 
+// ─── Scheduling constants ────────────────────────────────────────────────────
+const MASSAGE_BUFFER_MINUTES = 30;
+const MASSAGE_BUFFER_MS = MASSAGE_BUFFER_MINUTES * 60_000;
+const SLOT_INTERVAL_MS = 30 * 60_000; // suggest in 30-min increments
+const ACTIVE_STATUSES = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] as const;
+
+/**
+ * Find up to `count` non-conflicting start times for a new booking.
+ * Searches in 30-minute increments from `fromTime`.
+ * isMassagist: applies 30-min buffer after each existing appointment.
+ */
+function findNextAvailableSlots(
+  existingAppts: Array<{ startAt: Date; endAt: Date }>,
+  durationMs: number,
+  isMassagist: boolean,
+  fromTime: Date,
+  count = 3,
+): string[] {
+  const bufferMs = isMassagist ? MASSAGE_BUFFER_MS : 0;
+  const slots: string[] = [];
+
+  // Round fromTime up to next 30-min boundary
+  const rem = fromTime.getTime() % SLOT_INTERVAL_MS;
+  let candidate = new Date(rem === 0 ? fromTime : fromTime.getTime() + (SLOT_INTERVAL_MS - rem));
+
+  for (let attempt = 0; attempt < 300 && slots.length < count; attempt++) {
+    const candidateEnd = new Date(candidate.getTime() + durationMs);
+
+    const hasConflict = existingAppts.some((appt) => {
+      const effectiveEnd = new Date(appt.endAt.getTime() + bufferMs);
+      return candidate < effectiveEnd && candidateEnd > appt.startAt;
+    });
+
+    if (!hasConflict) slots.push(candidate.toISOString());
+
+    candidate = new Date(candidate.getTime() + SLOT_INTERVAL_MS);
+  }
+
+  return slots;
+}
+
+// ─── List schema ─────────────────────────────────────────────────────────────
 const ListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(1000).default(50),
@@ -20,6 +62,7 @@ const ListSchema = z.object({
   specialistId: z.string().uuid().optional(),
 });
 
+// ─── Create schema ────────────────────────────────────────────────────────────
 const CreateSchema = z.object({
   clientId: z.string().uuid(),
   specialistId: z.string().uuid(),
@@ -34,6 +77,8 @@ const CreateSchema = z.object({
   notes: z.string().max(2000).optional(),
   source: z.enum(['web', 'phone', 'walkin', 'admin']).default('admin'),
   soldByUserId: z.string().uuid().optional(),
+  /** Only SUPER_ADMIN / ADMIN may use this to bypass conflict checking */
+  allowOverlap: z.boolean().optional().default(false),
 });
 
 export async function GET(req: NextRequest) {
@@ -51,7 +96,6 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {};
     if (status) {
-      // Support comma-separated values: status=CONFIRMED,COMPLETED
       const statuses = status.split(',').map((s) => s.trim()).filter(Boolean);
       where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
     }
@@ -78,7 +122,6 @@ export async function GET(req: NextRequest) {
       prisma.appointment.count({ where }),
     ]);
 
-    // Batch-resolve seller names
     const sellerIds = Array.from(new Set(appointments.map((a) => a.soldByUserId).filter(Boolean) as string[]));
     const sellerUsers = sellerIds.length > 0
       ? await prisma.user.findMany({
@@ -129,10 +172,16 @@ export async function POST(req: NextRequest) {
       return apiError('VALIDATION_ERROR', 'Invalid request body', 400, { issues: parsed.error.issues });
     }
 
-    const { clientId, specialistId, locationId, startAt, services, notes, source, soldByUserId: bodySeller } = parsed.data;
-    const soldByUserId = bodySeller ?? req.headers.get('x-user-id') ?? undefined;
+    const {
+      clientId, specialistId, locationId, startAt, services,
+      notes, source, soldByUserId: bodySeller, allowOverlap,
+    } = parsed.data;
 
-    // Server-side: validate service categories match specialist type
+    const soldByUserId = bodySeller ?? req.headers.get('x-user-id') ?? undefined;
+    const userRole = req.headers.get('x-user-role') ?? '';
+    const isAdmin = userRole === 'SUPER_ADMIN' || userRole === 'ADMIN';
+
+    // ── 1. Category validation ───────────────────────────────────────────────
     const requestedServiceIds = services.map((s) => s.serviceId);
     const [specialistRecord, serviceRecords] = await Promise.all([
       prisma.specialist.findUnique({ where: { id: specialistId }, select: { specialization: true } }),
@@ -141,22 +190,102 @@ export async function POST(req: NextRequest) {
     if (!specialistRecord) return apiError('NOT_FOUND', 'Specialist not found', 404);
 
     const specLower = (specialistRecord.specialization ?? '').toLowerCase();
-    const specialistType = (specLower.includes('массаж') || specLower.includes('spa') || specLower.includes('спа'))
-      ? 'MASSAGE' : 'COSMETOLOGY';
+    const isMassagist = specLower.includes('массаж') || specLower.includes('spa') || specLower.includes('спа');
+    const specialistType = isMassagist ? 'MASSAGE' : 'COSMETOLOGY';
 
-    const forbidden = serviceRecords.filter((svc) => {
-      const svcType = svc.category === 'MASSAGE' ? 'MASSAGE' : 'COSMETOLOGY';
-      return svcType !== specialistType;
-    }).map((svc) => svc.id);
-
+    const forbidden = serviceRecords
+      .filter((svc) => (svc.category === 'MASSAGE' ? 'MASSAGE' : 'COSMETOLOGY') !== specialistType)
+      .map((svc) => svc.id);
     if (forbidden.length > 0) {
       return apiError('INVALID_SERVICE', 'Услуга не соответствует специализации специалиста', 422, { forbidden, specialistType });
     }
 
+    // ── 2. Timing ────────────────────────────────────────────────────────────
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
     const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
-    const endAt = new Date(startAt.getTime() + totalDuration * 60_000);
+    const totalDurationMs = totalDuration * 60_000;
+    const endAt = new Date(startAt.getTime() + totalDurationMs);
 
+    // ── 3. Overlap / conflict detection ──────────────────────────────────────
+    // Fetch all active appointments for this specialist in a wide window.
+    // We search [startAt - 8h, endAt + 8h] to catch any bookings whose duration
+    // might overlap with the new slot (even long 2-3h treatments).
+    const windowStart = new Date(startAt.getTime() - 8 * 3_600_000);
+    const windowEnd   = new Date(endAt.getTime()   + 8 * 3_600_000);
+
+    const existingAppts = await prisma.appointment.findMany({
+      where: {
+        specialistId,
+        status: { in: [...ACTIVE_STATUSES] },
+        startAt: { lt: windowEnd },
+        endAt:   { gt: windowStart },
+      },
+      select: { id: true, startAt: true, endAt: true },
+      orderBy: { startAt: 'asc' },
+    });
+
+    // A new booking [startAt, endAt] conflicts with existing [existStart, existEnd] if:
+    //   startAt < (existEnd + buffer) AND endAt > existStart
+    // For massagists, buffer = 30 min after every appointment.
+    const bufferMs = isMassagist ? MASSAGE_BUFFER_MS : 0;
+
+    const conflicts = existingAppts.filter((appt) => {
+      const effectiveEnd = new Date(appt.endAt.getTime() + bufferMs);
+      return startAt < effectiveEnd && endAt > appt.startAt;
+    });
+
+    // Admin override: only honoured for SUPER_ADMIN / ADMIN roles
+    const overrideApplied = isAdmin && allowOverlap === true;
+
+    if (conflicts.length > 0 && !overrideApplied) {
+      // Fetch broader window of future appointments to power accurate slot suggestions
+      const futureAppts = await prisma.appointment.findMany({
+        where: {
+          specialistId,
+          status: { in: [...ACTIVE_STATUSES] },
+          startAt: { gte: startAt },
+          endAt:   { lte: new Date(startAt.getTime() + 7 * 24 * 3_600_000) },
+        },
+        select: { startAt: true, endAt: true },
+        orderBy: { startAt: 'asc' },
+      });
+
+      // Start suggesting from after the latest conflicting appointment (+ buffer)
+      const latestConflictEnd = conflicts.reduce(
+        (max, c) => Math.max(max, c.endAt.getTime()),
+        0,
+      );
+      const suggestFrom = new Date(latestConflictEnd + bufferMs);
+
+      const nextAvailableSlots = findNextAvailableSlots(
+        futureAppts,
+        totalDurationMs,
+        isMassagist,
+        suggestFrom,
+      );
+
+      const bufferNote = isMassagist
+        ? ` (правило: +${MASSAGE_BUFFER_MINUTES} мин. перерыв после каждого массажа)`
+        : '';
+
+      return apiError(
+        'CONFLICT',
+        `Специалист занят в это время${bufferNote}`,
+        409,
+        {
+          conflictingAt: conflicts.map((c) => ({
+            startAt: c.startAt.toISOString(),
+            endAt:   c.endAt.toISOString(),
+          })),
+          nextAvailableSlots,
+          isMassagist,
+          bufferMinutes: isMassagist ? MASSAGE_BUFFER_MINUTES : 0,
+          adminCanOverride: true,
+        },
+      );
+    }
+
+    // ── 4. Create appointment ─────────────────────────────────────────────────
     const { randomUUID } = await import('crypto');
 
     const appointment = await prisma.appointment.create({
@@ -195,15 +324,12 @@ export async function POST(req: NextRequest) {
     await prisma.customerProfile.upsert({
       where:  { userId: clientId },
       create: { id: randomUUID(), userId: clientId, firstVisitAt: startAt, loyaltyTier: 'BRONZE' },
-      update: { firstVisitAt: undefined }, // only update below if still null
+      update: { firstVisitAt: undefined },
     }).then(async (profile) => {
       if (!profile.firstVisitAt) {
-        await prisma.customerProfile.update({
-          where: { userId: clientId },
-          data:  { firstVisitAt: startAt },
-        });
+        await prisma.customerProfile.update({ where: { userId: clientId }, data: { firstVisitAt: startAt } });
       }
-    }).catch(() => { /* non-fatal — booking already succeeded */ });
+    }).catch(() => { /* non-fatal */ });
 
     return ok({
       id: appointment.id,
@@ -215,6 +341,7 @@ export async function POST(req: NextRequest) {
       status: appointment.status,
       totalPrice: Number(appointment.totalPrice),
       totalDuration: appointment.totalDuration,
+      overrideApplied,
     }, 201);
   } catch (error) {
     if (error instanceof Error) return apiError('INTERNAL_ERROR', error.message, 500);

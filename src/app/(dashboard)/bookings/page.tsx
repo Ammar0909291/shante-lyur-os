@@ -171,6 +171,8 @@ export default function BookingsPage() {
   const [showModal, setShowModal] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState('');
+  const [conflictSlots, setConflictSlots] = React.useState<string[]>([]);
+  const [allowOverlap, setAllowOverlap] = React.useState(false);
   const [locations, setLocations] = React.useState<Location[]>([]);
   const [clientSearch, setClientSearch] = React.useState('');
   const [clients, setClients] = React.useState<Client[]>([]);
@@ -306,7 +308,7 @@ export default function BookingsPage() {
     if (!form.locationId) { setFormError('Не удалось определить локацию. Обновите страницу.'); return; }
     if (!selectedService) { setFormError('Выберите услугу'); return; }
     if (!form.date) { setFormError('Выберите дату'); return; }
-    setSubmitting(true); setFormError('');
+    setSubmitting(true); setFormError(''); setConflictSlots([]);
     const startAt = new Date(`${form.date}T${form.time}:00`);
     const finalPrice = form.priceOverride !== '' ? Number(form.priceOverride) : selectedService.basePrice;
     try {
@@ -319,19 +321,37 @@ export default function BookingsPage() {
           startAt: startAt.toISOString(),
           services: [{ serviceId: selectedService.id, price: finalPrice, duration: selectedService.baseDuration, sortOrder: 0 }],
           notes: form.notes.trim() || undefined, source: 'admin',
+          allowOverlap,
         }),
       });
       const json = await res.json();
-      if (!json.success) { setFormError(json.error?.message ?? 'Ошибка создания записи'); return; }
+      if (!json.success) {
+        if (json.error?.code === 'CONFLICT') {
+          const slots: string[] = json.error?.details?.nextAvailableSlots ?? [];
+          setConflictSlots(slots);
+        }
+        setFormError(json.error?.message ?? 'Ошибка создания записи');
+        return;
+      }
       setShowModal(false); setSelectedClient(null); setClientSearch('');
+      setAllowOverlap(false); setConflictSlots([]);
       setForm((f) => ({ ...f, specialistId: '', serviceId: '', notes: '', priceOverride: '' }));
       fetchBookings();
     } catch { setFormError('Сетевая ошибка. Попробуйте снова.'); } finally { setSubmitting(false); }
   };
 
+  function applyConflictSlot(isoSlot: string) {
+    const d = new Date(isoSlot);
+    const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    setForm((f) => ({ ...f, date: ymd, time: hhmm }));
+    setFormError(''); setConflictSlots([]); setAllowOverlap(false);
+  }
+
   const closeModal = () => {
-    setShowModal(false); setFormError(''); setSelectedClient(null);
-    setClientSearch(''); setClients([]); setShowCreateForm(false); setCreateError('');
+    setShowModal(false); setFormError(''); setConflictSlots([]); setAllowOverlap(false);
+    setSelectedClient(null); setClientSearch(''); setClients([]);
+    setShowCreateForm(false); setCreateError('');
     setCreateForm({ firstName: '', lastName: '', phone: '', email: '' });
   };
 
@@ -823,7 +843,41 @@ export default function BookingsPage() {
                 <textarea rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Особые пожелания..." className={cn(inputCls, 'resize-none')} />
               </label>
 
-              {formError && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{formError}</p>}
+              {formError && (
+                <div className="space-y-2">
+                  <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{formError}</p>
+                  {conflictSlots.length > 0 && (
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 space-y-2">
+                      <p className="text-xs font-medium text-amber-400">Ближайшие свободные слоты:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {conflictSlots.map((slot) => {
+                          const d = new Date(slot);
+                          const label = d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                          return (
+                            <button
+                              key={slot}
+                              type="button"
+                              onClick={() => applyConflictSlot(slot)}
+                              className="px-2.5 py-1 rounded-lg text-xs bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 transition-colors"
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer mt-1">
+                        <input
+                          type="checkbox"
+                          checked={allowOverlap}
+                          onChange={(e) => setAllowOverlap(e.target.checked)}
+                          className="w-3.5 h-3.5 rounded accent-champagne"
+                        />
+                        <span className="text-xs text-text-tertiary">Принудительная запись (только для администраторов)</span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <Button type="button" variant="secondary" className="flex-1" onClick={closeModal}>Отмена</Button>
