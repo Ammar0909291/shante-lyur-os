@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     // Date-only strings (e.g. "2026-05-20") parse as midnight UTC, which is correct for `from`.
     // For `to` a date-only string would cut off all bookings made after midnight UTC on that day,
     // so we extend it to end-of-that-day (23:59:59.999 UTC).
-    let fromDate = fromParam ? new Date(fromParam) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const fromDate = fromParam ? new Date(fromParam) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     let toDate   = toParam   ? new Date(toParam)   : new Date();
 
     if (toParam && /^\d{4}-\d{2}-\d{2}$/.test(toParam)) {

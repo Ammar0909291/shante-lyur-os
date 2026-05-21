@@ -1,4 +1,4 @@
-import { UserRole } from '@/domain/enums';
+import { UserRole, DayOfWeek } from '@/domain/enums';
 import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
 import { DateRange } from '@/domain/value-objects';
 import { AppointmentRescheduledEvent } from '@/domain/events';
@@ -66,7 +66,7 @@ export class RescheduleAppointmentUseCase {
       throw new ConflictError('Specialist is on vacation at new time');
     }
 
-    const dayOfWeek = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][dto.newStartAt.getDay()] as any;
+    const dayOfWeek = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][dto.newStartAt.getDay()] as DayOfWeek;
     const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(appointment.specialistId, dayOfWeek);
     const validSchedule = schedules.find(s => {
       if (!s.isActive || !s.isValidForDate(dto.newStartAt)) return false;

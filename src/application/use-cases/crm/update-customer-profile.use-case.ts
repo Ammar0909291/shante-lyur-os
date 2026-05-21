@@ -31,38 +31,39 @@ export class UpdateCustomerProfileUseCase {
     }
 
     const oldValues: Record<string, unknown> = {};
+    const mutableProps = (profile as unknown as { props: Record<string, unknown> }).props;
 
     if (dto.dateOfBirth !== undefined) {
       oldValues.dateOfBirth = profile.dateOfBirth;
-      (profile as any).props.dateOfBirth = dto.dateOfBirth;
+      mutableProps.dateOfBirth = dto.dateOfBirth;
     }
     if (dto.gender !== undefined) {
       oldValues.gender = profile.gender;
-      (profile as any).props.gender = dto.gender;
+      mutableProps.gender = dto.gender;
     }
     if (dto.skinType !== undefined) {
       oldValues.skinType = profile.skinType;
-      (profile as any).props.skinType = dto.skinType;
+      mutableProps.skinType = dto.skinType;
     }
     if (dto.hairType !== undefined) {
       oldValues.hairType = profile.hairType;
-      (profile as any).props.hairType = dto.hairType;
+      mutableProps.hairType = dto.hairType;
     }
     if (dto.bodyType !== undefined) {
       oldValues.bodyType = profile.bodyType;
-      (profile as any).props.bodyType = dto.bodyType;
+      mutableProps.bodyType = dto.bodyType;
     }
     if (dto.preferredLocationId !== undefined) {
       oldValues.preferredLocationId = profile.preferredLocationId;
-      (profile as any).props.preferredLocationId = dto.preferredLocationId;
+      mutableProps.preferredLocationId = dto.preferredLocationId;
     }
     if (dto.preferredSpecialistId !== undefined) {
       oldValues.preferredSpecialistId = profile.preferredSpecialistId;
-      (profile as any).props.preferredSpecialistId = dto.preferredSpecialistId;
+      mutableProps.preferredSpecialistId = dto.preferredSpecialistId;
     }
     if (dto.notes !== undefined) {
       oldValues.notes = profile.notes;
-      (profile as any).props.notes = dto.notes;
+      mutableProps.notes = dto.notes;
     }
 
     profile.updatedAt = new Date();

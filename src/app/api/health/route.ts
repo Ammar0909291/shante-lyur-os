@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/infrastructure/config/prisma-client';
+import pkg from '../../../../package.json';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const APP_VERSION: string = (require('../../../../package.json') as { version: string }).version ?? 'unknown';
+const APP_VERSION: string = pkg.version ?? 'unknown';
 
 type DbStatus = 'connected' | 'disconnected';
 type HealthStatus = 'ok' | 'degraded' | 'down';
