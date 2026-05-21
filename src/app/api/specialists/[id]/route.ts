@@ -9,6 +9,13 @@ function apiError(code: string, message: string, status: number) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
 }
 
+function deriveSpecialistType(specialization: string | null): 'MASSAGE' | 'COSMETOLOGY' {
+  if (!specialization) return 'COSMETOLOGY';
+  const lower = specialization.toLowerCase();
+  if (lower.includes('массаж') || lower.includes('spa') || lower.includes('спа')) return 'MASSAGE';
+  return 'COSMETOLOGY';
+}
+
 const PatchSchema = z.object({
   status: z.enum(['ACTIVE', 'ON_VACATION', 'INACTIVE', 'TERMINATED']).optional(),
   sortOrder: z.number().int().min(0).optional(),
@@ -70,12 +77,15 @@ export async function GET(
   try {
     const specialist = await prisma.specialist.findUniqueOrThrow({
       where: { id: params.id },
-      include: { user: { select: { firstName: true, lastName: true, email: true } } },
+      include: {
+        user: { select: { firstName: true, lastName: true, email: true } },
+        services: { where: { isActive: true }, select: { serviceId: true } },
+      },
     });
 
     return ok({
       id: specialist.id,
-      status: specialist.status,
+      userId: specialist.userId,
       firstName: specialist.user.firstName,
       lastName: specialist.user.lastName,
       email: specialist.user.email,
@@ -85,7 +95,12 @@ export async function GET(
       rating: specialist.rating !== null ? Number(specialist.rating) : null,
       reviewCount: specialist.reviewCount,
       commissionRate: Number(specialist.commissionRate),
+      status: specialist.status,
       color: specialist.color,
+      sortOrder: specialist.sortOrder,
+      createdAt: specialist.createdAt,
+      allowedServiceIds: specialist.services.map((ss) => ss.serviceId),
+      specialistType: deriveSpecialistType(specialist.specialization),
     });
   } catch (error) {
     if (error instanceof Error) return apiError('INTERNAL_ERROR', error.message, 500);
