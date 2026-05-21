@@ -66,7 +66,7 @@ async function main() {
 
   // ─── Services ────────────────────────────────────────────────
   const serviceData = [
-    { name: 'Классический массаж лица', category: ServiceCategory.COSMETOLOGY, basePrice: 3500, baseDuration: 60, description: 'Расслабляющий массаж лица и шеи' },
+    { name: 'Классический массаж лица', category: ServiceCategory.MASSAGE, basePrice: 3500, baseDuration: 60, description: 'Расслабляющий массаж лица и шеи' },
     { name: 'RF-лифтинг', category: ServiceCategory.LASER, basePrice: 5500, baseDuration: 45, description: 'Радиоволновой лифтинг кожи' },
     { name: 'Мезотерапия', category: ServiceCategory.INJECTION, basePrice: 8000, baseDuration: 30, requiresConsultation: true, description: 'Инъекционное омоложение' },
     { name: 'SPA-массаж всего тела', category: ServiceCategory.MASSAGE, basePrice: 7000, baseDuration: 90, description: 'Полный расслабляющий массаж' },
@@ -133,12 +133,26 @@ async function main() {
 
     createdSpecialists.push(specialist);
 
-    // Assign services
-    for (const svc of allServices.slice(0, 5)) {
+    // Assign services per specialization (index matches specialistProfiles order)
+    // Services by seed index: 0=массаж лица(MASSAGE) 1=RF-лифтинг(LASER) 2=Мезотерапия(INJ)
+    //   3=SPA-массаж(MASSAGE) 4=Лазерная эпиляция(HAIR_REMOVAL) 5=Биоревитализация(INJ)
+    //   6=Гиалуроновый лифтинг(COSMETOLOGY) 7=Антицеллюлитный(MASSAGE) 8=Пилинг(FACIAL)
+    //   9=Ароматерапевтический(MASSAGE)
+    const servicesBySpec: number[][] = [
+      [6, 2, 5, 1, 8],   // Елена Иванова  — косметология+инъекции: гиалурон, мезо, биорев, RF, пилинг
+      [3, 7, 9, 0],      // Мария Петрова  — массаж: SPA, антицелл, аромат, массаж лица
+      [1, 4, 6],         // Ольга Ким      — лазер: RF, лазер.эпил, гиалурон
+      [2, 5, 6],         // Наталья Волкова — инъекции: мезо, биорев, гиалурон
+      [0, 8, 7, 9],      // Дарья Соколова — уход: массаж лица, пилинг, антицелл, аромат
+    ];
+    const myServiceIndices = servicesBySpec[i] ?? [];
+    for (const idx of myServiceIndices) {
+      const svc = allServices[idx];
+      if (!svc) continue;
       await prisma.specialistService.upsert({
         where: { specialistId_serviceId: { specialistId: specialist.id, serviceId: svc.id } },
-        update: {},
-        create: { specialistId: specialist.id, serviceId: svc.id },
+        update: { isActive: true },
+        create: { specialistId: specialist.id, serviceId: svc.id, isActive: true },
       });
     }
 

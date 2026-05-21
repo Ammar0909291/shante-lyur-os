@@ -28,7 +28,7 @@ interface Booking {
   services: { serviceId: string; name: string; price: number; duration: number }[];
 }
 
-interface Specialist { id: string; firstName: string; lastName: string; specialization: string | null; }
+interface Specialist { id: string; firstName: string; lastName: string; specialization: string | null; allowedServiceIds: string[]; }
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; isActive?: boolean; }
 interface Location { id: string; name: string; }
 interface Client { id: string; firstName: string; lastName: string; email: string; phone?: string | null; clientRef?: string; }
@@ -291,25 +291,13 @@ export default function BookingsPage() {
 
   const selectedService = allServices.find((s) => s.id === form.serviceId);
 
-  // Map specialist specialization text → allowed service categories
-  function getSpecialistCategories(specialization: string): string[] {
-    const s = specialization.toLowerCase();
-    const cats: string[] = [];
-    if (s.includes('массаж') || s.includes('spa') || s.includes('спа')) cats.push('MASSAGE');
-    if (s.includes('косметолог') || s.includes('уходов') || s.includes('лицо') || s.includes('фейс')) cats.push('COSMETOLOGY', 'FACIAL');
-    if (s.includes('инъекц')) cats.push('INJECTION');
-    if (s.includes('лазер')) cats.push('LASER', 'HAIR_REMOVAL');
-    if (s.includes('эпиляц')) cats.push('HAIR_REMOVAL');
-    return Array.from(new Set(cats));
-  }
-
   const selectedSpecialist = allSpecialists.find((s) => s.id === form.specialistId);
   const filteredServices = React.useMemo(() => {
     const active = allServices.filter((s) => s.isActive !== false);
-    if (!selectedSpecialist?.specialization) return active;
-    const cats = getSpecialistCategories(selectedSpecialist.specialization);
-    if (cats.length === 0) return active;
-    return active.filter((s) => cats.includes(s.category));
+    if (!selectedSpecialist) return active;
+    const allowed = selectedSpecialist.allowedServiceIds;
+    if (!allowed || allowed.length === 0) return active;
+    return active.filter((s) => allowed.includes(s.id));
   }, [selectedSpecialist, allServices]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -775,10 +763,16 @@ export default function BookingsPage() {
               {/* Service */}
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Услуга *</span>
-                <select required value={form.serviceId} onChange={(e) => setForm((f) => ({ ...f, serviceId: e.target.value }))} className={selectCls}>
-                  <option value="">Выберите услугу</option>
-                  {filteredServices.map((s) => <option key={s.id} value={s.id}>{s.name} — {s.baseDuration} мин · {s.basePrice.toLocaleString('ru-RU')} ₽</option>)}
-                </select>
+                {form.specialistId && filteredServices.length === 0 ? (
+                  <div className="px-3 py-2.5 rounded-xl border border-border-luxury bg-charcoal text-sm text-text-tertiary">
+                    Нет доступных услуг для выбранного специалиста
+                  </div>
+                ) : (
+                  <select required value={form.serviceId} onChange={(e) => setForm((f) => ({ ...f, serviceId: e.target.value }))} className={selectCls}>
+                    <option value="">{form.specialistId ? 'Выберите услугу' : 'Сначала выберите специалиста'}</option>
+                    {filteredServices.map((s) => <option key={s.id} value={s.id}>{s.name} — {s.baseDuration} мин · {s.basePrice.toLocaleString('ru-RU')} ₽</option>)}
+                  </select>
+                )}
               </label>
 
               {/* Location */}

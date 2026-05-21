@@ -132,6 +132,18 @@ export async function POST(req: NextRequest) {
     const { clientId, specialistId, locationId, startAt, services, notes, source, soldByUserId: bodySeller } = parsed.data;
     const soldByUserId = bodySeller ?? req.headers.get('x-user-id') ?? undefined;
 
+    // Server-side: validate every requested service is allowed for this specialist
+    const requestedServiceIds = services.map((s) => s.serviceId);
+    const allowedLinks = await prisma.specialistService.findMany({
+      where: { specialistId, serviceId: { in: requestedServiceIds }, isActive: true },
+      select: { serviceId: true },
+    });
+    const allowedSet = new Set(allowedLinks.map((l) => l.serviceId));
+    const forbidden = requestedServiceIds.filter((sid) => !allowedSet.has(sid));
+    if (forbidden.length > 0) {
+      return apiError('INVALID_SERVICE', 'One or more services are not offered by this specialist', 422, { forbidden });
+    }
+
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
     const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
     const endAt = new Date(startAt.getTime() + totalDuration * 60_000);

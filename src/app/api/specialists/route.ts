@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
         where,
         include: {
           user: { select: { firstName: true, lastName: true, email: true } },
+          services: { where: { isActive: true }, select: { serviceId: true } },
         },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         skip: (page - 1) * limit,
@@ -73,6 +74,7 @@ export async function GET(req: NextRequest) {
       color: s.color,
       sortOrder: s.sortOrder,
       createdAt: s.createdAt,
+      allowedServiceIds: s.services.map((ss) => ss.serviceId),
     }));
 
     return ok({ items, total, page, limit });
