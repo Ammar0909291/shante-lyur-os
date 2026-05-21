@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import * as React from 'react';
 import Link from 'next/link';
 import { Users, Star, Archive, TrendingUp, TrendingDown, UserCheck, UserX } from 'lucide-react';
