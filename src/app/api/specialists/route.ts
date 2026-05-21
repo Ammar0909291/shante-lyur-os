@@ -6,6 +6,13 @@ import { Prisma, SpecialistStatus } from '@prisma/client';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { DomainError } from '@/domain/errors';
 
+function deriveSpecialistType(specialization: string | null): 'MASSAGE' | 'COSMETOLOGY' {
+  if (!specialization) return 'COSMETOLOGY';
+  const lower = specialization.toLowerCase();
+  if (lower.includes('массаж') || lower.includes('spa') || lower.includes('спа')) return 'MASSAGE';
+  return 'COSMETOLOGY';
+}
+
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
 }
@@ -75,6 +82,7 @@ export async function GET(req: NextRequest) {
       sortOrder: s.sortOrder,
       createdAt: s.createdAt,
       allowedServiceIds: s.services.map((ss) => ss.serviceId),
+      specialistType: deriveSpecialistType(s.specialization),
     }));
 
     return ok({ items, total, page, limit });

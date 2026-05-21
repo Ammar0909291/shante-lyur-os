@@ -65,24 +65,26 @@ async function main() {
   });
 
   // ─── Services ────────────────────────────────────────────────
+  // Only two operational categories: MASSAGE and COSMETOLOGY
   const serviceData = [
     { name: 'Классический массаж лица', category: ServiceCategory.MASSAGE, basePrice: 3500, baseDuration: 60, description: 'Расслабляющий массаж лица и шеи' },
-    { name: 'RF-лифтинг', category: ServiceCategory.LASER, basePrice: 5500, baseDuration: 45, description: 'Радиоволновой лифтинг кожи' },
-    { name: 'Мезотерапия', category: ServiceCategory.INJECTION, basePrice: 8000, baseDuration: 30, requiresConsultation: true, description: 'Инъекционное омоложение' },
+    { name: 'RF-лифтинг', category: ServiceCategory.COSMETOLOGY, basePrice: 5500, baseDuration: 45, description: 'Радиоволновой лифтинг кожи' },
+    { name: 'Мезотерапия', category: ServiceCategory.COSMETOLOGY, basePrice: 8000, baseDuration: 30, requiresConsultation: true, description: 'Инъекционное омоложение' },
     { name: 'SPA-массаж всего тела', category: ServiceCategory.MASSAGE, basePrice: 7000, baseDuration: 90, description: 'Полный расслабляющий массаж' },
-    { name: 'Лазерная эпиляция', category: ServiceCategory.HAIR_REMOVAL, basePrice: 2500, baseDuration: 30, description: 'Безболезненное удаление волос' },
-    { name: 'Биоревитализация', category: ServiceCategory.INJECTION, basePrice: 9500, baseDuration: 45, requiresConsultation: true, description: 'Глубокое увлажнение кожи' },
+    { name: 'Лазерная эпиляция', category: ServiceCategory.COSMETOLOGY, basePrice: 2500, baseDuration: 30, description: 'Безболезненное удаление волос' },
+    { name: 'Биоревитализация', category: ServiceCategory.COSMETOLOGY, basePrice: 9500, baseDuration: 45, requiresConsultation: true, description: 'Глубокое увлажнение кожи' },
     { name: 'Гиалуроновый лифтинг', category: ServiceCategory.COSMETOLOGY, basePrice: 6500, baseDuration: 60, description: 'Лифтинг с гиалуроновой кислотой' },
     { name: 'Антицеллюлитный массаж', category: ServiceCategory.MASSAGE, basePrice: 4500, baseDuration: 60, description: 'Интенсивный массаж проблемных зон' },
-    { name: 'Пилинг & Детокс', category: ServiceCategory.FACIAL, basePrice: 4000, baseDuration: 60, description: 'Глубокое очищение кожи' },
+    { name: 'Пилинг & Детокс', category: ServiceCategory.COSMETOLOGY, basePrice: 4000, baseDuration: 60, description: 'Глубокое очищение кожи' },
     { name: 'Ароматерапевтический массаж', category: ServiceCategory.MASSAGE, basePrice: 5500, baseDuration: 75, description: 'Расслабляющий массаж с эфирными маслами' },
   ];
 
-  const allServices = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allServices: any[] = [];
   for (const svc of serviceData) {
     const service = await prisma.service.upsert({
       where: { id: `00000000-0000-0000-0001-${String(serviceData.indexOf(svc) + 1).padStart(12, '0')}` },
-      update: {},
+      update: { name: svc.name, category: svc.category },
       create: {
         id: `00000000-0000-0000-0001-${String(serviceData.indexOf(svc) + 1).padStart(12, '0')}`,
         ...svc,
@@ -133,19 +135,22 @@ async function main() {
 
     createdSpecialists.push(specialist);
 
-    // Assign services per specialization (index matches specialistProfiles order)
-    // Services by seed index: 0=массаж лица(MASSAGE) 1=RF-лифтинг(LASER) 2=Мезотерапия(INJ)
-    //   3=SPA-массаж(MASSAGE) 4=Лазерная эпиляция(HAIR_REMOVAL) 5=Биоревитализация(INJ)
-    //   6=Гиалуроновый лифтинг(COSMETOLOGY) 7=Антицеллюлитный(MASSAGE) 8=Пилинг(FACIAL)
-    //   9=Ароматерапевтический(MASSAGE)
-    const servicesBySpec: number[][] = [
-      [6, 2, 5, 1, 8],   // Елена Иванова  — косметология+инъекции: гиалурон, мезо, биорев, RF, пилинг
-      [3, 7, 9, 0],      // Мария Петрова  — массаж: SPA, антицелл, аромат, массаж лица
-      [1, 4, 6],         // Ольга Ким      — лазер: RF, лазер.эпил, гиалурон
-      [2, 5, 6],         // Наталья Волкова — инъекции: мезо, биорев, гиалурон
-      [0, 8, 7, 9],      // Дарья Соколова — уход: массаж лица, пилинг, антицелл, аромат
-    ];
-    const myServiceIndices = servicesBySpec[i] ?? [];
+    // Two specialist types: MASSAGIST (contains 'массаж'/'spa') gets MASSAGE services only,
+    // COSMETOLOGIST gets COSMETOLOGY services only.
+    // MASSAGE indices: 0(массаж лица), 3(SPA-массаж), 7(антицелл), 9(ароматерап)
+    // COSMETOLOGY indices: 1(RF), 2(мезо), 4(лазер.эпил), 5(биорев), 6(гиалурон), 8(пилинг)
+    const specLower = sp.specialization.toLowerCase();
+    const isMassagist = specLower.includes('массаж') || specLower.includes('spa') || specLower.includes('спа');
+    const myServiceIndices = isMassagist ? [0, 3, 7, 9] : [1, 2, 4, 5, 6, 8];
+
+    // Remove stale links not in current set
+    await prisma.specialistService.deleteMany({
+      where: {
+        specialistId: specialist.id,
+        serviceId: { notIn: myServiceIndices.map((idx) => allServices[idx]?.id).filter(Boolean) as string[] },
+      },
+    });
+
     for (const idx of myServiceIndices) {
       const svc = allServices[idx];
       if (!svc) continue;

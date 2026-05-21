@@ -9,6 +9,7 @@ interface Specialist {
   name: string;
   specialization: string | null;
   allowedServiceIds: string[];
+  specialistType: 'MASSAGE' | 'COSMETOLOGY';
 }
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; isActive?: boolean; }
 interface Location { id: string; name: string; }
@@ -70,12 +71,14 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
           (sp.data?.items ?? sp.data ?? []).map((s: {
             id: string; userId: string; firstName: string; lastName: string;
             specialization?: string | null; allowedServiceIds?: string[];
+            specialistType?: 'MASSAGE' | 'COSMETOLOGY';
           }) => ({
             id: s.id,
             userId: s.userId,
             name: `${s.firstName} ${s.lastName}`.trim(),
             specialization: s.specialization ?? null,
             allowedServiceIds: s.allowedServiceIds ?? [],
+            specialistType: s.specialistType ?? 'COSMETOLOGY',
           }))
         );
       }
@@ -111,12 +114,10 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
   const selectedSpecialistObj = specialists.find((s) => s.id === specialistId);
 
-  // Filter services by specialist's allowed list (from specialist_services table via API)
+  // Filter services by specialist type: MASSAGIST sees only MASSAGE, COSMETOLOGIST sees only COSMETOLOGY
   const filteredServices = React.useMemo(() => {
     if (!selectedSpecialistObj) return services;
-    const allowed = selectedSpecialistObj.allowedServiceIds;
-    if (!allowed || allowed.length === 0) return services;
-    return services.filter((s) => allowed.includes(s.id));
+    return services.filter((s) => s.category === selectedSpecialistObj.specialistType);
   }, [selectedSpecialistObj, services]);
 
   const selectedService = services.find((s) => s.id === serviceId);

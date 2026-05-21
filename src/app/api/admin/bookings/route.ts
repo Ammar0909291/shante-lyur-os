@@ -132,16 +132,25 @@ export async function POST(req: NextRequest) {
     const { clientId, specialistId, locationId, startAt, services, notes, source, soldByUserId: bodySeller } = parsed.data;
     const soldByUserId = bodySeller ?? req.headers.get('x-user-id') ?? undefined;
 
-    // Server-side: validate every requested service is allowed for this specialist
+    // Server-side: validate service categories match specialist type
     const requestedServiceIds = services.map((s) => s.serviceId);
-    const allowedLinks = await prisma.specialistService.findMany({
-      where: { specialistId, serviceId: { in: requestedServiceIds }, isActive: true },
-      select: { serviceId: true },
-    });
-    const allowedSet = new Set(allowedLinks.map((l) => l.serviceId));
-    const forbidden = requestedServiceIds.filter((sid) => !allowedSet.has(sid));
+    const [specialistRecord, serviceRecords] = await Promise.all([
+      prisma.specialist.findUnique({ where: { id: specialistId }, select: { specialization: true } }),
+      prisma.service.findMany({ where: { id: { in: requestedServiceIds } }, select: { id: true, category: true } }),
+    ]);
+    if (!specialistRecord) return apiError('NOT_FOUND', 'Specialist not found', 404);
+
+    const specLower = (specialistRecord.specialization ?? '').toLowerCase();
+    const specialistType = (specLower.includes('массаж') || specLower.includes('spa') || specLower.includes('спа'))
+      ? 'MASSAGE' : 'COSMETOLOGY';
+
+    const forbidden = serviceRecords.filter((svc) => {
+      const svcType = svc.category === 'MASSAGE' ? 'MASSAGE' : 'COSMETOLOGY';
+      return svcType !== specialistType;
+    }).map((svc) => svc.id);
+
     if (forbidden.length > 0) {
-      return apiError('INVALID_SERVICE', 'One or more services are not offered by this specialist', 422, { forbidden });
+      return apiError('INVALID_SERVICE', 'Услуга не соответствует специализации специалиста', 422, { forbidden, specialistType });
     }
 
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);

@@ -28,7 +28,7 @@ interface Booking {
   services: { serviceId: string; name: string; price: number; duration: number }[];
 }
 
-interface Specialist { id: string; firstName: string; lastName: string; specialization: string | null; allowedServiceIds: string[]; }
+interface Specialist { id: string; firstName: string; lastName: string; specialization: string | null; allowedServiceIds: string[]; specialistType: 'MASSAGE' | 'COSMETOLOGY'; }
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; isActive?: boolean; }
 interface Location { id: string; name: string; }
 interface Client { id: string; firstName: string; lastName: string; email: string; phone?: string | null; clientRef?: string; }
@@ -296,9 +296,7 @@ export default function BookingsPage() {
   const filteredServices = React.useMemo(() => {
     const active = allServices.filter((s) => s.isActive !== false);
     if (!selectedSpecialist) return active;
-    const allowed = selectedSpecialist.allowedServiceIds;
-    if (!allowed || allowed.length === 0) return active;
-    return active.filter((s) => allowed.includes(s.id));
+    return active.filter((s) => s.category === selectedSpecialist.specialistType);
   }, [selectedSpecialist, allServices]);
 
   const handleSubmit = async (e: React.FormEvent) => {
