@@ -332,6 +332,59 @@ async function main() {
     },
   });
 
+  // ─── Inventory Items ─────────────────────────────────────────
+  const { randomUUID } = await import('crypto');
+  const inventoryData = [
+    { name: 'Масло для массажа лица', category: 'MASSAGE_OILS', unit: 'мл', currentStock: 2400, minStock: 500, costPerUnit: 1.2, supplier: 'SPA Supply Co', notes: 'Гипоаллергенное, без отдушек' },
+    { name: 'Масло антицеллюлитное', category: 'MASSAGE_OILS', unit: 'мл', currentStock: 1800, minStock: 400, costPerUnit: 0.9, supplier: 'SPA Supply Co' },
+    { name: 'Масло ароматерапевтическое (лаванда)', category: 'MASSAGE_OILS', unit: 'мл', currentStock: 800, minStock: 300, costPerUnit: 2.5, supplier: 'EssentialOils RU' },
+    { name: 'Полотенца одноразовые', category: 'MASSAGE_CONSUMABLES', unit: 'шт', currentStock: 500, minStock: 100, costPerUnit: 15, supplier: 'МедСнаб' },
+    { name: 'Простыни одноразовые', category: 'MASSAGE_CONSUMABLES', unit: 'шт', currentStock: 300, minStock: 80, costPerUnit: 25, supplier: 'МедСнаб' },
+    { name: 'Мезотерапевтические иглы 30G', category: 'COSMETOLOGY_INJECTABLES', unit: 'шт', currentStock: 200, minStock: 50, costPerUnit: 45, supplier: 'MesoTech', expiresAt: new Date('2027-06-01') },
+    { name: 'Гиалуроновая кислота 1мл', category: 'COSMETOLOGY_INJECTABLES', unit: 'флакон', currentStock: 30, minStock: 10, costPerUnit: 3500, supplier: 'PharmBeauty', expiresAt: new Date('2026-12-31') },
+    { name: 'Сыворотка для биоревитализации', category: 'COSMETOLOGY_SKINCARE', unit: 'мл', currentStock: 400, minStock: 100, costPerUnit: 8.5, supplier: 'DermaCare Pro', expiresAt: new Date('2026-09-30') },
+    { name: 'Пилинг-крем', category: 'COSMETOLOGY_SKINCARE', unit: 'мл', currentStock: 600, minStock: 150, costPerUnit: 3.2, supplier: 'SkinLab' },
+    { name: 'RF-гель проводящий', category: 'COSMETOLOGY_CONSUMABLES', unit: 'мл', currentStock: 1200, minStock: 200, costPerUnit: 1.5, supplier: 'MediDevice' },
+    { name: 'Перчатки нитриловые (S)', category: 'GENERAL', unit: 'пара', currentStock: 400, minStock: 100, costPerUnit: 12, supplier: 'МедСнаб' },
+    { name: 'Перчатки нитриловые (M)', category: 'GENERAL', unit: 'пара', currentStock: 350, minStock: 100, costPerUnit: 12, supplier: 'МедСнаб' },
+    { name: 'Антисептик для рук 500мл', category: 'GENERAL', unit: 'фл', currentStock: 20, minStock: 10, costPerUnit: 180, supplier: 'SanitarMarket' },
+    { name: 'Воск депиляционный', category: 'COSMETOLOGY_CONSUMABLES', unit: 'г', currentStock: 3000, minStock: 500, costPerUnit: 0.3, supplier: 'EpilPro' },
+  ];
+
+  for (const item of inventoryData) {
+    const existing = await prisma.inventoryItem.findFirst({ where: { name: item.name } });
+    if (!existing) {
+      const created = await prisma.inventoryItem.create({
+        data: {
+          id: randomUUID(),
+          name: item.name,
+          category: item.category as any,
+          unit: item.unit,
+          currentStock: item.currentStock,
+          minStock: item.minStock,
+          costPerUnit: item.costPerUnit,
+          supplier: item.supplier ?? null,
+          expiresAt: item.expiresAt ?? null,
+          notes: item.notes ?? null,
+          isActive: true,
+        },
+      });
+      // Initial stock movement
+      await prisma.stockMovement.create({
+        data: {
+          id: randomUUID(),
+          inventoryItemId: created.id,
+          type: 'PURCHASE',
+          quantity: item.currentStock,
+          balanceAfter: item.currentStock,
+          reason: 'Начальный остаток при инициализации',
+          userId: superAdmin.id,
+        },
+      });
+    }
+  }
+  console.log(`   Inventory items seeded: ${inventoryData.length}`);
+
   // ─── Daily Metrics ───────────────────────────────────────────
   const today = new Date(); today.setHours(0, 0, 0, 0);
   await prisma.dailyMetrics.upsert({

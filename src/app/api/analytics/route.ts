@@ -129,6 +129,23 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
+    // Category breakdown: MASSAGE vs COSMETOLOGY revenue + bookings
+    const categoryMetricsRaw = await prisma.appointmentService.findMany({
+      where: { appointment: completedWhere },
+      select: { price: true, service: { select: { category: true } } },
+    });
+    const catMap = new Map<string, { revenue: number; count: number }>();
+    for (const row of categoryMetricsRaw) {
+      const cat = row.service.category;
+      const existing2 = catMap.get(cat) ?? { revenue: 0, count: 0 };
+      catMap.set(cat, { revenue: existing2.revenue + Number(row.price), count: existing2.count + 1 });
+    }
+    const categoryBreakdown = Array.from(catMap.entries()).map(([category, data]) => ({
+      category,
+      revenue: Math.round(data.revenue),
+      count: data.count,
+    }));
+
     // Build time series
     const revenueMap = new Map<string, number>();
     const bookingMap = new Map<string, number>();
@@ -291,6 +308,7 @@ export async function GET(req: NextRequest) {
         completionRate,
         avgTicket: Math.round(Number(avgAgg._avg.totalPrice ?? 0)),
       },
+      categoryBreakdown,
       range,
       groupBy,
     });

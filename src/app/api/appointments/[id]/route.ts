@@ -103,6 +103,50 @@ async function syncClientProfile(clientId: string): Promise<void> {
   });
 }
 
+async function deductInventory(appointmentId: string, userId?: string): Promise<void> {
+  // Find all services in this appointment
+  const apptServices = await prisma.appointmentService.findMany({
+    where: { appointmentId },
+    select: { serviceId: true },
+  });
+  if (apptServices.length === 0) return;
+
+  const serviceIds = apptServices.map((s) => s.serviceId);
+  const links = await prisma.inventoryServiceLink.findMany({
+    where: { serviceId: { in: serviceIds } },
+    select: { inventoryItemId: true, quantityPerUse: true },
+  });
+  if (links.length === 0) return;
+
+  // Aggregate deductions per item (multiple services may share an item)
+  const deductions = new Map<string, number>();
+  for (const link of links) {
+    deductions.set(link.inventoryItemId, (deductions.get(link.inventoryItemId) ?? 0) + Number(link.quantityPerUse));
+  }
+
+  const { randomUUID } = await import('crypto');
+  for (const [itemId, qty] of Array.from(deductions.entries())) {
+    const updated = await prisma.inventoryItem.update({
+      where: { id: itemId },
+      data: { currentStock: { decrement: qty } },
+    }).catch(() => null); // non-fatal: don't block appointment completion
+    if (!updated) continue;
+
+    await prisma.stockMovement.create({
+      data: {
+        id: randomUUID(),
+        inventoryItemId: itemId,
+        type: 'USAGE',
+        quantity: -qty,
+        balanceAfter: Number(updated.currentStock),
+        reason: 'Автоматическое списание при завершении процедуры',
+        appointmentId,
+        userId: userId ?? null,
+      },
+    }).catch(() => null);
+  }
+}
+
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
@@ -162,9 +206,11 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
 
     // Sync client + specialist stats on terminal states
     if (newStatus === 'COMPLETED') {
+      const userId = req.headers.get('x-user-id') ?? undefined;
       await Promise.all([
         syncClientProfile(existing.clientId),
         syncSpecialistRevenue(id, existing.specialistId, Number(existing.totalPrice), existing.startAt),
+        deductInventory(id, userId),
       ]);
     } else if (newStatus === 'CANCELLED' || newStatus === 'NO_SHOW') {
       await Promise.all([

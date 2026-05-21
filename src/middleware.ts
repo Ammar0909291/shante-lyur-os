@@ -34,6 +34,7 @@ const OPERATOR_ALLOWED_ADMIN_ROUTES = [
   '/api/admin/clients',
   '/api/admin/services',
   '/api/admin/sales',
+  '/api/admin/inventory',
 ];
 
 function isProtectedRoute(pathname: string): boolean {
