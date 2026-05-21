@@ -1,5 +1,6 @@
 import * as React from 'react';
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import {
   Calendar,
   TrendingUp,
@@ -15,6 +16,22 @@ import { formatTime, formatCurrency, getGreeting } from '@/lib/utils';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { UIPageWrapper } from '@/next-ui/components/UIPageWrapper';
 import { NextDashboard } from '@/next-ui/dashboard/NextDashboard';
+import jwt from 'jsonwebtoken';
+
+async function getCurrentUserName(): Promise<string> {
+  try {
+    const store = await cookies();
+    const token = store.get('access_token')?.value;
+    if (!token) return '';
+    const secret = process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET ?? 'dev-access-secret-change-me';
+    const payload = jwt.verify(token, secret) as { sub?: string };
+    if (!payload.sub) return '';
+    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { firstName: true } });
+    return user?.firstName ?? '';
+  } catch {
+    return '';
+  }
+}
 
 async function getDashboardData() {
   const now = new Date();
@@ -76,13 +93,13 @@ async function getDashboardData() {
   };
 }
 
-function LegacyDashboardContent({ data, greeting }: { data: Awaited<ReturnType<typeof getDashboardData>>; greeting: string }) {
+function LegacyDashboardContent({ data, greeting, userName }: { data: Awaited<ReturnType<typeof getDashboardData>>; greeting: string; userName: string }) {
   return (
     <div className="p-6 lg:p-8 space-y-8 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">
-            {greeting}, Администратор
+            {greeting}{userName ? `, ${userName}` : ''}
           </h2>
           <p className="text-text-secondary mt-1 text-sm">
             Вот что происходит в вашей студии сегодня
@@ -231,11 +248,11 @@ function LegacyDashboardContent({ data, greeting }: { data: Awaited<ReturnType<t
 }
 
 export default async function DashboardPage() {
-  const data = await getDashboardData();
+  const [data, userName] = await Promise.all([getDashboardData(), getCurrentUserName()]);
   const greeting = getGreeting();
   return (
     <UIPageWrapper
-      legacy={<LegacyDashboardContent data={data} greeting={greeting} />}
+      legacy={<LegacyDashboardContent data={data} greeting={greeting} userName={userName} />}
       next={<NextDashboard data={data} />}
     />
   );

@@ -9,7 +9,7 @@ import { formatCurrency, formatClientRef } from '@/lib/utils';
 import { ClientActions } from '../_components/ClientActions';
 
 const LOYALTY_LABEL: Record<string, string> = {
-  BRONZE: 'Бронза', SILVER: 'Серебро', GOLD: 'Золото', PLATINUM: 'Платина', VIP: 'VIP',
+  BRONZE: 'Бронза', SILVER: 'Серебро', GOLD: 'Золото', PLATINUM: 'Платина', VIP: 'Бриллиант',
 };
 const LOYALTY_VARIANT: Record<string, 'default' | 'gold' | 'success' | 'info'> = {
   BRONZE: 'default', SILVER: 'default', GOLD: 'gold', PLATINUM: 'gold', VIP: 'success',

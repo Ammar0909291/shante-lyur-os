@@ -138,7 +138,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
     setError(''); setConflictSlots([]);
 
     if (!selectedClient) { setError('Выберите клиента'); return; }
-    if (!specialistId) { setError('Выберите специалиста'); return; }
+    if (!specialistId) { setError('Выберите продавца'); return; }
     if (!serviceId) { setError('Выберите услугу'); return; }
     if (!defaultLocationId) { setError('Не удалось определить локацию. Обновите страницу.'); return; }
     if (!startAt) { setError('Укажите дату и время'); return; }
@@ -252,16 +252,16 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
             )}
           </div>
 
-          {/* Specialist */}
+          {/* Seller */}
           <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1.5">Специалист *</label>
+            <label className="block text-xs font-medium text-text-secondary mb-1.5">Продавец *</label>
             <select
               value={specialistId}
               onChange={(e) => { setSpecialistId(e.target.value); setServiceId(''); setPriceOverride(''); }}
               disabled={saving}
               className={selectCls}
             >
-              <option value="">Выберите специалиста</option>
+              <option value="">Выберите продавца</option>
               {specialists.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}{s.specialization ? ` — ${s.specialization}` : ''}
@@ -284,7 +284,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                 disabled={saving}
                 className={selectCls}
               >
-                <option value="">{specialistId ? 'Выберите услугу' : 'Сначала выберите специалиста'}</option>
+                <option value="">{specialistId ? 'Выберите услугу' : 'Сначала выберите продавца'}</option>
                 {filteredServices.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} — {s.basePrice.toLocaleString('ru-RU')} ₽ / {s.baseDuration} мин

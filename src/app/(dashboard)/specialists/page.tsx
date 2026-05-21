@@ -197,7 +197,6 @@ export default function SpecialistsPage() {
     specialization: '',
     bio: '',
     experienceYears: '',
-    commissionRate: '0.3',
     color: '#C9A96E',
   });
 
@@ -242,14 +241,13 @@ export default function SpecialistsPage() {
           specialization: form.specialization.trim() || undefined,
           bio: form.bio.trim() || undefined,
           experienceYears: form.experienceYears ? Number(form.experienceYears) : undefined,
-          commissionRate: Number(form.commissionRate),
           color: form.color || undefined,
         }),
       });
       const json = await res.json();
       if (!json.success) { setError(json.error?.message ?? 'Ошибка создания'); return; }
       setShowModal(false);
-      setForm({ firstName: '', lastName: '', email: '', specialization: '', bio: '', experienceYears: '', commissionRate: '0.3', color: '#C9A96E' });
+      setForm({ firstName: '', lastName: '', email: '', specialization: '', bio: '', experienceYears: '', color: '#C9A96E' });
       fetchSpecialists();
     } catch {
       setError('Сетевая ошибка. Попробуйте снова.');
@@ -358,16 +356,10 @@ export default function SpecialistsPage() {
                 <textarea {...field('bio')} rows={3} placeholder="Краткое описание..." className={cn(inputCls, 'resize-none')} />
               </label>
 
-              <div className="grid grid-cols-2 gap-4">
-                <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Опыт (лет)</span>
-                  <input type="number" min="0" max="50" {...field('experienceYears')} placeholder="5" className={inputCls} />
-                </label>
-                <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Комиссия</span>
-                  <input type="number" min="0" max="1" step="0.05" {...field('commissionRate')} placeholder="0.30" className={inputCls} />
-                </label>
-              </div>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Опыт (лет)</span>
+                <input type="number" min="0" max="50" {...field('experienceYears')} placeholder="5" className={inputCls} />
+              </label>
 
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Цвет в календаре</span>

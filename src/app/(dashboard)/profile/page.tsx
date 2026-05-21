@@ -28,6 +28,7 @@ const STATUS_LABEL: Record<string, string> = {
   ACTIVE: 'Активен',
   INACTIVE: 'Неактивен',
   BLOCKED: 'Заблокирован',
+  SUSPENDED: 'Заблокирован',
 };
 
 const PERMISSIONS: Record<string, string[]> = {
@@ -61,6 +62,7 @@ function formatDateTime(iso: string | null): string {
 export default function ProfilePage() {
   const [me, setMe] = React.useState<MeData | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState('');
   const [editing, setEditing] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState('');
@@ -70,17 +72,20 @@ export default function ProfilePage() {
   const [phone, setPhone] = React.useState('');
 
   React.useEffect(() => {
-    fetch('/api/admin/users/me')
+    fetch('/api/auth/me')
       .then((r) => r.json())
       .then((json) => {
         if (json.success) {
-          setMe(json.data);
-          setFirstName(json.data.firstName);
-          setLastName(json.data.lastName);
-          setPhone(json.data.phone ?? '');
+          const user = json.data as MeData;
+          setMe(user);
+          setFirstName(user.firstName);
+          setLastName(user.lastName);
+          setPhone(user.phone ?? '');
+        } else {
+          setError(json.error?.message ?? 'Ошибка загрузки профиля');
         }
       })
-      .catch(() => {})
+      .catch(() => setError('Ошибка соединения'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -108,7 +113,7 @@ export default function ProfilePage() {
     setSaving(true);
     setSaveError('');
     try {
-      const res = await fetch('/api/admin/users/me', {
+      const res = await fetch('/api/auth/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,7 +152,7 @@ export default function ProfilePage() {
   if (!me) {
     return (
       <div className="p-6 lg:p-8">
-        <p className="text-text-secondary">Не удалось загрузить профиль</p>
+        <p className="text-text-secondary">{error || 'Не удалось загрузить профиль'}</p>
       </div>
     );
   }
@@ -160,7 +165,7 @@ export default function ProfilePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Профиль</h2>
-          <p className="text-text-secondary mt-1 text-sm">Учётная запись администратора</p>
+          <p className="text-text-secondary mt-1 text-sm">{ROLE_LABEL[me.role] ?? me.role}</p>
         </div>
         <button
           onClick={handleLogout}

@@ -383,8 +383,8 @@ export default function ChatPage() {
                       className={cn(
                         'max-w-[70%] px-3.5 py-2 rounded-2xl text-sm',
                         msg.isOwn
-                          ? 'bg-champagne text-obsidian rounded-br-sm'
-                          : 'bg-charcoal text-text-primary rounded-bl-sm border border-border-luxury',
+                          ? 'bg-champagne rounded-br-sm'
+                          : 'bg-charcoal rounded-bl-sm border border-border-luxury',
                       )}
                     >
                       {!msg.isOwn && activePartnerId === PUBLIC_CHANNEL_ID && (
@@ -395,11 +395,11 @@ export default function ChatPage() {
                           })()}
                         </p>
                       )}
-                      <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                      <p className={cn('whitespace-pre-wrap break-words', msg.isOwn ? 'text-[#0A0A0F]' : 'text-text-primary')}>{msg.body}</p>
                       <p
                         className={cn(
                           'text-[10px] mt-1 text-right',
-                          msg.isOwn ? 'text-obsidian/60' : 'text-text-tertiary',
+                          msg.isOwn ? 'text-[#0A0A0F]/70' : 'text-text-tertiary',
                         )}
                       >
                         {timeLabel(msg.createdAt)}
