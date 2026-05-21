@@ -3,10 +3,15 @@
 import * as React from 'react';
 import { X, Search } from 'lucide-react';
 
-interface Specialist { id: string; userId: string; name: string; specialization: string | null; }
-interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; }
+interface Specialist {
+  id: string;
+  userId: string;
+  name: string;
+  specialization: string | null;
+  allowedServiceIds: string[];
+}
+interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; isActive?: boolean; }
 interface Location { id: string; name: string; }
-interface StaffUser { id: string; name: string; role: string; }
 interface ClientResult { id: string; firstName: string; lastName: string; email: string; phone: string | null; }
 
 interface RecordSaleModalProps {
@@ -23,11 +28,14 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+const inputCls = 'w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50';
+const selectCls = 'w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50';
+
 export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
   const [specialists, setSpecialists] = React.useState<Specialist[]>([]);
   const [services, setServices] = React.useState<Service[]>([]);
-  const [locations, setLocations] = React.useState<Location[]>([]);
-  const [staffUsers, setStaffUsers] = React.useState<StaffUser[]>([]);
+  const [defaultLocationId, setDefaultLocationId] = React.useState('');
+  const [defaultLocationName, setDefaultLocationName] = React.useState('');
 
   const [clientQuery, setClientQuery] = React.useState('');
   const [clientResults, setClientResults] = React.useState<ClientResult[]>([]);
@@ -36,8 +44,6 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
   const [specialistId, setSpecialistId] = React.useState('');
   const [serviceId, setServiceId] = React.useState('');
-  const [locationId, setLocationId] = React.useState('');
-  const [soldByUserId, setSoldByUserId] = React.useState('');
   const [quantity, setQuantity] = React.useState(1);
   const [startAt, setStartAt] = React.useState(() => {
     const d = new Date();
@@ -55,68 +61,67 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
   // Load reference data on mount
   React.useEffect(() => {
     Promise.all([
-      fetch('/api/specialists?limit=100').then((r) => r.json()),
-      fetch('/api/admin/services').then((r) => r.json()),
-      fetch('/api/locations').then((r) => r.json()),
-      fetch('/api/admin/users?limit=100').then((r) => r.json()),
-    ]).then(([sp, sv, loc, staff]) => {
+      fetch('/api/specialists?limit=100&status=ACTIVE', { credentials: 'include' }).then((r) => r.json()),
+      fetch('/api/admin/services', { credentials: 'include' }).then((r) => r.json()),
+      fetch('/api/locations', { credentials: 'include' }).then((r) => r.json()),
+    ]).then(([sp, sv, loc]) => {
       if (sp.success) {
-        setSpecialists((sp.data?.items ?? sp.data ?? []).map((s: { id: string; userId: string; firstName: string; lastName: string; specialization?: string | null }) => ({
-          id: s.id,
-          userId: s.userId,
-          name: `${s.firstName} ${s.lastName}`.trim(),
-          specialization: s.specialization ?? null,
-        })));
+        setSpecialists(
+          (sp.data?.items ?? sp.data ?? []).map((s: {
+            id: string; userId: string; firstName: string; lastName: string;
+            specialization?: string | null; allowedServiceIds?: string[];
+          }) => ({
+            id: s.id,
+            userId: s.userId,
+            name: `${s.firstName} ${s.lastName}`.trim(),
+            specialization: s.specialization ?? null,
+            allowedServiceIds: s.allowedServiceIds ?? [],
+          }))
+        );
       }
       if (sv.success) {
-        setServices((sv.data?.items ?? sv.data ?? []).map((s: { id: string; name: string; basePrice: number; baseDuration: number; category: string }) => ({
-          id: s.id, name: s.name, basePrice: s.basePrice, baseDuration: s.baseDuration, category: s.category,
-        })));
+        setServices(
+          (sv.data?.items ?? sv.data ?? [])
+            .filter((s: { isActive?: boolean }) => s.isActive !== false)
+            .map((s: { id: string; name: string; basePrice: number; baseDuration: number; category: string }) => ({
+              id: s.id, name: s.name, basePrice: s.basePrice, baseDuration: s.baseDuration, category: s.category,
+            }))
+        );
       }
       if (loc.success) {
-        setLocations((loc.data?.items ?? loc.data ?? []).map((l: { id: string; name: string }) => ({ id: l.id, name: l.name })));
+        const locs: Location[] = loc.data?.items ?? loc.data ?? [];
+        if (locs.length > 0) {
+          setDefaultLocationId(locs[0].id);
+          setDefaultLocationName(locs[0].name);
+        }
       }
-      if (staff.success) {
-        setStaffUsers((staff.data?.items ?? staff.data ?? []).map((u: { id: string; name?: string; firstName?: string; lastName?: string; role: string }) => ({
-          id: u.id, name: u.name ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(), role: u.role,
-        })));
-      }
-    }).catch(() => {/* ignore fetch errors */});
+    }).catch(() => {});
   }, []);
 
   // Client search
   React.useEffect(() => {
     if (!debouncedQuery.trim()) { setClientResults([]); return; }
-    fetch(`/api/clients/search?q=${encodeURIComponent(debouncedQuery)}&limit=8`)
+    fetch(`/api/clients/search?q=${encodeURIComponent(debouncedQuery)}&limit=8`, { credentials: 'include' })
       .then((r) => r.json())
       .then((json) => {
         if (json.success) setClientResults(json.data?.items ?? []);
       })
-      .catch(() => {/* ignore */});
+      .catch(() => {});
   }, [debouncedQuery]);
 
-  const selectedService = services.find((s) => s.id === serviceId);
-  const autoPrice = selectedService ? selectedService.basePrice * quantity : 0;
-
-  function getSpecialistCategories(specialization: string): string[] {
-    const s = specialization.toLowerCase();
-    const cats: string[] = [];
-    if (s.includes('массаж') || s.includes('spa') || s.includes('спа')) cats.push('MASSAGE');
-    if (s.includes('косметолог') || s.includes('уходов') || s.includes('лицо') || s.includes('фейс')) cats.push('COSMETOLOGY', 'FACIAL');
-    if (s.includes('инъекц')) cats.push('INJECTION');
-    if (s.includes('лазер')) cats.push('LASER', 'HAIR_REMOVAL');
-    if (s.includes('эпиляц')) cats.push('HAIR_REMOVAL');
-    return Array.from(new Set(cats));
-  }
-
   const selectedSpecialistObj = specialists.find((s) => s.id === specialistId);
+
+  // Filter services by specialist's allowed list (from specialist_services table via API)
   const filteredServices = React.useMemo(() => {
-    if (!selectedSpecialistObj?.specialization) return services;
-    const cats = getSpecialistCategories(selectedSpecialistObj.specialization);
-    if (cats.length === 0) return services;
-    return services.filter((s) => cats.includes(s.category));
+    if (!selectedSpecialistObj) return services;
+    const allowed = selectedSpecialistObj.allowedServiceIds;
+    if (!allowed || allowed.length === 0) return services;
+    return services.filter((s) => allowed.includes(s.id));
   }, [selectedSpecialistObj, services]);
-  const effectivePrice = priceOverride !== '' ? parseFloat(priceOverride) : autoPrice;
+
+  const selectedService = services.find((s) => s.id === serviceId);
+  const baseTotal = selectedService ? selectedService.basePrice * quantity : 0;
+  const effectivePrice = priceOverride !== '' ? parseFloat(priceOverride) : baseTotal;
 
   function selectClient(c: ClientResult) {
     setSelectedClient(c);
@@ -132,38 +137,42 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
     if (!selectedClient) { setError('Выберите клиента'); return; }
     if (!specialistId) { setError('Выберите специалиста'); return; }
     if (!serviceId) { setError('Выберите услугу'); return; }
-    if (!locationId) { setError('Выберите локацию'); return; }
+    if (!defaultLocationId) { setError('Не удалось определить локацию. Обновите страницу.'); return; }
     if (!startAt) { setError('Укажите дату и время'); return; }
     if (isNaN(effectivePrice) || effectivePrice < 0) { setError('Некорректная цена'); return; }
 
     setSaving(true);
     try {
       const service = services.find((s) => s.id === serviceId)!;
-      // Distribute total price evenly across quantity
-      const pricePerUnit = Math.round((effectivePrice / quantity) * 100) / 100;
+      // Distribute total price across quantity units. Each unit gets effectivePrice/quantity.
+      const pricePerUnit = quantity > 1
+        ? Math.round((effectivePrice / quantity) * 100) / 100
+        : effectivePrice;
       const serviceEntries = Array.from({ length: quantity }, (_, i) => ({
         serviceId,
         price: pricePerUnit,
         duration: service.baseDuration,
         sortOrder: i,
       }));
+
       const res = await fetch('/api/admin/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           clientId: selectedClient.id,
           specialistId,
-          locationId,
+          locationId: defaultLocationId,
           startAt: new Date(startAt).toISOString(),
           services: serviceEntries,
           notes: notes.trim() || undefined,
           source: 'admin',
-          soldByUserId: soldByUserId || undefined,
+          // soldByUserId intentionally omitted — resolved server-side from x-user-id header
         }),
       });
 
       const json = await res.json() as { success: boolean; error?: { message?: string } };
-      if (!res.ok) {
+      if (!res.ok || !json.success) {
         setError(json.error?.message ?? 'Ошибка при записи');
         return;
       }
@@ -177,16 +186,23 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className="w-full max-w-lg bg-obsidian border border-border-luxury rounded-2xl shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury shrink-0">
           <h3 className="font-serif text-lg font-medium text-text-primary">Записать продажу</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto">
+
           {/* Client */}
           <div className="relative">
             <label className="block text-xs font-medium text-text-secondary mb-1.5">Клиент *</label>
@@ -194,16 +210,12 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
               <input
                 value={clientQuery}
-                onChange={(e) => {
-                  setClientQuery(e.target.value);
-                  setSelectedClient(null);
-                  setClientDropdown(true);
-                }}
+                onChange={(e) => { setClientQuery(e.target.value); setSelectedClient(null); setClientDropdown(true); }}
                 onFocus={() => setClientDropdown(true)}
                 onBlur={() => setTimeout(() => setClientDropdown(false), 150)}
                 placeholder="Поиск по имени или email..."
                 disabled={saving}
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
+                className={`${inputCls} pl-9`}
               />
             </div>
             {clientDropdown && clientResults.length > 0 && (
@@ -230,35 +242,42 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
               value={specialistId}
               onChange={(e) => { setSpecialistId(e.target.value); setServiceId(''); setPriceOverride(''); }}
               disabled={saving}
-              className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
+              className={selectCls}
             >
               <option value="">Выберите специалиста</option>
               {specialists.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}{s.specialization ? ` — ${s.specialization}` : ''}</option>
+                <option key={s.id} value={s.id}>
+                  {s.name}{s.specialization ? ` — ${s.specialization}` : ''}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* Service */}
+          {/* Service — filtered by specialist's allowed list */}
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1.5">Услуга *</label>
-            <select
-              value={serviceId}
-              onChange={(e) => {
-                setServiceId(e.target.value);
-                setPriceOverride('');
-              }}
-              disabled={saving}
-              className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
-            >
-              <option value="">Выберите услугу</option>
-              {filteredServices.map((s) => (
-                <option key={s.id} value={s.id}>{s.name} — {s.basePrice.toLocaleString('ru-RU')} ₽ / {s.baseDuration} мин</option>
-              ))}
-            </select>
+            {specialistId && filteredServices.length === 0 ? (
+              <div className="px-3 py-2.5 rounded-xl border border-border-luxury bg-charcoal text-sm text-text-tertiary">
+                Нет доступных услуг для выбранного специалиста
+              </div>
+            ) : (
+              <select
+                value={serviceId}
+                onChange={(e) => { setServiceId(e.target.value); setPriceOverride(''); }}
+                disabled={saving}
+                className={selectCls}
+              >
+                <option value="">{specialistId ? 'Выберите услугу' : 'Сначала выберите специалиста'}</option>
+                {filteredServices.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} — {s.basePrice.toLocaleString('ru-RU')} ₽ / {s.baseDuration} мин
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
-          {/* Quantity + Price row */}
+          {/* Quantity + Price */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1.5">Количество</label>
@@ -274,12 +293,14 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                   setPriceOverride('');
                 }}
                 disabled={saving}
-                className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
+                className={inputCls}
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1.5">
-                Итого (₽){selectedService && quantity > 1 ? ` · ${selectedService.basePrice.toLocaleString('ru-RU')} × ${quantity}` : ''}
+                Сумма (₽){selectedService && quantity > 1
+                  ? ` · ${selectedService.basePrice.toLocaleString('ru-RU')} × ${quantity}`
+                  : ''}
               </label>
               <input
                 type="number"
@@ -289,25 +310,9 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                 onChange={(e) => setPriceOverride(e.target.value)}
                 placeholder="Сумма"
                 disabled={saving}
-                className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
+                className={inputCls}
               />
             </div>
-          </div>
-
-          {/* Location */}
-          <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1.5">Локация *</label>
-            <select
-              value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
-              disabled={saving}
-              className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
-            >
-              <option value="">Выберите локацию</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
           </div>
 
           {/* Date/time */}
@@ -318,25 +323,16 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
               value={startAt}
               onChange={(e) => setStartAt(e.target.value)}
               disabled={saving}
-              className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
+              className={inputCls}
             />
           </div>
 
-          {/* Sold by */}
-          <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1.5">Продавец</label>
-            <select
-              value={soldByUserId}
-              onChange={(e) => setSoldByUserId(e.target.value)}
-              disabled={saving}
-              className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
-            >
-              <option value="">— Не указан —</option>
-              {staffUsers.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
-          </div>
+          {/* Auto-resolved location — read-only info */}
+          {defaultLocationName && (
+            <div className="px-3 py-2 rounded-xl border border-border-luxury bg-charcoal/30 text-xs text-text-tertiary">
+              Локация: <span className="text-text-secondary">{defaultLocationName}</span>
+            </div>
+          )}
 
           {/* Notes */}
           <div>
@@ -347,7 +343,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
               rows={2}
               placeholder="Дополнительная информация..."
               disabled={saving}
-              className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all resize-none disabled:opacity-50"
+              className={`${inputCls} resize-none`}
             />
           </div>
 
