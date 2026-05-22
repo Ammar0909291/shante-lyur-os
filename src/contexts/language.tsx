@@ -68,6 +68,27 @@ const RU: Record<string, string> = {
   'dashboard.error.stale': 'Данные могут быть устаревшими',
   'dashboard.error.retry': 'Обновить',
   'dashboard.subtitle': 'Вот что происходит в вашей студии сегодня',
+  // Phase B6: Financial analytics page
+  'analytics.financial.title': 'Финансовая аналитика',
+  'analytics.financial.subtitle': 'Выручка, категории, прогноз',
+  'analytics.financial.revenue': 'Выручка',
+  'analytics.financial.sessions': 'Сеансов',
+  'analytics.financial.avgTicket': 'Средний чек',
+  'analytics.financial.topDay': 'Лучший день',
+  'analytics.financial.byCategory': 'По категориям',
+  'analytics.financial.peakHours': 'Пиковые часы',
+  'analytics.financial.forecast': 'Прогноз на 7 дней',
+  'analytics.financial.confidence': 'Точность',
+  // Phase B6: Massage workload page
+  'analytics.massage.title': 'Нагрузка массажистов',
+  'analytics.massage.subtitle': 'Контроль выработки и управление нормами',
+  'analytics.massage.total': 'Всего массажистов',
+  'analytics.massage.working': 'Работают сегодня',
+  'analytics.massage.meetingTarget': 'Выполняют норму',
+  'analytics.massage.belowTarget': 'Ниже нормы',
+  'analytics.massage.overridden': 'Норма снята',
+  'analytics.massage.alerts': 'Предупреждения',
+  'analytics.massage.specialists': 'Специалисты',
 };
 
 const EN: Record<string, string> = {
@@ -128,6 +149,27 @@ const EN: Record<string, string> = {
   'dashboard.error.stale': 'Data may be outdated',
   'dashboard.error.retry': 'Retry',
   'dashboard.subtitle': "Here's what's happening in your studio today",
+  // Phase B6: Financial analytics page
+  'analytics.financial.title': 'Financial Analytics',
+  'analytics.financial.subtitle': 'Revenue, categories, forecast',
+  'analytics.financial.revenue': 'Revenue',
+  'analytics.financial.sessions': 'Sessions',
+  'analytics.financial.avgTicket': 'Avg Ticket',
+  'analytics.financial.topDay': 'Best Day',
+  'analytics.financial.byCategory': 'By Category',
+  'analytics.financial.peakHours': 'Peak Hours',
+  'analytics.financial.forecast': '7-Day Forecast',
+  'analytics.financial.confidence': 'Confidence',
+  // Phase B6: Massage workload page
+  'analytics.massage.title': 'Massage Workload',
+  'analytics.massage.subtitle': 'Track targets and manage overrides',
+  'analytics.massage.total': 'Total Specialists',
+  'analytics.massage.working': 'Working Today',
+  'analytics.massage.meetingTarget': 'Meeting Target',
+  'analytics.massage.belowTarget': 'Below Target',
+  'analytics.massage.overridden': 'Override Active',
+  'analytics.massage.alerts': 'Alerts',
+  'analytics.massage.specialists': 'Specialists',
 };
 
 const TRANSLATIONS: Record<Lang, Record<string, string>> = { ru: RU, en: EN };

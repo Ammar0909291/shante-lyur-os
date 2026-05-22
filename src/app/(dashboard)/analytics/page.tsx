@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -293,6 +294,21 @@ export default function AnalyticsPage() {
               Экспорт Excel
             </button>
           )}
+        </div>
+        {/* Sub-navigation to specialised analytics pages */}
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/analytics/financial"
+            className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium rounded-xl border border-border-luxury bg-onyx text-text-secondary hover:text-champagne hover:border-champagne/40 transition-all"
+          >
+            Финансы
+          </Link>
+          <Link
+            href="/analytics/massage"
+            className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium rounded-xl border border-border-luxury bg-onyx text-text-secondary hover:text-champagne hover:border-champagne/40 transition-all"
+          >
+            Нагрузка массажистов
+          </Link>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           {RANGES.map((r) => (
