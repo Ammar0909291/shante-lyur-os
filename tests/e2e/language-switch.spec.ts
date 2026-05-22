@@ -5,9 +5,10 @@
 import { test, expect, Page } from '@playwright/test';
 
 async function loginAsAdmin(page: Page) {
-  await page.goto('/');
+  await page.context().clearCookies();
+  await page.goto('/login');
+  await page.waitForLoadState('networkidle');
   if (page.url().includes('/dashboard')) return;
-  await page.waitForURL('**/login', { timeout: 10_000 });
   await page.fill('input[type="email"]', 'admin@shantelyur.ru');
   await page.fill('input[type="password"]', 'admin123');
   await page.click('button[type="submit"]');

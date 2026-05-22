@@ -18,12 +18,17 @@ import { test, expect, Page } from '@playwright/test';
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 async function loginAsAdmin(page: Page) {
-  // Navigate directly to /login — avoids the unconditional redirect('dashboard')
-  // in app/page.tsx which fires even when unauthenticated, making the root URL
-  // useless as an auth-state probe.  The login page is a pure client component
-  // with no server-side auth redirect, so it always shows the form.
+  // Clear cookies to guarantee a clean auth state before every test.
+  // Without this, stale tokens from a previous test in the same context
+  // can cause the login page to behave inconsistently.
+  await page.context().clearCookies();
+  // Navigate directly to /login — app/page.tsx does an unconditional
+  // redirect('/dashboard') so goto('/') is useless as an auth probe.
+  // The login page is a pure client component; it always renders the form.
   await page.goto('/login');
-  if (page.url().includes('/dashboard')) return; // already authenticated
+  // Wait for React hydration before interacting with form inputs.
+  await page.waitForLoadState('networkidle');
+  if (page.url().includes('/dashboard')) return; // safety net
   await page.fill('input[type="email"]', 'admin@shantelyur.ru');
   await page.fill('input[type="password"]', 'admin123');
   await page.click('button[type="submit"]');
@@ -128,7 +133,7 @@ test.describe('Specialist creation — full CRM workflow', () => {
 
     // Switch to "Все" filter to see all specialists including seeded ones
     await page.click('button:has-text("Все")');
-    await page.waitForTimeout(500);
+    await page.waitForLoadState('networkidle');
 
     // At least one specialist card should be visible (from seed data)
     const cards = page.locator('.rounded-2xl').filter({ hasText: 'Профиль специалиста →' });

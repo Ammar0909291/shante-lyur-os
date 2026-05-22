@@ -5,9 +5,10 @@
 import { test, expect, Page } from '@playwright/test';
 
 async function loginAsAdmin(page: Page) {
-  await page.goto('/');
+  await page.context().clearCookies();
+  await page.goto('/login');
+  await page.waitForLoadState('networkidle');
   if (page.url().includes('/dashboard')) return;
-  await page.waitForURL('**/login', { timeout: 10_000 });
   await page.fill('input[type="email"]', 'admin@shantelyur.ru');
   await page.fill('input[type="password"]', 'admin123');
   await page.click('button[type="submit"]');
@@ -22,7 +23,8 @@ test.describe('Booking flow', () => {
   test('bookings page loads and shows list', async ({ page }) => {
     await page.click('a[href="/bookings"]');
     await page.waitForURL('**/bookings', { timeout: 8_000 });
-    await expect(page.getByRole('heading', { name: 'Записи' })).toBeVisible();
+    // Use h2: the layout Header also renders <h1>Записи</h1> — strict mode violation.
+    await expect(page.locator('h2').filter({ hasText: 'Записи' })).toBeVisible();
     // Table or empty state should be visible
     await expect(
       page.locator('table').or(page.locator('text=Нет записей').or(page.locator('text=записей'))),
