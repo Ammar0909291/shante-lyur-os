@@ -20,6 +20,7 @@ import {
   Bed,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 import type {
   TodayOperationsResponse,
   OperationalAppointment,
@@ -49,17 +50,7 @@ function fmtDate(iso: string): string {
   });
 }
 
-const STATUS_LABEL: Record<OperationalStatus, string> = {
-  PENDING: 'Ожидает',
-  CONFIRMED: 'Подтверждено',
-  ARRIVED: 'Прибыл',
-  WAITING: 'В ожидании',
-  IN_PROGRESS: 'В процессе',
-  COMPLETED: 'Завершено',
-  CANCELLED: 'Отменено',
-  NO_SHOW: 'Неявка',
-  RESCHEDULED: 'Перенесено',
-};
+// Status labels resolved via t() inside each component — no module-level Russian strings
 
 const STATUS_COLORS: Record<OperationalStatus, string> = {
   PENDING: 'bg-blue-900/40 text-blue-300 border-blue-700/40',
@@ -73,14 +64,7 @@ const STATUS_COLORS: Record<OperationalStatus, string> = {
   RESCHEDULED: 'bg-indigo-900/40 text-indigo-300 border-indigo-700/40',
 };
 
-const ALERT_LABEL: Record<string, string> = {
-  LATE_CLIENT: 'Клиент опаздывает',
-  OVERRUN_PROCEDURE: 'Превышение времени',
-  LONG_WAIT: 'Долгое ожидание',
-  ROOM_CONFLICT: 'Конфликт кабинета',
-  SPECIALIST_OVERLOADED: 'Перегрузка специалиста',
-  MASSAGE_OVERLOAD: 'Перегрузка массажиста',
-};
+// Alert labels resolved via t() inside AlertStrip — no module-level Russian strings
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -131,6 +115,7 @@ function StatusBadge({
   status: OperationalStatus;
   className?: string;
 }) {
+  const { t } = useLanguage();
   return (
     <span
       className={cn(
@@ -139,7 +124,7 @@ function StatusBadge({
         className,
       )}
     >
-      {STATUS_LABEL[status]}
+      {t(`ops.status.${status.toLowerCase()}`)}
     </span>
   );
 }
@@ -147,6 +132,7 @@ function StatusBadge({
 // ─── Type Badge ───────────────────────────────────────────────────────────────
 
 function TypeBadge({ type }: { type: 'MASSAGE' | 'COSMETOLOGY' }) {
+  const { t } = useLanguage();
   return (
     <span
       className={cn(
@@ -157,7 +143,7 @@ function TypeBadge({ type }: { type: 'MASSAGE' | 'COSMETOLOGY' }) {
       )}
     >
       {type === 'MASSAGE' ? <Bed className="w-3 h-3" /> : <Scissors className="w-3 h-3" />}
-      {type === 'MASSAGE' ? 'Массаж' : 'Косметология'}
+      {type === 'MASSAGE' ? t('ops.type.massage') : t('ops.type.cosmetology')}
     </span>
   );
 }
@@ -173,6 +159,7 @@ function AppointmentCard({
   transitioning: string | null;
   onTransition: (id: string, action: string) => void;
 }) {
+  const { t } = useLanguage();
   const isBusy = transitioning === appt.id;
 
   return (
@@ -201,12 +188,12 @@ function AppointmentCard({
             </span>
             {appt.delayMinutes > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-900/30 border border-red-700/30 text-red-300 text-xs">
-                <Clock className="w-3 h-3" />+{appt.delayMinutes}мин опаздывает
+                <Clock className="w-3 h-3" />+{appt.delayMinutes}{t('common.min')} {t('ops.late')}
               </span>
             )}
             {appt.waitMinutes !== null && appt.waitMinutes > 15 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-900/30 border border-amber-700/30 text-amber-300 text-xs">
-                <Pause className="w-3 h-3" />ожидает {appt.waitMinutes}мин
+                <Pause className="w-3 h-3" />{t('ops.waiting')} {appt.waitMinutes}{t('common.min')}
               </span>
             )}
           </div>
@@ -232,7 +219,7 @@ function AppointmentCard({
           <div className="flex items-center gap-3 text-xs text-text-tertiary">
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              {appt.duration}мин
+              {appt.duration}{t('common.min')}
             </span>
             <span className="text-champagne font-medium">
               {formatCurrency(appt.revenue)}
@@ -248,28 +235,28 @@ function AppointmentCard({
           {appt.operationalStatus === 'PENDING' && (
             <>
               <ActionBtn
-                label="Подтвердить"
+                label={t('ops.action.confirm')}
                 icon={<CheckCircle2 className="w-3 h-3" />}
                 color="champagne"
                 loading={isBusy}
                 onClick={() => onTransition(appt.id, 'confirm')}
               />
               <ActionBtn
-                label="Прибыл"
+                label={t('ops.action.checkin')}
                 icon={<UserCheck className="w-3 h-3" />}
                 color="teal"
                 loading={isBusy}
                 onClick={() => onTransition(appt.id, 'checkin')}
               />
               <ActionBtn
-                label="Неявка"
+                label={t('ops.action.noshow')}
                 icon={<XCircle className="w-3 h-3" />}
                 color="red"
                 loading={isBusy}
                 onClick={() => onTransition(appt.id, 'noshow')}
               />
               <ActionBtn
-                label="Отменить"
+                label={t('ops.action.cancel')}
                 icon={<XCircle className="w-3 h-3" />}
                 color="gray"
                 loading={isBusy}
@@ -282,14 +269,14 @@ function AppointmentCard({
             appt.operationalStatus === 'WAITING') && (
             <>
               <ActionBtn
-                label="Начать"
+                label={t('ops.action.start')}
                 icon={<PlayCircle className="w-3 h-3" />}
                 color="violet"
                 loading={isBusy}
                 onClick={() => onTransition(appt.id, 'start')}
               />
               <ActionBtn
-                label="Отменить"
+                label={t('ops.action.cancel')}
                 icon={<XCircle className="w-3 h-3" />}
                 color="gray"
                 loading={isBusy}
@@ -299,7 +286,7 @@ function AppointmentCard({
           )}
           {appt.operationalStatus === 'IN_PROGRESS' && (
             <ActionBtn
-              label="Завершить"
+              label={t('ops.action.complete')}
               icon={<CheckCircle2 className="w-3 h-3" />}
               color="green"
               loading={isBusy}
@@ -359,19 +346,20 @@ function ActionBtn({
 // ─── Alert Strip ─────────────────────────────────────────────────────────────
 
 function AlertStrip({ alerts }: { alerts: OperationalAlert[] }) {
+  const { t } = useLanguage();
   const criticals = alerts.filter((a) => a.severity === 'critical');
   if (criticals.length === 0) return null;
   return (
     <div className="mb-4 bg-red-950/40 border border-red-700/40 rounded-xl p-3 flex flex-col gap-1.5 animate-fade-in">
       <div className="flex items-center gap-2 text-red-300 text-sm font-semibold mb-1">
         <AlertTriangle className="w-4 h-4" />
-        Критические оповещения ({criticals.length})
+        {t('ops.alert.critical')} ({criticals.length})
       </div>
       {criticals.map((alert) => (
         <div key={alert.id} className="flex items-start gap-2 text-xs text-red-200">
           <Circle className="w-2 h-2 mt-0.5 shrink-0 fill-red-400 text-red-400" />
           <span>
-            <span className="font-medium">{ALERT_LABEL[alert.type] ?? alert.type}:</span>{' '}
+            <span className="font-medium">{t(`ops.alert.${alert.type.toLowerCase()}`) || alert.type}:</span>{' '}
             {alert.message}
           </span>
         </div>
@@ -381,16 +369,6 @@ function AlertStrip({ alerts }: { alerts: OperationalAlert[] }) {
 }
 
 // ─── Queue Tab ────────────────────────────────────────────────────────────────
-
-const QUEUE_FILTERS: { value: OperationalStatus | 'ALL'; label: string }[] = [
-  { value: 'ALL', label: 'Все' },
-  { value: 'PENDING', label: 'Ожидает' },
-  { value: 'CONFIRMED', label: 'Подтверждено' },
-  { value: 'ARRIVED', label: 'Прибыл' },
-  { value: 'WAITING', label: 'В ожидании' },
-  { value: 'IN_PROGRESS', label: 'В процессе' },
-  { value: 'COMPLETED', label: 'Завершено' },
-];
 
 function QueueTab({
   queue,
@@ -407,6 +385,16 @@ function QueueTab({
   transitioning: string | null;
   onTransition: (id: string, action: string) => void;
 }) {
+  const { t } = useLanguage();
+  const QUEUE_FILTERS: { value: OperationalStatus | 'ALL'; label: string }[] = [
+    { value: 'ALL', label: t('ops.filter.all') },
+    { value: 'PENDING', label: t('ops.status.pending') },
+    { value: 'CONFIRMED', label: t('ops.status.confirmed') },
+    { value: 'ARRIVED', label: t('ops.status.arrived') },
+    { value: 'WAITING', label: t('ops.status.waiting') },
+    { value: 'IN_PROGRESS', label: t('ops.status.in_progress') },
+    { value: 'COMPLETED', label: t('ops.status.completed') },
+  ];
   const filtered =
     filter === 'ALL'
       ? queue
@@ -460,7 +448,7 @@ function QueueTab({
       {sorted.length === 0 ? (
         <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-20 gap-3">
           <Activity className="w-10 h-10 text-text-tertiary" />
-          <p className="text-text-secondary text-sm">Записей не найдено</p>
+          <p className="text-text-secondary text-sm">{t('ops.queue.empty')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -487,14 +475,8 @@ const LIVE_STATUS_COLORS: Record<string, string> = {
   OFFLINE: 'bg-charcoal text-text-tertiary border-border-luxury',
 };
 
-const LIVE_STATUS_LABEL: Record<string, string> = {
-  FREE: 'Свободен',
-  BUSY: 'Занят',
-  OVERBOOKED: 'Перегрузка',
-  OFFLINE: 'Офлайн',
-};
-
 function SpecialistCard({ specialist }: { specialist: LiveSpecialist }) {
+  const { t } = useLanguage();
   const progressPct =
     specialist.todayScheduled > 0
       ? Math.round((specialist.todayCompleted / specialist.todayScheduled) * 100)
@@ -531,19 +513,19 @@ function SpecialistCard({ specialist }: { specialist: LiveSpecialist }) {
             specialist.liveStatus === 'OVERBOOKED' && 'animate-pulse',
           )}
         >
-          {LIVE_STATUS_LABEL[specialist.liveStatus]}
+          {t(`ops.live.${specialist.liveStatus.toLowerCase()}`)}
         </span>
       </div>
 
       {/* Current procedure */}
       {specialist.currentAppointment && (
         <div className="mb-3 p-2.5 rounded-xl bg-charcoal border border-border-luxury text-xs">
-          <p className="text-text-tertiary mb-0.5">Сейчас:</p>
+          <p className="text-text-tertiary mb-0.5">{t('ops.specialist.now')}</p>
           <p className="text-text-primary font-medium line-clamp-1">
             {specialist.currentAppointment.services[0] ?? '—'}
           </p>
           <p className="text-text-secondary mt-0.5">
-            до {fmtTime(specialist.currentAppointment.endAt)}
+            {fmtTime(specialist.currentAppointment.endAt)}
           </p>
         </div>
       )}
@@ -552,7 +534,7 @@ function SpecialistCard({ specialist }: { specialist: LiveSpecialist }) {
       {specialist.nextAppointment && (
         <div className="mb-3 text-xs text-text-tertiary flex items-center gap-1.5">
           <Clock className="w-3 h-3" />
-          <span>Следующий: </span>
+          <span>{t('ops.specialist.next')} </span>
           <span className="text-text-secondary">
             {fmtTime(specialist.nextAppointment.startAt)} —{' '}
             {specialist.nextAppointment.clientName}
@@ -565,10 +547,10 @@ function SpecialistCard({ specialist }: { specialist: LiveSpecialist }) {
         <div className="flex items-center justify-between text-xs mb-1">
           <span className="text-text-tertiary flex items-center gap-1">
             <TrendingUp className="w-3 h-3" />
-            Сегодня
+            {t('ops.specialist.today')}
           </span>
           <span className="text-text-secondary">
-            {specialist.todayCompleted}/{specialist.todayScheduled} сеансов
+            {specialist.todayCompleted}/{specialist.todayScheduled} {t('ops.specialist.sessions')}
           </span>
         </div>
         <div className="h-1.5 bg-charcoal rounded-full overflow-hidden">
@@ -585,14 +567,14 @@ function SpecialistCard({ specialist }: { specialist: LiveSpecialist }) {
         specialist.massageWeightTarget && (
           <div>
             <div className="flex items-center justify-between text-xs mb-1">
-              <span className="text-text-tertiary">Нагрузка</span>
+              <span className="text-text-tertiary">{t('ops.specialist.load')}</span>
               <span
                 className={cn(
                   'font-mono',
                   (weightPct ?? 0) >= 100 ? 'text-red-300' : 'text-text-secondary',
                 )}
               >
-                {specialist.massageWeight.toFixed(1)}/{specialist.massageWeightTarget.toFixed(1)} ед.
+                {specialist.massageWeight.toFixed(1)}/{specialist.massageWeightTarget.toFixed(1)} {t('ops.specialist.units')}
               </span>
             </div>
             <div className="h-1.5 bg-charcoal rounded-full overflow-hidden">
@@ -613,11 +595,12 @@ function SpecialistCard({ specialist }: { specialist: LiveSpecialist }) {
 // ─── Specialists Tab ──────────────────────────────────────────────────────────
 
 function SpecialistsTab({ specialists }: { specialists: LiveSpecialist[] }) {
+  const { t } = useLanguage();
   if (specialists.length === 0) {
     return (
       <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-20 gap-3">
         <User className="w-10 h-10 text-text-tertiary" />
-        <p className="text-text-secondary text-sm">Специалисты не найдены</p>
+        <p className="text-text-secondary text-sm">{t('ops.specialist.notFound')}</p>
       </div>
     );
   }
@@ -633,13 +616,8 @@ function SpecialistsTab({ specialists }: { specialists: LiveSpecialist[] }) {
 
 // ─── Room Card ────────────────────────────────────────────────────────────────
 
-const ROOM_TYPE_LABEL: Record<string, string> = {
-  MASSAGE: 'Массаж',
-  COSMETOLOGY: 'Косметология',
-  GENERAL: 'Общий',
-};
-
 function RoomCard({ room }: { room: RoomStatus }) {
+  const { t } = useLanguage();
   return (
     <div
       className={cn(
@@ -651,7 +629,7 @@ function RoomCard({ room }: { room: RoomStatus }) {
         <div>
           <p className="font-semibold text-text-primary text-sm">{room.name}</p>
           <span className="inline-flex items-center px-2 py-0.5 mt-1 rounded-md border text-xs bg-charcoal border-border-luxury text-text-tertiary">
-            {ROOM_TYPE_LABEL[room.type] ?? room.type}
+            {t(`ops.room.type.${room.type.toLowerCase()}`) || room.type}
           </span>
         </div>
         <span
@@ -668,7 +646,7 @@ function RoomCard({ room }: { room: RoomStatus }) {
               room.isOccupied ? 'text-red-400' : 'text-green-400',
             )}
           />
-          {room.isOccupied ? 'Занят' : 'Свободен'}
+          {room.isOccupied ? t('ops.room.occupied') : t('ops.room.free')}
         </span>
       </div>
 
@@ -677,7 +655,7 @@ function RoomCard({ room }: { room: RoomStatus }) {
           <p className="text-text-primary font-medium">{room.currentAppointment.clientName}</p>
           <p className="text-text-secondary">{room.currentAppointment.specialistName}</p>
           <p className="text-text-tertiary">
-            до {fmtTime(room.currentAppointment.endAt)}
+            {fmtTime(room.currentAppointment.endAt)}
           </p>
         </div>
       )}
@@ -686,15 +664,15 @@ function RoomCard({ room }: { room: RoomStatus }) {
         {room.nextAvailableAt ? (
           <span className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            Свободен с {fmtTime(room.nextAvailableAt)}
+            {t('ops.room.availableFrom')} {fmtTime(room.nextAvailableAt)}
           </span>
         ) : (
           <span className="flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3 text-green-400" />
-            Доступен сейчас
+            {t('ops.room.availableNow')}
           </span>
         )}
-        <span>{room.todayBookings} записей сегодня</span>
+        <span>{room.todayBookings} {t('ops.room.bookingsToday')}</span>
       </div>
     </div>
   );
@@ -703,13 +681,14 @@ function RoomCard({ room }: { room: RoomStatus }) {
 // ─── Rooms Tab ────────────────────────────────────────────────────────────────
 
 function RoomsTab({ rooms }: { rooms: RoomStatus[] }) {
+  const { t } = useLanguage();
   if (rooms.length === 0) {
     return (
       <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-20 gap-3 text-center px-6">
         <Bed className="w-10 h-10 text-text-tertiary" />
-        <p className="text-text-secondary text-sm font-medium">Кабинеты не настроены</p>
+        <p className="text-text-secondary text-sm font-medium">{t('ops.room.empty')}</p>
         <p className="text-text-tertiary text-xs">
-          Добавьте кабинеты через настройки
+          {t('ops.room.emptyHint')}
         </p>
       </div>
     );
@@ -771,6 +750,7 @@ function TimelineTab({
   specialists: LiveSpecialist[];
   queue: OperationalAppointment[];
 }) {
+  const { t } = useLanguage();
   const [tooltip, setTooltip] = React.useState<TooltipState | null>(null);
 
   const tooltipAppt = tooltip
@@ -786,7 +766,7 @@ function TimelineTab({
     return (
       <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-20 gap-3">
         <Activity className="w-10 h-10 text-text-tertiary" />
-        <p className="text-text-secondary text-sm">Нет данных для хронологии</p>
+        <p className="text-text-secondary text-sm">{t('ops.timeline.empty')}</p>
       </div>
     );
   }
@@ -796,7 +776,7 @@ function TimelineTab({
       {/* Hour header */}
       <div className="flex border-b border-border-luxury">
         <div className="w-36 shrink-0 px-3 py-2 text-xs text-text-tertiary border-r border-border-luxury">
-          Специалист
+          {t('ops.timeline.specialist')}
         </div>
         <div className="flex-1 relative h-8">
           {hours.map((h) => {
@@ -833,7 +813,7 @@ function TimelineTab({
                     spec.type === 'MASSAGE' ? 'text-amber-400' : 'text-sage',
                   )}
                 >
-                  {spec.type === 'MASSAGE' ? 'Массаж' : 'Косметология'}
+                  {spec.type === 'MASSAGE' ? t('ops.type.massage') : t('ops.type.cosmetology')}
                 </span>
               </div>
 
@@ -898,7 +878,7 @@ function TimelineTab({
             {tooltipAppt.specialistName}
           </p>
           <p className="text-text-tertiary mb-1">
-            {fmtTime(tooltipAppt.startAt)} – {fmtTime(tooltipAppt.endAt)} ({tooltipAppt.duration}мин)
+            {fmtTime(tooltipAppt.startAt)} – {fmtTime(tooltipAppt.endAt)} ({tooltipAppt.duration}{t('common.min')})
           </p>
           <p className="text-text-tertiary line-clamp-2 mb-1">
             {tooltipAppt.services.join(', ')}
@@ -924,35 +904,36 @@ function MetricsBar({
   metrics: OperationalMetrics | undefined;
   alertCount: number;
 }) {
+  const { t } = useLanguage();
   if (!metrics) return null;
 
   const chips: { label: string; value: number | string; color: string; icon: React.ReactNode }[] = [
     {
-      label: 'Всего',
+      label: t('ops.metrics.total'),
       value: metrics.totalBookings,
       color: 'border-border-luxury text-text-secondary',
       icon: <Activity className="w-3.5 h-3.5" />,
     },
     {
-      label: 'В процессе',
+      label: t('ops.metrics.inProgress'),
       value: metrics.inProgress,
       color: 'border-violet-700/30 text-violet-300 bg-violet-900/20',
       icon: <PlayCircle className="w-3.5 h-3.5" />,
     },
     {
-      label: 'В ожидании',
+      label: t('ops.metrics.waiting'),
       value: metrics.waiting,
       color: 'border-amber-700/30 text-amber-300 bg-amber-900/20',
       icon: <Pause className="w-3.5 h-3.5" />,
     },
     {
-      label: 'Завершено',
+      label: t('ops.metrics.completed'),
       value: metrics.completed,
       color: 'border-green-700/30 text-green-300 bg-green-900/20',
       icon: <CheckCircle2 className="w-3.5 h-3.5" />,
     },
     {
-      label: 'Неявок',
+      label: t('ops.metrics.noShow'),
       value: metrics.noShow,
       color:
         metrics.noShow > 0
@@ -961,7 +942,7 @@ function MetricsBar({
       icon: <XCircle className="w-3.5 h-3.5" />,
     },
     {
-      label: 'Алерты',
+      label: t('ops.metrics.alerts'),
       value: alertCount,
       color:
         alertCount > 0
@@ -990,9 +971,9 @@ function MetricsBar({
       {metrics.avgWaitMinutes > 0 && (
         <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border-luxury text-xs text-text-tertiary">
           <Clock className="w-3.5 h-3.5" />
-          <span>Ср. ожидание</span>
+          <span>{t('ops.metrics.avgWait')}</span>
           <span className="font-bold text-text-secondary">
-            {Math.round(metrics.avgWaitMinutes)}мин
+            {Math.round(metrics.avgWaitMinutes)}{t('common.min')}
           </span>
         </div>
       )}
@@ -1006,6 +987,7 @@ import type { OperationalMetrics } from '@/types/operations';
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function OperationsPage() {
+  const { t } = useLanguage();
   const [data, setData] = React.useState<TodayOperationsResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -1025,8 +1007,9 @@ export default function OperationsPage() {
     try {
       const res = await fetch('/api/operations/today', { cache: 'no-store' });
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error ?? `HTTP ${res.status}`);
+        const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } | string };
+        const errMsg = typeof body.error === 'string' ? body.error : (body.error?.message ?? `HTTP ${res.status}`);
+        throw new Error(errMsg);
       }
       const json = (await res.json()) as { success: boolean; data: TodayOperationsResponse };
       if (json.success && json.data) {
@@ -1035,7 +1018,7 @@ export default function OperationsPage() {
         setCountdown(30);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка загрузки данных');
+      setError(err instanceof Error ? err.message : t('common.error'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -1080,10 +1063,10 @@ export default function OperationsPage() {
     data?.alerts.filter((a) => a.severity === 'critical').length ?? 0;
 
   const TABS: { id: typeof activeTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'queue', label: 'Очередь', icon: <Activity className="w-4 h-4" /> },
-    { id: 'specialists', label: 'Специалисты', icon: <User className="w-4 h-4" /> },
-    { id: 'rooms', label: 'Кабинеты', icon: <Bed className="w-4 h-4" /> },
-    { id: 'timeline', label: 'Хронология', icon: <Clock className="w-4 h-4" /> },
+    { id: 'queue', label: t('ops.tab.queue'), icon: <Activity className="w-4 h-4" /> },
+    { id: 'specialists', label: t('ops.tab.specialists'), icon: <User className="w-4 h-4" /> },
+    { id: 'rooms', label: t('ops.tab.rooms'), icon: <Bed className="w-4 h-4" /> },
+    { id: 'timeline', label: t('ops.tab.timeline'), icon: <Clock className="w-4 h-4" /> },
   ];
 
   return (
@@ -1095,10 +1078,10 @@ export default function OperationsPage() {
             href="/dashboard"
             className="hover:text-champagne transition-colors"
           >
-            Дашборд
+            {t('common.dashboard')}
           </Link>
           <span>/</span>
-          <span className="text-text-secondary">Операционный центр</span>
+          <span className="text-text-secondary">{t('ops.breadcrumb')}</span>
         </nav>
 
         {/* Header */}
@@ -1106,10 +1089,10 @@ export default function OperationsPage() {
           <div>
             <h1 className="text-2xl font-serif font-semibold text-text-primary flex items-center gap-2">
               <Activity className="w-6 h-6 text-champagne" />
-              Операционный центр
+              {t('ops.title')}
             </h1>
             <p className="text-text-secondary text-sm mt-0.5">
-              Живое управление салоном
+              {t('ops.subtitle')}
             </p>
             {data?.date && (
               <p className="text-text-tertiary text-xs mt-1 capitalize">
@@ -1122,7 +1105,7 @@ export default function OperationsPage() {
             {lastUpdated && (
               <div className="text-right">
                 <p className="text-xs text-text-tertiary">
-                  Последнее обновление:{' '}
+                  {t('ops.lastUpdated')}:{' '}
                   <span className="text-text-secondary font-mono">
                     {lastUpdated.toLocaleTimeString('ru-RU', {
                       timeZone: 'Europe/Moscow',
@@ -1132,7 +1115,7 @@ export default function OperationsPage() {
                   </span>
                 </p>
                 <p className="text-[10px] text-text-tertiary">
-                  Обновление через {countdown}с
+                  {t('ops.refreshIn').replace('{n}', String(countdown))}
                 </p>
               </div>
             )}
@@ -1146,7 +1129,7 @@ export default function OperationsPage() {
               ) : (
                 <RefreshCw className="w-4 h-4" />
               )}
-              Обновить
+              {t('ops.refresh')}
             </button>
           </div>
         </div>
@@ -1160,7 +1143,7 @@ export default function OperationsPage() {
               onClick={() => void load()}
               className="ml-auto text-xs underline hover:no-underline"
             >
-              Повторить
+              {t('ops.retry')}
             </button>
           </div>
         )}
