@@ -189,7 +189,7 @@ jobs:
           nohup npm run start > /tmp/nextjs-server.log 2>&1 &
           npx wait-on http-get://localhost:3000/api/health --timeout 60000 \
             || (echo "=== Next.js server log ===" && cat /tmp/nextjs-server.log && exit 1)
-          npx playwright test --timeout=30000
+          npx playwright test
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           NEXT_PUBLIC_APP_URL: http://localhost:3000

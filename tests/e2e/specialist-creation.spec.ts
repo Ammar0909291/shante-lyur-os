@@ -18,21 +18,19 @@ import { test, expect, Page } from '@playwright/test';
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 async function loginAsAdmin(page: Page) {
-  // Clear cookies to guarantee a clean auth state before every test.
-  // Without this, stale tokens from a previous test in the same context
-  // can cause the login page to behave inconsistently.
   await page.context().clearCookies();
-  // Navigate directly to /login — app/page.tsx does an unconditional
-  // redirect('/dashboard') so goto('/') is useless as an auth probe.
-  // The login page is a pure client component; it always renders the form.
   await page.goto('/login');
-  // Wait for React hydration before interacting with form inputs.
-  await page.waitForLoadState('networkidle');
-  if (page.url().includes('/dashboard')) return; // safety net
+  // Wait for the email input specifically — confirms React has hydrated and
+  // the form is interactive. networkidle is unreliable in production Next.js
+  // because Link prefetches keep connections open indefinitely.
+  await page.waitForSelector('input[type="email"]', { state: 'visible' });
+  if (page.url().includes('/dashboard')) return;
   await page.fill('input[type="email"]', 'admin@shantelyur.ru');
   await page.fill('input[type="password"]', 'admin123');
   await page.click('button[type="submit"]');
-  await page.waitForURL('**/dashboard', { timeout: 15_000 });
+  await page.waitForURL('**/dashboard', { timeout: 20_000 });
+  // Wait for the sidebar nav to be rendered before tests start asserting on it.
+  await page.waitForSelector('nav a[href]', { state: 'visible' });
 }
 
 async function navigateToSpecialists(page: Page) {

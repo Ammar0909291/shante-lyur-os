@@ -7,12 +7,13 @@ import { test, expect, Page } from '@playwright/test';
 async function loginAsAdmin(page: Page) {
   await page.context().clearCookies();
   await page.goto('/login');
-  await page.waitForLoadState('networkidle');
+  await page.waitForSelector('input[type="email"]', { state: 'visible' });
   if (page.url().includes('/dashboard')) return;
   await page.fill('input[type="email"]', 'admin@shantelyur.ru');
   await page.fill('input[type="password"]', 'admin123');
   await page.click('button[type="submit"]');
-  await page.waitForURL('**/dashboard', { timeout: 15_000 });
+  await page.waitForURL('**/dashboard', { timeout: 20_000 });
+  await page.waitForSelector('nav a[href]', { state: 'visible' });
 }
 
 test.describe('Booking flow', () => {
