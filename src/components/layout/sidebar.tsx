@@ -19,6 +19,7 @@ import {
   X,
   Activity,
   Landmark,
+  Brain,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -41,6 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'nav.sales', href: '/sales', icon: ShoppingBag, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
   { key: 'nav.inventory', href: '/inventory', icon: Package, roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
   { key: 'nav.finance', href: '/finance', icon: Landmark, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { key: 'nav.executive', href: '/executive', icon: Brain, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { key: 'nav.chat', href: '/chat', icon: MessageCircle },
   { key: 'nav.settings', href: '/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
