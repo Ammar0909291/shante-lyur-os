@@ -17,6 +17,7 @@ const PAGE_KEYS: Record<string, string> = {
   '/services': 'page.services',
   '/analytics': 'page.analytics',
   '/sales': 'page.sales',
+  '/finance': 'nav.finance',
   '/chat': 'nav.chat',
   '/settings': 'page.settings',
   '/profile': 'page.profile',

@@ -64,6 +64,7 @@ model User {
   messagesReceived InternalMessage[] @relation("MessagesReceived")
   soldAppointments Appointment[]     @relation("SoldByAppointments")
   inventoryMovements StockMovement[] @relation("InventoryMovementUser")
+  expensesCreated  Expense[]         @relation("ExpenseCreator")
 
   @@index([email])
   @@index([role, status])
@@ -271,6 +272,15 @@ enum CancellationReason {
   OTHER
 }
 
+enum AppointmentPaymentStatus {
+  UNPAID
+  DEPOSIT_PAID
+  PARTIAL_PAID
+  PAID
+  REFUNDED
+  FAILED
+}
+
 model Appointment {
   id              String              @id @default(uuid()) @db.Uuid
   clientId        String              @map("client_id") @db.Uuid
@@ -291,6 +301,10 @@ model Appointment {
   roomId          String?             @map("room_id") @db.Uuid
   source          String?             @db.VarChar(50) // web, phone, walkin, admin
   soldByUserId    String?             @map("sold_by_user_id") @db.Uuid
+  paymentStatus   AppointmentPaymentStatus @default(UNPAID) @map("payment_status")
+  paidAmount      Decimal             @default(0) @map("paid_amount") @db.Decimal(10, 2)
+  discountAmount  Decimal?            @map("discount_amount") @db.Decimal(10, 2)
+  discountReason  String?             @map("discount_reason") @db.VarChar(255)
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @updatedAt @map("updated_at")
 
@@ -625,6 +639,7 @@ model Payment {
   failedAt        DateTime?       @map("failed_at")
   failureReason   String?         @map("failure_reason") @db.Text
   idempotencyKey  String?         @unique @map("idempotency_key") @db.VarChar(255)
+  isDeposit       Boolean         @default(false) @map("is_deposit")
   commissionAmount Decimal?       @map("commission_amount") @db.Decimal(10, 2)
   specialistCommission Decimal?   @map("specialist_commission") @db.Decimal(10, 2)
   createdAt       DateTime        @default(now()) @map("created_at")
@@ -658,6 +673,39 @@ model Refund {
   @@index([paymentId])
   @@index([status])
   @@map("refunds")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 7b. OPERATIONAL EXPENSES
+// ═══════════════════════════════════════════════════════════════
+
+enum ExpenseCategory {
+  INVENTORY_PURCHASE
+  RENT
+  UTILITIES
+  SALARY
+  OPERATIONAL
+  MARKETING
+  OTHER
+}
+
+model Expense {
+  id          String          @id @default(uuid()) @db.Uuid
+  date        DateTime        @db.Date
+  category    ExpenseCategory
+  amount      Decimal         @db.Decimal(10, 2)
+  description String          @db.VarChar(500)
+  supplier    String?         @db.VarChar(255)
+  receiptRef  String?         @map("receipt_ref") @db.VarChar(255)
+  createdBy   String          @map("created_by") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  creator     User            @relation("ExpenseCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([date, category])
+  @@index([createdBy])
+  @@map("expenses")
 }
 
 // ═══════════════════════════════════════════════════════════════
