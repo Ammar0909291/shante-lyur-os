@@ -18,11 +18,12 @@ import { test, expect, Page } from '@playwright/test';
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 async function loginAsAdmin(page: Page) {
-  await page.goto('/');
-  // If already on dashboard, skip login
-  if (page.url().includes('/dashboard')) return;
-
-  await page.waitForURL('**/login', { timeout: 10_000 });
+  // Navigate directly to /login — avoids the unconditional redirect('dashboard')
+  // in app/page.tsx which fires even when unauthenticated, making the root URL
+  // useless as an auth-state probe.  The login page is a pure client component
+  // with no server-side auth redirect, so it always shows the form.
+  await page.goto('/login');
+  if (page.url().includes('/dashboard')) return; // already authenticated
   await page.fill('input[type="email"]', 'admin@shantelyur.ru');
   await page.fill('input[type="password"]', 'admin123');
   await page.click('button[type="submit"]');
@@ -32,7 +33,9 @@ async function loginAsAdmin(page: Page) {
 async function navigateToSpecialists(page: Page) {
   await page.click('a[href="/specialists"]');
   await page.waitForURL('**/specialists', { timeout: 8_000 });
-  await expect(page.getByRole('heading', { name: 'Специалисты' })).toBeVisible();
+  // Use h2 specifically: the layout Header also renders an h1 with the page
+  // title "Специалисты", so getByRole('heading') matches 2 elements (strict violation).
+  await expect(page.locator('h2').filter({ hasText: 'Специалисты' })).toBeVisible();
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
