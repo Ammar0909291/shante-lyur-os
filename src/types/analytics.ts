@@ -158,3 +158,70 @@ export interface WorkloadOverrideRecord {
   overriddenBy: string;
   createdAt: string;
 }
+
+// ─── Phase B5: Financial / Profitability ──────────────────────────────────────
+
+export interface FinancialCategoryBreakdown {
+  category: string;
+  revenue: number;
+  sessionCount: number;
+  avgTicket: number;
+}
+
+export interface FinancialBySpecialistType {
+  specialistType: 'MASSAGE' | 'COSMETOLOGY';
+  revenue: number;
+  sessionCount: number;
+}
+
+export interface FinancialDayPoint {
+  date: string; // YYYY-MM-DD
+  revenue: number;
+  sessionCount: number;
+}
+
+export interface FinancialTopDay {
+  date: string;
+  revenue: number;
+}
+
+export interface FinancialRevenueResponse {
+  period: { from: string; to: string };
+  total: number;
+  byCategory: FinancialCategoryBreakdown[];
+  bySpecialistType: FinancialBySpecialistType[];
+  byDay: FinancialDayPoint[];
+  trend: { vsLastPeriod: number };
+  avgTicket: number;
+  topEarningDay: FinancialTopDay | null;
+}
+
+export interface PeakHourCell {
+  dayOfWeek: number; // 0=Mon … 6=Sun
+  hour: number;      // 0-23
+  bookingCount: number;
+  revenue: number;
+}
+
+export interface PeakHoursResponse {
+  period: { from: string; to: string };
+  heatmap: PeakHourCell[];
+  peakHour: { dayOfWeek: number; hour: number; bookingCount: number } | null;
+  peakDay: { dayOfWeek: number; totalRevenue: number } | null;
+}
+
+export type ForecastConfidence = 'high' | 'medium' | 'low';
+
+export interface ForecastPoint {
+  date: string; // YYYY-MM-DD
+  forecastedRevenue: number;
+  confidence: ForecastConfidence;
+}
+
+export interface FinancialForecastResponse {
+  generatedAt: string;
+  historicalDays: FinancialDayPoint[];
+  forecast: ForecastPoint[];
+  rollingAvgRevenue: number;
+  trend: 'up' | 'down' | 'stable';
+}
