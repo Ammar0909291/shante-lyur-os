@@ -10,6 +10,7 @@ const PROTECTED_API_ROUTES = [
   '/api/customers',
   '/api/admin',
   '/api/payments',
+  '/api/analytics',
 ];
 
 const AUTH_ROUTES = [

@@ -12,96 +12,69 @@ import {
   Clock,
 } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
-import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
-import { Avatar } from '@/components/ui/avatar';
-import { formatTime, formatCurrency, getGreeting } from '@/lib/utils';
-import { prisma } from '@/infrastructure/config/prisma-client';
+import { formatCurrency } from '@/lib/utils';
 import { UIPageWrapper } from '@/next-ui/components/UIPageWrapper';
 import { NextDashboard } from '@/next-ui/dashboard/NextDashboard';
-import jwt from 'jsonwebtoken';
+import { DashboardAnalytics } from './_components/DashboardAnalytics';
+import type { DashboardSummary } from '@/types/analytics';
 
-async function getCurrentUserName(): Promise<string> {
+// ─── Data fetching ────────────────────────────────────────────────────────────
+
+async function getSummary(): Promise<DashboardSummary | null> {
   try {
-    const store = await cookies();
-    const token = store.get('access_token')?.value;
-    if (!token) return '';
-    const secret = process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET ?? 'dev-access-secret-change-me';
-    const payload = jwt.verify(token, secret) as { sub?: string };
-    if (!payload.sub) return '';
-    const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { firstName: true } });
-    return user?.firstName ?? '';
+    const cookieStore = await cookies();
+    const token = cookieStore.get('access_token')?.value;
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const res = await fetch(`${base}/api/analytics/dashboard/summary`, {
+      cache: 'no-store',
+      headers: token ? { Cookie: `access_token=${token}` } : {},
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { success: boolean; data: DashboardSummary };
+    return body.success ? body.data : null;
   } catch {
-    return '';
+    return null;
   }
 }
 
-async function getDashboardData() {
-  const now = new Date();
-  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+const EMPTY_SUMMARY: DashboardSummary = {
+  bookings: {
+    today: { total: 0, completed: 0, upcoming: 0, cancelled: 0, byType: { cosmetology: 0, massage: 0 } },
+    trend: { vsYesterday: 0, vsLastWeek: 0 },
+  },
+  specialists: {
+    total: 0,
+    active: 0,
+    byType: { cosmetology: 0, massage: 0 },
+    workingToday: 0,
+    massageWorkload: { meetingTarget: 0, belowTarget: 0, overridden: 0 },
+  },
+  revenue: {
+    thisWeek: { total: 0, byType: { cosmetology: 0, massage: 0 } },
+    trend: { vsLastWeek: 0, vsLastMonth: 0 },
+    today: 0,
+  },
+  generatedAt: new Date().toISOString(),
+};
 
-  const [
-    todayCount,
-    pendingCount,
-    monthRevenue,
-    prevMonthRevenue,
-    totalClients,
-    prevMonthClients,
-    todayList,
-  ] = await Promise.all([
-    prisma.appointment.count({ where: { startAt: { gte: todayStart, lte: todayEnd } } }),
-    prisma.appointment.count({ where: { startAt: { gte: todayStart, lte: todayEnd }, status: 'PENDING' } }),
-    prisma.appointment.aggregate({ where: { startAt: { gte: monthStart }, status: 'COMPLETED' }, _sum: { totalPrice: true } }),
-    prisma.appointment.aggregate({ where: { startAt: { gte: prevMonthStart, lte: prevMonthEnd }, status: 'COMPLETED' }, _sum: { totalPrice: true } }),
-    prisma.customerProfile.count(),
-    prisma.customerProfile.count({ where: { createdAt: { lt: monthStart } } }),
-    prisma.appointment.findMany({
-      where: { startAt: { gte: todayStart, lte: todayEnd } },
-      include: {
-        client: { select: { firstName: true, lastName: true } },
-        specialist: { include: { user: { select: { firstName: true, lastName: true } } } },
-        services: { include: { service: { select: { name: true } } }, orderBy: { sortOrder: 'asc' } },
-      },
-      orderBy: { startAt: 'asc' },
-      take: 20,
-    }),
-  ]);
+// ─── Legacy view ──────────────────────────────────────────────────────────────
 
-  const revMonth = Number(monthRevenue._sum.totalPrice ?? 0);
-  const revPrevMonth = Number(prevMonthRevenue._sum.totalPrice ?? 0);
-  const revTrend = revPrevMonth > 0 ? Math.round(((revMonth - revPrevMonth) / revPrevMonth) * 100) : 0;
+function LegacyDashboardContent({
+  summary,
+  greeting,
+}: {
+  summary: DashboardSummary;
+  greeting: string;
+}) {
+  const { bookings, revenue, specialists } = summary;
 
-  const appointments = todayList.map((a) => ({
-    id: a.id,
-    client: `${a.client.firstName} ${a.client.lastName}`,
-    service: a.services[0]?.service.name ?? '—',
-    specialist: `${a.specialist.user.firstName} ${a.specialist.user.lastName.charAt(0)}.`,
-    time: a.startAt,
-    status: a.status,
-    amount: Number(a.totalPrice),
-  }));
-
-  return {
-    todayBookings: todayCount,
-    pendingCount,
-    revenueMtd: revMonth,
-    revenueTrend: revTrend,
-    totalClients,
-    newClientsThisMonth: totalClients - prevMonthClients,
-    appointments,
-  };
-}
-
-function LegacyDashboardContent({ data, greeting, userName }: { data: Awaited<ReturnType<typeof getDashboardData>>; greeting: string; userName: string }) {
   return (
     <div className="p-6 lg:p-8 space-y-8 animate-fade-in">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">
-            {greeting}{userName ? `, ${userName}` : ''}
+            {greeting}
           </h2>
           <p className="text-text-secondary mt-1 text-sm">
             Вот что происходит в вашей студии сегодня
@@ -132,34 +105,50 @@ function LegacyDashboardContent({ data, greeting, userName }: { data: Awaited<Re
         </div>
       </div>
 
+      {/* KPI analytics — client component handles useLanguage */}
+      <DashboardAnalytics summary={summary} />
+
+      {/* Legacy stat cards — kept for backward compat with legacy UI version */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <Link href="/bookings" className="block hover:scale-[1.01] transition-transform">
           <StatCard
             title="Записи сегодня"
-            value={data.todayBookings}
-            subtitle={`${data.pendingCount} ожидают подтверждения`}
+            value={bookings.today.total}
+            subtitle={`${bookings.today.upcoming} ожидают подтверждения`}
             icon={<Calendar className="w-5 h-5" />}
           />
         </Link>
         <Link href="/analytics" className="block hover:scale-[1.01] transition-transform">
           <StatCard
-            title="Выручка за месяц"
-            value={formatCurrency(data.revenueMtd)}
+            title="Выручка за неделю"
+            value={formatCurrency(revenue.thisWeek.total)}
             subtitle="завершённые записи"
-            trend={data.revenueTrend !== 0 ? { value: Math.abs(data.revenueTrend), positive: data.revenueTrend >= 0, label: 'vs пред. месяц' } : undefined}
+            trend={
+              revenue.trend.vsLastWeek !== 0
+                ? {
+                    value: Math.abs(revenue.trend.vsLastWeek),
+                    positive: revenue.trend.vsLastWeek >= 0,
+                    label: 'vs пред. неделя',
+                  }
+                : undefined
+            }
             icon={<TrendingUp className="w-5 h-5" />}
           />
         </Link>
-        <Link href="/clients" className="block hover:scale-[1.01] transition-transform sm:col-span-2 xl:col-span-1">
+        <Link
+          href="/specialists"
+          className="block hover:scale-[1.01] transition-transform sm:col-span-2 xl:col-span-1"
+        >
           <StatCard
-            title="Активные клиенты"
-            value={data.totalClients}
-            subtitle={`+${data.newClientsThisMonth} за этот месяц`}
+            title="Специалистов активных"
+            value={specialists.active}
+            subtitle={`${specialists.workingToday} работают сегодня`}
             icon={<Users className="w-5 h-5" />}
           />
         </Link>
       </div>
 
+      {/* Today's schedule link */}
       <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
           <h3 className="font-serif text-lg font-medium text-text-primary">Записи на сегодня</h3>
@@ -167,95 +156,61 @@ function LegacyDashboardContent({ data, greeting, userName }: { data: Awaited<Re
             Все записи →
           </Link>
         </div>
-
-        {data.appointments.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Calendar className="w-10 h-10 text-text-tertiary" />
-            <p className="text-text-secondary text-sm">На сегодня записей нет</p>
-            <Link
-              href="/bookings"
-              className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg text-obsidian bg-champagne hover:brightness-105 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              Создать запись
-            </Link>
-          </div>
-        ) : (
-          <>
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border-luxury">
-                    <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Клиент</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Услуга</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Специалист</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Время</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Статус</th>
-                    <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Сумма</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-luxury">
-                  {data.appointments.map((apt) => (
-                    <tr key={apt.id} className="hover:bg-charcoal/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar name={apt.client} size="sm" />
-                          <span className="font-medium text-text-primary whitespace-nowrap">{apt.client}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-text-secondary max-w-[180px] truncate">{apt.service}</td>
-                      <td className="px-4 py-4 text-text-secondary whitespace-nowrap">{apt.specialist}</td>
-                      <td className="px-4 py-4 text-text-secondary whitespace-nowrap tabular-nums">{formatTime(apt.time)}</td>
-                      <td className="px-4 py-4">
-                        <Badge variant={getAppointmentStatusBadgeVariant(apt.status)} dot>
-                          {getAppointmentStatusLabel(apt.status)}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-right font-medium text-text-primary tabular-nums whitespace-nowrap">
-                        {formatCurrency(apt.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="sm:hidden divide-y divide-border-luxury">
-              {data.appointments.map((apt) => (
-                <div key={apt.id} className="px-4 py-4 flex items-start gap-3">
-                  <Avatar name={apt.client} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-text-primary text-sm truncate">{apt.client}</span>
-                      <Badge variant={getAppointmentStatusBadgeVariant(apt.status)}>
-                        {getAppointmentStatusLabel(apt.status)}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-text-secondary mt-0.5 truncate">{apt.service}</p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-xs text-text-tertiary">{formatTime(apt.time)}</span>
-                      <span className="text-xs text-text-tertiary">·</span>
-                      <span className="text-xs text-text-tertiary">{apt.specialist}</span>
-                      <span className="text-xs font-medium text-champagne ml-auto">{formatCurrency(apt.amount)}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+        <div className="flex flex-col items-center justify-center py-10 gap-3">
+          <Calendar className="w-10 h-10 text-text-tertiary" />
+          <p className="text-text-secondary text-sm">
+            {bookings.today.total > 0
+              ? `${bookings.today.total} записей · ${bookings.today.completed} завершено · ${bookings.today.upcoming} предстоит`
+              : 'На сегодня записей нет'}
+          </p>
+          <Link
+            href="/bookings"
+            className="inline-flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg text-obsidian bg-champagne hover:brightness-105 transition-all"
+          >
+            <Calendar className="w-4 h-4" />
+            Открыть расписание
+          </Link>
+        </div>
       </div>
     </div>
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default async function DashboardPage() {
-  const [data, userName] = await Promise.all([getDashboardData(), getCurrentUserName()]);
-  const greeting = getGreeting();
+  const summary = (await getSummary()) ?? EMPTY_SUMMARY;
+
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 6  ? 'Доброй ночи'  :
+    hour < 12 ? 'Доброе утро'  :
+    hour < 17 ? 'Добрый день'  :
+    hour < 22 ? 'Добрый вечер' : 'Доброй ночи';
+
+  // Map summary to the legacy DashboardData shape for NextDashboard compatibility.
+  const legacyData = {
+    todayBookings: summary.bookings.today.total,
+    pendingCount: summary.bookings.today.upcoming,
+    revenueMtd: summary.revenue.thisWeek.total,
+    revenueTrend: summary.revenue.trend.vsLastWeek,
+    totalClients: 0,
+    newClientsThisMonth: 0,
+    appointments: [] as {
+      id: string;
+      client: string;
+      service: string;
+      specialist: string;
+      time: Date;
+      status: string;
+      amount: number;
+    }[],
+  };
+
   return (
     <UIPageWrapper
-      legacy={<LegacyDashboardContent data={data} greeting={greeting} userName={userName} />}
-      next={<NextDashboard data={data} />}
+      legacy={<LegacyDashboardContent summary={summary} greeting={greeting} />}
+      next={<NextDashboard data={legacyData} />}
     />
   );
 }
