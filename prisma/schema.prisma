@@ -223,6 +223,7 @@ model Location {
   workingSchedules  WorkingSchedule[]
   servicePrices     ServiceLocationPrice[]
   blockedTimes      BlockedTime[]
+  rooms             Room[]
 
   @@index([isActive])
   @@map("locations")
@@ -287,6 +288,7 @@ model Appointment {
   noShowAt        DateTime?           @map("no_show_at")
   checkedInAt     DateTime?           @map("checked_in_at")
   checkedOutAt    DateTime?           @map("checked_out_at")
+  roomId          String?             @map("room_id") @db.Uuid
   source          String?             @db.VarChar(50) // web, phone, walkin, admin
   soldByUserId    String?             @map("sold_by_user_id") @db.Uuid
   createdAt       DateTime            @default(now()) @map("created_at")
@@ -296,6 +298,7 @@ model Appointment {
   client          User                @relation(fields: [clientId], references: [id], onDelete: Restrict, name: "ClientAppointments")
   specialist      Specialist          @relation(fields: [specialistId], references: [id], onDelete: Restrict)
   location        Location            @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  room            Room?               @relation(fields: [roomId], references: [id])
   soldBy          User?               @relation("SoldByAppointments", fields: [soldByUserId], references: [id])
   services        AppointmentService[]
   payments        Payment[]
@@ -307,6 +310,7 @@ model Appointment {
   @@index([clientId, startAt])
   @@index([specialistId, startAt])
   @@index([locationId, startAt])
+  @@index([roomId, startAt])
   @@index([status, startAt])
   @@index([startAt, endAt])
   @@map("appointments")
@@ -985,6 +989,35 @@ model InventoryServiceLink {
   @@unique([inventoryItemId, serviceId])
   @@index([serviceId])
   @@map("inventory_service_links")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ROOM / CABINET MANAGEMENT
+// Treatment rooms and cabinets within a location.
+// ═══════════════════════════════════════════════════════════════
+
+enum RoomType {
+  MASSAGE
+  COSMETOLOGY
+  GENERAL
+}
+
+model Room {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(100)
+  type       RoomType @default(GENERAL)
+  locationId String   @map("location_id") @db.Uuid
+  isActive   Boolean  @default(true) @map("is_active")
+  notes      String?  @db.VarChar(500)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  location     Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([locationId])
+  @@index([locationId, type])
+  @@map("rooms")
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -12,6 +12,7 @@ interface LanguageCtx {
 
 const RU: Record<string, string> = {
   'nav.dashboard': 'Дашборд',
+  'nav.operations': 'Операционный центр',
   'nav.bookings': 'Записи',
   'nav.clients': 'Клиенты',
   'nav.specialists': 'Специалисты',
@@ -93,6 +94,7 @@ const RU: Record<string, string> = {
 
 const EN: Record<string, string> = {
   'nav.dashboard': 'Dashboard',
+  'nav.operations': 'Operations Center',
   'nav.bookings': 'Bookings',
   'nav.clients': 'Clients',
   'nav.specialists': 'Specialists',

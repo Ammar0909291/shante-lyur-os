@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -30,6 +31,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { key: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { key: 'nav.operations', href: '/operations', icon: Activity, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
   { key: 'nav.bookings', href: '/bookings', icon: Calendar },
   { key: 'nav.clients', href: '/clients', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR', 'MANAGER'] },
   { key: 'nav.specialists', href: '/specialists', icon: Sparkles, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
