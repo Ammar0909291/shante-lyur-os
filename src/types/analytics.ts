@@ -102,3 +102,59 @@ export interface SpecialistPerformanceDetail extends SpecialistPerformanceSummar
   repeatClientRatio: number;
   totalUniqueClients: number;
 }
+
+// ─── Phase B4: Massage Workload ───────────────────────────────────────────────
+
+export type AlertSeverity = 'critical' | 'warning' | 'info';
+
+export interface MassageSpecialistWorkload {
+  id: string;
+  name: string;
+  sessionsToday: number;
+  sessionWeight: number;
+  targetMet: boolean;
+  overridden: boolean;
+  overrideReason: string | null;
+  remainingToTarget: number;
+  nextAppointment: string | null;
+  schedulingRecommendation: string | null;
+}
+
+export interface MassageWorkloadSummary {
+  date: string;
+  summary: {
+    totalMassageSpecialists: number;
+    workingToday: number;
+    meetingTarget: number;
+    belowTarget: number;
+    overridden: number;
+  };
+  specialists: MassageSpecialistWorkload[];
+}
+
+export interface WorkloadAlert {
+  specialistId: string;
+  specialistName: string;
+  severity: AlertSeverity;
+  sessionWeight: number;
+  remainingToTarget: number;
+  hoursLeftInDay: number;
+  overridden: boolean;
+  message: { ru: string; en: string };
+}
+
+export interface MassageAlertsResponse {
+  generatedAt: string;
+  alerts: WorkloadAlert[];
+  totalAlerts: number;
+  criticalCount: number;
+}
+
+export interface WorkloadOverrideRecord {
+  id: string;
+  specialistId: string;
+  date: string;
+  reason: string | null;
+  overriddenBy: string;
+  createdAt: string;
+}

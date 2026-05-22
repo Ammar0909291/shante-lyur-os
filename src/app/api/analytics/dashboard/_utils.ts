@@ -27,6 +27,28 @@ export function getTodayBounds(timezone: string): { todayStart: Date; todayEnd: 
 }
 
 /**
+ * Returns UTC start/end for any given YYYY-MM-DD date string in the salon timezone.
+ * Uses the same noon-based offset trick as getTodayBounds to avoid DST ambiguity.
+ */
+export function getDateBounds(
+  dateStr: string,
+  timezone: string,
+): { start: Date; end: Date } {
+  const noonUtc = new Date(dateStr + 'T12:00:00Z');
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(noonUtc);
+  const lh = Number(parts.find(p => p.type === 'hour')?.value ?? '12');
+  const lm = Number(parts.find(p => p.type === 'minute')?.value ?? '0');
+  const offsetMs = (lh * 60 + lm - 12 * 60) * 60000;
+  const start = new Date(new Date(dateStr + 'T00:00:00Z').getTime() - offsetMs);
+  return { start, end: new Date(start.getTime() + 86_400_000) };
+}
+
+/**
  * Returns Monday 00:00 (UTC-adjusted for timezone) of the week containing todayStart.
  */
 export function getWeekStart(timezone: string, todayStart: Date): Date {

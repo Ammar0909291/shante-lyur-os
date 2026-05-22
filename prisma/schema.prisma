@@ -140,6 +140,7 @@ model Specialist {
   vacations      Vacation[]
   specialistNotes SpecialistNote[]
   revenueRecords RevenueRecord[]
+  workloadOverrides WorkloadOverride[]
 
   @@index([userId])
   @@index([status])
@@ -984,4 +985,25 @@ model InventoryServiceLink {
   @@unique([inventoryItemId, serviceId])
   @@index([serviceId])
   @@map("inventory_service_links")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MASSAGE WORKLOAD OVERRIDES
+// Admin-set exemptions from daily target compliance tracking.
+// ═══════════════════════════════════════════════════════════════
+
+model WorkloadOverride {
+  id           String     @id @default(uuid()) @db.Uuid
+  specialistId String     @map("specialist_id") @db.Uuid
+  date         DateTime   @db.Date
+  reason       String?    @db.VarChar(500)
+  overriddenBy String     @map("overridden_by") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@unique([specialistId, date])
+  @@index([specialistId, date])
+  @@index([date])
+  @@map("workload_overrides")
 }
