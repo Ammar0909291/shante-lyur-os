@@ -26,9 +26,11 @@ test.describe('Booking flow', () => {
     await page.waitForURL('**/bookings', { timeout: 8_000 });
     // Use h2: the layout Header also renders <h1>Записи</h1> — strict mode violation.
     await expect(page.locator('h2').filter({ hasText: 'Записи' })).toBeVisible();
-    // Table or empty state should be visible
+    // Table or empty state should be visible.
+    // .first() prevents strict-mode violation when 'text=Нет записей' matches
+    // multiple <p> elements on the page.
     await expect(
-      page.locator('table').or(page.locator('text=Нет записей').or(page.locator('text=записей'))),
+      page.locator('table').or(page.locator('text=Нет записей')).first(),
     ).toBeVisible({ timeout: 8_000 });
   });
 
@@ -36,9 +38,11 @@ test.describe('Booking flow', () => {
     await page.goto('/bookings');
     await page.click('button:has-text("Новая запись")');
 
-    // Step 1 heading or client search should appear
+    // Step 1 heading or client search should appear.
+    // .first() prevents strict-mode violation when text matches multiple elements.
     await expect(
-      page.locator('text=Клиент').or(page.locator('input[placeholder*="клиент"]').or(page.locator('text=Шаг 1'))),
+      page.locator('input[placeholder*="клиент"], input[placeholder*="Клиент"]')
+        .or(page.locator('text=Шаг 1')).first(),
     ).toBeVisible({ timeout: 5_000 });
   });
 
