@@ -8,6 +8,7 @@ import {
   apiError,
 } from '@/app/api/analytics/dashboard/_utils';
 import type { TransitionAction } from '@/types/operations';
+import { logAudit, getRequestMeta } from '@/lib/audit-logger';
 
 // ─── Valid transition map ─────────────────────────────────────────────────────
 
@@ -208,7 +209,7 @@ export async function POST(
 
       switch (action as TransitionAction) {
         case 'confirm':
-          updateData = { status: 'CONFIRMED' };
+          updateData = { status: 'CONFIRMED', confirmedAt: now };
           break;
         case 'checkin':
           if (!apt.checkedInAt) updateData = { checkedInAt: now };
@@ -216,6 +217,7 @@ export async function POST(
         case 'start':
           updateData = {
             status: 'IN_PROGRESS',
+            startedAt: now,
             checkedInAt: apt.checkedInAt ?? now,
           };
           break;
@@ -237,6 +239,22 @@ export async function POST(
     }
 
     console.log('[ops/transition] done', { id, from: currentStatus, action, to: updated.status });
+
+    // Audit: every lifecycle transition
+    const { ipAddress, userAgent } = getRequestMeta(request);
+    void logAudit({
+      userId,
+      role,
+      action: 'STATUS_CHANGED',
+      entityType: 'appointment',
+      entityId: id,
+      appointmentId: id,
+      oldValues: { status: currentStatus },
+      newValues: { status: updated.status, action },
+      ipAddress,
+      userAgent,
+      metadata: { source: 'ops/transition', action },
+    });
 
     return ok({
       id: updated.id,

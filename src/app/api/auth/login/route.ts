@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
 import { prisma } from '@/infrastructure/config/prisma-client';
+import { logAudit, getRequestMeta } from '@/lib/audit-logger';
 
 const Schema = z.object({
   email: z.string().email(),
@@ -39,6 +40,17 @@ export async function POST(req: NextRequest) {
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       await prisma.user.update({ where: { id: user.id }, data: { failedLogins: { increment: 1 } } });
+      const { ipAddress, userAgent } = getRequestMeta(req);
+      void logAudit({
+        userId: user.id,
+        role: user.role,
+        action: 'LOGIN_FAILED',
+        entityType: 'user',
+        entityId: user.id,
+        ipAddress,
+        userAgent,
+        metadata: { email: user.email },
+      });
       return fail('UNAUTHORIZED', 'Invalid credentials', 401);
     }
 
@@ -76,6 +88,19 @@ export async function POST(req: NextRequest) {
     });
     res.cookies.set('access_token', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 28800 });
     res.cookies.set('refresh_token', refreshStr, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: (rememberMe ? 30 : 7) * 86400 });
+
+    const { ipAddress, userAgent } = getRequestMeta(req);
+    void logAudit({
+      userId: user.id,
+      role: user.role,
+      action: 'LOGIN',
+      entityType: 'user',
+      entityId: user.id,
+      ipAddress,
+      userAgent,
+      metadata: { email: user.email, rememberMe },
+    });
+
     return res;
   } catch (e) {
     return fail('INTERNAL_ERROR', e instanceof Error ? e.message : 'Unknown error', 500);

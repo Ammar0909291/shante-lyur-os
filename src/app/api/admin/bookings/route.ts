@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/infrastructure/config/prisma-client';
+import { logAudit, getRequestMeta } from '@/lib/audit-logger';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -202,7 +203,7 @@ export async function POST(req: NextRequest) {
 
     // ── 2. Timing ────────────────────────────────────────────────────────────
     const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
-    const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+    const totalPrice = Math.round(services.reduce((sum, s) => sum + s.price, 0) * 100) / 100;
     const totalDurationMs = totalDuration * 60_000;
     const endAt = new Date(startAt.getTime() + totalDurationMs);
 
@@ -318,6 +319,32 @@ export async function POST(req: NextRequest) {
         services: { include: { service: { select: { name: true } } } },
         location: { select: { name: true } },
       },
+    });
+
+    // Audit: admin booking created
+    const adminId = req.headers.get('x-user-id');
+    const adminRole = req.headers.get('x-user-role') ?? '';
+    const { ipAddress, userAgent } = getRequestMeta(req);
+    void logAudit({
+      userId: adminId,
+      role: adminRole,
+      action: 'CREATE',
+      entityType: 'appointment',
+      entityId: appointment.id,
+      appointmentId: appointment.id,
+      newValues: {
+        clientId,
+        specialistId,
+        startAt: appointment.startAt,
+        endAt: appointment.endAt,
+        status: appointment.status,
+        totalPrice: Number(appointment.totalPrice),
+        source,
+        overrideApplied,
+      },
+      ipAddress,
+      userAgent,
+      metadata: { source: 'admin/bookings' },
     });
 
     // Set firstVisitAt on CustomerProfile if this is the client's first booking

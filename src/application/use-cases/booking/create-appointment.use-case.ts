@@ -98,9 +98,25 @@ export class CreateAppointmentUseCase {
     const endAt = new Date(dto.startAt.getTime() + totalDuration * 60000);
     const timeRange = DateRange.create(dto.startAt, endAt);
 
-    const overlapping = await this.appointmentRepo.findOverlapping(specialist.id, timeRange);
+    // For massage specialists, apply a 30-minute buffer after each existing appointment.
+    // We expand the search range backwards by the buffer so that existing appointments
+    // ending within the buffer window before our start are detected as conflicts.
+    const specLower = (specialist.specialization ?? '').toLowerCase();
+    const isMassage =
+      specLower.includes('массаж') ||
+      specLower.includes('massage') ||
+      specLower.includes('spa') ||
+      specLower.includes('спа');
+
+    const MASSAGE_BUFFER_MS = 30 * 60_000;
+    const checkRange = isMassage
+      ? DateRange.create(new Date(dto.startAt.getTime() - MASSAGE_BUFFER_MS), endAt)
+      : timeRange;
+
+    const overlapping = await this.appointmentRepo.findOverlapping(specialist.id, checkRange);
     if (overlapping.length > 0) {
-      throw new ConflictError('Time slot is not available', 'startAt');
+      const bufferNote = isMassage ? ` (правило: +30 мин. перерыв после массажа)` : '';
+      throw new ConflictError(`Time slot is not available${bufferNote}`, 'startAt');
     }
 
     const blocked = await this.blockedTimeRepo.findOverlapping(specialist.id, timeRange);
