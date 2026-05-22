@@ -27,10 +27,9 @@ test.describe('Booking flow', () => {
     // Use h2: the layout Header also renders <h1>Записи</h1> — strict mode violation.
     await expect(page.locator('h2').filter({ hasText: 'Записи' })).toBeVisible();
     // Table or empty state should be visible.
-    // .first() prevents strict-mode violation when 'text=Нет записей' matches
-    // multiple <p> elements on the page.
+    // Empty state renders <p>Записей нет</p> (not "Нет записей").
     await expect(
-      page.locator('table').or(page.locator('text=Нет записей')).first(),
+      page.locator('table').or(page.locator('text=Записей нет')).first(),
     ).toBeVisible({ timeout: 8_000 });
   });
 
@@ -38,11 +37,12 @@ test.describe('Booking flow', () => {
     await page.goto('/bookings');
     await page.click('button:has-text("Новая запись")');
 
-    // Step 1 heading or client search should appear.
-    // .first() prevents strict-mode violation when text matches multiple elements.
+    // Modal form should appear — it's a flat form (no wizard steps).
+    // Client search input placeholder is "Имя, email или телефон...".
+    // Fallback to the modal heading h3 which is always visible when modal is open.
     await expect(
-      page.locator('input[placeholder*="клиент"], input[placeholder*="Клиент"]')
-        .or(page.locator('text=Шаг 1')).first(),
+      page.locator('input[placeholder*="Имя"]')
+        .or(page.locator('h3').filter({ hasText: 'Новая запись' })).first(),
     ).toBeVisible({ timeout: 5_000 });
   });
 
