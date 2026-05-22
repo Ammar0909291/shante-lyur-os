@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { AlertTriangle, Info, CheckCircle, X, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Info, CheckCircle, X, ChevronDown, Download, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
 import type {
@@ -265,6 +265,7 @@ export default function MassageWorkloadPage() {
   const [overrideModalId, setOverrideModalId] = React.useState<string | null>(null);
   const [overrideLoading, setOverrideLoading] = React.useState<string | null>(null);
   const [showAlerts, setShowAlerts] = React.useState(true);
+  const [exporting, setExporting] = React.useState(false);
 
   const load = React.useCallback(async (d: string) => {
     setLoading(true);
@@ -292,6 +293,25 @@ export default function MassageWorkloadPage() {
   }, []);
 
   React.useEffect(() => { void load(date); }, [load, date]);
+
+  const handleExport = React.useCallback(async () => {
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/analytics/export/massage-workload?date=${date}`);
+      if (!res.ok) { setError('Ошибка экспорта'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `massage-workload-${date}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Ошибка экспорта');
+    } finally {
+      setExporting(false);
+    }
+  }, [date]);
 
   async function handleRemoveOverride(specialistId: string) {
     setOverrideLoading(specialistId);
@@ -350,6 +370,14 @@ export default function MassageWorkloadPage() {
             className="h-9 px-3 text-xs font-medium rounded-lg border border-border-luxury text-text-secondary hover:text-champagne hover:border-champagne/40 transition-all disabled:opacity-40"
           >
             Сегодня
+          </button>
+          <button
+            onClick={() => void handleExport()}
+            disabled={exporting}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-medium rounded-xl border border-border-luxury bg-onyx text-text-secondary hover:text-champagne hover:border-champagne/40 transition-all disabled:opacity-50"
+          >
+            {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            Экспорт .xlsx
           </button>
         </div>
       </div>

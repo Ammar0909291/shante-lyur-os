@@ -6,7 +6,7 @@ import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
-import { TrendingUp, TrendingDown, BarChart3, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Minus, Download, Loader2 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
 import type {
@@ -123,6 +123,7 @@ export default function FinancialAnalyticsPage() {
   const [forecast, setForecast] = React.useState<FinancialForecastResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [exporting, setExporting] = React.useState(false);
 
   const load = React.useCallback(async (f: string, tDate: string) => {
     setLoading(true);
@@ -152,6 +153,25 @@ export default function FinancialAnalyticsPage() {
   }, []);
 
   React.useEffect(() => { void load(from, to); }, [load, from, to]);
+
+  const handleExport = React.useCallback(async () => {
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/analytics/export/financial?from=${from}&to=${to}`);
+      if (!res.ok) { setError('Ошибка экспорта'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `financial-report-${from}_${to}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Ошибка экспорта');
+    } finally {
+      setExporting(false);
+    }
+  }, [from, to]);
 
   // Build combined forecast chart data (historical + forecast)
   const forecastChartData = React.useMemo(() => {
@@ -206,6 +226,14 @@ export default function FinancialAnalyticsPage() {
           <input type="date" value={from} onChange={e => setFrom(e.target.value)} className={inputCls} />
           <span className="text-text-tertiary text-xs">→</span>
           <input type="date" value={to} onChange={e => setTo(e.target.value)} className={inputCls} />
+          <button
+            onClick={() => void handleExport()}
+            disabled={exporting}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-medium rounded-xl border border-border-luxury bg-onyx text-text-secondary hover:text-champagne hover:border-champagne/40 transition-all disabled:opacity-50"
+          >
+            {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            Экспорт .xlsx
+          </button>
         </div>
       </div>
 
