@@ -81,7 +81,7 @@ function makeParams(id: string) {
 // Moscow 10:00 on a Tuesday
 const TODAY_10 = new Date('2026-05-19T07:00:00Z');
 const TODAY_11 = new Date('2026-05-19T08:00:00Z');
-const TODAY_14 = new Date('2026-05-19T11:00:00Z');
+
 
 const SPECIALIST_MASSAGE = {
   id: 'spec-m1',
@@ -93,7 +93,7 @@ const SPECIALIST_COSM = {
   specialization: 'Косметолог',
   user: { firstName: 'Мария', lastName: 'Петрова' },
 };
-const ROOM = { id: 'room-1', name: 'Кабинет 1', type: 'MASSAGE' };
+
 
 function makeApt(overrides: {
   id?: string;
