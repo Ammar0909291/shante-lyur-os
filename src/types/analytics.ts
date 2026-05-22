@@ -60,3 +60,45 @@ export interface DashboardSummary {
   revenue: DashboardRevenue;
   generatedAt: string;
 }
+
+// ─── Phase B3: Specialist Performance ────────────────────────────────────────
+
+export interface ServiceCategoryBreakdown {
+  category: string;
+  sessionCount: number;
+  revenue: number;
+  avgDuration: number;
+}
+
+export interface DailySessionPoint {
+  date: string; // YYYY-MM-DD
+  count: number;
+  revenue: number;
+}
+
+export interface TopService {
+  serviceId: string;
+  serviceName: string;
+  sessionCount: number;
+  revenue: number;
+}
+
+export interface SpecialistPerformanceSummary {
+  id: string;
+  name: string;
+  specialistType: 'MASSAGE' | 'COSMETOLOGY';
+  totalSessions: number;
+  revenueGenerated: number;
+  avgSessionDuration: number;
+  clientRetentionRate: number;
+  workloadCompliance: number | null;
+  trendVsLastMonth: number;
+}
+
+export interface SpecialistPerformanceDetail extends SpecialistPerformanceSummary {
+  byServiceCategory: ServiceCategoryBreakdown[];
+  dailySessions: DailySessionPoint[];
+  topServices: TopService[];
+  repeatClientRatio: number;
+  totalUniqueClients: number;
+}
