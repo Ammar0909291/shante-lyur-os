@@ -91,40 +91,75 @@ function LanguageToggle() {
   );
 }
 
-interface Notification {
+interface OpsNotif {
   id: string;
-  text: string;
-  time: string;
-  read: boolean;
+  title: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+  appointmentId: string | null;
+}
+
+function getAuthHeaders(): Record<string, string> {
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+    if (!match) return {};
+    const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string; role?: string };
+    return { 'x-user-id': payload.sub ?? '', 'x-user-role': payload.role ?? '' };
+  } catch { return {}; }
 }
 
 function NotificationBell() {
   const { t } = useLanguage();
-  const [notifications, setNotifications] = React.useState<Notification[]>([]);
+  const [notifications, setNotifications] = React.useState<OpsNotif[]>([]);
   const [open, setOpen] = React.useState(false);
 
-  React.useEffect(() => {
-    fetch('/api/admin/bookings?status=PENDING&limit=3', { credentials: 'include' })
+  const fetchNotifs = React.useCallback(() => {
+    const headers = getAuthHeaders();
+    if (!headers['x-user-id']) return;
+    fetch('/api/notifications/operational', { headers })
       .then((r) => r.json())
       .then((json) => {
-        if (json.success && json.data.total > 0) {
-          setNotifications([{
-            id: 'pending',
-            text: `${json.data.total} ${t('header.notifications.pending')}`,
-            time: formatTime(new Date()),
-            read: false,
-          }]);
-        }
+        if (json.success) setNotifications(json.data.notifications as OpsNotif[]);
       })
       .catch(() => {});
-  }, [t]);
+  }, []);
 
-  const unread = notifications.filter((n) => !n.read).length;
+  React.useEffect(() => {
+    fetchNotifs();
+    // Subscribe to ops SSE for live notification delivery
+    const headers = getAuthHeaders();
+    if (!headers['x-user-id']) return;
+    const es = new EventSource('/api/realtime/ops-stream');
+    es.onmessage = (e) => {
+      try {
+        const ev = JSON.parse(e.data) as { type?: string };
+        if (ev.type && ev.type !== 'connected') fetchNotifs();
+      } catch {}
+    };
+    return () => es.close();
+  }, [fetchNotifs]);
 
-  const markAllRead = () => setNotifications((ns) => ns.map((n) => ({ ...n, read: true })));
+  const unread = notifications.filter((n) => !n.readAt).length;
+
+  const markAllRead = React.useCallback(() => {
+    const headers = getAuthHeaders();
+    if (!headers['x-user-id']) return;
+    fetch('/api/notifications/operational/read', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: '{}',
+    }).catch(() => {});
+    setNotifications((ns) => ns.map((n) => ({ ...n, readAt: new Date().toISOString() })));
+  }, []);
+
+  const relativeTime = (iso: string) => {
+    const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+    if (diff < 1) return 'только что';
+    if (diff < 60) return `${diff} мин назад`;
+    return formatTime(new Date(iso));
+  };
 
   return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+    <DropdownMenu.Root open={open} onOpenChange={(v) => { setOpen(v); if (v) fetchNotifs(); }}>
       <DropdownMenu.Trigger asChild>
         <button
           className={cn(
@@ -137,56 +172,59 @@ function NotificationBell() {
         >
           <Bell className="w-5 h-5" />
           {unread > 0 && (
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-champagne" />
+            <span className="absolute top-1.5 right-1.5 min-w-[1rem] h-4 rounded-full bg-champagne flex items-center justify-center px-0.5">
+              <span className="text-[9px] font-bold text-obsidian leading-none">{unread > 9 ? '9+' : unread}</span>
+            </span>
           )}
         </button>
       </DropdownMenu.Trigger>
 
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className={dropdownContentCls}
+          className={cn(dropdownContentCls, 'w-80')}
           align="end"
           sideOffset={8}
           style={{ zIndex: 200 }}
         >
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-luxury">
-            <p className="text-sm font-medium text-text-primary">{t('header.notifications')}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-text-primary">{t('notif.title')}</p>
+              {unread > 0 && (
+                <span className="text-[10px] font-bold bg-champagne text-obsidian rounded-full px-1.5 py-0.5">{unread}</span>
+              )}
+            </div>
             {unread > 0 && (
-              <button
-                onClick={markAllRead}
-                className="text-xs text-champagne hover:text-champagne-light transition-colors"
-              >
-                <Check className="w-3.5 h-3.5 inline mr-1" />
-                Прочитать все
+              <button onClick={markAllRead} className="text-xs text-champagne hover:opacity-80 transition-opacity flex items-center gap-1">
+                <Check className="w-3 h-3" /> {t('notif.markAll')}
               </button>
             )}
           </div>
 
-          {notifications.length === 0 ? (
-            <div className="px-3 py-6 text-center">
-              <p className="text-sm text-text-tertiary">{t('header.notifications.empty')}</p>
-            </div>
-          ) : (
-            <div className="py-1">
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={cn(
-                    'px-3 py-2.5 flex items-start gap-2',
-                    !n.read && 'bg-champagne/4',
-                  )}
-                >
-                  {!n.read && (
-                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-champagne shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-text-primary leading-snug">{n.text}</p>
-                    <p className="text-xs text-text-tertiary mt-0.5">{n.time}</p>
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="px-3 py-8 text-center">
+                <Bell className="w-8 h-8 text-text-tertiary/40 mx-auto mb-2" />
+                <p className="text-sm text-text-tertiary">{t('notif.empty')}</p>
+              </div>
+            ) : (
+              <div className="py-1">
+                {notifications.slice(0, 20).map((n) => (
+                  <div
+                    key={n.id}
+                    className={cn('px-3 py-2.5 flex items-start gap-2.5 border-b border-border-luxury/30 last:border-0', !n.readAt && 'bg-champagne/5')}
+                  >
+                    {!n.readAt && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-champagne shrink-0" />}
+                    {n.readAt && <span className="mt-1.5 w-1.5 h-1.5 shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-text-primary">{n.title}</p>
+                      <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{n.body}</p>
+                      <p className="text-[10px] text-text-tertiary mt-1">{relativeTime(n.createdAt)}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>

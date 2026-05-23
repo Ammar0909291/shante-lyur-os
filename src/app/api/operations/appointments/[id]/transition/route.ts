@@ -9,19 +9,36 @@ import {
 } from '@/app/api/analytics/dashboard/_utils';
 import type { TransitionAction } from '@/types/operations';
 import { logAudit, getRequestMeta } from '@/lib/audit-logger';
+import { broadcastOpsEvent, type OpsEvent } from '@/lib/ops-sse';
 
 // ─── Valid transition map ─────────────────────────────────────────────────────
 
-// Maps: current DB status → allowed actions
 const ALLOWED: Record<string, TransitionAction[]> = {
   PENDING:     ['confirm', 'checkin', 'start', 'noshow', 'cancel'],
   CONFIRMED:   ['checkin', 'start', 'noshow', 'cancel'],
   IN_PROGRESS: ['complete', 'cancel'],
-  // Terminal states — no transitions
   COMPLETED:   [],
   CANCELLED:   [],
   NO_SHOW:     [],
   RESCHEDULED: [],
+};
+
+const ACTION_TO_STATUS: Record<TransitionAction, string> = {
+  confirm: 'CONFIRMED',
+  checkin: 'CONFIRMED',
+  start:   'IN_PROGRESS',
+  complete: 'COMPLETED',
+  noshow:  'NO_SHOW',
+  cancel:  'CANCELLED',
+};
+
+const ACTION_TO_EVENT: Record<TransitionAction, OpsEvent['type']> = {
+  confirm:  'booking_confirmed',
+  checkin:  'client_arrived',
+  start:    'booking_started',
+  complete: 'booking_completed',
+  noshow:   'booking_no_show',
+  cancel:   'booking_cancelled',
 };
 
 // ─── Inventory deduction helper ───────────────────────────────────────────────
@@ -32,7 +49,6 @@ async function deductInventoryForAppointment(
 ): Promise<{ deducted: number; warnings: string[] }> {
   const warnings: string[] = [];
 
-  // Fetch services + their inventory links in one query
   const apt = await prisma.appointment.findUnique({
     where: { id: appointmentId },
     select: {
@@ -62,7 +78,6 @@ async function deductInventoryForAppointment(
 
   if (!apt) return { deducted: 0, warnings: ['Appointment not found for inventory deduction'] };
 
-  // Collect all deductions: group by itemId to avoid duplicates when multiple services use same item
   const deductionMap = new Map<string, { qty: number; itemName: string; unit: string; currentStock: number; services: string[] }>();
 
   for (const { service } of apt.services ?? []) {
@@ -90,15 +105,11 @@ async function deductInventoryForAppointment(
     return { deducted: 0, warnings: [] };
   }
 
-  // Build atomic transaction operations
   const txOps: Parameters<typeof prisma.$transaction>[0] extends Array<infer T> ? T[] : never[] = [];
-
-  // We use $transaction with a function for sequential dependent ops
   let deductedCount = 0;
 
   await prisma.$transaction(async (tx) => {
     for (const [itemId, info] of deductionMap.entries()) {
-      // Re-read current stock inside transaction for accuracy
       const current = await tx.inventoryItem.findUnique({
         where: { id: itemId },
         select: { currentStock: true },
@@ -109,12 +120,12 @@ async function deductInventoryForAppointment(
       }
 
       const currentStock = Number(current.currentStock);
-      let signedQty = -info.qty; // negative = consumption
+      let signedQty = -info.qty;
       let newBalance = currentStock + signedQty;
 
       if (newBalance < 0) {
         warnings.push(`${info.itemName}: insufficient stock (have ${currentStock} ${info.unit}, need ${info.qty}). Clamped to 0.`);
-        signedQty = -currentStock; // deduct all remaining
+        signedQty = -currentStock;
         newBalance = 0;
       }
 
@@ -140,8 +151,63 @@ async function deductInventoryForAppointment(
     }
   });
 
-  void txOps; // suppress unused warning
+  void txOps;
   return { deducted: deductedCount, warnings };
+}
+
+// ─── Create in-app notification for specialist ────────────────────────────────
+
+async function notifySpecialist(
+  action: TransitionAction,
+  aptFull: {
+    id: string;
+    specialistUserId: string;
+    clientName: string;
+    specialistName: string;
+    startAt: string;
+    roomName: string | null;
+    serviceNames: string[];
+  },
+) {
+  const notifMap: Partial<Record<TransitionAction, { title: string; body: string }>> = {
+    checkin: {
+      title: 'Клиент прибыл',
+      body: `${aptFull.clientName} ожидает вас${aptFull.roomName ? ` в ${aptFull.roomName}` : ''}`,
+    },
+    cancel: {
+      title: 'Запись отменена',
+      body: `Запись ${aptFull.clientName} на ${new Date(aptFull.startAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} отменена`,
+    },
+    complete: {
+      title: 'Процедура завершена',
+      body: `${aptFull.clientName} — ${aptFull.serviceNames[0] ?? 'процедура'} успешно завершена`,
+    },
+    noshow: {
+      title: 'Клиент не пришёл',
+      body: `${aptFull.clientName} отмечен как неявка`,
+    },
+  };
+
+  const notif = notifMap[action];
+  if (!notif) return;
+
+  try {
+    await prisma.notification.create({
+      data: {
+        userId: aptFull.specialistUserId,
+        type: 'SYSTEM',
+        channel: 'IN_APP',
+        status: 'SENT',
+        title: notif.title,
+        body: notif.body,
+        appointmentId: aptFull.id,
+        data: { action, clientName: aptFull.clientName, roomName: aptFull.roomName },
+        sentAt: new Date(),
+      },
+    });
+  } catch (err) {
+    console.error('[ops/transition] notification create error', err);
+  }
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
@@ -158,9 +224,7 @@ export async function POST(
   const { id } = await params;
 
   let body: { action?: string };
-  try {
-    body = (await request.json()) as typeof body;
-  } catch {
+  try { body = (await request.json()) as typeof body; } catch {
     return apiError('BAD_REQUEST', 'Invalid JSON body', 400);
   }
 
@@ -170,9 +234,24 @@ export async function POST(
   console.log('[ops/transition]', { id, action, userId });
 
   try {
+    // Fetch appointment with context for SSE/notifications
     const apt = await prisma.appointment.findUnique({
       where: { id },
-      select: { id: true, status: true, checkedInAt: true },
+      select: {
+        id: true,
+        status: true,
+        checkedInAt: true,
+        startAt: true,
+        client: { select: { firstName: true, lastName: true } },
+        specialist: {
+          select: {
+            id: true,
+            user: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+        room: { select: { name: true } },
+        services: { select: { service: { select: { name: true } } } },
+      },
     });
 
     if (!apt) return apiError('NOT_FOUND', 'Appointment not found', 404);
@@ -193,14 +272,12 @@ export async function POST(
     let inventoryWarnings: string[] = [];
 
     if (action === 'complete') {
-      // Complete: update status + deduct inventory atomically
       updated = await prisma.appointment.update({
         where: { id },
         data: { status: 'COMPLETED', checkedOutAt: now },
         select: { id: true, status: true, checkedInAt: true, checkedOutAt: true },
       });
 
-      // Deduct inventory AFTER status update (inventory deduction is best-effort)
       const { deducted, warnings } = await deductInventoryForAppointment(id, userId ?? null);
       inventoryWarnings = warnings;
       console.log('[ops/transition] inventory deducted', { id, deducted, warnings });
@@ -240,7 +317,36 @@ export async function POST(
 
     console.log('[ops/transition] done', { id, from: currentStatus, action, to: updated.status });
 
-    // Audit: every lifecycle transition
+    // ── SSE broadcast + notification ───────────────────────────────────────────
+    const clientName = `${apt.client.firstName} ${apt.client.lastName}`;
+    const specialistName = `${apt.specialist.user.firstName} ${apt.specialist.user.lastName}`;
+    const roomName = apt.room?.name ?? null;
+    const serviceNames = apt.services.map((s) => s.service.name);
+
+    const sseEvent: OpsEvent = {
+      type: ACTION_TO_EVENT[action as TransitionAction] ?? 'ops_refresh',
+      appointmentId: id,
+      clientName,
+      specialistId: apt.specialist.id,
+      specialistName,
+      roomName: roomName ?? undefined,
+      fromStatus: currentStatus,
+      toStatus: ACTION_TO_STATUS[action as TransitionAction] ?? updated.status,
+      ts: now.toISOString(),
+    };
+    broadcastOpsEvent(sseEvent);
+
+    void notifySpecialist(action as TransitionAction, {
+      id,
+      specialistUserId: apt.specialist.user.id,
+      clientName,
+      specialistName,
+      startAt: apt.startAt.toISOString(),
+      roomName,
+      serviceNames,
+    });
+
+    // ── Audit ──────────────────────────────────────────────────────────────────
     const { ipAddress, userAgent } = getRequestMeta(request);
     void logAudit({
       userId,

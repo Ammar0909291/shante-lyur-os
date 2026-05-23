@@ -11,6 +11,9 @@ import { cn } from '@/lib/utils';
 
 const PAGE_KEYS: Record<string, string> = {
   '/dashboard': 'page.dashboard',
+  '/operations': 'nav.operations',
+  '/receptionist': 'rec.title',
+  '/my-panel': 'panel.title',
   '/bookings': 'page.bookings',
   '/clients': 'page.clients',
   '/specialists': 'page.specialists',

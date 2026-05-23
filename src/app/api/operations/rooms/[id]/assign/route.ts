@@ -9,6 +9,7 @@ import {
   apiError,
 } from '@/app/api/analytics/dashboard/_utils';
 import type { RoomAssignBody } from '@/types/operations';
+import { broadcastOpsEvent } from '@/lib/ops-sse';
 
 // ─── POST /api/operations/rooms/[id]/assign ───────────────────────────────────
 
@@ -98,6 +99,13 @@ export async function POST(
     });
 
     console.log('[ops/rooms/assign] assigned', { roomId, appointmentId });
+
+    broadcastOpsEvent({
+      type: 'room_assigned',
+      appointmentId,
+      roomName: room.name,
+      ts: new Date().toISOString(),
+    });
 
     return ok({ appointmentId: updated.id, roomId: updated.roomId, roomName: room.name });
   } catch (err) {

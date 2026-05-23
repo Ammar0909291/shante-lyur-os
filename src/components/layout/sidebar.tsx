@@ -20,6 +20,8 @@ import {
   Activity,
   Landmark,
   Brain,
+  ClipboardList,
+  CalendarCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -34,6 +36,8 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { key: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
   { key: 'nav.operations', href: '/operations', icon: Activity, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.receptionist', href: '/receptionist', icon: ClipboardList, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.myPanel', href: '/my-panel', icon: CalendarCheck, roles: ['SPECIALIST'] },
   { key: 'nav.bookings', href: '/bookings', icon: Calendar },
   { key: 'nav.clients', href: '/clients', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
   { key: 'nav.specialists', href: '/specialists', icon: Sparkles, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
