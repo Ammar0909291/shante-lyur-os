@@ -39,13 +39,13 @@ interface SpecialistAppointment {
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_APPOINTMENTS: SpecialistAppointment[] = [
-  { id: 'a1', scheduledAt: '2026-05-23T10:00:00Z', status: 'CONFIRMED', serviceName: 'Окрашивание', clientName: 'Анна Соколова', durationMinutes: 120, price: 650000 },
-  { id: 'a2', scheduledAt: '2026-05-23T13:00:00Z', status: 'CONFIRMED', serviceName: 'Стрижка и укладка', clientName: 'Елена Морозова', durationMinutes: 60, price: 320000 },
-  { id: 'a3', scheduledAt: '2026-05-22T11:00:00Z', status: 'COMPLETED', serviceName: 'Окрашивание', clientName: 'Наталья Попова', durationMinutes: 120, price: 650000 },
-  { id: 'a4', scheduledAt: '2026-05-21T14:00:00Z', status: 'COMPLETED', serviceName: 'Стрижка', clientName: 'Светлана Ким', durationMinutes: 60, price: 280000 },
-  { id: 'a5', scheduledAt: '2026-05-20T10:30:00Z', status: 'COMPLETED', serviceName: 'Укладка', clientName: 'Татьяна Лебедева', durationMinutes: 45, price: 190000 },
-  { id: 'a6', scheduledAt: '2026-05-19T15:00:00Z', status: 'NO_SHOW', serviceName: 'Окрашивание', clientName: 'Ольга Захарова', durationMinutes: 120, price: 650000 },
-  { id: 'a7', scheduledAt: '2026-05-18T12:00:00Z', status: 'COMPLETED', serviceName: 'Стрижка и укладка', clientName: 'Ирина Волкова', durationMinutes: 90, price: 420000 },
+  { id: 'a1', scheduledAt: '2026-05-23T10:00:00Z', status: 'CONFIRMED', serviceName: 'Тайский массаж', clientName: 'Анна Соколова', durationMinutes: 90, price: 750000 },
+  { id: 'a2', scheduledAt: '2026-05-23T13:00:00Z', status: 'CONFIRMED', serviceName: 'Ароматерапевтический массаж', clientName: 'Елена Морозова', durationMinutes: 60, price: 600000 },
+  { id: 'a3', scheduledAt: '2026-05-22T11:00:00Z', status: 'COMPLETED', serviceName: 'Глубокотканный массаж', clientName: 'Наталья Попова', durationMinutes: 90, price: 850000 },
+  { id: 'a4', scheduledAt: '2026-05-21T14:00:00Z', status: 'COMPLETED', serviceName: 'Классический расслабляющий', clientName: 'Светлана Ким', durationMinutes: 60, price: 450000 },
+  { id: 'a5', scheduledAt: '2026-05-20T10:30:00Z', status: 'COMPLETED', serviceName: 'Антицеллюлитный массаж', clientName: 'Татьяна Лебедева', durationMinutes: 45, price: 400000 },
+  { id: 'a6', scheduledAt: '2026-05-19T15:00:00Z', status: 'NO_SHOW', serviceName: 'Горячий камень (стоун)', clientName: 'Ольга Захарова', durationMinutes: 90, price: 950000 },
+  { id: 'a7', scheduledAt: '2026-05-18T12:00:00Z', status: 'COMPLETED', serviceName: 'Тайский массаж', clientName: 'Ирина Волкова', durationMinutes: 90, price: 750000 },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
