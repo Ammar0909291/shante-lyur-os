@@ -127,7 +127,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Основная навигация">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1" aria-label="Основная навигация">
           {navItems.map(({ label, href, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
             return (
