@@ -850,16 +850,25 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
 function generateMockSlots(date: string, duration: number): TimeSlot[] {
   const slots: TimeSlot[] = [];
   const now = Date.now();
-  for (let h = 9; h < 20; h++) {
+  // Salon: 10:00–20:00 Moscow (UTC+3). dayEnd = 17:00 UTC = 20:00 Moscow.
+  const dayEndMs = new Date(`${date}T17:00:00.000Z`).getTime();
+  // Simulate two existing bookings: 11:00–12:30 and 14:00–15:30 Moscow
+  const mockBlocked: Array<[number, number]> = [
+    [new Date(`${date}T08:00:00.000Z`).getTime(), new Date(`${date}T09:30:00.000Z`).getTime()],
+    [new Date(`${date}T11:00:00.000Z`).getTime(), new Date(`${date}T12:30:00.000Z`).getTime()],
+  ];
+  for (let h = 10; h < 20; h++) {
     for (const m of [0, 30]) {
       const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      // Moscow hour → UTC: subtract 3
       const slotMs = new Date(`${date}T${String(h - 3).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`).getTime();
       const slotEndMs = slotMs + duration * 60000;
-      const dayEndMs = new Date(`${date}T17:00:00.000Z`).getTime();
       const isPast = slotMs < now + 30 * 60000;
       const afterHours = slotEndMs > dayEndMs;
-      const seed = slotMs % 10;
-      const isBlocked = !isPast && !afterHours && seed < 3;
+      let isBlocked = false;
+      for (const [bStart, bEnd] of mockBlocked) {
+        if (slotMs < bEnd && slotEndMs > bStart) { isBlocked = true; break; }
+      }
       slots.push({
         time: timeStr,
         available: !isPast && !afterHours && !isBlocked,

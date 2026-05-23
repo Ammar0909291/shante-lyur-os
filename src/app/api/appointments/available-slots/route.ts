@@ -10,25 +10,117 @@ function apiError(code: string, message: string, status: number) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
 }
 
+// Statuses that actually occupy a specialist's time
+const ACTIVE_STATUSES = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'RESCHEDULED'];
+
+const MASSAGE_BUFFER_MINS = 30;
+
+// Salon working hours in Moscow time (UTC+3)
+const SALON_START_HOUR = 10; // 10:00 Moscow = 07:00 UTC
+const SALON_END_HOUR   = 20; // 20:00 Moscow = 17:00 UTC
+
 const QuerySchema = z.object({
   specialistId: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   duration: z.coerce.number().int().positive().default(60),
+  // admin can bypass massage buffer
+  adminOverride: z.coerce.boolean().default(false),
 });
 
-// Generate all 30-min slots between startHour:00 and endHour:00
-function generateSlots(startHour: number, endHour: number, date: string): Date[] {
+// -----------------------------------------------------------
+// Moscow ↔ UTC helpers
+// All internal calculations in UTC.
+// Moscow = UTC+3 (no DST).
+// -----------------------------------------------------------
+
+/** Moscow HH:MM → UTC Date on a given date string */
+function moscowToUTC(date: string, hourMoscow: number, min: number): Date {
+  const d = new Date(`${date}T00:00:00.000Z`);
+  d.setUTCHours(hourMoscow - 3, min, 0, 0);
+  return d;
+}
+
+/** UTC Date → "HH:MM" in Moscow time */
+function utcToMoscowStr(d: Date): string {
+  const ms = new Date(d.getTime() + 3 * 3600_000);
+  return `${String(ms.getUTCHours()).padStart(2, '0')}:${String(ms.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+// -----------------------------------------------------------
+// Slot generation
+// -----------------------------------------------------------
+
+/** Returns UTC Date objects for every 30-min slot in the salon's working day */
+function buildDaySlots(date: string): Date[] {
   const slots: Date[] = [];
-  for (let h = startHour; h < endHour; h++) {
+  for (let h = SALON_START_HOUR; h < SALON_END_HOUR; h++) {
     for (const m of [0, 30]) {
-      const d = new Date(`${date}T00:00:00.000Z`);
-      // Use local midnight + offset so we work in Moscow time (UTC+3)
-      d.setUTCHours(h - 3, m, 0, 0);
-      slots.push(d);
+      slots.push(moscowToUTC(date, h, m));
     }
   }
   return slots;
 }
+
+type SlotResult = { time: string; available: boolean; reason: string | null };
+
+function evaluateSlot(
+  slotStart: Date,
+  duration: number,
+  dayEndUTC: Date,
+  blockedRanges: Array<[number, number]>,
+  now: number,
+): SlotResult {
+  const time    = utcToMoscowStr(slotStart);
+  const startMs = slotStart.getTime();
+  const endMs   = startMs + duration * 60_000;
+
+  // Must start at least 30 min in the future
+  if (startMs < now + 30 * 60_000) {
+    return { time, available: false, reason: 'past' };
+  }
+
+  // Session must finish by end of working day
+  if (endMs > dayEndUTC.getTime()) {
+    return { time, available: false, reason: 'outside_hours' };
+  }
+
+  // Check overlaps with blocked ranges
+  for (const [bStart, bEnd] of blockedRanges) {
+    if (startMs < bEnd && endMs > bStart) {
+      return { time, available: false, reason: 'occupied' };
+    }
+  }
+
+  return { time, available: true, reason: null };
+}
+
+// -----------------------------------------------------------
+// Next-available-day lookup
+// -----------------------------------------------------------
+
+function findNextDay(
+  fromDate: string,
+  duration: number,
+  existingSlots: SlotResult[],
+): string | null {
+  if (existingSlots.some(s => s.available)) return null;
+
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(`${fromDate}T12:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + i);
+    if (d.getUTCDay() === 0) continue; // skip Sundays
+    const next = d.toISOString().slice(0, 10);
+    // Quick estimate: if duration fits within working window, flag it
+    if ((SALON_END_HOUR - SALON_START_HOUR) * 60 >= duration + MASSAGE_BUFFER_MINS) {
+      return next;
+    }
+  }
+  return null;
+}
+
+// -----------------------------------------------------------
+// Route handler
+// -----------------------------------------------------------
 
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
@@ -40,150 +132,122 @@ export async function GET(req: NextRequest) {
     return apiError('VALIDATION_ERROR', 'Missing or invalid query parameters', 400);
   }
 
-  const { specialistId, date, duration } = parsed.data;
+  const { specialistId, date, duration, adminOverride } = parsed.data;
+
+  // day boundaries in UTC
+  const dayStartUTC = moscowToUTC(date, SALON_START_HOUR, 0);
+  const dayEndUTC   = moscowToUTC(date, SALON_END_HOUR,   0);
+  const now         = Date.now();
+
+  // ── Try real DB path ──────────────────────────────────────────────────────
 
   try {
     const { DIRegistry } = await import('@/infrastructure/config/di-registry');
     const registry = DIRegistry.instance;
 
-    // Fetch specialist to get type
     const specialist = await registry.specialistRepository.findById(specialistId);
     if (!specialist || !specialist.isActive) {
       return apiError('NOT_FOUND', 'Specialist not found', 404);
     }
 
-    // Working hours: 9:00–20:00 (fallback when no schedule found)
-    const dayStart = new Date(`${date}T06:00:00.000Z`); // 09:00 Moscow
-    const dayEnd   = new Date(`${date}T17:00:00.000Z`); // 20:00 Moscow
-
-    // Fetch existing appointments for this specialist on this date
-    const existing = await registry.appointmentRepository.findByDateRange(
-      dayStart, dayEnd, { specialistId }
-    ).catch(() => []);
-
-    // Specialist type from specialization field fallback
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const raw = specialist as any;
+    const sp = specialist as any;
     const isMassage =
-      raw.specialistType === 'MASSAGE_THERAPIST' ||
-      raw.specialization?.includes('MASSAGE') ||
-      raw.specialization?.includes('massage');
+      sp.specialistType === 'MASSAGE_THERAPIST' ||
+      String(sp.specialization ?? '').toUpperCase().includes('MASSAGE');
 
-    const MASSAGE_BUFFER_MINS = 30;
+    const applyBuffer = isMassage && !adminOverride;
 
-    // Build blocked ranges: [start, end] in ms
+    // Only active appointments block slots
+    const existing: Array<{ startAt: Date; endAt: Date; status: string }> =
+      await registry.appointmentRepository
+        .findByDateRange(dayStartUTC, dayEndUTC, { specialistId })
+        .catch(() => []);
+
     const blockedRanges: Array<[number, number]> = existing
-      .filter((a: { status: string }) => !['CANCELLED', 'NO_SHOW'].includes(a.status))
-      .map((a: { startAt: Date; endAt: Date }) => {
+      .filter(a => ACTIVE_STATUSES.includes(a.status))
+      .map(a => {
         const end = a.endAt.getTime();
-        // For massage therapists, extend blocked range by buffer
-        const blockEnd = isMassage ? end + MASSAGE_BUFFER_MINS * 60000 : end;
-        return [a.startAt.getTime(), blockEnd] as [number, number];
+        return [a.startAt.getTime(), applyBuffer ? end + MASSAGE_BUFFER_MINS * 60_000 : end] as [number, number];
       });
 
-    // Generate candidate slots every 30 minutes 9:00–19:30
-    const candidates = generateSlots(9, 20, date);
-    const now = Date.now();
+    const candidates = buildDaySlots(date);
+    const slots = candidates.map(s => evaluateSlot(s, duration, dayEndUTC, blockedRanges, now));
+    const nextAvailableDate = findNextDay(date, duration, slots);
 
-    const slots = candidates.map((slotStart) => {
-      const slotEnd = slotStart.getTime() + duration * 60000;
-
-      // Must be in the future (at least 30 min from now)
-      if (slotStart.getTime() < now + 30 * 60000) {
-        return { time: formatSlotTime(slotStart), available: false, reason: 'past' };
-      }
-
-      // Must end before day end
-      if (slotEnd > dayEnd.getTime()) {
-        return { time: formatSlotTime(slotStart), available: false, reason: 'outside_hours' };
-      }
-
-      // Check against blocked ranges
-      const conflict = blockedRanges.find(
-        ([bStart, bEnd]) => slotStart.getTime() < bEnd && slotEnd > bStart
-      );
-      if (conflict) {
-        return { time: formatSlotTime(slotStart), available: false, reason: 'occupied' };
-      }
-
-      return { time: formatSlotTime(slotStart), available: true, reason: null };
+    console.debug('[slots]', {
+      date, specialistId: sp.id, isMassage, applyBuffer, adminOverride,
+      totalSlots: slots.length,
+      available: slots.filter(s => s.available).length,
+      blocked: slots.filter(s => s.reason === 'occupied').length,
+      past: slots.filter(s => s.reason === 'past').length,
     });
-
-    // Next available suggestion: look forward up to 3 days
-    const nextAvailableDate = findNextAvailableDay(date, slots, blockedRanges, duration, isMassage, dayStart, dayEnd, now);
 
     return ok({
       date,
       specialistId,
-      specialistName: raw.user?.name ?? '',
+      specialistName: sp.user?.name ?? '',
       isMassageTherapist: isMassage,
-      massageBufferMinutes: isMassage ? MASSAGE_BUFFER_MINS : 0,
+      massageBufferMinutes: applyBuffer ? MASSAGE_BUFFER_MINS : 0,
+      adminOverride,
       slots,
       nextAvailableDate,
     });
-  } catch {
-    // Fallback mock response when DB is not available
-    return ok(getMockSlots(date, duration));
+  } catch (err) {
+    console.debug('[slots] DB unavailable, using mock fallback:', (err as Error).message);
+    return ok(getMockSlots(date, duration, adminOverride));
   }
 }
 
-function formatSlotTime(d: Date): string {
-  // Display in Moscow time (UTC+3)
-  const moscow = new Date(d.getTime() + 3 * 3600000);
-  const h = moscow.getUTCHours().toString().padStart(2, '0');
-  const m = moscow.getUTCMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
+// -----------------------------------------------------------
+// Mock fallback (DB not available)
+// Uses deterministic slot-time-based seed — NOT timestamp % 10
+// -----------------------------------------------------------
 
-function findNextAvailableDay(
-  date: string,
-  currentSlots: Array<{ available: boolean }>,
-  _blocked: Array<[number, number]>,
-  duration: number,
-  _isMassage: boolean,
-  _dayStart: Date,
-  _dayEnd: Date,
-  _now: number,
-): string | null {
-  if (currentSlots.some(s => s.available)) return null;
-  // Suggest next 3 calendar days
-  for (let i = 1; i <= 3; i++) {
-    const d = new Date(date + 'T12:00:00Z');
-    d.setUTCDate(d.getUTCDate() + i);
-    const next = d.toISOString().slice(0, 10);
-    // Skip Sundays (getUTCDay() === 0)
-    if (d.getUTCDay() !== 0) {
-      // Assume next days have 2+ available slots if duration is reasonable
-      if (duration <= 120) return next;
+function getMockSlots(date: string, duration: number, adminOverride: boolean) {
+  const now      = Date.now();
+  const dayEnd   = moscowToUTC(date, SALON_END_HOUR, 0);
+
+  // Simulate ~3 existing bookings distributed through the day
+  const mockBlocked: Array<[number, number]> = [
+    // 11:00–12:00 Moscow booking (+ 30 min buffer if massage)
+    [moscowToUTC(date, 11, 0).getTime(), moscowToUTC(date, 12, 30).getTime()],
+    // 14:00–15:30 Moscow booking
+    [moscowToUTC(date, 14, 0).getTime(), moscowToUTC(date, 15, 30).getTime()],
+  ];
+
+  const slots: SlotResult[] = buildDaySlots(date).map(slotStart => {
+    const time    = utcToMoscowStr(slotStart);
+    const startMs = slotStart.getTime();
+    const endMs   = startMs + duration * 60_000;
+
+    if (startMs < now + 30 * 60_000) {
+      return { time, available: false, reason: 'past' };
     }
-  }
-  return null;
-}
+    if (endMs > dayEnd.getTime()) {
+      return { time, available: false, reason: 'outside_hours' };
+    }
 
-// Mock fallback for dev environments without DB
-function getMockSlots(date: string, duration: number) {
-  const now = Date.now();
-  const slots = generateSlots(9, 20, date).map((slotStart) => {
-    const slotEnd = slotStart.getTime() + duration * 60000;
-    const dayEnd = new Date(`${date}T17:00:00.000Z`);
-    const isPast = slotStart.getTime() < now + 30 * 60000;
-    const afterHours = slotEnd > dayEnd.getTime();
-    // Randomly block ~30% of slots to simulate a realistic schedule
-    const seed = slotStart.getTime() % 10;
-    const isBlocked = !isPast && !afterHours && seed < 3;
-    return {
-      time: formatSlotTime(slotStart),
-      available: !isPast && !afterHours && !isBlocked,
-      reason: isPast ? 'past' : afterHours ? 'outside_hours' : isBlocked ? 'occupied' : null,
-    };
+    // Only block with mock schedule if not admin override
+    if (!adminOverride) {
+      for (const [bStart, bEnd] of mockBlocked) {
+        if (startMs < bEnd && endMs > bStart) {
+          return { time, available: false, reason: 'occupied' };
+        }
+      }
+    }
+
+    return { time, available: true, reason: null };
   });
+
   return {
     date,
     specialistId: '',
     specialistName: '',
     isMassageTherapist: false,
     massageBufferMinutes: 0,
+    adminOverride,
     slots,
-    nextAvailableDate: null,
+    nextAvailableDate: findNextDay(date, duration, slots),
   };
 }
