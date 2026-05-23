@@ -180,7 +180,7 @@ model Service {
   id          String          @id @default(uuid()) @db.Uuid
   name        String          @db.VarChar(255)
   description String?         @db.Text
-  category    ServiceCategory @default(OTHER)
+  category    ServiceCategory @default(MASSAGE)
   basePrice   Decimal         @map("base_price") @db.Decimal(10, 2)
   baseDuration Int            @map("base_duration") // minutes
   imageUrl    String?         @map("image_url")

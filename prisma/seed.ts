@@ -65,11 +65,11 @@ async function main() {
   // ─── Services ──────────────────────────────────────────────
   const services = await prisma.service.createMany({
     data: [
-      { name: 'Классический массаж лица', category: ServiceCategory.COSMETOLOGY, basePrice: 3500, baseDuration: 60, description: 'Расслабляющий массаж лица' },
-      { name: 'RF-лифтинг', category: ServiceCategory.LASER, basePrice: 5500, baseDuration: 45, description: 'Радиоволновой лифтинг' },
-      { name: 'Мезотерапия', category: ServiceCategory.INJECTION, basePrice: 8000, baseDuration: 30, requiresConsultation: true },
-      { name: 'SPA-массаж всего тела', category: ServiceCategory.MASSAGE, basePrice: 7000, baseDuration: 90 },
-      { name: 'Лазерная эпиляция', category: ServiceCategory.HAIR_REMOVAL, basePrice: 2500, baseDuration: 30 },
+      { name: 'Классический расслабляющий массаж', category: ServiceCategory.MASSAGE, basePrice: 4500, baseDuration: 60 },
+      { name: 'Тайский массаж', category: ServiceCategory.MASSAGE, basePrice: 7500, baseDuration: 90 },
+      { name: 'RF-лифтинг', category: ServiceCategory.COSMETOLOGY, basePrice: 10000, baseDuration: 60, description: 'Радиоволновой лифтинг' },
+      { name: 'Мезотерапия', category: ServiceCategory.COSMETOLOGY, basePrice: 15000, baseDuration: 45, requiresConsultation: true },
+      { name: 'Биоревитализация', category: ServiceCategory.COSMETOLOGY, basePrice: 18000, baseDuration: 60 },
     ],
   });
 
