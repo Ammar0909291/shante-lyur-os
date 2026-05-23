@@ -4,6 +4,7 @@ import * as React from 'react';
 import {
   Plus, Search, Package, AlertTriangle, TrendingDown, Clock,
   X, ChevronDown, BarChart2, Link2, TrendingUp, Trash2, RefreshCw,
+  Building2, Truck, Wrench, CheckCircle2, Loader2, DoorOpen,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -31,14 +32,47 @@ interface Mapping {
 interface Service { id: string; name: string; category: string; }
 
 interface Analytics {
-  period: { days: number; since: string };
+  period: { days: number; since: string; period?: string };
   inventoryValue: number; totalConsumableCost: number;
   topConsumed: Array<{ id: string; name: string; unit: string; category: string; totalQty: number; totalCost: number; useCount: number }>;
   procedureCost: Array<{ id: string; name: string; revenue: number; consumableCost: number; margin: number | null; count: number; avgConsumableCost: number }>;
   specialistUsage: Array<{ id: string; name: string; totalCost: number; procedureCount: number }>;
-  forecast: Array<{ id: string; name: string; unit: string; currentStock: number; minStock: number; avgDailyUsage: number; daysRemaining: number | null; projectedStockoutDate: string | null; needsReorder: boolean; monthlyUsageEstimate: number }>;
+  forecast: Array<{ id: string; name: string; unit: string; currentStock: number; minStock: number; avgDailyUsage: number; daysRemaining: number | null; projectedStockoutDate: string | null; needsReorder: boolean; monthlyUsageEstimate: number; supplierName: string | null; supplierId: string | null }>;
   wasteStats: Array<{ id: string; name: string; unit: string; qty: number; cost: number }>;
   totalWasteCost: number;
+  roomUtilization: Array<{ id: string; name: string; type: string; utilizationPct: number; bookedMinutes: number; appointmentCount: number; completedCount: number; equipment: Array<{ id: string; name: string; status: string; nextServiceAt: string | null }>; needsMaintenance: boolean; maintenanceDue: string[] }>;
+}
+
+interface Supplier {
+  id: string; name: string; contactName: string | null; phone: string | null;
+  email: string | null; address: string | null; website: string | null;
+  notes: string | null; isActive: boolean;
+  itemCount: number; orderCount: number;
+  lastOrderAt: string | null; lastOrderStatus: string | null; lastOrderTotal: number | null;
+  createdAt: string;
+}
+
+interface POLineItem {
+  id: string; inventoryItemId: string; itemName: string; itemUnit: string;
+  itemCategory: string; quantity: number; unitCost: number; receivedQty: number; lineTotal: number;
+}
+
+interface PurchaseOrder {
+  id: string; status: string; supplierId: string | null; supplierName: string | null;
+  orderedAt: string | null; expectedAt: string | null; receivedAt: string | null;
+  totalCost: number; notes: string | null; createdAt: string;
+  itemCount: number; items: POLineItem[];
+}
+
+interface RoomEquipment {
+  id: string; name: string; description: string | null; status: string;
+  lastServicedAt: string | null; nextServiceAt: string | null;
+  daysUntilService: number | null; notes: string | null;
+}
+
+interface RoomWithEquipment {
+  room: { id: string; name: string; type: string };
+  equipment: RoomEquipment[];
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -258,9 +292,274 @@ function MappingModal({ items, services, onClose, onSaved }: { items: InventoryI
   );
 }
 
+// ─── Supplier Modal ───────────────────────────────────────────────────────────
+
+function SupplierModal({ supplier, onClose, onSaved }: { supplier: Supplier | null; onClose: () => void; onSaved: () => void }) {
+  const { t } = useLanguage();
+  const isEdit = Boolean(supplier);
+  type F = { name: string; contactName: string; phone: string; email: string; address: string; website: string; notes: string };
+  const [form, setForm] = React.useState<F>({
+    name: supplier?.name ?? '', contactName: supplier?.contactName ?? '',
+    phone: supplier?.phone ?? '', email: supplier?.email ?? '',
+    address: supplier?.address ?? '', website: supplier?.website ?? '', notes: supplier?.notes ?? '',
+  });
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const set = (k: keyof F) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function handleSubmit(ev: React.FormEvent) {
+    ev.preventDefault();
+    if (!form.name.trim()) { setError(t('supplier.nameRequired')); return; }
+    setSaving(true); setError('');
+    try {
+      const url = isEdit ? `/api/admin/inventory/suppliers/${supplier!.id}` : '/api/admin/inventory/suppliers';
+      const res = await fetch(url, {
+        method: isEdit ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(form),
+      });
+      const json = await res.json();
+      if (json.success) onSaved(); else setError(json.error?.message ?? 'Error');
+    } catch { setError('Network error'); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-onyx border border-border-luxury rounded-2xl w-full max-w-lg shadow-luxury-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-luxury">
+          <h3 className="font-serif text-lg font-medium text-text-primary">{isEdit ? t('supplier.edit') : t('supplier.add')}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-charcoal text-text-tertiary transition-colors"><X className="w-4 h-4" /></button>
+        </div>
+        <form onSubmit={(e) => { void handleSubmit(e); }} className="p-5 space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            {([['name', t('supplier.name'), true], ['contactName', t('supplier.contactName'), false], ['phone', t('supplier.phone'), false], ['email', t('supplier.email'), false], ['website', t('supplier.website'), false]] as [keyof F, string, boolean][]).map(([k, label, req]) => (
+              <div key={k} className={k === 'name' ? 'sm:col-span-2' : ''}>
+                <label className="block text-xs font-medium text-text-secondary mb-1">{label}{req && ' *'}</label>
+                <input type="text" value={form[k]} onChange={set(k)} placeholder={label} required={req} className={inputCls} />
+              </div>
+            ))}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-text-secondary mb-1">{t('supplier.address')}</label>
+              <input type="text" value={form.address} onChange={set('address')} className={inputCls} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-text-secondary mb-1">{t('supplier.notes')}</label>
+              <textarea rows={2} value={form.notes} onChange={set('notes')} className={cn(inputCls, 'resize-none')} />
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors">{t('common.cancel')}</button>
+            <button type="submit" disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t('common.save')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Order Modal (create purchase order) ──────────────────────────────────────
+
+function OrderModal({ suppliers, inventoryItems, onClose, onSaved }: {
+  suppliers: Supplier[];
+  inventoryItems: InventoryItem[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useLanguage();
+  const [supplierId, setSupplierId] = React.useState('');
+  const [expectedAt, setExpectedAt] = React.useState('');
+  const [notes, setNotes] = React.useState('');
+  const [lines, setLines] = React.useState<Array<{ itemId: string; qty: string; unitCost: string }>>([{ itemId: '', qty: '', unitCost: '' }]);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const addLine = () => setLines((l) => [...l, { itemId: '', qty: '', unitCost: '' }]);
+  const removeLine = (i: number) => setLines((l) => l.filter((_, idx) => idx !== i));
+  const setLine = (i: number, k: string, v: string) => setLines((l) => l.map((r, idx) => idx === i ? { ...r, [k]: v } : r));
+
+  const totalCost = lines.reduce((s, l) => s + (Number(l.qty) || 0) * (Number(l.unitCost) || 0), 0);
+
+  async function handleSubmit(ev: React.FormEvent) {
+    ev.preventDefault();
+    const validLines = lines.filter((l) => l.itemId && Number(l.qty) > 0);
+    if (!validLines.length) { setError(t('orders.noItems')); return; }
+    setSaving(true); setError('');
+    try {
+      const res = await fetch('/api/admin/inventory/purchase-orders', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          supplierId: supplierId || undefined,
+          expectedAt: expectedAt || undefined,
+          notes: notes || undefined,
+          items: validLines.map((l) => ({ inventoryItemId: l.itemId, quantity: Number(l.qty), unitCost: Number(l.unitCost) || 0 })),
+        }),
+      });
+      const json = await res.json();
+      if (json.success) onSaved(); else setError(json.error?.message ?? 'Error');
+    } catch { setError('Network error'); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-onyx border border-border-luxury rounded-2xl w-full max-w-2xl shadow-luxury-lg max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-luxury shrink-0">
+          <h3 className="font-serif text-lg font-medium text-text-primary">{t('orders.new')}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-charcoal text-text-tertiary transition-colors"><X className="w-4 h-4" /></button>
+        </div>
+        <form onSubmit={(e) => { void handleSubmit(e); }} className="overflow-y-auto flex-1">
+          <div className="p-5 space-y-4">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">{t('orders.supplier')}</label>
+                <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={selectCls}>
+                  <option value="">— {t('orders.supplier')} —</option>
+                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-secondary mb-1">{t('orders.expectedAt')}</label>
+                <input type="date" value={expectedAt} onChange={(e) => setExpectedAt(e.target.value)} className={inputCls} />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-medium text-text-secondary">{t('orders.items')} *</label>
+                <button type="button" onClick={addLine} className="text-xs text-champagne hover:opacity-80 transition-opacity flex items-center gap-1"><Plus className="w-3 h-3" />{t('orders.addItem')}</button>
+              </div>
+              <div className="space-y-2">
+                {lines.map((line, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_80px_100px_28px] gap-2 items-center">
+                    <select value={line.itemId} onChange={(e) => setLine(i, 'itemId', e.target.value)} className={cn(selectCls, 'text-xs')}>
+                      <option value="">{t('orders.selectItem')}</option>
+                      {inventoryItems.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>)}
+                    </select>
+                    <input type="number" min="0.001" step="any" placeholder={t('orders.qty')} value={line.qty} onChange={(e) => setLine(i, 'qty', e.target.value)} className={cn(inputCls, 'text-xs text-center')} />
+                    <input type="number" min="0" step="any" placeholder="₽/ед." value={line.unitCost} onChange={(e) => setLine(i, 'unitCost', e.target.value)} className={cn(inputCls, 'text-xs text-right')} />
+                    <button type="button" onClick={() => removeLine(i)} disabled={lines.length === 1} className="p-1 rounded text-text-tertiary hover:text-red-400 transition-colors disabled:opacity-30"><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+              {totalCost > 0 && (
+                <p className="text-right text-sm text-champagne font-medium mt-2">{t('orders.totalCost')}: {totalCost.toLocaleString()} ₽</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-text-secondary mb-1">{t('supplier.notes')}</label>
+              <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className={cn(inputCls, 'resize-none')} />
+            </div>
+            {error && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</p>}
+          </div>
+        </form>
+        <div className="flex gap-3 px-5 py-4 border-t border-border-luxury shrink-0">
+          <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors">{t('common.cancel')}</button>
+          <button type="button" disabled={saving} onClick={(e) => { void handleSubmit(e as unknown as React.FormEvent); }}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t('orders.submit')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Equipment Modal ──────────────────────────────────────────────────────────
+
+function EquipmentModal({ roomId, equipment, onClose, onSaved }: {
+  roomId: string; equipment: RoomEquipment | null; onClose: () => void; onSaved: () => void;
+}) {
+  const { t } = useLanguage();
+  const isEdit = Boolean(equipment);
+  const [name, setName] = React.useState(equipment?.name ?? '');
+  const [status, setStatus] = React.useState(equipment?.status ?? 'OPERATIONAL');
+  const [nextServiceAt, setNextServiceAt] = React.useState(equipment?.nextServiceAt?.slice(0, 10) ?? '');
+  const [notes, setNotes] = React.useState(equipment?.notes ?? '');
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const EQ_STATUSES = ['OPERATIONAL', 'MAINTENANCE', 'OUT_OF_SERVICE'];
+
+  async function handleSubmit(ev: React.FormEvent) {
+    ev.preventDefault();
+    if (!name.trim()) { setError('Name required'); return; }
+    setSaving(true); setError('');
+    try {
+      const url = isEdit
+        ? `/api/operations/rooms/${roomId}/equipment/${equipment!.id}`
+        : `/api/operations/rooms/${roomId}/equipment`;
+      const res = await fetch(url, {
+        method: isEdit ? 'PATCH' : 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, status, nextServiceAt: nextServiceAt || undefined, notes: notes || undefined }),
+      });
+      const json = await res.json();
+      if (json.success) onSaved(); else setError(json.error?.message ?? 'Error');
+    } catch { setError('Network error'); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-onyx border border-border-luxury rounded-2xl w-full max-w-md shadow-luxury-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border-luxury">
+          <h3 className="font-serif text-lg font-medium text-text-primary">{isEdit ? t('supplier.edit') : t('equipment.add')}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-charcoal text-text-tertiary transition-colors"><X className="w-4 h-4" /></button>
+        </div>
+        <form onSubmit={(e) => { void handleSubmit(e); }} className="p-5 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1">{t('equipment.name')} *</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1">{t('equipment.changeStatus')}</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls}>
+              {EQ_STATUSES.map((s) => <option key={s} value={s}>{t(`equipment.status.${s}`)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1">{t('equipment.nextServiceAt')}</label>
+            <input type="date" value={nextServiceAt} onChange={(e) => setNextServiceAt(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-text-secondary mb-1">{t('supplier.notes')}</label>
+            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className={cn(inputCls, 'resize-none')} />
+          </div>
+          {error && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors">{t('common.cancel')}</button>
+            <button type="submit" disabled={saving} className="flex-1 px-4 py-2.5 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t('common.save')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── ORDER STATUS BADGE ────────────────────────────────────────────────────────
+
+const ORDER_STATUS_CLS: Record<string, string> = {
+  DRAFT:     'text-slate-400 bg-slate-400/10 border-slate-400/20',
+  ORDERED:   'text-blue-400 bg-blue-400/10 border-blue-400/20',
+  PARTIAL:   'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  RECEIVED:  'text-green-400 bg-green-400/10 border-green-400/20',
+  CANCELLED: 'text-red-400 bg-red-400/10 border-red-400/20',
+};
+
+const EQ_STATUS_CLS: Record<string, string> = {
+  OPERATIONAL:    'text-green-400 bg-green-400/10 border-green-400/20',
+  MAINTENANCE:    'text-amber-400 bg-amber-400/10 border-amber-400/20',
+  OUT_OF_SERVICE: 'text-red-400 bg-red-400/10 border-red-400/20',
+};
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type TabId = 'items' | 'alerts' | 'mappings' | 'analytics';
+type TabId = 'items' | 'alerts' | 'mappings' | 'suppliers' | 'orders' | 'rooms' | 'analytics';
 
 export default function InventoryPage() {
   const { t, lang } = useLanguage();
@@ -283,8 +582,25 @@ export default function InventoryPage() {
   const [mappingFilter, setMappingFilter] = React.useState('');
   const [showMappingModal, setShowMappingModal] = React.useState(false);
   const [analytics, setAnalytics] = React.useState<Analytics | null>(null);
-  const [analyticsDays, setAnalyticsDays]     = React.useState(30);
+  const [analyticsPeriod, setAnalyticsPeriod]   = React.useState('monthly');
   const [analyticsLoading, setAnalyticsLoading] = React.useState(false);
+
+  // Suppliers state
+  const [suppliers, setSuppliers] = React.useState<Supplier[]>([]);
+  const [editSupplier, setEditSupplier] = React.useState<Supplier | null | undefined>(undefined);
+  const [suppliersLoading, setSuppliersLoading] = React.useState(false);
+
+  // Purchase orders state
+  const [orders, setOrders]           = React.useState<PurchaseOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = React.useState(false);
+  const [showOrderModal, setShowOrderModal] = React.useState(false);
+  const [receivingId, setReceivingId] = React.useState<string | null>(null);
+  const [orderStatusFilter, setOrderStatusFilter] = React.useState('');
+
+  // Rooms + equipment state
+  const [rooms, setRooms]             = React.useState<RoomWithEquipment[]>([]);
+  const [roomsLoading, setRoomsLoading] = React.useState(false);
+  const [equipmentModal, setEquipmentModal] = React.useState<{ roomId: string; equipment: RoomEquipment | null } | null>(null);
 
   const fetchItems = React.useCallback(async () => {
     setLoading(true);
@@ -318,19 +634,73 @@ export default function InventoryPage() {
     } catch {}
   }, []);
 
-  const fetchAnalytics = React.useCallback(async (days: number) => {
+  const fetchAnalytics = React.useCallback(async (period: string) => {
     setAnalyticsLoading(true);
     try {
-      const res = await fetch(`/api/admin/inventory/analytics?days=${days}`, { credentials: 'include' });
+      const res = await fetch(`/api/admin/inventory/analytics?period=${period}`, { credentials: 'include' });
       const json = await res.json();
       if (json.success) setAnalytics(json.data);
     } catch {} finally { setAnalyticsLoading(false); }
   }, []);
 
+  const fetchSuppliers = React.useCallback(async () => {
+    setSuppliersLoading(true);
+    try {
+      const res = await fetch('/api/admin/inventory/suppliers', { credentials: 'include' });
+      const json = await res.json();
+      if (json.success) setSuppliers(json.data);
+    } catch {} finally { setSuppliersLoading(false); }
+  }, []);
+
+  const fetchOrders = React.useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const q = new URLSearchParams({ limit: '100' });
+      if (orderStatusFilter) q.set('status', orderStatusFilter);
+      const res = await fetch(`/api/admin/inventory/purchase-orders?${q}`, { credentials: 'include' });
+      const json = await res.json();
+      if (json.success) setOrders(json.data.orders);
+    } catch {} finally { setOrdersLoading(false); }
+  }, [orderStatusFilter]);
+
+  const fetchRooms = React.useCallback(async () => {
+    setRoomsLoading(true);
+    try {
+      const roomsRes = await fetch('/api/operations/rooms', { credentials: 'include' });
+      const roomsJson = await roomsRes.json();
+      if (!roomsJson.success) return;
+      const roomList: Array<{ id: string; name: string; type: string }> = roomsJson.data ?? [];
+      const withEquipment: RoomWithEquipment[] = await Promise.all(
+        roomList.map(async (r) => {
+          try {
+            const eRes = await fetch(`/api/operations/rooms/${r.id}/equipment`, { credentials: 'include' });
+            const eJson = await eRes.json();
+            return { room: r, equipment: eJson.success ? (eJson.data.equipment as RoomEquipment[]) : [] };
+          } catch { return { room: r, equipment: [] }; }
+        })
+      );
+      setRooms(withEquipment);
+    } catch {} finally { setRoomsLoading(false); }
+  }, []);
+
+  async function receiveOrder(orderId: string) {
+    setReceivingId(orderId);
+    try {
+      const res = await fetch(`/api/admin/inventory/purchase-orders/${orderId}/receive`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      });
+      const json = await res.json();
+      if (json.success) { await fetchOrders(); await fetchItems(); }
+    } catch {} finally { setReceivingId(null); }
+  }
+
   React.useEffect(() => { fetchItems(); }, [fetchItems]);
   React.useEffect(() => { if (tab === 'alerts')    fetchAlerts(); },              [tab, fetchAlerts]);
   React.useEffect(() => { if (tab === 'mappings')  fetchMappings(); },            [tab, fetchMappings]);
-  React.useEffect(() => { if (tab === 'analytics') fetchAnalytics(analyticsDays); }, [tab, analyticsDays, fetchAnalytics]);
+  React.useEffect(() => { if (tab === 'analytics') void fetchAnalytics(analyticsPeriod); }, [tab, analyticsPeriod, fetchAnalytics]);
+  React.useEffect(() => { if (tab === 'suppliers') void fetchSuppliers(); }, [tab, fetchSuppliers]);
+  React.useEffect(() => { if (tab === 'orders')    void fetchOrders(); }, [tab, fetchOrders, orderStatusFilter]);
+  React.useEffect(() => { if (tab === 'rooms')     void fetchRooms(); }, [tab, fetchRooms]);
 
   async function deleteMapping(id: string) {
     if (!confirm(t('common.delete') + '?')) return;
@@ -372,6 +742,9 @@ export default function InventoryPage() {
     { id: 'items',     label: t('inventory.tab.items') },
     { id: 'alerts',    label: t('inventory.tab.alerts'), badge: alertCount > 0 ? alertCount : undefined },
     { id: 'mappings',  label: t('inventory.tab.bindings') },
+    { id: 'suppliers', label: t('supplier.tab') },
+    { id: 'orders',    label: t('orders.tab') },
+    { id: 'rooms',     label: t('equipment.tab') },
     { id: 'analytics', label: t('inventory.tab.analytics') },
   ];
 
@@ -580,17 +953,198 @@ export default function InventoryPage() {
         </div>
       )}
 
+      {/* ── Suppliers Tab ─────────────────────────────────────────────────────── */}
+      {tab === 'suppliers' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-text-secondary">{suppliers.length} {t('supplier.tab').toLowerCase()}</p>
+            <button onClick={() => setEditSupplier(null)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors">
+              <Plus className="w-4 h-4" />{t('supplier.add')}
+            </button>
+          </div>
+          {suppliersLoading ? (
+            <div className="text-center py-16 text-text-tertiary text-sm">{t('inventory.loading')}</div>
+          ) : suppliers.length === 0 ? (
+            <div className="text-center py-16">
+              <Building2 className="w-10 h-10 text-text-tertiary mx-auto mb-3" />
+              <p className="text-text-secondary font-medium">{t('supplier.empty')}</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {suppliers.map((s) => (
+                <div key={s.id} className={cn('bg-onyx border rounded-2xl p-4 space-y-3', s.isActive ? 'border-border-luxury' : 'border-border-luxury/40 opacity-60')}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-text-primary truncate">{s.name}</p>
+                      {s.contactName && <p className="text-xs text-text-tertiary mt-0.5">{s.contactName}</p>}
+                    </div>
+                    <button onClick={() => setEditSupplier(s)} className="p-1.5 rounded-lg text-text-tertiary hover:text-champagne hover:bg-champagne/10 transition-colors shrink-0">
+                      <Wrench className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1 text-xs text-text-secondary">
+                    {s.phone && <p>📞 {s.phone}</p>}
+                    {s.email && <p>✉ {s.email}</p>}
+                  </div>
+                  <div className="flex items-center gap-3 pt-1 border-t border-border-luxury/50 text-xs text-text-tertiary">
+                    <span>{s.itemCount} {t('supplier.items')}</span>
+                    <span className="mx-1">·</span>
+                    <span>{s.orderCount} {t('supplier.orders').toLowerCase()}</span>
+                    {s.lastOrderAt && <>
+                      <span className="mx-1">·</span>
+                      <span>{new Date(s.lastOrderAt).toLocaleDateString(locale)}</span>
+                    </>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Orders Tab ────────────────────────────────────────────────────────── */}
+      {tab === 'orders' && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3 justify-between">
+            <div className="flex gap-1 bg-onyx border border-border-luxury rounded-xl p-1">
+              {(['', 'DRAFT', 'ORDERED', 'PARTIAL', 'RECEIVED', 'CANCELLED'] as const).map((s) => (
+                <button key={s} onClick={() => setOrderStatusFilter(s)}
+                  className={cn('px-3 py-1 rounded-lg text-xs transition-colors', orderStatusFilter === s ? 'bg-champagne/10 text-champagne font-medium' : 'text-text-secondary hover:text-text-primary')}>
+                  {s ? t(`orders.status.${s}`) : t('inventory.filter.all')}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowOrderModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors">
+              <Plus className="w-4 h-4" />{t('orders.new')}
+            </button>
+          </div>
+          {ordersLoading ? (
+            <div className="text-center py-16 text-text-tertiary text-sm">{t('inventory.loading')}</div>
+          ) : orders.length === 0 ? (
+            <div className="text-center py-16">
+              <Truck className="w-10 h-10 text-text-tertiary mx-auto mb-3" />
+              <p className="text-text-secondary font-medium">{t('orders.noOrders')}</p>
+            </div>
+          ) : (
+            <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead><tr className="border-b border-border-luxury">
+                    {['#', t('orders.supplier'), t('common.status'), t('orders.orderedAt'), t('orders.expectedAt'), t('orders.items'), t('orders.totalCost'), ''].map((h, i) => (
+                      <th key={i} className="px-4 py-3 text-left text-xs font-medium text-text-tertiary uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody className="divide-y divide-border-luxury">
+                    {orders.map((o) => (
+                      <tr key={o.id} className="hover:bg-charcoal/30 transition-colors">
+                        <td className="px-4 py-3 text-xs text-text-tertiary font-mono">{o.id.slice(0, 8)}</td>
+                        <td className="px-4 py-3 text-sm text-text-primary">{o.supplierName ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn('text-xs font-semibold px-2 py-0.5 rounded border uppercase tracking-wider', ORDER_STATUS_CLS[o.status] ?? 'text-text-tertiary bg-charcoal border-border-luxury')}>
+                            {t(`orders.status.${o.status}`)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-text-secondary">{o.orderedAt ? new Date(o.orderedAt).toLocaleDateString(locale) : '—'}</td>
+                        <td className="px-4 py-3 text-xs text-text-secondary">{o.expectedAt ? new Date(o.expectedAt).toLocaleDateString(locale) : '—'}</td>
+                        <td className="px-4 py-3 text-sm text-text-secondary tabular-nums">{o.itemCount}</td>
+                        <td className="px-4 py-3 text-sm text-champagne font-medium tabular-nums">{formatCurrency(o.totalCost)}</td>
+                        <td className="px-4 py-3">
+                          {['DRAFT', 'ORDERED', 'PARTIAL'].includes(o.status) && (
+                            <button
+                              onClick={() => void receiveOrder(o.id)}
+                              disabled={receivingId === o.id}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-colors disabled:opacity-50"
+                            >
+                              {receivingId === o.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                              {t('orders.receive')}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Rooms (Equipment) Tab ─────────────────────────────────────────────── */}
+      {tab === 'rooms' && (
+        <div className="space-y-4">
+          {roomsLoading ? (
+            <div className="text-center py-16 text-text-tertiary text-sm">{t('inventory.loading')}</div>
+          ) : rooms.length === 0 ? (
+            <div className="text-center py-16">
+              <DoorOpen className="w-10 h-10 text-text-tertiary mx-auto mb-3" />
+              <p className="text-text-secondary font-medium">{t('equipment.noEquipment')}</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              {rooms.map(({ room, equipment }) => (
+                <div key={room.id} className="bg-onyx border border-border-luxury rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <DoorOpen className="w-4 h-4 text-champagne" />
+                      <span className="font-medium text-text-primary">{room.name}</span>
+                      <span className="text-xs text-text-tertiary bg-charcoal px-2 py-0.5 rounded">{room.type}</span>
+                    </div>
+                    <button
+                      onClick={() => setEquipmentModal({ roomId: room.id, equipment: null })}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs bg-champagne/10 border border-champagne/20 text-champagne hover:bg-champagne/20 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />{t('equipment.add')}
+                    </button>
+                  </div>
+                  {equipment.length === 0 ? (
+                    <p className="text-xs text-text-tertiary text-center py-3">{t('equipment.noEquipment')}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {equipment.map((eq) => (
+                        <div key={eq.id} className={cn('flex items-center gap-3 rounded-xl p-2.5 border', eq.status === 'OPERATIONAL' ? 'border-border-luxury/50' : 'border-amber-500/30 bg-amber-500/5')}>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-text-primary truncate">{eq.name}</p>
+                              <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider', EQ_STATUS_CLS[eq.status] ?? '')}>
+                                {t(`equipment.status.${eq.status}`)}
+                              </span>
+                            </div>
+                            {eq.nextServiceAt && (
+                              <p className={cn('text-xs mt-0.5', eq.daysUntilService !== null && eq.daysUntilService <= 7 ? 'text-amber-400' : 'text-text-tertiary')}>
+                                {t('equipment.nextServiceAt')}: {new Date(eq.nextServiceAt).toLocaleDateString(locale)}
+                                {eq.daysUntilService !== null && eq.daysUntilService <= 7 && ` (${t('equipment.dueSoon')})`}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => setEquipmentModal({ roomId: room.id, equipment: eq })}
+                            className="p-1.5 rounded-lg text-text-tertiary hover:text-champagne hover:bg-champagne/10 transition-colors shrink-0"
+                          >
+                            <Wrench className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Analytics Tab ─────────────────────────────────────────────────────── */}
       {tab === 'analytics' && (
         <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            {[7, 30, 90].map((d) => (
-              <button key={d} onClick={() => setAnalyticsDays(d)}
-                className={cn('px-3 py-1.5 rounded-lg text-sm transition-colors', analyticsDays === d ? 'bg-champagne/10 text-champagne border border-champagne/30 font-medium' : 'text-text-secondary hover:text-text-primary border border-border-luxury hover:bg-charcoal')}>
-                {d} {t('common.min')}
+          <div className="flex items-center gap-2 flex-wrap">
+            {(['weekly', 'monthly', 'quarterly', 'yearly'] as const).map((p) => (
+              <button key={p} onClick={() => setAnalyticsPeriod(p)}
+                className={cn('px-3 py-1.5 rounded-lg text-sm transition-colors', analyticsPeriod === p ? 'bg-champagne/10 text-champagne border border-champagne/30 font-medium' : 'text-text-secondary hover:text-text-primary border border-border-luxury hover:bg-charcoal')}>
+                {t(`inventory.analytics.period.${p}`)}
               </button>
             ))}
-            <button onClick={() => fetchAnalytics(analyticsDays)} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-text-secondary hover:text-text-primary border border-border-luxury hover:bg-charcoal transition-colors">
+            <button onClick={() => void fetchAnalytics(analyticsPeriod)} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-text-secondary hover:text-text-primary border border-border-luxury hover:bg-charcoal transition-colors">
               <RefreshCw className={cn('w-3.5 h-3.5', analyticsLoading && 'animate-spin')} />{t('finance.refresh')}
             </button>
           </div>
@@ -705,6 +1259,33 @@ export default function InventoryPage() {
                 </section>
               )}
 
+              {/* Room Utilization */}
+              {analytics.roomUtilization && analytics.roomUtilization.length > 0 && (
+                <section>
+                  <h3 className="font-medium text-text-primary mb-3 flex items-center gap-2"><DoorOpen className="w-4 h-4 text-champagne" />{t('inventory.analytics.rooms')}</h3>
+                  <div className="bg-onyx border border-border-luxury rounded-2xl divide-y divide-border-luxury">
+                    {analytics.roomUtilization.map((room) => (
+                      <div key={room.id} className={cn('flex items-center gap-4 px-4 py-3', room.needsMaintenance && 'bg-amber-500/5')}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-text-primary">{room.name}</p>
+                            {room.needsMaintenance && <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />}
+                          </div>
+                          <p className="text-xs text-text-tertiary">{room.appointmentCount} {t('analytics.sessions')} · {room.bookedMinutes} {t('analytics.metrics.avgDuration').split(' ')[0]}</p>
+                          {room.maintenanceDue.length > 0 && (
+                            <p className="text-xs text-amber-400 mt-0.5">{t('inventory.analytics.maintenanceDue')}: {room.maintenanceDue.join(', ')}</p>
+                          )}
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className={cn('text-lg font-bold tabular-nums', room.utilizationPct >= 70 ? 'text-green-400' : room.utilizationPct >= 40 ? 'text-champagne' : 'text-text-secondary')}>{room.utilizationPct}%</p>
+                          <p className="text-xs text-text-tertiary">{t('inventory.analytics.utilization')}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {analytics.topConsumed.length === 0 && analytics.procedureCost.length === 0 && (
                 <div className="text-center py-16">
                   <BarChart2 className="w-10 h-10 text-text-tertiary mx-auto mb-3" />
@@ -725,6 +1306,29 @@ export default function InventoryPage() {
       )}
       {showMappingModal && (
         <MappingModal items={items} services={services} onClose={() => setShowMappingModal(false)} onSaved={() => { setShowMappingModal(false); fetchMappings(); }} />
+      )}
+      {editSupplier !== undefined && (
+        <SupplierModal
+          supplier={editSupplier}
+          onClose={() => setEditSupplier(undefined)}
+          onSaved={() => { setEditSupplier(undefined); void fetchSuppliers(); }}
+        />
+      )}
+      {showOrderModal && (
+        <OrderModal
+          suppliers={suppliers}
+          inventoryItems={items}
+          onClose={() => setShowOrderModal(false)}
+          onSaved={() => { setShowOrderModal(false); void fetchOrders(); void fetchItems(); }}
+        />
+      )}
+      {equipmentModal && (
+        <EquipmentModal
+          roomId={equipmentModal.roomId}
+          equipment={equipmentModal.equipment}
+          onClose={() => setEquipmentModal(null)}
+          onSaved={() => { setEquipmentModal(null); void fetchRooms(); }}
+        />
       )}
     </div>
   );

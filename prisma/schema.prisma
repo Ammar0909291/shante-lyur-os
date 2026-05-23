@@ -982,6 +982,20 @@ enum StockMovementType {
   RETURN      // returned to supplier
 }
 
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIAL
+  RECEIVED
+  CANCELLED
+}
+
+enum EquipmentStatus {
+  OPERATIONAL
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
 model InventoryItem {
   id           String            @id @default(uuid()) @db.Uuid
   name         String            @db.VarChar(200)
@@ -992,14 +1006,17 @@ model InventoryItem {
   minStock     Decimal           @default(0) @db.Decimal(10, 3) @map("min_stock")
   costPerUnit  Decimal?          @db.Decimal(10, 2) @map("cost_per_unit")
   supplier     String?           @db.VarChar(200)
+  supplierId   String?           @map("supplier_id") @db.Uuid
   expiresAt    DateTime?         @map("expires_at")
   isActive     Boolean           @default(true) @map("is_active")
   notes        String?           @db.Text
   createdAt    DateTime          @default(now()) @map("created_at")
   updatedAt    DateTime          @updatedAt @map("updated_at")
 
-  movements    StockMovement[]
-  serviceLinks InventoryServiceLink[]
+  movements     StockMovement[]
+  serviceLinks  InventoryServiceLink[]
+  supplierRel   Supplier?              @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseItems PurchaseOrderItem[]
 
   @@index([category, isActive])
   @@index([currentStock])
@@ -1041,6 +1058,69 @@ model InventoryServiceLink {
   @@map("inventory_service_links")
 }
 
+// ─── Supplier ─────────────────────────────────────────────────────────────────
+
+model Supplier {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(200)
+  contactName String?  @map("contact_name") @db.VarChar(200)
+  phone       String?  @db.VarChar(50)
+  email       String?  @db.VarChar(200)
+  address     String?  @db.Text
+  website     String?  @db.VarChar(500)
+  notes       String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  items          InventoryItem[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([isActive])
+  @@map("suppliers")
+}
+
+// ─── Purchase Orders ──────────────────────────────────────────────────────────
+
+model PurchaseOrder {
+  id              String              @id @default(uuid()) @db.Uuid
+  supplierId      String?             @map("supplier_id") @db.Uuid
+  supplier        Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  status          PurchaseOrderStatus @default(DRAFT)
+  orderedAt       DateTime?           @map("ordered_at")
+  expectedAt      DateTime?           @map("expected_at")
+  receivedAt      DateTime?           @map("received_at")
+  totalCost       Decimal             @default(0) @map("total_cost") @db.Decimal(12, 2)
+  notes           String?             @db.Text
+  createdByUserId String?             @map("created_by_user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items PurchaseOrderItem[]
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(uuid()) @db.Uuid
+  orderId         String        @map("order_id") @db.Uuid
+  order           PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  inventoryItemId String        @map("inventory_item_id") @db.Uuid
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  quantity        Decimal       @db.Decimal(10, 3)
+  unitCost        Decimal       @map("unit_cost") @db.Decimal(10, 2)
+  receivedQty     Decimal       @default(0) @map("received_qty") @db.Decimal(10, 3)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@index([inventoryItemId])
+  @@map("purchase_order_items")
+}
+
 // ═══════════════════════════════════════════════════════════════
 // ROOM / CABINET MANAGEMENT
 // Treatment rooms and cabinets within a location.
@@ -1062,12 +1142,34 @@ model Room {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  location     Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  location     Location        @relation(fields: [locationId], references: [id], onDelete: Cascade)
   appointments Appointment[]
+  equipment    RoomEquipment[]
 
   @@index([locationId])
   @@index([locationId, type])
   @@map("rooms")
+}
+
+// ─── Room Equipment ───────────────────────────────────────────────────────────
+
+model RoomEquipment {
+  id             String          @id @default(uuid()) @db.Uuid
+  roomId         String          @map("room_id") @db.Uuid
+  room           Room            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  name           String          @db.VarChar(200)
+  description    String?         @db.Text
+  status         EquipmentStatus @default(OPERATIONAL)
+  lastServicedAt DateTime?       @map("last_serviced_at")
+  nextServiceAt  DateTime?       @map("next_service_at")
+  purchasedAt    DateTime?       @map("purchased_at")
+  notes          String?         @db.Text
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@index([roomId])
+  @@index([status])
+  @@map("room_equipment")
 }
 
 // ═══════════════════════════════════════════════════════════════
