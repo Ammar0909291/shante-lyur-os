@@ -18,6 +18,8 @@ import {
   Loader2,
   Circle,
   Bed,
+  DoorOpen,
+  Coffee,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -984,6 +986,58 @@ function MetricsBar({
 // Declare type for import
 import type { OperationalMetrics } from '@/types/operations';
 
+// ─── Workload Summary Bar ─────────────────────────────────────────────────────
+
+function WorkloadSummaryBar({
+  specialists,
+  rooms,
+}: {
+  specialists: LiveSpecialist[];
+  rooms: RoomStatus[];
+}) {
+  const { t } = useLanguage();
+
+  const overloaded = specialists.filter((s) => s.liveStatus === 'OVERBOOKED');
+  const idle = specialists.filter(
+    (s) => s.liveStatus === 'FREE' && s.todayScheduled === 0,
+  );
+  const freeRooms = rooms.filter((r) => !r.isOccupied);
+
+  if (overloaded.length === 0 && idle.length === 0) return null;
+
+  return (
+    <div className="mb-5 flex flex-wrap gap-2 animate-fade-in">
+      {overloaded.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-950/40 border border-red-700/40 text-red-300 text-xs font-medium animate-pulse">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+          <span>{t('rec.workload.overloaded')}:</span>
+          <span className="font-bold text-sm">{overloaded.length}</span>
+          <span className="text-red-400/70 hidden sm:inline">
+            {overloaded.map((s) => s.name).join(', ')}
+          </span>
+        </div>
+      )}
+      {idle.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-950/30 border border-amber-700/30 text-amber-300 text-xs font-medium">
+          <Coffee className="w-3.5 h-3.5 shrink-0" />
+          <span>{t('rec.workload.idle')}:</span>
+          <span className="font-bold text-sm">{idle.length}</span>
+          <span className="text-amber-400/70 hidden sm:inline">
+            {idle.map((s) => s.name).join(', ')}
+          </span>
+        </div>
+      )}
+      {freeRooms.length > 0 && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-950/30 border border-green-700/30 text-green-300 text-xs font-medium">
+          <DoorOpen className="w-3.5 h-3.5 shrink-0" />
+          <span>{t('rec.workload.freeRooms')}:</span>
+          <span className="font-bold text-sm">{freeRooms.length}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function OperationsPage() {
@@ -1157,6 +1211,12 @@ export default function OperationsPage() {
             <MetricsBar
               metrics={data?.metrics}
               alertCount={criticalAlertCount}
+            />
+
+            {/* Workload summary — only when there's something to flag */}
+            <WorkloadSummaryBar
+              specialists={data?.specialists ?? []}
+              rooms={data?.rooms ?? []}
             />
 
             {/* Tabs */}
