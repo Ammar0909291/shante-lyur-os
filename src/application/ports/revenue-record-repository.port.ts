@@ -1,6 +1,8 @@
 import { RevenueRecord } from '@/domain/entities';
 import { RevenueType } from '@/domain/enums';
 
+export type RevenueRecordRepositoryPort = IRevenueRecordRepository;
+
 export interface IRevenueRecordRepository {
   findById(id: string): Promise<RevenueRecord | null>;
   findMany(options: {

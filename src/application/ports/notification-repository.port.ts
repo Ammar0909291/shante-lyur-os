@@ -1,6 +1,8 @@
 import { Notification } from '@/domain/entities';
 import { NotificationStatus, NotificationType } from '@/domain/enums';
 
+export type NotificationRepositoryPort = INotificationRepository;
+
 export interface INotificationRepository {
   findById(id: string): Promise<Notification | null>;
   findByUser(userId: string, options?: {

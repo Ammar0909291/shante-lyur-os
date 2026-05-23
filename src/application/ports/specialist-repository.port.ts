@@ -1,6 +1,8 @@
 import { Specialist } from '@/domain/entities';
 import { SpecialistStatus } from '@/domain/enums';
 
+export type SpecialistRepositoryPort = ISpecialistRepository;
+
 export interface ISpecialistRepository {
   findById(id: string): Promise<Specialist | null>;
   findByUserId(userId: string): Promise<Specialist | null>;

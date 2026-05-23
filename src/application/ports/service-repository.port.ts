@@ -1,6 +1,8 @@
 import { Service } from '@/domain/entities';
 import { ServiceCategory } from '@/domain/enums';
 
+export type ServiceRepositoryPort = IServiceRepository;
+
 export interface IServiceRepository {
   findById(id: string): Promise<Service | null>;
   findByIds(ids: string[]): Promise<Service[]>;

@@ -1,6 +1,8 @@
 import { WorkingSchedule } from '@/domain/entities';
 import { DayOfWeek } from '@/domain/enums';
 
+export type WorkingScheduleRepositoryPort = IWorkingScheduleRepository;
+
 export interface IWorkingScheduleRepository {
   findById(id: string): Promise<WorkingSchedule | null>;
   findBySpecialist(specialistId: string): Promise<WorkingSchedule[]>;

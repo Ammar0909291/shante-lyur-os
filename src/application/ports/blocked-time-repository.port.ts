@@ -1,6 +1,8 @@
 import { BlockedTime } from '@/domain/entities';
 import { DateRange } from '@/domain/value-objects';
 
+export type BlockedTimeRepositoryPort = IBlockedTimeRepository;
+
 export interface IBlockedTimeRepository {
   findById(id: string): Promise<BlockedTime | null>;
   findBySpecialist(specialistId: string, from?: Date, to?: Date): Promise<BlockedTime[]>;

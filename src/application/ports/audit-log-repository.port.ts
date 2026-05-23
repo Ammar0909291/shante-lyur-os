@@ -1,6 +1,8 @@
 import { AuditLog } from '@/domain/entities';
 import { AuditAction } from '@/domain/enums';
 
+export type AuditLogRepositoryPort = IAuditLogRepository;
+
 export interface IAuditLogRepository {
   findById(id: string): Promise<AuditLog | null>;
   findMany(options: {

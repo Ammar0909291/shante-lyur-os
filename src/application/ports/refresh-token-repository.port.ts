@@ -1,5 +1,7 @@
 import { RefreshToken } from '@/domain/entities';
 
+export type RefreshTokenRepositoryPort = IRefreshTokenRepository;
+
 export interface IRefreshTokenRepository {
   findByTokenHash(hash: string): Promise<RefreshToken | null>;
   findByUser(userId: string): Promise<RefreshToken[]>;

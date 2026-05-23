@@ -1,5 +1,7 @@
 import { Location } from '@/domain/entities';
 
+export type LocationRepositoryPort = ILocationRepository;
+
 export interface ILocationRepository {
   findById(id: string): Promise<Location | null>;
   findMany(options: {

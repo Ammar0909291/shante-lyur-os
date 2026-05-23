@@ -1,5 +1,7 @@
 import { PromoCode } from '@/domain/entities';
 
+export type PromoCodeRepositoryPort = IPromoCodeRepository;
+
 export interface IPromoCodeRepository {
   findById(id: string): Promise<PromoCode | null>;
   findByCode(code: string): Promise<PromoCode | null>;

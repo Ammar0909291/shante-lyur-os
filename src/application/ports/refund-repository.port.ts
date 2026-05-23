@@ -1,6 +1,8 @@
 import { Refund } from '@/domain/entities';
 import { RefundStatus } from '@/domain/enums';
 
+export type RefundRepositoryPort = IRefundRepository;
+
 export interface IRefundRepository {
   findById(id: string): Promise<Refund | null>;
   findByPaymentId(paymentId: string): Promise<Refund[]>;

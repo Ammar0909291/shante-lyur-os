@@ -1,3 +1,5 @@
+export type TokenServicePort = ITokenService;
+
 export interface ITokenService {
   generateAccessToken(payload: Record<string, unknown>): Promise<string>;
   generateRefreshToken(payload: Record<string, unknown>): Promise<string>;

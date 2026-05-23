@@ -1,5 +1,7 @@
 import { AIPrediction } from '@/domain/entities';
 
+export type AIPredictionRepositoryPort = IAIPredictionRepository;
+
 export interface IAIPredictionRepository {
   findById(id: string): Promise<AIPrediction | null>;
   findByModel(modelType: string, entityType: string, entityId?: string): Promise<AIPrediction[]>;

@@ -1,5 +1,7 @@
 import { Vacation } from '@/domain/entities';
 
+export type VacationRepositoryPort = IVacationRepository;
+
 export interface IVacationRepository {
   findById(id: string): Promise<Vacation | null>;
   findBySpecialist(specialistId: string): Promise<Vacation[]>;

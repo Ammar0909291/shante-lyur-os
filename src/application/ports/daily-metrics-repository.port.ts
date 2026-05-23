@@ -1,5 +1,7 @@
 import { DailyMetrics } from '@/domain/entities';
 
+export type DailyMetricsRepositoryPort = IDailyMetricsRepository;
+
 export interface IDailyMetricsRepository {
   findByDate(date: Date): Promise<DailyMetrics | null>;
   findRange(from: Date, to: Date): Promise<DailyMetrics[]>;
