@@ -1069,6 +1069,43 @@ const RU: Record<string, string> = {
   'profile.form.firstName': 'Имя',
   'profile.form.lastName': 'Фамилия',
   'profile.form.phone': 'Телефон',
+
+  // ─── Operational Analytics ────────────────────────────────────────────────────
+  'analytics.ops.title': 'Операционная аналитика',
+  'analytics.ops.period.day': 'День',
+  'analytics.ops.period.week': 'Неделя',
+  'analytics.ops.period.month': 'Месяц',
+  'analytics.ops.period.quarter': 'Квартал',
+  'analytics.ops.period.year': 'Год',
+  'analytics.ops.topProcedures': 'Топ процедур',
+  'analytics.ops.topSpecialists': 'Топ специалистов',
+  'analytics.ops.peakHours': 'Пиковые часы',
+  'analytics.ops.cancellationRate': 'Отмены',
+  'analytics.ops.noShowRate': 'Неявки',
+  'analytics.ops.roomUtilization': 'Загрузка кабинетов',
+
+  // ─── Search ───────────────────────────────────────────────────────────────────
+  'search.placeholder': 'Поиск клиента, специалиста, процедуры...',
+  'search.noResults': 'Ничего не найдено',
+  'search.clients': 'Клиенты',
+  'search.specialists': 'Специалисты',
+  'search.services': 'Процедуры',
+  'search.appointments': 'Записи',
+
+  // ─── Rebook / Reassign ────────────────────────────────────────────────────────
+  'rec.rebook.title': 'Повторная запись',
+  'rec.rebook.from': 'Повторить запись',
+  'rec.rebook.btn': 'Повторить',
+  'rec.rebook.saving': 'Создаём...',
+  'rec.rebook.noSource': 'Запись не найдена',
+  'rec.reassign.title': 'Переназначение',
+  'rec.reassign.specialist': 'Новый специалист',
+  'rec.reassign.room': 'Новый кабинет',
+  'rec.reassign.btn': 'Применить',
+  'rec.reassign.saving': 'Обновляем...',
+  'rec.workload.overloaded': 'Перегружены',
+  'rec.workload.idle': 'Без записей',
+  'rec.workload.freeRooms': 'Свободных кабинетов',
 };
 
 const EN: Record<string, string> = {
@@ -2130,6 +2167,43 @@ const EN: Record<string, string> = {
   'profile.form.firstName': 'First name',
   'profile.form.lastName': 'Last name',
   'profile.form.phone': 'Phone',
+
+  // ─── Operational Analytics ────────────────────────────────────────────────────
+  'analytics.ops.title': 'Operational Analytics',
+  'analytics.ops.period.day': 'Day',
+  'analytics.ops.period.week': 'Week',
+  'analytics.ops.period.month': 'Month',
+  'analytics.ops.period.quarter': 'Quarter',
+  'analytics.ops.period.year': 'Year',
+  'analytics.ops.topProcedures': 'Top Procedures',
+  'analytics.ops.topSpecialists': 'Top Specialists',
+  'analytics.ops.peakHours': 'Peak Hours',
+  'analytics.ops.cancellationRate': 'Cancellations',
+  'analytics.ops.noShowRate': 'No-Shows',
+  'analytics.ops.roomUtilization': 'Room Utilization',
+
+  // ─── Search ───────────────────────────────────────────────────────────────────
+  'search.placeholder': 'Search client, specialist, procedure...',
+  'search.noResults': 'No results found',
+  'search.clients': 'Clients',
+  'search.specialists': 'Specialists',
+  'search.services': 'Services',
+  'search.appointments': 'Appointments',
+
+  // ─── Rebook / Reassign ────────────────────────────────────────────────────────
+  'rec.rebook.title': 'Rebook Appointment',
+  'rec.rebook.from': 'Rebook',
+  'rec.rebook.btn': 'Rebook',
+  'rec.rebook.saving': 'Creating...',
+  'rec.rebook.noSource': 'Appointment not found',
+  'rec.reassign.title': 'Reassign',
+  'rec.reassign.specialist': 'New Specialist',
+  'rec.reassign.room': 'New Room',
+  'rec.reassign.btn': 'Apply',
+  'rec.reassign.saving': 'Updating...',
+  'rec.workload.overloaded': 'Overloaded',
+  'rec.workload.idle': 'No bookings',
+  'rec.workload.freeRooms': 'Free rooms',
 };
 
 const TRANSLATIONS: Record<Lang, Record<string, string>> = { ru: RU, en: EN };

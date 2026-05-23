@@ -5,7 +5,8 @@ import {
   RefreshCw, Plus, ClipboardList, DoorOpen,
   UserCheck, UserX, CheckCircle2, XCircle,
   Clock, AlertTriangle, Search,
-  CalendarClock, Wifi, WifiOff,
+  CalendarClock, Wifi, WifiOff, RotateCcw,
+  ArrowLeftRight, Users, ChevronRight,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -55,6 +56,145 @@ function StatusBadge({ status }: { status: OperationalStatus }) {
   );
 }
 
+// ─── Universal Search Bar ─────────────────────────────────────────────────────
+
+interface SearchResult {
+  clients: Array<{ id: string; firstName: string; lastName: string; phone: string | null; email: string | null; clientCode: string | null }>;
+  specialists: Array<{ id: string; firstName: string; lastName: string; specialization: string | null; status: string }>;
+  services: Array<{ id: string; name: string; displayCategory: string | null; baseDuration: number; basePrice: number }>;
+  appointments: Array<{ id: string; clientName: string; specialistName: string; startAt: string; status: string; services: string[] }>;
+}
+
+function GlobalSearch({ headers }: { headers: Record<string, string> }) {
+  const { t } = useLanguage();
+  const [query, setQuery] = React.useState('');
+  const [results, setResults] = React.useState<SearchResult | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  React.useEffect(() => {
+    if (query.length < 2) { setResults(null); setOpen(false); return; }
+    const timer = setTimeout(() => {
+      setLoading(true);
+      fetch(`/api/search?q=${encodeURIComponent(query)}`, { headers })
+        .then((r) => r.json())
+        .then((json: { success: boolean; data?: SearchResult }) => {
+          if (json.success && json.data) { setResults(json.data); setOpen(true); }
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, headers]);
+
+  const totalResults = results
+    ? (results.clients.length + results.specialists.length + results.services.length + results.appointments.length)
+    : 0;
+
+  return (
+    <div ref={ref} className="relative w-full max-w-md">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
+        {loading && <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary animate-spin" />}
+        <input
+          className="w-full bg-charcoal border border-border-luxury rounded-xl pl-9 pr-9 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-champagne/50 transition-colors"
+          placeholder={t('search.placeholder')}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => { if (results && totalResults > 0) setOpen(true); }}
+        />
+      </div>
+
+      {open && results && (
+        <div className="absolute top-full mt-1 left-0 right-0 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg z-50 overflow-hidden max-h-[70vh] overflow-y-auto">
+          {totalResults === 0 ? (
+            <p className="text-sm text-text-tertiary text-center py-6">{t('search.noResults')}</p>
+          ) : (
+            <div className="divide-y divide-border-luxury/30">
+              {results.clients.length > 0 && (
+                <div className="py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary px-3 py-1.5">{t('search.clients')}</p>
+                  {results.clients.map((c) => (
+                    <a
+                      key={c.id}
+                      href={`/clients/${c.id}`}
+                      className="flex items-center justify-between px-3 py-2.5 hover:bg-charcoal transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      <div>
+                        <p className="text-sm text-text-primary font-medium">{c.firstName} {c.lastName}</p>
+                        <p className="text-xs text-text-tertiary">{c.phone ?? c.email ?? ''}</p>
+                      </div>
+                      {c.clientCode && <span className="text-xs font-mono text-champagne bg-champagne/10 px-1.5 py-0.5 rounded">{c.clientCode}</span>}
+                    </a>
+                  ))}
+                </div>
+              )}
+              {results.specialists.length > 0 && (
+                <div className="py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary px-3 py-1.5">{t('search.specialists')}</p>
+                  {results.specialists.map((s) => (
+                    <a
+                      key={s.id}
+                      href={`/specialists/${s.id}`}
+                      className="flex items-center gap-2 px-3 py-2.5 hover:bg-charcoal transition-colors"
+                      onClick={() => setOpen(false)}
+                    >
+                      <Users className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+                      <div>
+                        <p className="text-sm text-text-primary font-medium">{s.firstName} {s.lastName}</p>
+                        {s.specialization && <p className="text-xs text-text-tertiary">{s.specialization}</p>}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+              {results.services.length > 0 && (
+                <div className="py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary px-3 py-1.5">{t('search.services')}</p>
+                  {results.services.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-charcoal transition-colors cursor-default">
+                      <div>
+                        <p className="text-sm text-text-primary font-medium">{s.name}</p>
+                        <p className="text-xs text-text-tertiary">{s.displayCategory ?? ''} · {s.baseDuration} мин</p>
+                      </div>
+                      <span className="text-xs text-champagne font-semibold">{formatCurrency(s.basePrice)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {results.appointments.length > 0 && (
+                <div className="py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary px-3 py-1.5">{t('search.appointments')}</p>
+                  {results.appointments.map((a) => (
+                    <div key={a.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-charcoal transition-colors cursor-default">
+                      <div>
+                        <p className="text-sm text-text-primary font-medium">{a.clientName}</p>
+                        <p className="text-xs text-text-tertiary">{fmtTime(a.startAt)} · {a.specialistName}</p>
+                        {a.services.length > 0 && <p className="text-xs text-text-tertiary truncate max-w-[180px]">{a.services.join(', ')}</p>}
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-text-tertiary" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Walk-in Booking Modal ────────────────────────────────────────────────────
 
 interface Service { id: string; name: string; baseDuration: number; basePrice: string | number; category: string }
@@ -85,7 +225,6 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
-  // Fetch catalog
   React.useEffect(() => {
     Promise.all([
       fetch('/api/services', { headers }).then((r) => r.json()),
@@ -94,16 +233,15 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     ]).then(([svcJson, specJson, roomJson]) => {
       if (svcJson.success) setServices((svcJson.data?.services ?? svcJson.data ?? []) as Service[]);
       if (specJson.success) {
-        setSpecialists(((specJson.data?.specialists ?? specJson.data ?? []) as Array<{ id: string; user?: { firstName?: string; lastName?: string }; name?: string }>).map((s) => ({
+        setSpecialists(((specJson.data?.specialists ?? specJson.data ?? []) as Array<{ id: string; user?: { firstName?: string; lastName?: string }; name?: string; firstName?: string; lastName?: string }>).map((s) => ({
           id: s.id,
-          name: s.name ?? `${s.user?.firstName ?? ''} ${s.user?.lastName ?? ''}`.trim(),
+          name: s.name ?? `${s.firstName ?? s.user?.firstName ?? ''} ${s.lastName ?? s.user?.lastName ?? ''}`.trim(),
         })));
       }
       if (roomJson.success) setRooms((roomJson.data?.rooms ?? roomJson.data ?? []) as Room[]);
     }).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Client search
   React.useEffect(() => {
     if (clientQuery.length < 2) { setClients([]); return; }
     const timer = setTimeout(() => {
@@ -166,7 +304,6 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         </div>
 
         <form onSubmit={submit} className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {/* Client search */}
           <div>
             <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">{t('rec.walkin.client')}</label>
             {selectedClient ? (
@@ -205,7 +342,6 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             )}
           </div>
 
-          {/* Services */}
           <div>
             <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">
               {t('rec.walkin.service')}
@@ -231,7 +367,6 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             </div>
           </div>
 
-          {/* Specialist + Room */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">{t('rec.walkin.specialist')}</label>
@@ -257,7 +392,6 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             </div>
           </div>
 
-          {/* Time */}
           <div>
             <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">{t('rec.walkin.time')}</label>
             <input
@@ -268,7 +402,6 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             />
           </div>
 
-          {/* Notes */}
           <div>
             <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">{t('rec.walkin.notes')}</label>
             <textarea
@@ -294,6 +427,246 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             {loading ? t('rec.walkin.creating') : t('rec.walkin.create')}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Rebook Modal ─────────────────────────────────────────────────────────────
+
+function RebookModal({
+  sourceApt,
+  onClose,
+  onCreated,
+}: {
+  sourceApt: OperationalAppointment;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const { t } = useLanguage();
+  const headers = getAuthHeaders();
+  const [specialists, setSpecialists] = React.useState<Specialist[]>([]);
+  const [rooms, setRooms] = React.useState<Room[]>([]);
+  const [specialistId, setSpecialistId] = React.useState(sourceApt.specialistId ?? '');
+  const [roomId, setRoomId] = React.useState('');
+  const [startAt, setStartAt] = React.useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(10, 0, 0, 0);
+    return tomorrow.toISOString().slice(0, 16);
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  React.useEffect(() => {
+    Promise.all([
+      fetch('/api/specialists', { headers }).then((r) => r.json()),
+      fetch('/api/operations/rooms', { headers }).then((r) => r.json()),
+    ]).then(([specJson, roomJson]) => {
+      if (specJson.success) {
+        setSpecialists(((specJson.data?.specialists ?? specJson.data ?? []) as Array<{ id: string; user?: { firstName?: string; lastName?: string }; name?: string; firstName?: string; lastName?: string }>).map((s) => ({
+          id: s.id,
+          name: s.name ?? `${s.firstName ?? s.user?.firstName ?? ''} ${s.lastName ?? s.user?.lastName ?? ''}`.trim(),
+        })));
+      }
+      if (roomJson.success) setRooms((roomJson.data?.rooms ?? roomJson.data ?? []) as Room[]);
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/operations/rebook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          appointmentId: sourceApt.id,
+          startAt: new Date(startAt).toISOString(),
+          specialistId: specialistId || undefined,
+          roomId: roomId || undefined,
+        }),
+      });
+      const json = await res.json() as { success: boolean; error?: { message: string } };
+      if (!json.success) { setError(json.error?.message ?? t('common.error')); return; }
+      onCreated();
+      onClose();
+    } catch {
+      setError(t('common.error'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-onyx border border-border-luxury rounded-2xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-base font-bold text-text-primary font-serif">{t('rec.rebook.title')}</h2>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary"><XCircle className="w-5 h-5" /></button>
+        </div>
+
+        {/* Source appointment info */}
+        <div className="bg-charcoal border border-border-luxury rounded-xl px-4 py-3 mb-4 text-xs">
+          <p className="text-text-tertiary mb-1">Повторить запись для:</p>
+          <p className="text-text-primary font-medium">{sourceApt.clientName}</p>
+          <p className="text-text-secondary">{sourceApt.services.join(', ')}</p>
+          <p className="text-text-tertiary mt-1">{sourceApt.duration} мин · {formatCurrency(sourceApt.revenue)}</p>
+        </div>
+
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">Дата и время</label>
+            <input
+              type="datetime-local"
+              className="w-full bg-charcoal border border-border-luxury rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-champagne/50"
+              value={startAt}
+              onChange={(e) => setStartAt(e.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">{t('rec.walkin.specialist')}</label>
+              <select
+                className="w-full bg-charcoal border border-border-luxury rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-champagne/50"
+                value={specialistId}
+                onChange={(e) => setSpecialistId(e.target.value)}
+              >
+                <option value="">—</option>
+                {specialists.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">{t('rec.walkin.room')}</label>
+              <select
+                className="w-full bg-charcoal border border-border-luxury rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-champagne/50"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+              >
+                <option value="">—</option>
+                {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+            </div>
+          </div>
+          {error && <p className="text-red-400 text-sm bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:bg-charcoal transition-colors">{t('common.cancel')}</button>
+            <button type="submit" disabled={loading} className="flex-1 px-4 py-2.5 rounded-xl luxury-gradient text-obsidian text-sm font-semibold disabled:opacity-50">
+              {loading ? t('rec.rebook.saving') : t('rec.rebook.btn')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Reassign Modal ───────────────────────────────────────────────────────────
+
+function ReassignModal({
+  appointment,
+  onClose,
+  onReassigned,
+}: {
+  appointment: OperationalAppointment;
+  onClose: () => void;
+  onReassigned: () => void;
+}) {
+  const { t } = useLanguage();
+  const headers = getAuthHeaders();
+  const [specialists, setSpecialists] = React.useState<Specialist[]>([]);
+  const [rooms, setRooms] = React.useState<Room[]>([]);
+  const [specialistId, setSpecialistId] = React.useState('');
+  const [roomId, setRoomId] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  React.useEffect(() => {
+    Promise.all([
+      fetch('/api/specialists', { headers }).then((r) => r.json()),
+      fetch('/api/operations/rooms', { headers }).then((r) => r.json()),
+    ]).then(([specJson, roomJson]) => {
+      if (specJson.success) {
+        setSpecialists(((specJson.data?.specialists ?? specJson.data ?? []) as Array<{ id: string; user?: { firstName?: string; lastName?: string }; name?: string; firstName?: string; lastName?: string }>).map((s) => ({
+          id: s.id,
+          name: s.name ?? `${s.firstName ?? s.user?.firstName ?? ''} ${s.lastName ?? s.user?.lastName ?? ''}`.trim(),
+        })));
+      }
+      if (roomJson.success) setRooms((roomJson.data?.rooms ?? roomJson.data ?? []) as Room[]);
+    }).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!specialistId && !roomId) { setError('Выберите специалиста или кабинет'); return; }
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/operations/appointments/${appointment.id}/reassign`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          specialistId: specialistId || undefined,
+          roomId: roomId || undefined,
+        }),
+      });
+      const json = await res.json() as { success: boolean; error?: { message: string } };
+      if (!json.success) { setError(json.error?.message ?? t('common.error')); return; }
+      onReassigned();
+      onClose();
+    } catch {
+      setError(t('common.error'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-onyx border border-border-luxury rounded-2xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-base font-bold text-text-primary font-serif">{t('rec.reassign.title')}</h2>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary"><XCircle className="w-5 h-5" /></button>
+        </div>
+
+        <div className="bg-charcoal border border-border-luxury rounded-xl px-4 py-3 mb-4 text-xs">
+          <p className="text-text-primary font-medium">{appointment.clientName}</p>
+          <p className="text-text-secondary">{appointment.services.join(', ')}</p>
+          <p className="text-text-tertiary mt-1">{fmtTime(appointment.startAt)} · {appointment.specialistName}</p>
+        </div>
+
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">{t('rec.reassign.specialist')}</label>
+            <select
+              className="w-full bg-charcoal border border-border-luxury rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-champagne/50"
+              value={specialistId}
+              onChange={(e) => setSpecialistId(e.target.value)}
+            >
+              <option value="">— {appointment.specialistName}</option>
+              {specialists.filter((s) => s.name !== appointment.specialistName).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">{t('rec.reassign.room')}</label>
+            <select
+              className="w-full bg-charcoal border border-border-luxury rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-champagne/50"
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value)}
+            >
+              <option value="">— {appointment.roomName ?? 'Не назначен'}</option>
+              {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </div>
+          {error && <p className="text-red-400 text-sm bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:bg-charcoal transition-colors">{t('common.cancel')}</button>
+            <button type="submit" disabled={loading} className="flex-1 px-4 py-2.5 rounded-xl luxury-gradient text-obsidian text-sm font-semibold disabled:opacity-50">
+              {loading ? t('rec.reassign.saving') : t('rec.reassign.btn')}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -456,11 +829,15 @@ function AppCard({
   onAction,
   onAssignRoom,
   onReschedule,
+  onRebook,
+  onReassign,
 }: {
   apt: OperationalAppointment;
   onAction: (id: string, action: string) => Promise<void>;
   onAssignRoom: (id: string) => void;
   onReschedule: (id: string, start: string) => void;
+  onRebook: (apt: OperationalAppointment) => void;
+  onReassign: (apt: OperationalAppointment) => void;
 }) {
   const { t } = useLanguage();
   const [pending, setPending] = React.useState<string | null>(null);
@@ -472,7 +849,6 @@ function AppCard({
   };
 
   const isTerminal = ['COMPLETED', 'CANCELLED', 'NO_SHOW', 'RESCHEDULED'].includes(apt.dbStatus);
-
   const isDelayed = apt.delayMinutes >= 10;
   const isLongWait = (apt.waitMinutes ?? 0) >= 20;
 
@@ -524,31 +900,37 @@ function AppCard({
       </div>
 
       {/* Action row */}
-      {!isTerminal && (
-        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border-luxury/40">
-          {(apt.dbStatus === 'PENDING' || apt.dbStatus === 'CONFIRMED') && !apt.checkedInAt && (
-            <ActionBtn label={t('rec.checkin')} icon={UserCheck} color="teal" loading={pending === 'checkin'} onClick={() => void act('checkin')} />
-          )}
-          {apt.operationalStatus === 'WAITING' && (
-            <ActionBtn label="Начать" icon={PlayCircle} color="violet" loading={pending === 'start'} onClick={() => void act('start')} />
-          )}
-          {apt.dbStatus === 'IN_PROGRESS' && (
-            <ActionBtn label={t('rec.complete')} icon={CheckCircle2} color="green" loading={pending === 'complete'} onClick={() => void act('complete')} />
-          )}
-          {!apt.roomName && !isTerminal && (
-            <ActionBtn label={t('rec.assignRoom')} icon={DoorOpen} color="amber" loading={false} onClick={() => onAssignRoom(apt.id)} />
-          )}
-          {!['IN_PROGRESS', 'COMPLETED'].includes(apt.dbStatus) && (
-            <ActionBtn label={t('rec.reschedule')} icon={CalendarClock} color="blue" loading={false} onClick={() => onReschedule(apt.id, apt.startAt)} />
-          )}
-          {!['IN_PROGRESS', 'COMPLETED'].includes(apt.dbStatus) && (
-            <ActionBtn label={t('rec.noshow')} icon={UserX} color="red" loading={pending === 'noshow'} onClick={() => void act('noshow')} />
-          )}
-          {apt.dbStatus !== 'IN_PROGRESS' && (
-            <ActionBtn label={t('rec.cancel')} icon={XCircle} color="grey" loading={pending === 'cancel'} onClick={() => void act('cancel')} />
-          )}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-1.5 pt-1 border-t border-border-luxury/40">
+        {!isTerminal && (
+          <>
+            {(apt.dbStatus === 'PENDING' || apt.dbStatus === 'CONFIRMED') && !apt.checkedInAt && (
+              <ActionBtn label={t('rec.checkin')} icon={UserCheck} color="teal" loading={pending === 'checkin'} onClick={() => void act('checkin')} />
+            )}
+            {apt.operationalStatus === 'WAITING' && (
+              <ActionBtn label="Начать" icon={UserCheck} color="violet" loading={pending === 'start'} onClick={() => void act('start')} />
+            )}
+            {apt.dbStatus === 'IN_PROGRESS' && (
+              <ActionBtn label={t('rec.complete')} icon={CheckCircle2} color="green" loading={pending === 'complete'} onClick={() => void act('complete')} />
+            )}
+            {!apt.roomName && (
+              <ActionBtn label={t('rec.assignRoom')} icon={DoorOpen} color="amber" loading={false} onClick={() => onAssignRoom(apt.id)} />
+            )}
+            {!['IN_PROGRESS', 'COMPLETED'].includes(apt.dbStatus) && (
+              <ActionBtn label={t('rec.reschedule')} icon={CalendarClock} color="blue" loading={false} onClick={() => onReschedule(apt.id, apt.startAt)} />
+            )}
+            <ActionBtn label="Переназн." icon={ArrowLeftRight} color="amber" loading={false} onClick={() => onReassign(apt)} />
+            {!['IN_PROGRESS', 'COMPLETED'].includes(apt.dbStatus) && (
+              <ActionBtn label={t('rec.noshow')} icon={UserX} color="red" loading={pending === 'noshow'} onClick={() => void act('noshow')} />
+            )}
+            {apt.dbStatus !== 'IN_PROGRESS' && (
+              <ActionBtn label={t('rec.cancel')} icon={XCircle} color="grey" loading={pending === 'cancel'} onClick={() => void act('cancel')} />
+            )}
+          </>
+        )}
+        {isTerminal && (
+          <ActionBtn label={t('rec.rebook.btn')} icon={RotateCcw} color="blue" loading={false} onClick={() => onRebook(apt)} />
+        )}
+      </div>
     </div>
   );
 }
@@ -579,9 +961,43 @@ function ActionBtn({ label, icon: Icon, color, loading, onClick }: {
   );
 }
 
-// Placeholder for PlayCircle
-function PlayCircle({ className }: { className?: string }) {
-  return <UserCheck className={className} />;
+// ─── Workload Summary Strip ───────────────────────────────────────────────────
+
+function WorkloadStrip({ data }: { data: TodayOperationsResponse | null }) {
+  const { t } = useLanguage();
+  if (!data) return null;
+
+  const overloaded = data.specialists.filter((s) => s.liveStatus === 'OVERBOOKED').length;
+  const idle = data.specialists.filter((s) => s.liveStatus === 'FREE' && s.todayScheduled === 0).length;
+  const freeRooms = data.rooms.filter((r) => !r.isOccupied).length;
+
+  if (overloaded === 0 && idle === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {overloaded > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-900/20 border border-red-700/30 text-xs text-red-300">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <span className="font-semibold">{overloaded}</span>
+          <span>{t('rec.workload.overloaded')}</span>
+        </div>
+      )}
+      {idle > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-900/20 border border-amber-700/30 text-xs text-amber-300">
+          <Clock className="w-3.5 h-3.5" />
+          <span className="font-semibold">{idle}</span>
+          <span>{t('rec.workload.idle')}</span>
+        </div>
+      )}
+      {freeRooms > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-900/20 border border-emerald-700/30 text-xs text-emerald-300">
+          <DoorOpen className="w-3.5 h-3.5" />
+          <span className="font-semibold">{freeRooms}</span>
+          <span>{t('rec.workload.freeRooms')}</span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -607,6 +1023,8 @@ export default function ReceptionistPage() {
   const [showWalkin, setShowWalkin] = React.useState(false);
   const [roomModal, setRoomModal] = React.useState<string | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = React.useState<{ id: string; start: string } | null>(null);
+  const [rebookTarget, setRebookTarget] = React.useState<OperationalAppointment | null>(null);
+  const [reassignTarget, setReassignTarget] = React.useState<OperationalAppointment | null>(null);
 
   const fetchData = React.useCallback(async () => {
     try {
@@ -620,7 +1038,6 @@ export default function ReceptionistPage() {
   React.useEffect(() => {
     void fetchData();
 
-    // SSE for live updates
     const es = new EventSource('/api/realtime/ops-stream');
     es.onopen = () => setLiveConnected(true);
     es.onerror = () => setLiveConnected(false);
@@ -693,6 +1110,12 @@ export default function ReceptionistPage() {
         </div>
       </div>
 
+      {/* Universal Search */}
+      <GlobalSearch headers={headers} />
+
+      {/* Workload indicators */}
+      <WorkloadStrip data={data} />
+
       {/* KPI strip */}
       {metrics && (
         <div className="grid grid-cols-4 lg:grid-cols-8 gap-2">
@@ -749,6 +1172,8 @@ export default function ReceptionistPage() {
                   onAction={handleAction}
                   onAssignRoom={(id) => setRoomModal(id)}
                   onReschedule={(id, start) => setRescheduleTarget({ id, start })}
+                  onRebook={(a) => setRebookTarget(a)}
+                  onReassign={(a) => setReassignTarget(a)}
                 />
               ))}
             </div>
@@ -829,6 +1254,20 @@ export default function ReceptionistPage() {
           currentStart={rescheduleTarget.start}
           onClose={() => setRescheduleTarget(null)}
           onRescheduled={() => void fetchData()}
+        />
+      )}
+      {rebookTarget && (
+        <RebookModal
+          sourceApt={rebookTarget}
+          onClose={() => setRebookTarget(null)}
+          onCreated={() => void fetchData()}
+        />
+      )}
+      {reassignTarget && (
+        <ReassignModal
+          appointment={reassignTarget}
+          onClose={() => setReassignTarget(null)}
+          onReassigned={() => void fetchData()}
         />
       )}
     </div>
