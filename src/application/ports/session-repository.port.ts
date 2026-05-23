@@ -1,5 +1,7 @@
 import { Session } from '@/domain/entities';
 
+export type SessionRepositoryPort = ISessionRepository;
+
 export interface ISessionRepository {
   findByToken(token: string): Promise<Session | null>;
   findByUser(userId: string): Promise<Session[]>;

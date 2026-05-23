@@ -2,6 +2,8 @@ import { Appointment } from '@/domain/entities';
 import { AppointmentStatus } from '@/domain/enums';
 import { DateRange } from '@/domain/value-objects';
 
+export type AppointmentRepositoryPort = IAppointmentRepository;
+
 export interface IAppointmentRepository {
   findById(id: string): Promise<Appointment | null>;
   findMany(options: {

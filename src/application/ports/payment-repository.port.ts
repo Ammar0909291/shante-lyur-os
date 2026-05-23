@@ -1,6 +1,8 @@
 import { Payment } from '@/domain/entities';
 import { PaymentStatus, PaymentProvider } from '@/domain/enums';
 
+export type PaymentRepositoryPort = IPaymentRepository;
+
 export interface IPaymentRepository {
   findById(id: string): Promise<Payment | null>;
   findByAppointmentId(appointmentId: string): Promise<Payment[]>;

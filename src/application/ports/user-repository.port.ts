@@ -1,6 +1,8 @@
 import { User } from '@/domain/entities';
 import { UserRole, UserStatus } from '@/domain/enums';
 
+export type UserRepositoryPort = IUserRepository;
+
 export interface IUserRepository {
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;

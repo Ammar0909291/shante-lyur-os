@@ -1,5 +1,7 @@
 import { CustomerProfile } from '@/domain/entities';
 
+export type CustomerProfileRepositoryPort = ICustomerProfileRepository;
+
 export interface ICustomerProfileRepository {
   findById(id: string): Promise<CustomerProfile | null>;
   findByUserId(userId: string): Promise<CustomerProfile | null>;
