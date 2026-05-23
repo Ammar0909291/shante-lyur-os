@@ -16,10 +16,7 @@ function apiError(code: string, message: string, status: number, details?: Recor
 const ListServicesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  category: z.enum([
-    'COSMETOLOGY', 'MASSAGE', 'INJECTION', 'LASER',
-    'BODY_CONTOURING', 'HAIR_REMOVAL', 'FACIAL', 'OTHER',
-  ]).optional(),
+  category: z.enum(['COSMETOLOGY', 'MASSAGE']).optional(),
   search: z.string().optional(),
 });
 

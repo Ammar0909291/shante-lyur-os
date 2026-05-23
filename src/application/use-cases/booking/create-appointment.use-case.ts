@@ -104,10 +104,45 @@ export class CreateAppointmentUseCase {
     const endAt = new Date(dto.startAt.getTime() + totalDuration * 60000);
     const timeRange = DateRange.create(dto.startAt, endAt);
 
+    // Validate specialist-service type compatibility
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const specialistRaw = specialist as any;
+    const specialistType: string = specialistRaw.specialistType ?? specialistRaw.specialization ?? '';
+    const isMassageTherapist = specialistType === 'MASSAGE_THERAPIST';
+    const isCosmetologist = specialistType === 'COSMETOLOGIST';
+
+    if (isMassageTherapist || isCosmetologist) {
+      const expectedCategory = isMassageTherapist ? 'MASSAGE' : 'COSMETOLOGY';
+      const wrongService = services.find(s => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const cat = (s as any).category;
+        return cat && cat !== expectedCategory;
+      });
+      if (wrongService) {
+        throw new ConflictError(
+          `Specialist type mismatch: ${isMassageTherapist ? 'Massage therapist' : 'Cosmetologist'} cannot perform "${wrongService.name}"`,
+          'services',
+        );
+      }
+    }
+
     // Check specialist availability
     const overlapping = await this.appointmentRepo.findOverlapping(specialist.id, timeRange);
     if (overlapping.length > 0) {
       throw new ConflictError('Time slot is not available', 'startAt');
+    }
+
+    // Massage therapist 30-minute recovery buffer (admin can bypass)
+    if (isMassageTherapist && actorRole !== UserRole.ADMIN) {
+      const bufferStart = new Date(dto.startAt.getTime() - 30 * 60000);
+      const bufferRange = DateRange.create(bufferStart, dto.startAt);
+      const preceding = await this.appointmentRepo.findOverlapping(specialist.id, bufferRange);
+      if (preceding.length > 0) {
+        throw new ConflictError(
+          'Massage therapist requires 30-minute recovery after previous session. Next available slot is at least 30 minutes after the previous session ends.',
+          'startAt',
+        );
+      }
     }
 
     // Check blocked times

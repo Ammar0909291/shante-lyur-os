@@ -15,13 +15,16 @@ import {
   Plus,
   UserX,
   CheckCircle2,
+  Download,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StatCard } from '@/components/ui/stat-card';
 import { cn, formatCurrency, formatDate, formatTime } from '@/lib/utils';
+import { NewBookingDialog, type CreatedBooking } from './_new-booking-dialog';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +33,7 @@ type DateFilter = 'today' | 'week' | 'month';
 
 interface Booking {
   id: string;
+  clientId?: string;
   client: string;
   service: string;
   specialist: string;
@@ -42,12 +46,12 @@ interface Booking {
 // ─── Mock fallback data ───────────────────────────────────────────────────────
 
 const MOCK_BOOKINGS: Booking[] = [
-  { id: '1', client: 'Анна Соколова',    service: 'Гиалуроновый лифтинг',  specialist: 'Мария П.',   dateTime: new Date('2026-05-23T09:00:00'), duration: 90,  status: 'CONFIRMED',  amount: 12_00000 },
-  { id: '2', client: 'Елена Морозова',   service: 'Антивозрастной массаж', specialist: 'Ольга К.',   dateTime: new Date('2026-05-23T10:30:00'), duration: 60,  status: 'PENDING',    amount:  8_00000 },
-  { id: '3', client: 'Светлана Ким',     service: 'Пилинг & Детокс',       specialist: 'Мария П.',   dateTime: new Date('2026-05-23T11:00:00'), duration: 45,  status: 'CONFIRMED',  amount:  6_50000 },
-  { id: '4', client: 'Ирина Волкова',    service: 'Ароматерапия',           specialist: 'Наталья В.', dateTime: new Date('2026-05-23T12:00:00'), duration: 75,  status: 'COMPLETED',  amount:  7_00000 },
-  { id: '5', client: 'Татьяна Лебедева', service: 'Лазерная эпиляция',     specialist: 'Ольга К.',   dateTime: new Date('2026-05-23T13:30:00'), duration: 60,  status: 'CANCELLED',  amount: 15_00000 },
-  { id: '6', client: 'Наталья Попова',   service: 'Биоревитализация',       specialist: 'Дарья С.',   dateTime: new Date('2026-05-23T14:00:00'), duration: 120, status: 'PENDING',    amount: 18_00000 },
+  { id: '1', clientId: 'c1', client: 'Анна Соколова',    service: 'Гиалуроновый лифтинг',  specialist: 'Мария В.',   dateTime: new Date('2026-05-23T09:00:00'), duration: 90,  status: 'CONFIRMED',  amount: 1200000 },
+  { id: '2', clientId: 'c2', client: 'Елена Морозова',   service: 'Антивозрастной массаж', specialist: 'Ольга К.',   dateTime: new Date('2026-05-23T10:30:00'), duration: 60,  status: 'PENDING',    amount:  800000 },
+  { id: '3', clientId: 'c3', client: 'Светлана Ким',     service: 'Химический пилинг',      specialist: 'Мария В.',   dateTime: new Date('2026-05-23T11:00:00'), duration: 45,  status: 'CONFIRMED',  amount:  800000 },
+  { id: '4', clientId: 'c4', client: 'Ирина Волкова',    service: 'Ароматерапевтический',   specialist: 'Наталья В.', dateTime: new Date('2026-05-23T12:00:00'), duration: 75,  status: 'COMPLETED',  amount:  600000 },
+  { id: '5', clientId: 'c5', client: 'Татьяна Лебедева', service: 'Лазерная эпиляция',     specialist: 'Ольга К.',   dateTime: new Date('2026-05-23T13:30:00'), duration: 60,  status: 'CANCELLED',  amount: 1500000 },
+  { id: '6', clientId: 'c6', client: 'Наталья Попова',   service: 'Биоревитализация',       specialist: 'Дарья С.',   dateTime: new Date('2026-05-23T14:00:00'), duration: 120, status: 'PENDING',    amount: 1800000 },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -61,8 +65,6 @@ function formatDuration(minutes: number): string {
 
 function isInDateRange(date: Date, filter: DateFilter): boolean {
   const now = new Date();
-  const start = new Date(now);
-
   if (filter === 'today') {
     return (
       date.getDate() === now.getDate() &&
@@ -71,6 +73,7 @@ function isInDateRange(date: Date, filter: DateFilter): boolean {
     );
   }
   if (filter === 'week') {
+    const start = new Date(now);
     start.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
@@ -83,20 +86,41 @@ function isInDateRange(date: Date, filter: DateFilter): boolean {
   return true;
 }
 
-// ─── Normalize API response ───────────────────────────────────────────────────
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeBooking(raw: any): Booking {
   return {
     id: raw.id ?? String(Math.random()),
+    clientId: raw.clientId ?? raw.customer?.id ?? undefined,
     client: raw.customer?.user?.name ?? raw.client ?? 'Клиент',
-    service: raw.service?.name ?? raw.service ?? 'Услуга',
+    service: raw.services?.[0]?.name ?? raw.service?.name ?? raw.service ?? 'Услуга',
     specialist: raw.specialist?.user?.name ?? raw.specialist ?? 'Специалист',
-    dateTime: new Date(raw.scheduledAt ?? raw.dateTime ?? Date.now()),
-    duration: raw.durationMinutes ?? raw.duration ?? 60,
+    dateTime: new Date(raw.startAt ?? raw.scheduledAt ?? raw.dateTime ?? Date.now()),
+    duration: raw.totalDuration ?? raw.durationMinutes ?? raw.duration ?? 60,
     status: (raw.status as BookingStatus) ?? 'PENDING',
-    amount: raw.totalPrice ?? raw.amount ?? 0,
+    amount: Number(raw.totalPrice ?? raw.amount ?? 0),
   };
+}
+
+// ─── XLSX export ─────────────────────────────────────────────────────────────
+
+async function exportToXlsx(bookings: Booking[]) {
+  const { utils, writeFile } = await import('xlsx');
+  const rows = bookings.map(b => ({
+    'ID': b.id,
+    'Клиент': b.client,
+    'Услуга': b.service,
+    'Специалист': b.specialist,
+    'Дата': b.dateTime.toLocaleDateString('ru-RU'),
+    'Время': b.dateTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+    'Длительность (мин)': b.duration,
+    'Статус': getAppointmentStatusLabel(b.status),
+    'Сумма (₽)': (b.amount / 100).toFixed(2),
+  }));
+  const ws = utils.json_to_sheet(rows);
+  const wb = utils.book_new();
+  utils.book_append_sheet(wb, ws, 'Записи');
+  const date = new Date().toISOString().slice(0, 10);
+  writeFile(wb, `shante-lyur-bookings-${date}.xlsx`);
 }
 
 // ─── Skeleton components ──────────────────────────────────────────────────────
@@ -143,56 +167,34 @@ function SkeletonCard() {
           </div>
           <div className="h-3 w-40 bg-charcoal rounded animate-shimmer" />
           <div className="h-3 w-28 bg-charcoal rounded animate-shimmer" />
-          <div className="flex justify-between items-center">
-            <div className="h-3 w-24 bg-charcoal rounded animate-shimmer" />
-            <div className="h-3.5 w-20 bg-charcoal rounded animate-shimmer" />
-          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Action buttons for PENDING bookings ─────────────────────────────────────
+// ─── Action buttons ───────────────────────────────────────────────────────────
 
-interface ActionButtonsProps {
+function ActionButtons({
+  booking,
+  onStatusChange,
+  updatingId,
+}: {
   booking: Booking;
   onStatusChange: (id: string, status: BookingStatus) => void;
   updatingId: string | null;
-}
-
-function ActionButtons({ booking, onStatusChange, updatingId }: ActionButtonsProps) {
+}) {
   const isUpdating = updatingId === booking.id;
 
   if (booking.status === 'PENDING') {
     return (
       <div className="flex items-center justify-end gap-1.5">
-        <button
-          onClick={() => onStatusChange(booking.id, 'CONFIRMED')}
-          disabled={isUpdating}
-          title="Подтвердить"
-          className={cn(
-            'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200',
-            'bg-sage/10 text-sage border border-sage/20',
-            'hover:bg-sage/20 hover:border-sage/40',
-            'disabled:opacity-40 disabled:cursor-not-allowed',
-          )}
-        >
-          <Check className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={() => onStatusChange(booking.id, 'CANCELLED')}
-          disabled={isUpdating}
-          title="Отменить"
-          className={cn(
-            'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200',
-            'bg-red-500/10 text-red-400 border border-red-500/20',
-            'hover:bg-red-500/20 hover:border-red-500/40',
-            'disabled:opacity-40 disabled:cursor-not-allowed',
-          )}
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        <button onClick={() => onStatusChange(booking.id, 'CONFIRMED')} disabled={isUpdating} title="Подтвердить"
+          className={cn('w-8 h-8 rounded-lg flex items-center justify-center transition-all','bg-sage/10 text-sage border border-sage/20','hover:bg-sage/20 hover:border-sage/40','disabled:opacity-40')}
+        ><Check className="w-3.5 h-3.5" /></button>
+        <button onClick={() => onStatusChange(booking.id, 'CANCELLED')} disabled={isUpdating} title="Отменить"
+          className={cn('w-8 h-8 rounded-lg flex items-center justify-center transition-all','bg-red-500/10 text-red-400 border border-red-500/20','hover:bg-red-500/20','disabled:opacity-40')}
+        ><X className="w-3.5 h-3.5" /></button>
       </div>
     );
   }
@@ -200,110 +202,46 @@ function ActionButtons({ booking, onStatusChange, updatingId }: ActionButtonsPro
   if (booking.status === 'CONFIRMED') {
     return (
       <div className="flex items-center justify-end gap-1.5">
-        <button
-          onClick={() => onStatusChange(booking.id, 'COMPLETED')}
-          disabled={isUpdating}
-          title="Завершить"
-          className={cn(
-            'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200',
-            'bg-blue-500/10 text-blue-400 border border-blue-500/20',
-            'hover:bg-blue-500/20 hover:border-blue-500/40',
-            'disabled:opacity-40 disabled:cursor-not-allowed',
-          )}
-        >
-          <CheckCircle2 className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={() => onStatusChange(booking.id, 'NO_SHOW')}
-          disabled={isUpdating}
-          title="Не явился"
-          className={cn(
-            'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200',
-            'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20',
-            'hover:bg-zinc-500/20 hover:border-zinc-500/40',
-            'disabled:opacity-40 disabled:cursor-not-allowed',
-          )}
-        >
-          <UserX className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={() => onStatusChange(booking.id, 'CANCELLED')}
-          disabled={isUpdating}
-          title="Отменить"
-          className={cn(
-            'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200',
-            'bg-red-500/10 text-red-400 border border-red-500/20',
-            'hover:bg-red-500/20 hover:border-red-500/40',
-            'disabled:opacity-40 disabled:cursor-not-allowed',
-          )}
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
+        <button onClick={() => onStatusChange(booking.id, 'COMPLETED')} disabled={isUpdating} title="Завершить"
+          className={cn('w-8 h-8 rounded-lg flex items-center justify-center transition-all','bg-blue-500/10 text-blue-400 border border-blue-500/20','hover:bg-blue-500/20','disabled:opacity-40')}
+        ><CheckCircle2 className="w-3.5 h-3.5" /></button>
+        <button onClick={() => onStatusChange(booking.id, 'NO_SHOW')} disabled={isUpdating} title="Не явился"
+          className={cn('w-8 h-8 rounded-lg flex items-center justify-center transition-all','bg-zinc-500/10 text-zinc-400 border border-zinc-500/20','hover:bg-zinc-500/20','disabled:opacity-40')}
+        ><UserX className="w-3.5 h-3.5" /></button>
+        <button onClick={() => onStatusChange(booking.id, 'CANCELLED')} disabled={isUpdating} title="Отменить"
+          className={cn('w-8 h-8 rounded-lg flex items-center justify-center transition-all','bg-red-500/10 text-red-400 border border-red-500/20','hover:bg-red-500/20','disabled:opacity-40')}
+        ><X className="w-3.5 h-3.5" /></button>
       </div>
     );
   }
 
-  return (
-    <div className="flex items-center justify-end">
-      <span className="text-xs text-text-tertiary select-none">—</span>
-    </div>
-  );
+  return <div className="flex items-center justify-end"><span className="text-xs text-text-tertiary select-none">—</span></div>;
 }
 
-// ─── Tab button ───────────────────────────────────────────────────────────────
+// ─── Tab / Date pill ──────────────────────────────────────────────────────────
 
-interface TabButtonProps {
-  label: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}
-
-function TabButton({ label, count, active, onClick }: TabButtonProps) {
+function TabButton({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap',
-        active
-          ? 'bg-champagne text-obsidian shadow-[0_2px_8px_rgba(212,175,122,0.25)]'
-          : 'bg-onyx border border-border-luxury text-text-secondary hover:border-border-light hover:text-text-primary',
-      )}
-    >
+    <button onClick={onClick} className={cn(
+      'flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
+      active ? 'bg-champagne text-obsidian shadow-[0_2px_8px_rgba(212,175,122,0.25)]'
+             : 'bg-onyx border border-border-luxury text-text-secondary hover:border-border-light hover:text-text-primary',
+    )}>
       {label}
-      <span
-        className={cn(
-          'inline-flex items-center justify-center rounded-full text-xs font-semibold min-w-[1.25rem] h-5 px-1.5',
-          active ? 'bg-obsidian/20 text-obsidian' : 'bg-charcoal text-text-tertiary',
-        )}
-      >
-        {count}
-      </span>
+      <span className={cn('inline-flex items-center justify-center rounded-full text-xs font-semibold min-w-[1.25rem] h-5 px-1.5',
+        active ? 'bg-obsidian/20 text-obsidian' : 'bg-charcoal text-text-tertiary',
+      )}>{count}</span>
     </button>
   );
 }
 
-// ─── Date filter pill ─────────────────────────────────────────────────────────
-
-interface DatePillProps {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}
-
-function DatePill({ label, active, onClick }: DatePillProps) {
+function DatePill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'px-3 h-9 rounded-full text-xs font-semibold uppercase tracking-wide transition-all duration-200',
-        active
-          ? 'bg-champagne/15 text-champagne border border-champagne/30'
-          : 'bg-onyx border border-border-luxury text-text-secondary hover:border-border-light hover:text-text-primary',
-      )}
-    >
-      {label}
-    </button>
+    <button onClick={onClick} className={cn(
+      'px-3 h-9 rounded-full text-xs font-semibold uppercase tracking-wide transition-all',
+      active ? 'bg-champagne/15 text-champagne border border-champagne/30'
+             : 'bg-onyx border border-border-luxury text-text-secondary hover:border-border-light hover:text-text-primary',
+    )}>{label}</button>
   );
 }
 
@@ -318,489 +256,395 @@ export default function BookingsPage() {
   const [statusFilter, setStatusFilter] = React.useState<BookingStatus | 'ALL'>('ALL');
   const [dateFilter, setDateFilter] = React.useState<DateFilter>('today');
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
 
-  // Fetch bookings on mount; fall back to mock data on error or empty result
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true);
 
-    fetch('/api/appointments')
+    fetch('/api/appointments', { credentials: 'include' })
       .then(async (res) => {
         if (!res.ok) throw new Error('API error');
         const json = await res.json();
         if (cancelled) return;
-        const rawItems = Array.isArray(json?.data?.items)
-          ? json.data.items
-          : Array.isArray(json?.data)
-            ? json.data
-            : [];
+        const rawItems = Array.isArray(json?.data?.items) ? json.data.items
+          : Array.isArray(json?.data) ? json.data : [];
         const items = rawItems.map(normalizeBooking);
         setBookings(items.length > 0 ? items : MOCK_BOOKINGS);
       })
-      .catch(() => {
-        if (!cancelled) setBookings(MOCK_BOOKINGS);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch(() => { if (!cancelled) setBookings(MOCK_BOOKINGS); })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
   }, []);
 
-  // Update booking status via PATCH /api/appointments/[id]
   const handleStatusChange = React.useCallback(async (id: string, status: BookingStatus) => {
     setUpdatingId(id);
-    // Optimistic update
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     try {
       await fetch(`/api/appointments/${id}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
-    } catch {
-      // silently keep optimistic state
-    } finally {
+    } catch { /* keep optimistic */ } finally {
       setUpdatingId(null);
     }
   }, []);
 
+  const handleCreated = React.useCallback((booking: CreatedBooking) => {
+    setBookings(prev => [{
+      id: booking.id,
+      clientId: booking.clientId,
+      client: booking.client,
+      service: booking.service,
+      specialist: booking.specialist,
+      dateTime: booking.dateTime,
+      duration: booking.duration,
+      status: booking.status,
+      amount: booking.amount,
+    }, ...prev]);
+  }, []);
+
+  const handleExport = React.useCallback(async () => {
+    setExporting(true);
+    try {
+      await exportToXlsx(filtered);
+    } finally {
+      setExporting(false);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Derived counts ──────────────────────────────────────────────────────────
   const countAll       = bookings.length;
-  const countPending   = bookings.filter((b) => b.status === 'PENDING').length;
-  const countConfirmed = bookings.filter((b) => b.status === 'CONFIRMED').length;
-  const countCompleted = bookings.filter((b) => b.status === 'COMPLETED').length;
-  const countCancelled = bookings.filter((b) => b.status === 'CANCELLED').length;
+  const countPending   = bookings.filter(b => b.status === 'PENDING').length;
+  const countConfirmed = bookings.filter(b => b.status === 'CONFIRMED').length;
+  const countCompleted = bookings.filter(b => b.status === 'COMPLETED').length;
+  const countCancelled = bookings.filter(b => b.status === 'CANCELLED').length;
+  const totalRevenue   = bookings.filter(b => b.status === 'COMPLETED').reduce((s, b) => s + b.amount, 0);
+  const todayCount     = bookings.filter(b => isInDateRange(b.dateTime, 'today')).length;
 
-  const totalRevenue = bookings
-    .filter((b) => b.status === 'COMPLETED')
-    .reduce((sum, b) => sum + b.amount, 0);
-
-  const todayCount = bookings.filter((b) => isInDateRange(b.dateTime, 'today')).length;
-
-  // ── Filtered list ───────────────────────────────────────────────────────────
   const filtered = React.useMemo(() => {
-    let list = bookings;
-
-    // Date filter
-    list = list.filter((b) => isInDateRange(b.dateTime, dateFilter));
-
-    // Status tab filter
-    if (statusFilter !== 'ALL') {
-      list = list.filter((b) => b.status === statusFilter);
-    }
-
-    // Search
+    let list = bookings.filter(b => isInDateRange(b.dateTime, dateFilter));
+    if (statusFilter !== 'ALL') list = list.filter(b => b.status === statusFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(
-        (b) =>
-          b.client.toLowerCase().includes(q) ||
-          b.service.toLowerCase().includes(q) ||
-          b.specialist.toLowerCase().includes(q),
+      list = list.filter(b =>
+        b.client.toLowerCase().includes(q) ||
+        b.service.toLowerCase().includes(q) ||
+        b.specialist.toLowerCase().includes(q),
       );
     }
-
     return list;
   }, [bookings, statusFilter, dateFilter, search]);
 
-  const statusTabs: { key: BookingStatus | 'ALL'; label: string; count: number }[] = [
-    { key: 'ALL',       label: 'Все',          count: countAll },
-    { key: 'PENDING',   label: 'Ожидание',     count: countPending },
-    { key: 'CONFIRMED', label: 'Подтверждено', count: countConfirmed },
-    { key: 'COMPLETED', label: 'Завершено',    count: countCompleted },
-    { key: 'CANCELLED', label: 'Отменено',     count: countCancelled },
-  ];
+  // Fix handleExport dep after filtered is defined
+  const handleExportFinal = React.useCallback(async () => {
+    setExporting(true);
+    try { await exportToXlsx(filtered); }
+    finally { setExporting(false); }
+  }, [filtered]);
 
-  const datePills: { key: DateFilter; label: string }[] = [
-    { key: 'today', label: 'Сегодня' },
-    { key: 'week',  label: 'Неделя' },
-    { key: 'month', label: 'Месяц' },
+  const statusTabs = [
+    { key: 'ALL' as const,       label: 'Все',          count: countAll },
+    { key: 'PENDING' as const,   label: 'Ожидание',     count: countPending },
+    { key: 'CONFIRMED' as const, label: 'Подтверждено', count: countConfirmed },
+    { key: 'COMPLETED' as const, label: 'Завершено',    count: countCompleted },
+    { key: 'CANCELLED' as const, label: 'Отменено',     count: countCancelled },
   ];
 
   return (
-    <div className="p-6 lg:p-8 space-y-8 animate-fade-in">
+    <>
+      <div className="p-6 lg:p-8 space-y-8 animate-fade-in">
 
-      {/* ── Page header ───────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">
-            Записи
-          </h2>
-          <p className="text-text-secondary mt-1 text-sm">
-            Управление записями клиентов и расписанием специалистов
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          size="md"
-          leftIcon={<Plus className="w-4 h-4" />}
-        >
-          Новая запись
-        </Button>
-      </div>
-
-      {/* ── Stat cards ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          title="Записей сегодня"
-          value={loading ? '—' : todayCount}
-          subtitle={`${countPending} ожидают подтверждения`}
-          loading={loading}
-          icon={<CalendarDays className="w-5 h-5" />}
-          trend={{ value: 8, positive: true, label: 'vs вчера' }}
-        />
-        <StatCard
-          title="Подтверждено"
-          value={loading ? '—' : countConfirmed}
-          subtitle="активных записей"
-          loading={loading}
-          icon={<Check className="w-5 h-5" />}
-          trend={{ value: 5, positive: true, label: 'vs пред. день' }}
-        />
-        <StatCard
-          title="Выручка за период"
-          value={loading ? '—' : formatCurrency(totalRevenue)}
-          subtitle="завершённые записи"
-          loading={loading}
-          icon={<TrendingUp className="w-5 h-5" />}
-          trend={{ value: 14, positive: true, label: 'vs пред. период' }}
-        />
-        <StatCard
-          title="Уникальных клиентов"
-          value={loading ? '—' : new Set(bookings.map((b) => b.client)).size}
-          subtitle="в текущей выборке"
-          loading={loading}
-          icon={<Users className="w-5 h-5" />}
-          trend={{ value: 3, positive: true, label: 'vs пред. период' }}
-        />
-      </div>
-
-      {/* ── Status tabs ───────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {statusTabs.map((tab) => (
-          <TabButton
-            key={tab.key}
-            label={tab.label}
-            count={tab.count}
-            active={statusFilter === tab.key}
-            onClick={() => setStatusFilter(tab.key)}
-          />
-        ))}
-      </div>
-
-      {/* ── Search + date filters ─────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* Search input */}
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Клиент, услуга, специалист…"
-            className={cn(
-              'w-full h-10 pl-9 pr-4 rounded-lg text-sm',
-              'bg-onyx border border-border-luxury',
-              'text-text-primary placeholder:text-text-tertiary',
-              'focus:outline-none focus:border-champagne/40 focus:ring-1 focus:ring-champagne/20',
-              'transition-colors duration-200',
-            )}
-          />
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Записи</h2>
+            <p className="text-text-secondary mt-1 text-sm">
+              Управление записями клиентов и расписанием специалистов
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportFinal}
+              disabled={exporting || loading || filtered.length === 0}
+              title="Экспорт в Excel"
+              className={cn(
+                'flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border transition-all',
+                'bg-charcoal border-border-luxury text-text-secondary',
+                'hover:border-border-light hover:text-text-primary',
+                'disabled:opacity-40 disabled:cursor-not-allowed',
+              )}
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? 'Экспорт…' : '.xlsx'}
+            </button>
+            <Button
+              variant="primary"
+              size="md"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={() => setDialogOpen(true)}
+            >
+              Новая запись
+            </Button>
+          </div>
         </div>
 
-        {/* Date filter pills */}
-        <div className="flex items-center gap-2">
-          {datePills.map((pill) => (
-            <DatePill
-              key={pill.key}
-              label={pill.label}
-              active={dateFilter === pill.key}
-              onClick={() => setDateFilter(pill.key)}
-            />
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <StatCard title="Записей сегодня"     value={loading ? '—' : todayCount}
+            subtitle={`${countPending} ожидают подтверждения`} loading={loading}
+            icon={<CalendarDays className="w-5 h-5" />}
+            trend={{ value: 8, positive: true, label: 'vs вчера' }} />
+          <StatCard title="Подтверждено"         value={loading ? '—' : countConfirmed}
+            subtitle="активных записей" loading={loading}
+            icon={<Check className="w-5 h-5" />}
+            trend={{ value: 5, positive: true, label: 'vs пред. день' }} />
+          <StatCard title="Выручка за период"    value={loading ? '—' : formatCurrency(totalRevenue)}
+            subtitle="завершённые записи" loading={loading}
+            icon={<TrendingUp className="w-5 h-5" />}
+            trend={{ value: 14, positive: true, label: 'vs пред. период' }} />
+          <StatCard title="Уникальных клиентов"  value={loading ? '—' : new Set(bookings.map(b => b.client)).size}
+            subtitle="в текущей выборке" loading={loading}
+            icon={<Users className="w-5 h-5" />}
+            trend={{ value: 3, positive: true, label: 'vs пред. период' }} />
+        </div>
+
+        {/* Status tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {statusTabs.map(tab => (
+            <TabButton key={tab.key} label={tab.label} count={tab.count}
+              active={statusFilter === tab.key} onClick={() => setStatusFilter(tab.key)} />
           ))}
         </div>
-      </div>
 
-      {/* ── Table / Cards container ───────────────────────────────────── */}
-      <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
-        {/* Container header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
-          <h3 className="font-serif text-lg font-medium text-text-primary">
-            {statusFilter === 'ALL'       && 'Все записи'}
-            {statusFilter === 'PENDING'   && 'Записи в ожидании'}
-            {statusFilter === 'CONFIRMED' && 'Подтверждённые записи'}
-            {statusFilter === 'COMPLETED' && 'Завершённые записи'}
-            {statusFilter === 'CANCELLED' && 'Отменённые записи'}
-          </h3>
-          {!loading && (
-            <span className="text-xs text-text-tertiary font-medium">
-              {filtered.length}{' '}
-              {filtered.length === 1
-                ? 'запись'
-                : filtered.length >= 2 && filtered.length <= 4
-                  ? 'записи'
-                  : 'записей'}
-            </span>
-          )}
+        {/* Search + date filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Клиент, услуга, специалист…"
+              className={cn('w-full h-10 pl-9 pr-4 rounded-lg text-sm','bg-onyx border border-border-luxury','text-text-primary placeholder:text-text-tertiary','focus:outline-none focus:border-champagne/40 focus:ring-1 focus:ring-champagne/20','transition-colors')}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            {([['today', 'Сегодня'], ['week', 'Неделя'], ['month', 'Месяц']] as const).map(([k, l]) => (
+              <DatePill key={k} label={l} active={dateFilter === k} onClick={() => setDateFilter(k)} />
+            ))}
+          </div>
         </div>
 
-        {/* ── Desktop table ──────────────────────────────────────────── */}
-        <div className="hidden sm:block overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border-luxury">
-                <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Клиент
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Услуга
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Специалист
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Дата и время
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Длит.
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Статус
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Сумма
-                </th>
-                <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Действия
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-luxury">
-              {loading
-                ? Array.from({ length: 6 }).map((_, i) => <SkeletonTableRow key={i} />)
-                : filtered.length === 0
-                  ? null
-                  : filtered.map((booking) => (
-                    <tr
-                      key={booking.id}
-                      className="hover:bg-charcoal/50 transition-colors group"
-                    >
-                      {/* Client */}
+        {/* Table container */}
+        <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
+            <h3 className="font-serif text-lg font-medium text-text-primary">
+              {statusFilter === 'ALL' && 'Все записи'}
+              {statusFilter === 'PENDING' && 'Записи в ожидании'}
+              {statusFilter === 'CONFIRMED' && 'Подтверждённые записи'}
+              {statusFilter === 'COMPLETED' && 'Завершённые записи'}
+              {statusFilter === 'CANCELLED' && 'Отменённые записи'}
+            </h3>
+            {!loading && (
+              <span className="text-xs text-text-tertiary font-medium">
+                {filtered.length} {filtered.length === 1 ? 'запись' : filtered.length >= 2 && filtered.length <= 4 ? 'записи' : 'записей'}
+              </span>
+            )}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border-luxury">
+                  {['Клиент', 'Услуга', 'Специалист', 'Дата и время', 'Длит.', 'Статус', 'Сумма', 'Действия'].map((h, i) => (
+                    <th key={h} className={cn(
+                      'py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap',
+                      i === 0 ? 'text-left px-6' : i === 7 ? 'text-right px-6' : i >= 6 ? 'text-right px-4' : 'text-left px-4',
+                    )}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-luxury">
+                {loading
+                  ? Array.from({ length: 6 }).map((_, i) => <SkeletonTableRow key={i} />)
+                  : filtered.map(booking => (
+                    <tr key={booking.id} className="hover:bg-charcoal/50 transition-colors group">
+                      {/* Client — clickable link */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <Avatar name={booking.client} size="sm" />
-                          <span className="font-medium text-text-primary whitespace-nowrap">
-                            {booking.client}
-                          </span>
+                          {booking.clientId ? (
+                            <Link
+                              href={`/clients/${booking.clientId}`}
+                              className="font-medium text-text-primary whitespace-nowrap hover:text-champagne transition-colors"
+                            >
+                              {booking.client}
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-text-primary whitespace-nowrap">{booking.client}</span>
+                          )}
                         </div>
                       </td>
-
-                      {/* Service */}
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-2 max-w-[200px]">
                           <Sparkles className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
                           <span className="text-text-secondary truncate">{booking.service}</span>
                         </div>
                       </td>
-
-                      {/* Specialist */}
-                      <td className="px-4 py-4 text-text-secondary whitespace-nowrap">
-                        {booking.specialist}
-                      </td>
-
-                      {/* Date & Time */}
+                      <td className="px-4 py-4 text-text-secondary whitespace-nowrap">{booking.specialist}</td>
                       <td className="px-4 py-4">
                         <div>
-                          <div className="text-text-primary font-medium whitespace-nowrap tabular-nums">
-                            {formatTime(booking.dateTime)}
-                          </div>
-                          <div className="text-xs text-text-tertiary whitespace-nowrap mt-0.5">
-                            {formatDate(booking.dateTime)}
-                          </div>
+                          <div className="text-text-primary font-medium whitespace-nowrap tabular-nums">{formatTime(booking.dateTime)}</div>
+                          <div className="text-xs text-text-tertiary whitespace-nowrap mt-0.5">{formatDate(booking.dateTime)}</div>
                         </div>
                       </td>
-
-                      {/* Duration */}
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-1.5 text-text-secondary whitespace-nowrap">
                           <Clock className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
                           {formatDuration(booking.duration)}
                         </div>
                       </td>
-
-                      {/* Status */}
                       <td className="px-4 py-4">
                         <Badge variant={getAppointmentStatusBadgeVariant(booking.status)} dot>
                           {getAppointmentStatusLabel(booking.status)}
                         </Badge>
                       </td>
-
-                      {/* Amount */}
                       <td className="px-4 py-4 text-right font-semibold text-champagne tabular-nums whitespace-nowrap">
                         {formatCurrency(booking.amount)}
                       </td>
-
-                      {/* Actions */}
                       <td className="px-6 py-4">
-                        <ActionButtons
-                          booking={booking}
-                          onStatusChange={handleStatusChange}
-                          updatingId={updatingId}
-                        />
+                        <ActionButtons booking={booking} onStatusChange={handleStatusChange} updatingId={updatingId} />
                       </td>
                     </tr>
                   ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
 
-          {/* Empty state */}
-          {!loading && filtered.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-champagne/8 flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-champagne" />
-              </div>
-              <div>
-                <p className="font-medium text-text-primary text-base">
-                  {search ? 'Записи не найдены' : 'Нет записей за выбранный период'}
-                </p>
-                <p className="text-sm text-text-tertiary mt-1">
-                  {search
-                    ? `Нет совпадений для «${search}»`
-                    : 'Измените фильтры или создайте новую запись'}
-                </p>
-              </div>
-              {!search && (
-                <Button variant="outline" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
-                  Создать запись
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ── Mobile card list ───────────────────────────────────────── */}
-        <div className="sm:hidden divide-y divide-border-luxury">
-          {loading
-            ? Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
-            : filtered.length === 0
-              ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
-                  <Calendar className="w-8 h-8 text-champagne/50" />
-                  <p className="text-text-secondary text-sm">
-                    {search
-                      ? `Нет совпадений для «${search}»`
-                      : 'Нет записей за выбранный период'}
-                  </p>
-                  {!search && (
-                    <Button variant="outline" size="sm" leftIcon={<Plus className="w-4 h-4" />}>
-                      Создать запись
-                    </Button>
-                  )}
+            {!loading && filtered.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-champagne/8 flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-champagne" />
                 </div>
-              )
-              : filtered.map((booking) => (
-                <div key={booking.id} className="p-4">
-                  <div className="flex items-start gap-3">
-                    <Avatar name={booking.client} size="md" />
-                    <div className="flex-1 min-w-0">
-                      {/* Row 1: name + status */}
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="font-medium text-text-primary text-sm">
-                          {booking.client}
-                        </span>
-                        <Badge variant={getAppointmentStatusBadgeVariant(booking.status)} dot>
-                          {getAppointmentStatusLabel(booking.status)}
-                        </Badge>
-                      </div>
+                <div>
+                  <p className="font-medium text-text-primary text-base">
+                    {search ? 'Записи не найдены' : 'Нет записей за выбранный период'}
+                  </p>
+                  <p className="text-sm text-text-tertiary mt-1">
+                    {search ? `Нет совпадений для «${search}»` : 'Измените фильтры или создайте новую запись'}
+                  </p>
+                </div>
+                {!search && (
+                  <Button variant="outline" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setDialogOpen(true)}>
+                    Создать запись
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
 
-                      {/* Row 2: service */}
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <Sparkles className="w-3 h-3 text-text-tertiary shrink-0" />
-                        <p className="text-xs text-text-secondary truncate">{booking.service}</p>
-                      </div>
-
-                      {/* Row 3: time + specialist */}
-                      <div className="flex items-center gap-2 mt-1.5 text-xs text-text-tertiary">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {formatTime(booking.dateTime)}
-                        </span>
-                        <span>·</span>
-                        <span>{formatDuration(booking.duration)}</span>
-                        <span>·</span>
-                        <span className="truncate">{booking.specialist}</span>
-                      </div>
-
-                      {/* Row 4: date + amount + actions */}
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs text-text-tertiary">
-                          {formatDate(booking.dateTime)}
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-semibold text-champagne tabular-nums">
-                            {formatCurrency(booking.amount)}
-                          </span>
-                          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
-                            <div className="flex items-center gap-1.5">
-                              {booking.status === 'PENDING' && (
-                                <button
-                                  onClick={() => handleStatusChange(booking.id, 'CONFIRMED')}
-                                  disabled={updatingId === booking.id}
-                                  title="Подтвердить"
-                                  className={cn('w-7 h-7 rounded-lg flex items-center justify-center','bg-sage/10 text-sage border border-sage/20','hover:bg-sage/20 transition-colors','disabled:opacity-40')}
-                                ><Check className="w-3 h-3" /></button>
-                              )}
-                              {booking.status === 'CONFIRMED' && (
-                                <button
-                                  onClick={() => handleStatusChange(booking.id, 'COMPLETED')}
-                                  disabled={updatingId === booking.id}
-                                  title="Завершить"
-                                  className={cn('w-7 h-7 rounded-lg flex items-center justify-center','bg-blue-500/10 text-blue-400 border border-blue-500/20','hover:bg-blue-500/20 transition-colors','disabled:opacity-40')}
-                                ><CheckCircle2 className="w-3 h-3" /></button>
-                              )}
-                              <button
-                                onClick={() => handleStatusChange(booking.id, 'CANCELLED')}
-                                disabled={updatingId === booking.id}
-                                title="Отменить"
-                                className={cn('w-7 h-7 rounded-lg flex items-center justify-center','bg-red-500/10 text-red-400 border border-red-500/20','hover:bg-red-500/20 transition-colors','disabled:opacity-40')}
-                              ><X className="w-3 h-3" /></button>
-                            </div>
+          {/* Mobile cards */}
+          <div className="sm:hidden divide-y divide-border-luxury">
+            {loading
+              ? Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
+              : filtered.length === 0
+                ? (
+                  <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
+                    <Calendar className="w-8 h-8 text-champagne/50" />
+                    <p className="text-text-secondary text-sm">
+                      {search ? `Нет совпадений для «${search}»` : 'Нет записей за выбранный период'}
+                    </p>
+                    {!search && (
+                      <Button variant="outline" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setDialogOpen(true)}>
+                        Создать запись
+                      </Button>
+                    )}
+                  </div>
+                )
+                : filtered.map(booking => (
+                  <div key={booking.id} className="p-4">
+                    <div className="flex items-start gap-3">
+                      <Avatar name={booking.client} size="md" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          {booking.clientId ? (
+                            <Link href={`/clients/${booking.clientId}`} className="font-medium text-text-primary text-sm hover:text-champagne transition-colors">
+                              {booking.client}
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-text-primary text-sm">{booking.client}</span>
                           )}
+                          <Badge variant={getAppointmentStatusBadgeVariant(booking.status)} dot>
+                            {getAppointmentStatusLabel(booking.status)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Sparkles className="w-3 h-3 text-text-tertiary shrink-0" />
+                          <p className="text-xs text-text-secondary truncate">{booking.service}</p>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5 text-xs text-text-tertiary">
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(booking.dateTime)}</span>
+                          <span>·</span>
+                          <span>{formatDuration(booking.duration)}</span>
+                          <span>·</span>
+                          <span className="truncate">{booking.specialist}</span>
+                        </div>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs text-text-tertiary">{formatDate(booking.dateTime)}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold text-champagne tabular-nums">{formatCurrency(booking.amount)}</span>
+                            {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
+                              <div className="flex items-center gap-1.5">
+                                {booking.status === 'PENDING' && (
+                                  <button onClick={() => handleStatusChange(booking.id, 'CONFIRMED')} disabled={updatingId === booking.id} title="Подтвердить"
+                                    className={cn('w-7 h-7 rounded-lg flex items-center justify-center','bg-sage/10 text-sage border border-sage/20','hover:bg-sage/20 transition-colors','disabled:opacity-40')}
+                                  ><Check className="w-3 h-3" /></button>
+                                )}
+                                {booking.status === 'CONFIRMED' && (
+                                  <button onClick={() => handleStatusChange(booking.id, 'COMPLETED')} disabled={updatingId === booking.id} title="Завершить"
+                                    className={cn('w-7 h-7 rounded-lg flex items-center justify-center','bg-blue-500/10 text-blue-400 border border-blue-500/20','hover:bg-blue-500/20 transition-colors','disabled:opacity-40')}
+                                  ><CheckCircle2 className="w-3 h-3" /></button>
+                                )}
+                                <button onClick={() => handleStatusChange(booking.id, 'CANCELLED')} disabled={updatingId === booking.id} title="Отменить"
+                                  className={cn('w-7 h-7 rounded-lg flex items-center justify-center','bg-red-500/10 text-red-400 border border-red-500/20','hover:bg-red-500/20 transition-colors','disabled:opacity-40')}
+                                ><X className="w-3 h-3" /></button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+          </div>
         </div>
+
+        {/* Legend */}
+        {!loading && filtered.length > 0 && (
+          <div className="flex items-center justify-between text-xs text-text-tertiary px-1">
+            <span className="flex items-center gap-2">
+              <ChevronDown className="w-3.5 h-3.5" />
+              Показано: {filtered.length} из {bookings.length}
+            </span>
+            {statusFilter === 'ALL' && (
+              <span className="hidden sm:flex items-center gap-4">
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Ожидание: {countPending}</span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />Подтверждено: {countConfirmed}</span>
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sage inline-block" />Завершено: {countCompleted}</span>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ── Legend / info bar ─────────────────────────────────────────── */}
-      {!loading && filtered.length > 0 && (
-        <div className="flex items-center justify-between text-xs text-text-tertiary px-1">
-          <span className="flex items-center gap-2">
-            <ChevronDown className="w-3.5 h-3.5" />
-            Записей показано: {filtered.length} из {bookings.length}
-          </span>
-          {statusFilter === 'ALL' && (
-            <span className="hidden sm:flex items-center gap-4">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-                Ожидание: {countPending}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
-                Подтверждено: {countConfirmed}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-sage inline-block" />
-                Завершено: {countCompleted}
-              </span>
-            </span>
-          )}
-        </div>
-      )}
-    </div>
+      {/* New booking dialog */}
+      <NewBookingDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onCreated={handleCreated}
+      />
+    </>
   );
 }
