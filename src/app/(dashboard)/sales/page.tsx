@@ -12,16 +12,10 @@ import {
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 import { RecordSaleModal } from './_components/RecordSaleModal';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-
-const ROLE_LABEL: Record<string, string> = {
-  ADMIN:       'Администратор',
-  SPECIALIST:  'Специалист',
-  OPERATOR:    'Оператор',
-  SUPER_ADMIN: 'Супер-администратор',
-};
 
 interface SellerRow {
   userId: string; name: string; role: string;
@@ -61,13 +55,6 @@ interface BookingRecord {
   totalPrice: number; totalDuration: number; status: string;
   services: { name: string; price: number }[];
 }
-
-const PRESETS = [
-  { label: 'Сегодня', days: 0 },
-  { label: '7 дней',  days: 7  },
-  { label: '30 дней', days: 30 },
-  { label: '90 дней', days: 90 },
-];
 
 const tooltipStyle = {
   backgroundColor: '#13131A',
@@ -113,17 +100,29 @@ function KpiCard({ label, value, sub, icon, accent, delta }: {
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function SalesPage() {
+  const { t, lang } = useLanguage();
+
+  const ROLE_LABEL: Record<string, string> = {
+    ADMIN:       t('sales.role.admin'),
+    SPECIALIST:  t('sales.role.specialist'),
+    OPERATOR:    t('sales.role.operator'),
+    SUPER_ADMIN: t('sales.role.super'),
+  };
+
+  const PRESETS = [
+    { label: t('sales.period.today'), days: 0 },
+    { label: t('sales.period.7d'),  days: 7  },
+    { label: t('sales.period.30d'), days: 30 },
+    { label: t('sales.period.90d'), days: 90 },
+  ];
+
   const [data,          setData]          = React.useState<SalesData | null>(null);
   const [loading,       setLoading]       = React.useState(true);
-  const [activePreset,  setActivePreset]  = React.useState(1); // 7 days
+  const [activePreset,  setActivePreset]  = React.useState(1);
   const [showModal,     setShowModal]     = React.useState(false);
   const [recentSales,   setRecentSales]   = React.useState<BookingRecord[]>([]);
   const [recentLoading, setRecentLoading] = React.useState(false);
 
-  // Build date range for a given preset.
-  // Returns full ISO timestamps — NOT date-only strings.
-  // Date-only strings become midnight UTC, creating a cutoff bug where
-  // all bookings after midnight on 'to' day are excluded.
   function buildRange(days: number) {
     const to   = new Date();
     const from = days === 0
@@ -150,7 +149,6 @@ export default function SalesPage() {
     setRecentLoading(true);
     try {
       const { from, to } = buildRange(days);
-      // Include both CONFIRMED and COMPLETED — a sale remains visible after it's completed
       const res  = await fetch(
         `/api/admin/bookings?status=CONFIRMED,COMPLETED&from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}&limit=50`,
       );
@@ -171,6 +169,7 @@ export default function SalesPage() {
   const maxSellerRev   = data?.leaderboard[0]?.revenue    ?? 1;
   const maxSpecRev     = data?.specialists[0]?.revenue     ?? 1;
   const maxProcRev     = data?.procedures[0]?.revenue      ?? 1;
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
 
   return (
     <div className="p-6 lg:p-8 animate-fade-in space-y-6">
@@ -178,8 +177,8 @@ export default function SalesPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Продажи</h2>
-          <p className="text-text-secondary mt-1 text-sm">Финансовая аналитика и рейтинг сотрудников</p>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('sales.title')}</h2>
+          <p className="text-text-secondary mt-1 text-sm">{t('sales.subtitle')}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
@@ -187,7 +186,7 @@ export default function SalesPage() {
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Записать продажу
+            {t('sales.record')}
           </button>
           {PRESETS.map((p, i) => (
             <button
@@ -216,31 +215,31 @@ export default function SalesPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard
               icon={<TrendingUp className="w-5 h-5" />}
-              label="Выручка за период"
+              label={t('sales.metrics.revenue')}
               value={formatCurrency(data?.totals.revenue ?? 0)}
               accent
               delta={data?.previousPeriod.revenueDelta ?? null}
             />
             <KpiCard
               icon={<ShoppingBag className="w-5 h-5" />}
-              label="Записей за период"
-              value={(data?.totals.count ?? 0).toLocaleString('ru-RU')}
-              sub={`отменено: ${data?.totals.cancelledCount ?? 0}`}
+              label={t('sales.metrics.bookings')}
+              value={(data?.totals.count ?? 0).toLocaleString(locale)}
+              sub={`${t('sales.metrics.cancelled')} ${data?.totals.cancelledCount ?? 0}`}
               delta={data?.previousPeriod.countDelta ?? null}
             />
             <KpiCard
               icon={<Award className="w-5 h-5" />}
-              label="Средний чек"
+              label={t('sales.metrics.avgTicket')}
               value={data && data.totals.count > 0
                 ? formatCurrency(data.totals.avgCheck)
                 : '—'}
-              sub="только завершённые"
+              sub={t('sales.metrics.completedOnly')}
             />
             <KpiCard
               icon={<Users className="w-5 h-5" />}
-              label="Конверсия"
+              label={t('sales.metrics.conversion')}
               value={`${data?.totals.completionRate ?? 0}%`}
-              sub={`продавцов: ${data?.leaderboard.length ?? 0}`}
+              sub={`${t('sales.metrics.sellers')} ${data?.leaderboard.length ?? 0}`}
             />
           </div>
 
@@ -249,18 +248,18 @@ export default function SalesPage() {
             <div className="grid grid-cols-3 gap-4">
               <KpiCard
                 icon={<Users className="w-5 h-5" />}
-                label="Уникальных клиентов"
-                value={(data.clientMetrics.totalUnique).toLocaleString('ru-RU')}
+                label={t('sales.metrics.clients')}
+                value={(data.clientMetrics.totalUnique).toLocaleString(locale)}
               />
               <KpiCard
                 icon={<UserPlus className="w-5 h-5" />}
-                label="Новые клиенты"
-                value={data.clientMetrics.newClients.toLocaleString('ru-RU')}
+                label={t('sales.metrics.newClients')}
+                value={data.clientMetrics.newClients.toLocaleString(locale)}
               />
               <KpiCard
                 icon={<Repeat className="w-5 h-5" />}
-                label="Возвратные клиенты"
-                value={data.clientMetrics.returningClients.toLocaleString('ru-RU')}
+                label={t('sales.metrics.returning')}
+                value={data.clientMetrics.returningClients.toLocaleString(locale)}
               />
             </div>
           )}
@@ -270,13 +269,13 @@ export default function SalesPage() {
             <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-border-luxury flex items-center justify-between">
                 <div>
-                  <h3 className="font-serif text-lg font-medium text-text-primary">Динамика выручки</h3>
-                  <p className="text-xs text-text-tertiary mt-0.5">Подтверждённые и завершённые записи</p>
+                  <h3 className="font-serif text-lg font-medium text-text-primary">{t('sales.chart.revenue')}</h3>
+                  <p className="text-xs text-text-tertiary mt-0.5">{t('sales.chart.revenueHint')}</p>
                 </div>
                 {data.previousPeriod.revenueDelta !== null && (
                   <div className="text-right">
                     <Delta value={data.previousPeriod.revenueDelta} />
-                    <p className="text-[10px] text-text-tertiary mt-0.5">к предыдущему периоду</p>
+                    <p className="text-[10px] text-text-tertiary mt-0.5">{t('sales.delta')}</p>
                   </div>
                 )}
               </div>
@@ -303,7 +302,7 @@ export default function SalesPage() {
                     />
                     <Tooltip
                       contentStyle={tooltipStyle}
-                      formatter={(v: number) => [formatCurrency(v), 'Выручка']}
+                      formatter={(v: number) => [formatCurrency(v), t('analytics.metrics.revenue')]}
                       labelStyle={{ color: '#9A9490', marginBottom: 4 }}
                     />
                     <Area
@@ -322,8 +321,8 @@ export default function SalesPage() {
           {data && data.daily.length > 0 && (
             <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-border-luxury">
-                <h3 className="font-serif text-lg font-medium text-text-primary">Записи по дням</h3>
-                <p className="text-xs text-text-tertiary mt-0.5">Количество подтверждённых записей</p>
+                <h3 className="font-serif text-lg font-medium text-text-primary">{t('sales.chart.bookings')}</h3>
+                <p className="text-xs text-text-tertiary mt-0.5">{t('sales.chart.bookingsHint')}</p>
               </div>
               <div className="p-4 h-48">
                 <ResponsiveContainer width="100%" height="100%">
@@ -342,7 +341,7 @@ export default function SalesPage() {
                     />
                     <Tooltip
                       contentStyle={tooltipStyle}
-                      formatter={(v: number) => [v, 'Записей']}
+                      formatter={(v: number) => [v, t('analytics.bookings.title')]}
                       labelStyle={{ color: '#9A9490', marginBottom: 4 }}
                     />
                     <Bar dataKey="count" fill="#D4AF7A" radius={[3, 3, 0, 0]} opacity={0.8} />
@@ -355,15 +354,15 @@ export default function SalesPage() {
           {/* ── Seller leaderboard ───────────────────────────────────────── */}
           <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-border-luxury">
-              <h3 className="font-serif text-lg font-medium text-text-primary">Рейтинг продавцов</h3>
-              <p className="text-xs text-text-tertiary mt-0.5">По атрибутированной выручке за период</p>
+              <h3 className="font-serif text-lg font-medium text-text-primary">{t('sales.ranking.title')}</h3>
+              <p className="text-xs text-text-tertiary mt-0.5">{t('sales.ranking.hint')}</p>
             </div>
 
             {!data?.leaderboard.length ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
                 <TrendingUp className="w-10 h-10 text-text-tertiary" />
-                <p className="text-sm text-text-secondary">Нет данных за выбранный период</p>
-                <p className="text-xs text-text-tertiary">Назначьте продавца при записи</p>
+                <p className="text-sm text-text-secondary">{t('sales.noData')}</p>
+                <p className="text-xs text-text-tertiary">{t('sales.noDataHint')}</p>
               </div>
             ) : (
               <>
@@ -371,12 +370,12 @@ export default function SalesPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border-luxury">
-                        <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary w-8">#</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Сотрудник</th>
-                        <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Роль</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Записей</th>
-                        <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Средний чек</th>
-                        <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Выручка</th>
+                        <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary w-8">{t('sales.ranking.col.num')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.ranking.col.staff')}</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.ranking.col.role')}</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.ranking.col.bookings')}</th>
+                        <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.ranking.col.avgTicket')}</th>
+                        <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.ranking.col.revenue')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-luxury">
@@ -426,7 +425,7 @@ export default function SalesPage() {
                           <p className="font-medium text-text-primary text-sm">{row.name}</p>
                           <span className="font-semibold text-champagne text-sm tabular-nums">{formatCurrency(row.revenue)}</span>
                         </div>
-                        <p className="text-xs text-text-tertiary mt-0.5">{ROLE_LABEL[row.role] ?? row.role} · {row.count} записей</p>
+                        <p className="text-xs text-text-tertiary mt-0.5">{ROLE_LABEL[row.role] ?? row.role} · {row.count} {t('sales.ranking.perBooking')}</p>
                       </div>
                     </div>
                   ))}
@@ -439,8 +438,8 @@ export default function SalesPage() {
           {data && data.specialists.length > 0 && (
             <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-border-luxury">
-                <h3 className="font-serif text-lg font-medium text-text-primary">Специалисты</h3>
-                <p className="text-xs text-text-tertiary mt-0.5">Выручка по специалисту, выполнившему услугу</p>
+                <h3 className="font-serif text-lg font-medium text-text-primary">{t('sales.specialist.title')}</h3>
+                <p className="text-xs text-text-tertiary mt-0.5">{t('sales.specialist.hint')}</p>
               </div>
               <div className="divide-y divide-border-luxury">
                 {data.specialists.map((s, i) => (
@@ -455,15 +454,15 @@ export default function SalesPage() {
                       </div>
                       <div className="flex items-center gap-4 shrink-0">
                         <div className="hidden sm:block text-right">
-                          <p className="text-xs text-text-tertiary">Записей</p>
+                          <p className="text-xs text-text-tertiary">{t('sales.specialist.bookings')}</p>
                           <p className="text-sm font-medium text-text-primary">{s.count}</p>
                         </div>
                         <div className="hidden sm:block text-right">
-                          <p className="text-xs text-text-tertiary">Ср. чек</p>
+                          <p className="text-xs text-text-tertiary">{t('sales.specialist.avgTicket')}</p>
                           <p className="text-sm font-medium text-text-primary">{formatCurrency(s.avg)}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs text-text-tertiary">Выручка</p>
+                          <p className="text-xs text-text-tertiary">{t('sales.specialist.revenue')}</p>
                           <p className="text-sm font-semibold text-champagne">{formatCurrency(s.revenue)}</p>
                         </div>
                       </div>
@@ -484,8 +483,8 @@ export default function SalesPage() {
           {data && data.procedures.length > 0 && (
             <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-border-luxury">
-                <h3 className="font-serif text-lg font-medium text-text-primary">Топ процедур</h3>
-                <p className="text-xs text-text-tertiary mt-0.5">По выручке за период</p>
+                <h3 className="font-serif text-lg font-medium text-text-primary">{t('sales.procedure.title')}</h3>
+                <p className="text-xs text-text-tertiary mt-0.5">{t('sales.procedure.hint')}</p>
               </div>
               <div className="divide-y divide-border-luxury">
                 {data.procedures.map((p, i) => (
@@ -505,11 +504,11 @@ export default function SalesPage() {
                     </div>
                     <div className="flex items-center gap-4 shrink-0 text-right">
                       <div className="hidden sm:block">
-                        <p className="text-xs text-text-tertiary">Продаж</p>
+                        <p className="text-xs text-text-tertiary">{t('sales.procedure.sales')}</p>
                         <p className="text-sm text-text-secondary">{p.count}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-text-tertiary">Выручка</p>
+                        <p className="text-xs text-text-tertiary">{t('sales.specialist.revenue')}</p>
                         <p className="text-sm font-semibold text-champagne tabular-nums">{formatCurrency(p.revenue)}</p>
                       </div>
                     </div>
@@ -521,11 +520,11 @@ export default function SalesPage() {
         </>
       )}
 
-      {/* ── Recent Sales — renders independently of analytics state ───────── */}
+      {/* ── Recent Sales ───────────────────────────────────────────────────── */}
       <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-border-luxury">
-          <h3 className="font-serif text-lg font-medium text-text-primary">Последние продажи</h3>
-          <p className="text-xs text-text-tertiary mt-0.5">Подтверждённые и завершённые за период</p>
+          <h3 className="font-serif text-lg font-medium text-text-primary">{t('sales.recent.title')}</h3>
+          <p className="text-xs text-text-tertiary mt-0.5">{t('sales.recent.hint')}</p>
         </div>
 
         {recentLoading ? (
@@ -535,7 +534,7 @@ export default function SalesPage() {
         ) : recentSales.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <ShoppingBag className="w-8 h-8 text-text-tertiary" />
-            <p className="text-sm text-text-secondary">Продаж за период нет</p>
+            <p className="text-sm text-text-secondary">{t('sales.recent.empty')}</p>
           </div>
         ) : (
           <>
@@ -543,12 +542,12 @@ export default function SalesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border-luxury">
-                    <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Клиент</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Услуга</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Специалист</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Статус</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Дата</th>
-                    <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Сумма</th>
+                    <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.recent.col.client')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.recent.col.service')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.recent.col.specialist')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.recent.col.status')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.recent.col.date')}</th>
+                    <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('sales.recent.col.amount')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-luxury">
@@ -571,11 +570,11 @@ export default function SalesPage() {
                             ? 'bg-green-500/10 text-green-400 border-green-500/20'
                             : 'bg-champagne/10 text-champagne border-champagne/20',
                         )}>
-                          {sale.status === 'COMPLETED' ? 'Завершено' : 'Подтверждено'}
+                          {sale.status === 'COMPLETED' ? t('sales.status.completed') : t('sales.status.confirmed')}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-text-tertiary text-xs">
-                        {new Date(sale.startAt).toLocaleDateString('ru-RU', {
+                        {new Date(sale.startAt).toLocaleDateString(locale, {
                           day: 'numeric', month: 'short',
                           hour: '2-digit', minute: '2-digit',
                         })}
@@ -603,7 +602,7 @@ export default function SalesPage() {
                     {sale.services.map((s) => s.name).join(', ')} · {sale.specialistName}
                   </p>
                   <p className="text-[10px] text-text-tertiary ml-8 mt-0.5">
-                    {new Date(sale.startAt).toLocaleDateString('ru-RU', {
+                    {new Date(sale.startAt).toLocaleDateString(locale, {
                       day: 'numeric', month: 'short',
                       hour: '2-digit', minute: '2-digit',
                     })}

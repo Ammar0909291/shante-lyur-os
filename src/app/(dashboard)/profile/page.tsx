@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { User, Mail, Phone, Shield, Clock, LogOut, Edit2, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 interface MeData {
   id: string;
@@ -15,29 +16,6 @@ interface MeData {
   lastLoginAt: string | null;
   createdAt: string;
 }
-
-const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: 'Супер-администратор',
-  ADMIN: 'Администратор',
-  OPERATOR: 'Оператор',
-  SPECIALIST: 'Специалист',
-  CLIENT: 'Клиент',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: 'Активен',
-  INACTIVE: 'Неактивен',
-  BLOCKED: 'Заблокирован',
-  SUSPENDED: 'Заблокирован',
-};
-
-const PERMISSIONS: Record<string, string[]> = {
-  SUPER_ADMIN: ['Управление системой', 'Управление пользователями', 'Аналитика', 'Настройки', 'Финансы', 'Экспорт данных'],
-  ADMIN: ['Управление записями', 'Управление клиентами', 'Управление специалистами', 'Аналитика', 'Настройки'],
-  OPERATOR: ['Управление записями', 'Просмотр клиентов', 'Создание записей'],
-  SPECIALIST: ['Просмотр своих записей', 'Управление расписанием'],
-  CLIENT: ['Создание записей', 'Просмотр своих данных'],
-};
 
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
@@ -60,6 +38,7 @@ function formatDateTime(iso: string | null): string {
 }
 
 export default function ProfilePage() {
+  const { t } = useLanguage();
   const [me, setMe] = React.useState<MeData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
@@ -70,6 +49,29 @@ export default function ProfilePage() {
   const [firstName, setFirstName] = React.useState('');
   const [lastName, setLastName] = React.useState('');
   const [phone, setPhone] = React.useState('');
+
+  const ROLE_LABEL: Record<string, string> = {
+    SUPER_ADMIN: t('profile.role.super'),
+    ADMIN: t('profile.role.admin'),
+    OPERATOR: t('profile.role.operator'),
+    SPECIALIST: t('profile.role.specialist'),
+    CLIENT: t('profile.role.client'),
+  };
+
+  const STATUS_LABEL: Record<string, string> = {
+    ACTIVE: t('profile.status.active'),
+    INACTIVE: t('profile.status.inactive'),
+    BLOCKED: t('profile.status.suspended'),
+    SUSPENDED: t('profile.status.suspended'),
+  };
+
+  const PERMISSIONS: Record<string, string[]> = {
+    SUPER_ADMIN: [t('profile.perm.system'), t('profile.perm.users'), t('profile.perm.analytics'), t('profile.perm.settings'), t('profile.perm.finance'), t('profile.perm.export')],
+    ADMIN: [t('profile.perm.bookings'), t('profile.perm.clients'), t('profile.perm.specialists'), t('profile.perm.analytics'), t('profile.perm.settings')],
+    OPERATOR: [t('profile.perm.bookings'), t('profile.perm.viewClients'), t('profile.perm.createBookings')],
+    SPECIALIST: [t('profile.perm.viewOwn'), t('profile.perm.schedule')],
+    CLIENT: [t('profile.perm.createBookings'), t('profile.perm.selfData')],
+  };
 
   React.useEffect(() => {
     fetch('/api/auth/me')
@@ -82,10 +84,10 @@ export default function ProfilePage() {
           setLastName(user.lastName);
           setPhone(user.phone ?? '');
         } else {
-          setError(json.error?.message ?? 'Ошибка загрузки профиля');
+          setError(json.error?.message ?? t('profile.error.load'));
         }
       })
-      .catch(() => setError('Ошибка соединения'))
+      .catch(() => setError(t('profile.error.connection')))
       .finally(() => setLoading(false));
   }, []);
 
@@ -124,13 +126,13 @@ export default function ProfilePage() {
       });
       const json = await res.json() as { success: boolean; data?: MeData; error?: { message?: string } };
       if (!res.ok) {
-        setSaveError(json.error?.message ?? 'Ошибка сохранения');
+        setSaveError(json.error?.message ?? t('profile.error.load'));
         return;
       }
       setMe(json.data!);
       setEditing(false);
     } catch {
-      setSaveError('Ошибка соединения');
+      setSaveError(t('profile.error.connection'));
     } finally {
       setSaving(false);
     }
@@ -152,7 +154,7 @@ export default function ProfilePage() {
   if (!me) {
     return (
       <div className="p-6 lg:p-8">
-        <p className="text-text-secondary">{error || 'Не удалось загрузить профиль'}</p>
+        <p className="text-text-secondary">{error || t('profile.error.notFound')}</p>
       </div>
     );
   }
@@ -164,7 +166,7 @@ export default function ProfilePage() {
     <div className="p-6 lg:p-8 animate-fade-in max-w-4xl">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Профиль</h2>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('page.profile')}</h2>
           <p className="text-text-secondary mt-1 text-sm">{ROLE_LABEL[me.role] ?? me.role}</p>
         </div>
         <button
@@ -175,7 +177,7 @@ export default function ProfilePage() {
           )}
         >
           <LogOut className="w-4 h-4" />
-          Выйти
+          {t('profile.btn.logout')}
         </button>
       </div>
 
@@ -191,7 +193,7 @@ export default function ProfilePage() {
           {editing ? (
             <div className="w-full space-y-3">
               <div>
-                <label className="block text-xs text-text-tertiary mb-1">Имя</label>
+                <label className="block text-xs text-text-tertiary mb-1">{t('profile.form.firstName')}</label>
                 <input
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
@@ -200,7 +202,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-text-tertiary mb-1">Фамилия</label>
+                <label className="block text-xs text-text-tertiary mb-1">{t('profile.form.lastName')}</label>
                 <input
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
@@ -209,7 +211,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-text-tertiary mb-1">Телефон</label>
+                <label className="block text-xs text-text-tertiary mb-1">{t('profile.form.phone')}</label>
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -228,7 +230,7 @@ export default function ProfilePage() {
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm hover:bg-champagne/20 transition-colors disabled:opacity-50"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  {saving ? 'Сохранение...' : 'Сохранить'}
+                  {saving ? t('profile.saving') : t('profile.btn.save')}
                 </button>
                 <button
                   onClick={cancelEdit}
@@ -236,7 +238,7 @@ export default function ProfilePage() {
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors disabled:opacity-50"
                 >
                   <X className="w-3.5 h-3.5" />
-                  Отмена
+                  {t('profile.btn.cancel')}
                 </button>
               </div>
             </div>
@@ -259,7 +261,7 @@ export default function ProfilePage() {
                 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors w-full justify-center"
               >
                 <Edit2 className="w-3.5 h-3.5" />
-                Редактировать
+                {t('profile.btn.edit')}
               </button>
             </>
           )}
@@ -269,16 +271,16 @@ export default function ProfilePage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Contact info */}
           <div className="bg-onyx border border-border-luxury rounded-2xl p-6">
-            <h3 className="font-serif text-base font-medium text-text-primary mb-1">Контактная информация</h3>
-            <InfoRow icon={<Mail className="w-4 h-4" />} label="Email" value={me.email} />
-            <InfoRow icon={<Phone className="w-4 h-4" />} label="Телефон" value={me.phone ?? '—'} />
-            <InfoRow icon={<Shield className="w-4 h-4" />} label="Роль" value={ROLE_LABEL[me.role] ?? me.role} />
-            <InfoRow icon={<Clock className="w-4 h-4" />} label="Последний вход" value={formatDateTime(me.lastLoginAt)} />
-            <InfoRow icon={<User className="w-4 h-4" />} label="Дата регистрации" value={formatDateTime(me.createdAt)} />
+            <h3 className="font-serif text-base font-medium text-text-primary mb-1">{t('profile.section.contact')}</h3>
+            <InfoRow icon={<Mail className="w-4 h-4" />} label={t('profile.label.email')} value={me.email} />
+            <InfoRow icon={<Phone className="w-4 h-4" />} label={t('profile.label.phone')} value={me.phone ?? '—'} />
+            <InfoRow icon={<Shield className="w-4 h-4" />} label={t('profile.label.role')} value={ROLE_LABEL[me.role] ?? me.role} />
+            <InfoRow icon={<Clock className="w-4 h-4" />} label={t('profile.label.lastLogin')} value={formatDateTime(me.lastLoginAt)} />
+            <InfoRow icon={<User className="w-4 h-4" />} label={t('profile.label.registered')} value={formatDateTime(me.createdAt)} />
             <div className="flex items-center gap-3 pt-3">
               <span className="text-text-tertiary shrink-0"><User className="w-4 h-4" /></span>
               <div className="flex-1">
-                <p className="text-xs text-text-tertiary mb-0.5">Локация</p>
+                <p className="text-xs text-text-tertiary mb-0.5">{t('profile.label.location')}</p>
                 <p className="text-sm text-text-primary">Shante Lyur — Екатеринбург, ул. Малышева, 3</p>
               </div>
             </div>
@@ -287,7 +289,7 @@ export default function ProfilePage() {
           {/* Permissions */}
           {permissions.length > 0 && (
             <div className="bg-onyx border border-border-luxury rounded-2xl p-6">
-              <h3 className="font-serif text-base font-medium text-text-primary mb-4">Права доступа</h3>
+              <h3 className="font-serif text-base font-medium text-text-primary mb-4">{t('profile.section.permissions')}</h3>
               <div className="flex flex-wrap gap-2">
                 {permissions.map((perm) => (
                   <span

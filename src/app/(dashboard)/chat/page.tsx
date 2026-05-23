@@ -4,6 +4,7 @@ import * as React from 'react';
 import { MessageCircle, Send, Search, Circle, Globe } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 interface StaffUser {
   id: string;
@@ -35,13 +36,6 @@ interface Message {
   isOwn: boolean;
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  ADMIN: 'Администратор',
-  SPECIALIST: 'Специалист',
-  OPERATOR: 'Оператор',
-  SUPER_ADMIN: 'Супер-администратор',
-};
-
 const PUBLIC_CHANNEL_ID = '__public__';
 
 function timeLabel(dateStr: string) {
@@ -53,6 +47,7 @@ function timeLabel(dateStr: string) {
 }
 
 export default function ChatPage() {
+  const { t } = useLanguage();
   const [staff, setStaff] = React.useState<StaffUser[]>([]);
   const [conversations, setConversations] = React.useState<Conversation[]>([]);
   const [activePartnerId, setActivePartnerId] = React.useState<string | null>(null);
@@ -64,6 +59,13 @@ export default function ChatPage() {
 
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const ROLE_LABEL: Record<string, string> = {
+    ADMIN: t('chat.role.admin'),
+    SPECIALIST: t('chat.role.specialist'),
+    OPERATOR: t('chat.role.operator'),
+    SUPER_ADMIN: t('chat.role.super'),
+  };
 
   React.useEffect(() => {
     fetch('/api/chat/users')
@@ -175,12 +177,12 @@ export default function ChatPage() {
   const activeConv = conversations.find((c) => c.partnerId === activePartnerId);
 
   const activePartnerName =
-    activePartnerId === PUBLIC_CHANNEL_ID ? 'Общий чат' :
+    activePartnerId === PUBLIC_CHANNEL_ID ? t('chat.generalChat') :
     activeConv?.partnerName ??
     (activeStaff ? `${activeStaff.firstName} ${activeStaff.lastName}` : '');
 
   const activePartnerSub =
-    activePartnerId === PUBLIC_CHANNEL_ID ? 'Все сотрудники' :
+    activePartnerId === PUBLIC_CHANNEL_ID ? t('chat.allStaff') :
     activeConv?.specialization ??
     ROLE_LABEL[activeConv?.partnerRole ?? activeStaff?.role ?? ''] ?? '';
 
@@ -191,8 +193,8 @@ export default function ChatPage() {
       {/* Sidebar */}
       <div className="w-72 shrink-0 border-r border-border-luxury flex flex-col">
         <div className="px-4 py-4 border-b border-border-luxury">
-          <h2 className="font-serif text-lg font-medium text-text-primary">Чат сотрудников</h2>
-          <p className="text-xs text-text-tertiary mt-0.5">Внутренняя переписка</p>
+          <h2 className="font-serif text-lg font-medium text-text-primary">{t('chat.title')}</h2>
+          <p className="text-xs text-text-tertiary mt-0.5">{t('chat.subtitle')}</p>
         </div>
 
         <div className="px-3 py-2 border-b border-border-luxury">
@@ -201,7 +203,7 @@ export default function ChatPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск сотрудников..."
+              placeholder={t('chat.searchPlaceholder')}
               className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-champagne/30"
             />
           </div>
@@ -221,8 +223,8 @@ export default function ChatPage() {
                 <Globe className="w-4 h-4 text-champagne" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-text-primary">Общий чат</p>
-                <p className="text-xs text-text-tertiary">Все сотрудники</p>
+                <p className="text-sm font-medium text-text-primary">{t('chat.generalChat')}</p>
+                <p className="text-xs text-text-tertiary">{t('chat.allStaff')}</p>
               </div>
             </button>
           )}
@@ -276,7 +278,7 @@ export default function ChatPage() {
             <>
               {filteredConversations.length > 0 && (
                 <div className="px-4 py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Все сотрудники</p>
+                  <p className="text-[10px] uppercase tracking-wider text-text-tertiary">{t('chat.allStaff')}</p>
                 </div>
               )}
               {filteredStaff.map((s) => (
@@ -306,7 +308,7 @@ export default function ChatPage() {
                         className={cn('w-1.5 h-1.5 fill-current', s.online ? 'text-green-400' : 'text-text-tertiary')}
                       />
                       <p className="text-xs text-text-tertiary">
-                        {s.online ? 'Онлайн' : ROLE_LABEL[s.role] ?? s.role}
+                        {s.online ? t('chat.online') : ROLE_LABEL[s.role] ?? s.role}
                       </p>
                     </div>
                   </div>
@@ -318,7 +320,7 @@ export default function ChatPage() {
           {filteredConversations.length === 0 && filteredStaff.length === 0 && search && (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <MessageCircle className="w-8 h-8 text-text-tertiary" />
-              <p className="text-xs text-text-tertiary">Сотрудников не найдено</p>
+              <p className="text-xs text-text-tertiary">{t('chat.noStaff')}</p>
             </div>
           )}
         </div>
@@ -361,9 +363,9 @@ export default function ChatPage() {
                 <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
                   <MessageCircle className="w-10 h-10 text-text-tertiary" />
                   <p className="text-sm text-text-secondary">
-                    {activePartnerId === PUBLIC_CHANNEL_ID ? 'Общий чат пуст' : 'Начните переписку'}
+                    {activePartnerId === PUBLIC_CHANNEL_ID ? t('chat.generalEmpty') : t('chat.startConversation')}
                   </p>
-                  <p className="text-xs text-text-tertiary">Напишите первое сообщение</p>
+                  <p className="text-xs text-text-tertiary">{t('chat.writeFirst')}</p>
                 </div>
               ) : (
                 messages.map((msg) => (
@@ -403,7 +405,7 @@ export default function ChatPage() {
                         )}
                       >
                         {timeLabel(msg.createdAt)}
-                        {msg.isOwn && msg.readAt && ' · Прочитано'}
+                        {msg.isOwn && msg.readAt && ` · ${t('chat.read')}`}
                       </p>
                     </div>
                   </div>
@@ -419,7 +421,7 @@ export default function ChatPage() {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={activePartnerId === PUBLIC_CHANNEL_ID ? 'Написать в общий чат...' : 'Написать сообщение...'}
+                  placeholder={activePartnerId === PUBLIC_CHANNEL_ID ? t('chat.generalPlaceholder') : t('chat.msgPlaceholder')}
                   className="flex-1 px-3.5 py-2.5 rounded-xl text-sm bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all"
                 />
                 <button
@@ -443,8 +445,8 @@ export default function ChatPage() {
               <MessageCircle className="w-10 h-10 text-text-tertiary" />
             </div>
             <div className="text-center">
-              <p className="text-text-primary font-medium">Выберите собеседника</p>
-              <p className="text-sm text-text-tertiary mt-1">Или откройте общий чат сотрудников</p>
+              <p className="text-text-primary font-medium">{t('chat.selectRecipient')}</p>
+              <p className="text-sm text-text-tertiary mt-1">{t('chat.orGeneral')}</p>
             </div>
           </div>
         )}

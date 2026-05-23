@@ -11,6 +11,7 @@ import {
   Download, Users, UserCheck, UserPlus, Repeat, Clock,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 interface SeriesPoint { date: string; revenue: number; bookings: number; }
 interface StatusItem { status: string; label: string; count: number; }
@@ -36,15 +37,6 @@ interface AnalyticsData {
   groupBy: string;
 }
 
-const RANGES = [
-  { value: '1d', label: '1 день' },
-  { value: '7d', label: '7 дней' },
-  { value: '30d', label: '1 месяц' },
-  { value: '3m', label: '3 месяца' },
-  { value: '6m', label: '6 месяцев' },
-  { value: '1y', label: '1 год' },
-];
-
 const STATUS_COLORS: Record<string, string> = {
   COMPLETED: '#8BA888',
   CONFIRMED: '#D4AF7A',
@@ -54,16 +46,24 @@ const STATUS_COLORS: Record<string, string> = {
   NO_SHOW: '#9A9490',
 };
 
-const DOW_LABELS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-
-function formatDateLabel(dateStr: string, groupBy: string): string {
+function formatDateLabel(
+  dateStr: string,
+  groupBy: string,
+  t: (key: string) => string,
+  lang: string,
+): string {
   if (groupBy === 'month') {
     const [y, m] = dateStr.split('-');
-    const months = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+    const months = [
+      t('analytics.months.jan'), t('analytics.months.feb'), t('analytics.months.mar'),
+      t('analytics.months.apr'), t('analytics.months.may'), t('analytics.months.jun'),
+      t('analytics.months.jul'), t('analytics.months.aug'), t('analytics.months.sep'),
+      t('analytics.months.oct'), t('analytics.months.nov'), t('analytics.months.dec'),
+    ];
     return `${months[Number(m) - 1]} ${y}`;
   }
   const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'short' });
 }
 
 const tooltipStyle = {
@@ -106,64 +106,65 @@ function MetricCard({
   );
 }
 
-function exportToExcel(data: AnalyticsData, range: string) {
+function exportToExcel(
+  data: AnalyticsData,
+  rangeLabel: string,
+  t: (key: string) => string,
+) {
   import('xlsx').then((XLSX) => {
     const wb = XLSX.utils.book_new();
-    const rangeLabel = RANGES.find((r) => r.value === range)?.label ?? range;
 
     const summaryRows = [
-      ['Shante Lyur OS — Аналитика', '', `Период: ${rangeLabel}`],
+      [`Shante Lyur OS — ${t('analytics.title')}`, '', `${rangeLabel}`],
       [],
-      ['Показатель', 'Значение'],
-      ['Выручка (₽)', data.summary.totalRevenue],
-      ['Всего записей', data.summary.totalBookings],
-      ['Завершено', data.summary.completedCount],
-      ['Конверсия (%)', data.summary.completionRate],
-      ['Средний чек (₽)', data.summary.avgTicket],
+      [t('analytics.metrics.revenue'), data.summary.totalRevenue],
+      [t('analytics.metrics.total'), data.summary.totalBookings],
+      [t('analytics.metrics.completed'), data.summary.completedCount],
+      [t('analytics.metrics.avgTicket'), data.summary.avgTicket],
       [],
-      ['Клиенты за период', data.clientMetrics.totalInPeriod],
-      ['Новые клиенты', data.clientMetrics.newClients],
-      ['Возвратные клиенты', data.clientMetrics.returningClients],
-      ['Удержание (%)', data.clientMetrics.retentionRate],
+      [t('analytics.metrics.clients'), data.clientMetrics.totalInPeriod],
+      [t('analytics.metrics.newClients'), data.clientMetrics.newClients],
+      [t('analytics.metrics.returning'), data.clientMetrics.returningClients],
+      [t('analytics.metrics.retention'), data.clientMetrics.retentionRate],
     ];
     const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
     ws1['!cols'] = [{ wch: 24 }, { wch: 16 }, { wch: 20 }];
-    XLSX.utils.book_append_sheet(wb, ws1, 'Сводка');
+    XLSX.utils.book_append_sheet(wb, ws1, t('analytics.bookings.byStatus').split(' ')[0]);
 
     const seriesRows = [
-      ['Дата', 'Выручка (₽)', 'Записей'],
+      [t('common.date'), `${t('analytics.metrics.revenue')} (₽)`, t('analytics.bookings.title')],
       ...data.series.map((p) => [p.date, p.revenue, p.bookings]),
     ];
     const ws2 = XLSX.utils.aoa_to_sheet(seriesRows);
     ws2['!cols'] = [{ wch: 14 }, { wch: 16 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(wb, ws2, 'Динамика');
+    XLSX.utils.book_append_sheet(wb, ws2, t('analytics.revenue.title'));
 
     const statusRows = [
-      ['Статус', 'Количество'],
+      [t('common.status'), t('analytics.bookings.title')],
       ...data.statusBreakdown.map((s) => [s.label, s.count]),
     ];
     const ws3 = XLSX.utils.aoa_to_sheet(statusRows);
     ws3['!cols'] = [{ wch: 20 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(wb, ws3, 'По статусам');
+    XLSX.utils.book_append_sheet(wb, ws3, t('analytics.bookings.byStatus'));
 
     if (data.specialistPerformance.length > 0) {
       const specRows = [
-        ['Специалист', 'Выручка (₽)', 'Записей', 'Часов'],
+        [t('analytics.specialists.title'), `${t('analytics.metrics.revenue')} (₽)`, t('analytics.specialists.bookings'), t('analytics.specialists.hours')],
         ...data.specialistPerformance.map((s) => [s.name, s.revenue, s.count, s.bookedHours]),
       ];
       const ws4 = XLSX.utils.aoa_to_sheet(specRows);
       ws4['!cols'] = [{ wch: 26 }, { wch: 16 }, { wch: 12 }, { wch: 10 }];
-      XLSX.utils.book_append_sheet(wb, ws4, 'Специалисты');
+      XLSX.utils.book_append_sheet(wb, ws4, t('analytics.specialists.title'));
     }
 
     if (data.serviceMetrics.length > 0) {
       const svcRows = [
-        ['Услуга', 'Категория', 'Выручка (₽)', 'Кол-во'],
+        [t('analytics.services.col.service'), t('analytics.services.col.category'), `${t('analytics.metrics.revenue')} (₽)`, t('analytics.services.col.count')],
         ...data.serviceMetrics.map((s) => [s.name, s.category, s.revenue, s.count]),
       ];
       const ws5 = XLSX.utils.aoa_to_sheet(svcRows);
       ws5['!cols'] = [{ wch: 30 }, { wch: 20 }, { wch: 16 }, { wch: 10 }];
-      XLSX.utils.book_append_sheet(wb, ws5, 'Услуги');
+      XLSX.utils.book_append_sheet(wb, ws5, t('analytics.services.title'));
     }
 
     const dateStr = new Date().toISOString().split('T')[0];
@@ -173,18 +174,14 @@ function exportToExcel(data: AnalyticsData, range: string) {
 
 interface SpecialistOption { id: string; firstName: string; lastName: string; }
 
-// Build 7×24 heatmap grid. Max count used to normalise cell intensity.
-function HeatmapGrid({ data }: { data: HeatmapCell[] }) {
+function HeatmapGrid({ data, dowLabels, t }: { data: HeatmapCell[]; dowLabels: string[]; t: (key: string) => string }) {
   const maxCount = Math.max(1, ...data.map((d) => d.count));
   const map = new Map(data.map((d) => [`${d.dow}-${d.hour}`, d.count]));
-
-  // Show hours 8-22 to keep it compact
   const hours = Array.from({ length: 15 }, (_, i) => i + 8);
 
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[640px]">
-        {/* Hour labels */}
         <div className="flex mb-1 pl-8">
           {hours.map((h) => (
             <div key={h} className="flex-1 text-center text-[10px] text-text-tertiary">
@@ -192,8 +189,7 @@ function HeatmapGrid({ data }: { data: HeatmapCell[] }) {
             </div>
           ))}
         </div>
-        {/* Rows per day */}
-        {DOW_LABELS.map((day, dow) => (
+        {dowLabels.map((day, dow) => (
           <div key={dow} className="flex items-center gap-0.5 mb-0.5">
             <span className="w-8 text-[11px] text-text-tertiary shrink-0">{day}</span>
             {hours.map((h) => {
@@ -208,15 +204,14 @@ function HeatmapGrid({ data }: { data: HeatmapCell[] }) {
                       ? 'rgba(42,42,56,0.6)'
                       : `rgba(212,175,122,${0.12 + intensity * 0.88})`,
                   }}
-                  title={`${day} ${h}:00 — ${count} записей`}
+                  title={`${day} ${h}:00 — ${count}`}
                 />
               );
             })}
           </div>
         ))}
-        {/* Legend */}
         <div className="flex items-center gap-2 mt-2 pl-8">
-          <span className="text-[10px] text-text-tertiary">Меньше</span>
+          <span className="text-[10px] text-text-tertiary">{t('analytics.heatmap.less')}</span>
           {[0.12, 0.35, 0.58, 0.78, 1].map((op) => (
             <div
               key={op}
@@ -224,7 +219,7 @@ function HeatmapGrid({ data }: { data: HeatmapCell[] }) {
               style={{ backgroundColor: `rgba(212,175,122,${op})` }}
             />
           ))}
-          <span className="text-[10px] text-text-tertiary">Больше</span>
+          <span className="text-[10px] text-text-tertiary">{t('analytics.heatmap.more')}</span>
         </div>
       </div>
     </div>
@@ -232,12 +227,28 @@ function HeatmapGrid({ data }: { data: HeatmapCell[] }) {
 }
 
 export default function AnalyticsPage() {
+  const { t, lang } = useLanguage();
   const [range, setRange] = React.useState('30d');
   const [specialistId, setSpecialistId] = React.useState('');
   const [specialists, setSpecialists] = React.useState<SpecialistOption[]>([]);
   const [data, setData] = React.useState<AnalyticsData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState('');
+
+  const RANGES = [
+    { value: '1d', label: t('analytics.period.1d') },
+    { value: '7d', label: t('analytics.period.7d') },
+    { value: '30d', label: t('analytics.period.1m') },
+    { value: '3m', label: t('analytics.period.3m') },
+    { value: '6m', label: t('analytics.period.6m') },
+    { value: '1y', label: t('analytics.period.1y') },
+  ];
+
+  const DOW_LABELS = [
+    t('analytics.days.sun'), t('analytics.days.mon'), t('analytics.days.tue'),
+    t('analytics.days.wed'), t('analytics.days.thu'), t('analytics.days.fri'),
+    t('analytics.days.sat'),
+  ];
 
   React.useEffect(() => {
     fetch('/api/specialists?limit=100&status=ACTIVE')
@@ -255,35 +266,33 @@ export default function AnalyticsPage() {
       .then((r) => r.json())
       .then((json) => {
         if (json.success) setData(json.data);
-        else setError('Ошибка загрузки данных');
+        else setError(t('analytics.error.load'));
       })
-      .catch(() => setError('Сетевая ошибка'))
+      .catch(() => setError(t('analytics.error.network')))
       .finally(() => setLoading(false));
   }, [range, specialistId]);
 
   const chartSeries = data?.series.map((p) => ({
     ...p,
-    label: formatDateLabel(p.date, data.groupBy),
+    label: formatDateLabel(p.date, data.groupBy, t, lang),
   })) ?? [];
 
   const hasRevenue = (data?.summary.totalRevenue ?? 0) > 0;
   const hasBookings = (data?.summary.totalBookings ?? 0) > 0;
-
-  // Max revenue for specialist bar chart normalisation
   const maxSpecRev = Math.max(1, ...(data?.specialistPerformance.map((s) => s.revenue) ?? []));
+  const currentRangeLabel = RANGES.find((r) => r.value === range)?.label ?? range;
 
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
-      {/* Header + filters */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Аналитика</h2>
-            <p className="text-text-secondary mt-1 text-sm">Операционная отчётность студии</p>
+            <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('analytics.title')}</h2>
+            <p className="text-text-secondary mt-1 text-sm">{t('analytics.subtitle')}</p>
           </div>
           {data && (
             <button
-              onClick={() => exportToExcel(data, range)}
+              onClick={() => exportToExcel(data, currentRangeLabel, t)}
               className={cn(
                 'inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium',
                 'bg-onyx border border-border-luxury text-text-secondary',
@@ -291,23 +300,22 @@ export default function AnalyticsPage() {
               )}
             >
               <Download className="w-4 h-4" />
-              Экспорт Excel
+              {t('analytics.export')}
             </button>
           )}
         </div>
-        {/* Sub-navigation to specialised analytics pages */}
         <div className="flex flex-wrap gap-2">
           <Link
             href="/analytics/financial"
             className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium rounded-xl border border-border-luxury bg-onyx text-text-secondary hover:text-champagne hover:border-champagne/40 transition-all"
           >
-            Финансы
+            {t('analytics.tab.finance')}
           </Link>
           <Link
             href="/analytics/massage"
             className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium rounded-xl border border-border-luxury bg-onyx text-text-secondary hover:text-champagne hover:border-champagne/40 transition-all"
           >
-            Нагрузка массажистов
+            {t('analytics.tab.massage')}
           </Link>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
@@ -337,7 +345,7 @@ export default function AnalyticsPage() {
                   : 'border-border-luxury hover:text-text-primary hover:bg-charcoal',
               )}
             >
-              <option value="">Все специалисты</option>
+              <option value="">{t('analytics.allSpecialists')}</option>
               {specialists.map((s) => (
                 <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
               ))}
@@ -356,69 +364,69 @@ export default function AnalyticsPage() {
         </div>
       ) : data ? (
         <>
-          {/* ── Revenue KPIs ─────────────────────────────────────── */}
+          {/* ── Revenue KPIs ─────────────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               icon={<TrendingUp className="w-5 h-5" />}
-              label="Выручка"
+              label={t('analytics.metrics.revenue')}
               value={formatCurrency(data.summary.totalRevenue)}
-              sub="завершённые записи"
+              sub={t('analytics.completedFor')}
               delta={data.previousPeriod.revenueDelta}
             />
             <MetricCard
               icon={<Calendar className="w-5 h-5" />}
-              label="Всего записей"
-              value={data.summary.totalBookings.toLocaleString('ru-RU')}
+              label={t('analytics.metrics.total')}
+              value={data.summary.totalBookings.toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU')}
               delta={data.previousPeriod.bookingsDelta}
             />
             <MetricCard
               icon={<CheckCircle className="w-5 h-5" />}
-              label="Завершено"
+              label={t('analytics.metrics.completed')}
               value={`${data.summary.completionRate}%`}
-              sub={`${data.summary.completedCount} из ${data.summary.totalBookings}`}
+              sub={`${data.summary.completedCount} ${t('common.of')} ${data.summary.totalBookings}`}
             />
             <MetricCard
               icon={<Target className="w-5 h-5" />}
-              label="Средний чек"
+              label={t('analytics.metrics.avgTicket')}
               value={formatCurrency(data.summary.avgTicket)}
             />
           </div>
 
-          {/* ── Client acquisition KPIs ───────────────────────────── */}
+          {/* ── Client acquisition KPIs ───────────────────────────────────────── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               icon={<Users className="w-5 h-5" />}
-              label="Клиентов за период"
-              value={data.clientMetrics.totalInPeriod.toLocaleString('ru-RU')}
+              label={t('analytics.metrics.clients')}
+              value={data.clientMetrics.totalInPeriod.toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU')}
             />
             <MetricCard
               icon={<UserPlus className="w-5 h-5" />}
-              label="Новые клиенты"
-              value={data.clientMetrics.newClients.toLocaleString('ru-RU')}
+              label={t('analytics.metrics.newClients')}
+              value={data.clientMetrics.newClients.toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU')}
             />
             <MetricCard
               icon={<Repeat className="w-5 h-5" />}
-              label="Возвратные"
-              value={data.clientMetrics.returningClients.toLocaleString('ru-RU')}
+              label={t('analytics.metrics.returning')}
+              value={data.clientMetrics.returningClients.toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU')}
             />
             <MetricCard
               icon={<UserCheck className="w-5 h-5" />}
-              label="Удержание"
+              label={t('analytics.metrics.retention')}
               value={`${data.clientMetrics.retentionRate}%`}
-              sub="возвратных от всех"
+              sub={t('sales.metrics.returningPct')}
             />
           </div>
 
-          {/* ── Revenue area chart ────────────────────────────────── */}
+          {/* ── Revenue area chart ────────────────────────────────────────────── */}
           <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-border-luxury">
-              <h3 className="font-serif text-lg font-medium text-text-primary">Выручка</h3>
-              <p className="text-xs text-text-tertiary mt-0.5">Завершённые записи за выбранный период</p>
+              <h3 className="font-serif text-lg font-medium text-text-primary">{t('analytics.revenue.title')}</h3>
+              <p className="text-xs text-text-tertiary mt-0.5">{t('analytics.revenue.hint')}</p>
             </div>
             <div className="p-4 h-64">
               {!hasRevenue ? (
                 <div className="h-full flex items-center justify-center">
-                  <p className="text-text-tertiary text-sm">Нет данных за выбранный период</p>
+                  <p className="text-text-tertiary text-sm">{t('analytics.noData')}</p>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
@@ -432,7 +440,7 @@ export default function AnalyticsPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6A6560' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                     <YAxis tick={{ fontSize: 11, fill: '#6A6560' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : v} width={40} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatCurrency(v), 'Выручка']} labelStyle={{ color: '#9A9490', marginBottom: 4 }} />
+                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatCurrency(v), t('analytics.metrics.revenue')]} labelStyle={{ color: '#9A9490', marginBottom: 4 }} />
                     <Area type="monotone" dataKey="revenue" stroke="#D4AF7A" strokeWidth={2} fill="url(#revGrad)" dot={false} activeDot={{ r: 4, fill: '#D4AF7A', strokeWidth: 0 }} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -440,17 +448,17 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* ── Bookings bar + status pie ─────────────────────────── */}
+          {/* ── Bookings bar + status pie ─────────────────────────────────────── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-border-luxury">
-                <h3 className="font-serif text-lg font-medium text-text-primary">Записи</h3>
-                <p className="text-xs text-text-tertiary mt-0.5">Количество за период</p>
+                <h3 className="font-serif text-lg font-medium text-text-primary">{t('analytics.bookings.title')}</h3>
+                <p className="text-xs text-text-tertiary mt-0.5">{t('analytics.bookings.hint')}</p>
               </div>
               <div className="p-4 h-56">
                 {!hasBookings ? (
                   <div className="h-full flex items-center justify-center">
-                    <p className="text-text-tertiary text-sm">Нет данных</p>
+                    <p className="text-text-tertiary text-sm">{t('common.noData')}</p>
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
@@ -458,7 +466,7 @@ export default function AnalyticsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" vertical={false} />
                       <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6A6560' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                       <YAxis tick={{ fontSize: 11, fill: '#6A6560' }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v, 'Записей']} labelStyle={{ color: '#9A9490', marginBottom: 4 }} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v, t('analytics.bookings.title')]} labelStyle={{ color: '#9A9490', marginBottom: 4 }} />
                       <Bar dataKey="bookings" fill="#D4AF7A" radius={[3, 3, 0, 0]} opacity={0.85} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -468,13 +476,13 @@ export default function AnalyticsPage() {
 
             <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-border-luxury">
-                <h3 className="font-serif text-lg font-medium text-text-primary">По статусам</h3>
-                <p className="text-xs text-text-tertiary mt-0.5">Распределение записей</p>
+                <h3 className="font-serif text-lg font-medium text-text-primary">{t('analytics.bookings.byStatus')}</h3>
+                <p className="text-xs text-text-tertiary mt-0.5">{t('analytics.bookings.distribution')}</p>
               </div>
               <div className="flex items-center gap-4 p-4">
                 {data.statusBreakdown.length === 0 ? (
                   <div className="w-full h-48 flex items-center justify-center">
-                    <p className="text-text-tertiary text-sm">Нет данных</p>
+                    <p className="text-text-tertiary text-sm">{t('common.noData')}</p>
                   </div>
                 ) : (
                   <>
@@ -507,12 +515,12 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* ── Specialist performance ────────────────────────────── */}
+          {/* ── Specialist performance ────────────────────────────────────────── */}
           {data.specialistPerformance.length > 0 && (
             <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-border-luxury">
-                <h3 className="font-serif text-lg font-medium text-text-primary">Эффективность специалистов</h3>
-                <p className="text-xs text-text-tertiary mt-0.5">Выручка, записи и рабочее время</p>
+                <h3 className="font-serif text-lg font-medium text-text-primary">{t('analytics.specialists.title')}</h3>
+                <p className="text-xs text-text-tertiary mt-0.5">{t('analytics.specialists.subtitle')}</p>
               </div>
               <div className="divide-y divide-border-luxury">
                 {data.specialistPerformance.map((s, i) => {
@@ -526,15 +534,15 @@ export default function AnalyticsPage() {
                         </div>
                         <div className="flex items-center gap-4 shrink-0 text-right">
                           <div className="hidden sm:block">
-                            <p className="text-xs text-text-tertiary">Записей</p>
+                            <p className="text-xs text-text-tertiary">{t('analytics.specialists.bookings')}</p>
                             <p className="text-sm font-medium text-text-primary">{s.count}</p>
                           </div>
                           <div className="hidden sm:block">
-                            <p className="text-xs text-text-tertiary flex items-center gap-1"><Clock className="w-3 h-3" />Часов</p>
+                            <p className="text-xs text-text-tertiary flex items-center gap-1"><Clock className="w-3 h-3" />{t('analytics.specialists.hours')}</p>
                             <p className="text-sm font-medium text-text-primary">{s.bookedHours}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-text-tertiary">Выручка</p>
+                            <p className="text-xs text-text-tertiary">{t('analytics.metrics.revenue')}</p>
                             <p className="text-sm font-semibold text-champagne">{formatCurrency(s.revenue)}</p>
                           </div>
                         </div>
@@ -549,22 +557,22 @@ export default function AnalyticsPage() {
             </div>
           )}
 
-          {/* ── Top services ──────────────────────────────────────── */}
+          {/* ── Top services ──────────────────────────────────────────────────── */}
           {data.serviceMetrics.length > 0 && (
             <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-border-luxury">
-                <h3 className="font-serif text-lg font-medium text-text-primary">Топ услуги</h3>
-                <p className="text-xs text-text-tertiary mt-0.5">По выручке за период</p>
+                <h3 className="font-serif text-lg font-medium text-text-primary">{t('analytics.services.title')}</h3>
+                <p className="text-xs text-text-tertiary mt-0.5">{t('analytics.services.hint')}</p>
               </div>
               <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border-luxury">
-                      <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">#</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Услуга</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Категория</th>
-                      <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Кол-во</th>
-                      <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Выручка</th>
+                      <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('analytics.services.col.num')}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('analytics.services.col.service')}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('analytics.services.col.category')}</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('analytics.services.col.count')}</th>
+                      <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('analytics.services.col.revenue')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-luxury">
@@ -580,7 +588,6 @@ export default function AnalyticsPage() {
                   </tbody>
                 </table>
               </div>
-              {/* Mobile */}
               <div className="sm:hidden divide-y divide-border-luxury">
                 {data.serviceMetrics.map((s, i) => (
                   <div key={s.serviceId} className="px-4 py-3 flex items-center justify-between gap-3">
@@ -588,7 +595,7 @@ export default function AnalyticsPage() {
                       <span className="text-sm text-text-tertiary w-5 text-right shrink-0">{i + 1}</span>
                       <div>
                         <p className="text-sm font-medium text-text-primary truncate">{s.name}</p>
-                        <p className="text-xs text-text-tertiary">{s.count} сеансов</p>
+                        <p className="text-xs text-text-tertiary">{s.count} {t('analytics.sessions')}</p>
                       </div>
                     </div>
                     <span className="text-sm font-semibold text-champagne shrink-0">{formatCurrency(s.revenue)}</span>
@@ -598,15 +605,15 @@ export default function AnalyticsPage() {
             </div>
           )}
 
-          {/* ── Booking heatmap ───────────────────────────────────── */}
+          {/* ── Booking heatmap ───────────────────────────────────────────────── */}
           {data.heatmap.length > 0 && (
             <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-border-luxury">
-                <h3 className="font-serif text-lg font-medium text-text-primary">Тепловая карта записей</h3>
-                <p className="text-xs text-text-tertiary mt-0.5">Активность по дням недели и часам</p>
+                <h3 className="font-serif text-lg font-medium text-text-primary">{t('analytics.heatmap.title')}</h3>
+                <p className="text-xs text-text-tertiary mt-0.5">{t('analytics.heatmap.subtitle')}</p>
               </div>
               <div className="p-6">
-                <HeatmapGrid data={data.heatmap} />
+                <HeatmapGrid data={data.heatmap} dowLabels={DOW_LABELS} t={t} />
               </div>
             </div>
           )}

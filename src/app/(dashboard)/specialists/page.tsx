@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 interface Specialist {
   id: string;
@@ -22,19 +23,6 @@ interface Specialist {
   color: string | null;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: 'Активен',
-  ON_VACATION: 'Отпуск',
-  INACTIVE: 'Неактивен',
-  TERMINATED: 'Уволен',
-};
-
-const STATUS_FILTERS = [
-  { value: '', label: 'Все' },
-  { value: 'ACTIVE', label: 'Активные' },
-  { value: 'INACTIVE', label: 'Неактивные' },
-];
-
 const inputCls = cn(
   'w-full px-3.5 py-2.5 rounded-xl text-sm',
   'bg-obsidian border border-border-luxury',
@@ -45,9 +33,13 @@ const inputCls = cn(
 
 function SpecialistCard({
   specialist,
+  statusLabel,
+  t,
   onStatusChange,
 }: {
   specialist: Specialist;
+  statusLabel: string;
+  t: (key: string) => string;
   onStatusChange: (id: string, status: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -116,7 +108,7 @@ function SpecialistCard({
             onClick={() => setMenuOpen((o) => !o)}
             disabled={updating}
             className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
-            aria-label="Действия"
+            aria-label={t('specialists.actions')}
           >
             {updating
               ? <div className="w-4 h-4 border-2 border-champagne/30 border-t-champagne rounded-full animate-spin" />
@@ -132,7 +124,7 @@ function SpecialistCard({
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
                 >
                   <Power className="w-4 h-4" />
-                  Деактивировать
+                  {t('specialists.deactivate')}
                 </button>
               ) : (
                 <button
@@ -140,7 +132,7 @@ function SpecialistCard({
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-secondary hover:bg-charcoal hover:text-text-primary transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  Восстановить
+                  {t('specialists.restore')}
                 </button>
               )}
             </div>
@@ -150,7 +142,7 @@ function SpecialistCard({
 
       <div className="flex items-center gap-2 flex-wrap">
         <Badge variant={isActive ? 'success' : 'default'} dot>
-          {STATUS_LABEL[specialist.status] ?? specialist.status}
+          {statusLabel}
         </Badge>
         {specialist.rating !== null && (
           <span className="flex items-center gap-1 text-xs text-champagne">
@@ -164,7 +156,9 @@ function SpecialistCard({
       {(specialist.experienceYears !== null || specialist.bio) && (
         <div className="space-y-1">
           {specialist.experienceYears !== null && (
-            <p className="text-xs text-text-tertiary">Опыт: {specialist.experienceYears} лет</p>
+            <p className="text-xs text-text-tertiary">
+              {t('specialists.experience.label')} {specialist.experienceYears} {t('specialists.experience.years')}
+            </p>
           )}
           {specialist.bio && (
             <p className="text-xs text-text-secondary line-clamp-2">{specialist.bio}</p>
@@ -175,13 +169,28 @@ function SpecialistCard({
         href={`/specialists/${specialist.id}`}
         className="block text-center py-1.5 rounded-lg border border-border-luxury text-xs text-text-tertiary hover:text-champagne hover:border-champagne/40 transition-colors mt-1"
       >
-        Профиль специалиста →
+        {t('specialists.profile')} →
       </Link>
     </div>
   );
 }
 
 export default function SpecialistsPage() {
+  const { t } = useLanguage();
+
+  const STATUS_LABEL: Record<string, string> = {
+    ACTIVE: t('specialists.status.active'),
+    ON_VACATION: t('specialists.status.vacation'),
+    INACTIVE: t('specialists.status.inactive'),
+    TERMINATED: t('specialists.status.dismissed'),
+  };
+
+  const STATUS_FILTERS = [
+    { value: '', label: t('specialists.filter.all') },
+    { value: 'ACTIVE', label: t('specialists.filter.active') },
+    { value: 'INACTIVE', label: t('specialists.filter.inactive') },
+  ];
+
   const [specialists, setSpecialists] = React.useState<Specialist[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
@@ -245,12 +254,12 @@ export default function SpecialistsPage() {
         }),
       });
       const json = await res.json();
-      if (!json.success) { setError(json.error?.message ?? 'Ошибка создания'); return; }
+      if (!json.success) { setError(json.error?.message ?? t('specialists.error.create')); return; }
       setShowModal(false);
       setForm({ firstName: '', lastName: '', email: '', specialization: '', bio: '', experienceYears: '', color: '#C9A96E' });
       fetchSpecialists();
     } catch {
-      setError('Сетевая ошибка. Попробуйте снова.');
+      setError(t('specialists.error.network'));
     } finally {
       setSubmitting(false);
     }
@@ -266,13 +275,13 @@ export default function SpecialistsPage() {
     <div className="p-6 lg:p-8 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Специалисты</h2>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('specialists.title')}</h2>
           <p className="text-text-secondary mt-1 text-sm">
-            {loading ? 'Загрузка...' : `${total} специалистов`}
+            {loading ? t('specialists.loading') : `${total} ${t('specialists.count')}`}
           </p>
         </div>
         <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
-          Добавить специалиста
+          {t('specialists.add')}
         </Button>
       </div>
 
@@ -301,15 +310,21 @@ export default function SpecialistsPage() {
       ) : specialists.length === 0 ? (
         <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-24 gap-4">
           <Sparkles className="w-12 h-12 text-text-tertiary" />
-          <p className="text-text-secondary text-sm">Специалисты не найдены</p>
+          <p className="text-text-secondary text-sm">{t('specialists.empty')}</p>
           <Button variant="secondary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
-            Добавить специалиста
+            {t('specialists.add')}
           </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {specialists.map((s) => (
-            <SpecialistCard key={s.id} specialist={s} onStatusChange={handleStatusChange} />
+            <SpecialistCard
+              key={s.id}
+              specialist={s}
+              statusLabel={STATUS_LABEL[s.status] ?? s.status}
+              t={t}
+              onStatusChange={handleStatusChange}
+            />
           ))}
         </div>
       )}
@@ -320,7 +335,7 @@ export default function SpecialistsPage() {
           <div className="absolute inset-0 bg-obsidian/80 backdrop-blur-sm" onClick={() => setShowModal(false)} />
           <div className="relative bg-onyx border border-border-luxury rounded-2xl w-full max-w-lg shadow-luxury-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
-              <h3 className="font-serif text-lg font-medium text-text-primary">Новый специалист</h3>
+              <h3 className="font-serif text-lg font-medium text-text-primary">{t('specialists.new')}</h3>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
@@ -332,37 +347,37 @@ export default function SpecialistsPage() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Имя *</span>
-                  <input required {...field('firstName')} placeholder="Мария" className={inputCls} />
+                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('specialists.form.firstName')}</span>
+                  <input required {...field('firstName')} placeholder={t('specialists.form.firstNamePlaceholder')} className={inputCls} />
                 </label>
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Фамилия *</span>
-                  <input required {...field('lastName')} placeholder="Петрова" className={inputCls} />
+                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('specialists.form.lastName')}</span>
+                  <input required {...field('lastName')} placeholder={t('specialists.form.lastNamePlaceholder')} className={inputCls} />
                 </label>
               </div>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Email *</span>
-                <input required type="email" {...field('email')} placeholder="specialist@salon.ru" className={inputCls} />
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('specialists.form.email')}</span>
+                <input required type="email" {...field('email')} placeholder={t('specialists.form.emailPlaceholder')} className={inputCls} />
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Специализация</span>
-                <input {...field('specialization')} placeholder="Косметолог, массажист..." className={inputCls} />
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('specialists.form.specialization')}</span>
+                <input {...field('specialization')} placeholder={t('specialists.form.specializationPlaceholder')} className={inputCls} />
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">О специалисте</span>
-                <textarea {...field('bio')} rows={3} placeholder="Краткое описание..." className={cn(inputCls, 'resize-none')} />
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('specialists.form.bio')}</span>
+                <textarea {...field('bio')} rows={3} placeholder={t('specialists.form.bioPlaceholder')} className={cn(inputCls, 'resize-none')} />
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Опыт (лет)</span>
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('specialists.form.experience')}</span>
                 <input type="number" min="0" max="50" {...field('experienceYears')} placeholder="5" className={inputCls} />
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Цвет в календаре</span>
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('specialists.form.color')}</span>
                 <div className="flex items-center gap-3">
                   <input
                     type="color"
@@ -380,10 +395,10 @@ export default function SpecialistsPage() {
 
               <div className="flex gap-3 pt-2">
                 <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowModal(false)}>
-                  Отмена
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" variant="primary" className="flex-1" disabled={submitting}>
-                  {submitting ? 'Создание...' : 'Создать'}
+                  {submitting ? t('specialists.form.creating') : t('specialists.form.create')}
                 </Button>
               </div>
             </form>

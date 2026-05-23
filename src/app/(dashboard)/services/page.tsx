@@ -5,6 +5,7 @@ import { Flower2, Plus, X, Power, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 interface Service {
   id: string;
@@ -17,19 +18,6 @@ interface Service {
   isActive: boolean;
   sortOrder: number;
 }
-
-const CATEGORY_LABELS: Record<string, string> = {
-  COSMETOLOGY: 'Косметология',
-  MASSAGE: 'Массаж',
-  INJECTION: 'Инъекции',
-  LASER: 'Лазер',
-  BODY_CONTOURING: 'Коррекция тела',
-  HAIR_REMOVAL: 'Депиляция',
-  FACIAL: 'Уход за лицом',
-  OTHER: 'Другое',
-};
-
-const CATEGORIES = Object.entries(CATEGORY_LABELS);
 
 const inputCls = cn(
   'w-full px-3.5 py-2.5 rounded-xl text-sm',
@@ -56,6 +44,21 @@ const defaultForm = {
 };
 
 export default function ServicesPage() {
+  const { t } = useLanguage();
+
+  const CATEGORY_LABELS: Record<string, string> = {
+    COSMETOLOGY: t('services.cat.cosmetology'),
+    MASSAGE: t('services.cat.massage'),
+    INJECTION: t('services.cat.injection'),
+    LASER: t('services.cat.laser'),
+    BODY_CONTOURING: t('services.cat.body'),
+    HAIR_REMOVAL: t('services.cat.epilation'),
+    FACIAL: t('services.cat.facial'),
+    OTHER: t('services.cat.other'),
+  };
+
+  const CATEGORIES = Object.entries(CATEGORY_LABELS);
+
   const [services, setServices] = React.useState<Service[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [showModal, setShowModal] = React.useState(false);
@@ -102,9 +105,9 @@ export default function ServicesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) { setError('Название обязательно'); return; }
-    if (!form.basePrice || Number(form.basePrice) < 0) { setError('Укажите корректную цену'); return; }
-    if (!form.baseDuration || Number(form.baseDuration) < 1) { setError('Укажите длительность (мин)'); return; }
+    if (!form.name.trim()) { setError(t('services.error.nameRequired')); return; }
+    if (!form.basePrice || Number(form.basePrice) < 0) { setError(t('services.error.priceRequired')); return; }
+    if (!form.baseDuration || Number(form.baseDuration) < 1) { setError(t('services.error.durationRequired')); return; }
 
     setSubmitting(true); setError('');
     try {
@@ -139,13 +142,13 @@ export default function ServicesPage() {
         });
       }
       const json = await res.json();
-      if (!json.success) { setError(json.error?.message ?? 'Ошибка'); return; }
+      if (!json.success) { setError(json.error?.message ?? t('common.error')); return; }
       setShowModal(false);
       setForm(defaultForm);
       setEditService(null);
       fetchServices();
     } catch {
-      setError('Сетевая ошибка. Попробуйте снова.');
+      setError(t('services.error.network'));
     } finally {
       setSubmitting(false);
     }
@@ -172,9 +175,9 @@ export default function ServicesPage() {
     <div className="p-6 lg:p-8 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Услуги</h2>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('services.title')}</h2>
           <p className="text-text-secondary mt-1 text-sm">
-            {loading ? 'Загрузка...' : `${activeCount} активных · ${services.length} всего`}
+            {loading ? t('services.loading') : `${activeCount} ${t('services.count.active')} · ${services.length} ${t('services.count.total')}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -187,10 +190,10 @@ export default function ServicesPage() {
                 : 'bg-onyx border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
             )}
           >
-            {showInactive ? 'Скрыть неактивные' : 'Показать все'}
+            {showInactive ? t('services.hideInactive') : t('services.showAll')}
           </button>
           <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={openCreate}>
-            Новая услуга
+            {t('services.add')}
           </Button>
         </div>
       </div>
@@ -202,9 +205,9 @@ export default function ServicesPage() {
       ) : visible.length === 0 ? (
         <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-24 gap-4">
           <Flower2 className="w-12 h-12 text-text-tertiary" />
-          <p className="text-text-secondary text-sm">Услуги не найдены</p>
+          <p className="text-text-secondary text-sm">{t('services.empty')}</p>
           <Button variant="secondary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={openCreate}>
-            Добавить услугу
+            {t('services.addFirst')}
           </Button>
         </div>
       ) : (
@@ -213,12 +216,12 @@ export default function ServicesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border-luxury">
-                  <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Название</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Категория</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Длительность</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Цена</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Статус</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Действия</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.name')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.category')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.duration')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.price')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.status')}</th>
+                  <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-luxury">
@@ -227,13 +230,13 @@ export default function ServicesPage() {
                     <td className="px-6 py-4">
                       <p className="font-medium text-text-primary">{s.name}</p>
                       {s.description && <p className="text-xs text-text-tertiary mt-0.5 max-w-xs truncate">{s.description}</p>}
-                      {s.requiresConsultation && <span className="text-[10px] text-champagne bg-champagne/10 px-1.5 py-0.5 rounded mt-1 inline-block">Консультация</span>}
+                      {s.requiresConsultation && <span className="text-[10px] text-champagne bg-champagne/10 px-1.5 py-0.5 rounded mt-1 inline-block">{t('services.consultation')}</span>}
                     </td>
                     <td className="px-4 py-4 text-text-secondary whitespace-nowrap">{CATEGORY_LABELS[s.category] ?? s.category}</td>
-                    <td className="px-4 py-4 text-text-secondary tabular-nums whitespace-nowrap">{s.baseDuration} мин</td>
+                    <td className="px-4 py-4 text-text-secondary tabular-nums whitespace-nowrap">{s.baseDuration} {t('services.duration.suffix')}</td>
                     <td className="px-4 py-4 font-medium text-text-primary tabular-nums whitespace-nowrap">{formatCurrency(s.basePrice)}</td>
                     <td className="px-4 py-4">
-                      <Badge variant={s.isActive ? 'success' : 'default'} dot>{s.isActive ? 'Активна' : 'Неактивна'}</Badge>
+                      <Badge variant={s.isActive ? 'success' : 'default'} dot>{s.isActive ? t('services.status.active') : t('services.status.inactive')}</Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -242,7 +245,7 @@ export default function ServicesPage() {
                           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-text-secondary hover:bg-charcoal hover:text-text-primary transition-colors"
                         >
                           <Pencil className="w-3.5 h-3.5" />
-                          Изменить
+                          {t('services.action.edit')}
                         </button>
                         <button
                           onClick={() => toggleActive(s)}
@@ -254,7 +257,7 @@ export default function ServicesPage() {
                           )}
                         >
                           <Power className="w-3.5 h-3.5" />
-                          {s.isActive ? 'Деакт.' : 'Активир.'}
+                          {s.isActive ? t('services.action.deactivate') : t('services.action.activate')}
                         </button>
                       </div>
                     </td>
@@ -272,17 +275,17 @@ export default function ServicesPage() {
                     <p className="font-medium text-text-primary text-sm">{s.name}</p>
                     <p className="text-xs text-text-tertiary mt-0.5">{CATEGORY_LABELS[s.category] ?? s.category}</p>
                   </div>
-                  <Badge variant={s.isActive ? 'success' : 'default'} dot>{s.isActive ? 'Активна' : 'Неактивна'}</Badge>
+                  <Badge variant={s.isActive ? 'success' : 'default'} dot>{s.isActive ? t('services.status.active') : t('services.status.inactive')}</Badge>
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-text-secondary">{s.baseDuration} мин</span>
+                    <span className="text-xs text-text-secondary">{s.baseDuration} {t('services.duration.suffix')}</span>
                     <span className="text-xs font-medium text-champagne">{formatCurrency(s.basePrice)}</span>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => openEdit(s)} className="text-xs text-text-tertiary hover:text-champagne transition-colors">Изменить</button>
+                    <button onClick={() => openEdit(s)} className="text-xs text-text-tertiary hover:text-champagne transition-colors">{t('services.action.edit')}</button>
                     <button onClick={() => toggleActive(s)} className="text-xs text-text-tertiary hover:text-text-primary transition-colors">
-                      {s.isActive ? 'Деактивировать' : 'Активировать'}
+                      {s.isActive ? t('services.action.deactivateFull') : t('services.action.activateFull')}
                     </button>
                   </div>
                 </div>
@@ -299,7 +302,7 @@ export default function ServicesPage() {
           <div className="relative bg-onyx border border-border-luxury rounded-2xl w-full max-w-lg shadow-luxury-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
               <h3 className="font-serif text-lg font-medium text-text-primary">
-                {editService ? 'Редактировать услугу' : 'Новая услуга'}
+                {editService ? t('services.edit') : t('services.add')}
               </h3>
               <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
                 <X className="w-5 h-5" />
@@ -308,12 +311,12 @@ export default function ServicesPage() {
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Название *</span>
-                <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Гиалуроновый пилинг..." className={inputCls} />
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('services.form.name')}</span>
+                <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t('services.form.namePlaceholder')} className={inputCls} />
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Категория</span>
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('services.form.category')}</span>
                 <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className={selectCls}>
                   {CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
@@ -321,31 +324,33 @@ export default function ServicesPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Цена (₽) *</span>
+                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('services.form.price')}</span>
                   <input required type="number" min="0" step="100" value={form.basePrice} onChange={(e) => setForm((f) => ({ ...f, basePrice: e.target.value }))} placeholder="3500" className={inputCls} />
                 </label>
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Длительность (мин) *</span>
+                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('services.form.duration')}</span>
                   <input required type="number" min="1" max="480" value={form.baseDuration} onChange={(e) => setForm((f) => ({ ...f, baseDuration: e.target.value }))} placeholder="60" className={inputCls} />
                 </label>
               </div>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Описание</span>
-                <textarea rows={3} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Краткое описание процедуры..." className={cn(inputCls, 'resize-none')} />
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('services.form.description')}</span>
+                <textarea rows={3} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder={t('services.form.descPlaceholder')} className={cn(inputCls, 'resize-none')} />
               </label>
 
               <label className="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" checked={form.requiresConsultation} onChange={(e) => setForm((f) => ({ ...f, requiresConsultation: e.target.checked }))} className="w-4 h-4 rounded border-border-luxury accent-champagne" />
-                <span className="text-sm text-text-secondary">Требует консультации</span>
+                <span className="text-sm text-text-secondary">{t('services.form.consultation')}</span>
               </label>
 
               {error && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
 
               <div className="flex gap-3 pt-2">
-                <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowModal(false)}>Отмена</Button>
+                <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowModal(false)}>{t('common.cancel')}</Button>
                 <Button type="submit" variant="primary" className="flex-1" disabled={submitting}>
-                  {submitting ? (editService ? 'Сохранение...' : 'Создание...') : (editService ? 'Сохранить' : 'Создать услугу')}
+                  {submitting
+                    ? (editService ? t('services.form.saving') : t('services.form.creating'))
+                    : (editService ? t('services.form.save') : t('services.form.create'))}
                 </Button>
               </div>
             </form>

@@ -17,6 +17,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts';
+import { useLanguage } from '@/contexts/language';
 
 interface Booking {
   id: string;
@@ -42,25 +43,6 @@ interface Specialist { id: string; firstName: string; lastName: string; speciali
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; isActive?: boolean; }
 interface Location { id: string; name: string; }
 interface Client { id: string; firstName: string; lastName: string; email: string; phone?: string | null; clientRef?: string; }
-
-const STATUS_FILTERS = [
-  { value: '', label: 'Все' },
-  { value: 'PENDING', label: 'Ожидание' },
-  { value: 'CONFIRMED', label: 'Подтверждено' },
-  { value: 'IN_PROGRESS', label: 'В процессе' },
-  { value: 'COMPLETED', label: 'Завершено' },
-  { value: 'CANCELLED', label: 'Отменено' },
-  { value: 'NO_SHOW', label: 'Неявка' },
-];
-
-const DATE_PRESETS = [
-  { value: 'today', label: 'Сегодня' },
-  { value: 'tomorrow', label: 'Завтра' },
-  { value: 'week', label: 'Эта неделя' },
-  { value: 'past', label: 'Прошедшие' },
-  { value: 'future', label: 'Будущие' },
-  { value: '', label: 'Все даты' },
-];
 
 function getDateRange(preset: string): { from?: string; to?: string } {
   const now = new Date();
@@ -107,12 +89,7 @@ function timeOptions() {
 const TIME_OPTIONS = timeOptions();
 const LIMIT = 50;
 
-const ANALYTICS_PERIODS = [
-  { value: 'week', label: 'Неделя' },
-  { value: 'month', label: 'Месяц' },
-  { value: 'year', label: 'Год' },
-] as const;
-type AnalyticsPeriod = (typeof ANALYTICS_PERIODS)[number]['value'];
+type AnalyticsPeriod = 'week' | 'month' | 'year';
 
 interface ChartPoint { label: string; bookings: number; revenue: number; }
 
@@ -140,29 +117,52 @@ function buildAnalyticsQuery(period: AnalyticsPeriod): URLSearchParams {
   return q;
 }
 
-function aggregateChartData(bookings: Booking[], period: AnalyticsPeriod): ChartPoint[] {
+function aggregateChartData(bookings: Booking[], period: AnalyticsPeriod, t: (key: string) => string): ChartPoint[] {
+  const days = [
+    t('bookings.days.mon'),
+    t('bookings.days.tue'),
+    t('bookings.days.wed'),
+    t('bookings.days.thu'),
+    t('bookings.days.fri'),
+    t('bookings.days.sat'),
+    t('bookings.days.sun'),
+  ];
+  const months = [
+    t('analytics.months.jan'),
+    t('analytics.months.feb'),
+    t('analytics.months.mar'),
+    t('analytics.months.apr'),
+    t('analytics.months.may'),
+    t('analytics.months.jun'),
+    t('analytics.months.jul'),
+    t('analytics.months.aug'),
+    t('analytics.months.sep'),
+    t('analytics.months.oct'),
+    t('analytics.months.nov'),
+    t('analytics.months.dec'),
+  ];
+
   const map = new Map<string, { bookings: number; revenue: number }>();
 
   for (const b of bookings) {
     const d = new Date(b.startAt);
     let key: string;
     if (period === 'week') {
-      const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
       key = days[(d.getDay() + 6) % 7];
     } else if (period === 'month') {
       key = String(d.getDate()).padStart(2, '0');
     } else {
-      key = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][d.getMonth()];
+      key = months[d.getMonth()];
     }
     const cur = map.get(key) ?? { bookings: 0, revenue: 0 };
     map.set(key, { bookings: cur.bookings + 1, revenue: cur.revenue + b.totalPrice });
   }
 
   if (period === 'week') {
-    return ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map((l) => ({ label: l, ...( map.get(l) ?? { bookings: 0, revenue: 0 }) }));
+    return days.map((l) => ({ label: l, ...( map.get(l) ?? { bookings: 0, revenue: 0 }) }));
   }
   if (period === 'year') {
-    return ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'].map((l) => ({ label: l, ...( map.get(l) ?? { bookings: 0, revenue: 0 }) }));
+    return months.map((l) => ({ label: l, ...( map.get(l) ?? { bookings: 0, revenue: 0 }) }));
   }
   return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([label, v]) => ({ label, ...v }));
 }
@@ -183,7 +183,7 @@ const selectCls = cn(
   'transition-all',
 );
 
-function DatePickerField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function DatePickerField({ value, onChange, placeholder, locale }: { value: string; onChange: (v: string) => void; placeholder: string; locale: string }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -196,8 +196,8 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (v: str
   }, [open]);
 
   const display = value
-    ? new Date(value + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-    : 'Выберите дату';
+    ? new Date(value + 'T12:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
+    : placeholder;
 
   return (
     <div className="relative" ref={ref}>
@@ -222,6 +222,35 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (v: str
 }
 
 export default function BookingsPage() {
+  const { t, lang } = useLanguage();
+
+  const STATUS_FILTERS = [
+    { value: '', label: t('bookings.status.all') },
+    { value: 'PENDING', label: t('bookings.status.pending') },
+    { value: 'CONFIRMED', label: t('bookings.status.confirmed') },
+    { value: 'IN_PROGRESS', label: t('bookings.status.in_progress') },
+    { value: 'COMPLETED', label: t('bookings.status.completed') },
+    { value: 'CANCELLED', label: t('bookings.status.cancelled') },
+    { value: 'NO_SHOW', label: t('bookings.status.no_show') },
+  ];
+
+  const DATE_PRESETS = [
+    { value: 'today', label: t('bookings.period.today') },
+    { value: 'tomorrow', label: t('bookings.period.tomorrow') },
+    { value: 'week', label: t('bookings.period.week') },
+    { value: 'past', label: t('bookings.period.past') },
+    { value: 'future', label: t('bookings.period.future') },
+    { value: '', label: t('bookings.period.all') },
+  ];
+
+  const ANALYTICS_PERIODS = [
+    { value: 'week' as AnalyticsPeriod, label: t('bookings.view.week') },
+    { value: 'month' as AnalyticsPeriod, label: t('bookings.view.month') },
+    { value: 'year' as AnalyticsPeriod, label: t('bookings.view.year') },
+  ];
+
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+
   const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [allSpecialists, setAllSpecialists] = React.useState<Specialist[]>([]);
   const [allServices, setAllServicesState] = React.useState<Service[]>([]);
@@ -304,11 +333,11 @@ export default function BookingsPage() {
     fetch(`/api/admin/bookings?${buildAnalyticsQuery(analyticsPeriod)}`, { credentials: 'include' })
       .then((r) => r.json())
       .then((json) => {
-        if (json.success) setChartData(aggregateChartData(json.data.items as Booking[], analyticsPeriod));
+        if (json.success) setChartData(aggregateChartData(json.data.items as Booking[], analyticsPeriod, t));
       })
       .catch(() => {})
       .finally(() => setAnalyticsLoading(false));
-  }, [showAnalytics, analyticsPeriod]);
+  }, [showAnalytics, analyticsPeriod, t]);
 
   // Load filter options on mount
   React.useEffect(() => {
@@ -360,8 +389,8 @@ export default function BookingsPage() {
   }, [clientSearch, clientDropdown]);
 
   const handleCreateClient = async () => {
-    if (!createForm.firstName.trim() || !createForm.lastName.trim()) { setCreateError('Имя и фамилия обязательны'); return; }
-    if (!createForm.phone.trim()) { setCreateError('Телефон обязателен'); return; }
+    if (!createForm.firstName.trim() || !createForm.lastName.trim()) { setCreateError(t('bookings.error.nameRequired')); return; }
+    if (!createForm.phone.trim()) { setCreateError(t('bookings.error.phoneRequired')); return; }
     setCreating(true); setCreateError('');
     try {
       const res = await fetch('/api/admin/clients', {
@@ -371,11 +400,11 @@ export default function BookingsPage() {
         body: JSON.stringify({ firstName: createForm.firstName.trim(), lastName: createForm.lastName.trim(), phone: createForm.phone.trim(), email: createForm.email.trim() || undefined }),
       });
       const json = await res.json();
-      if (!json.success) { setCreateError(json.error?.message ?? 'Ошибка создания'); return; }
+      if (!json.success) { setCreateError(json.error?.message ?? t('bookings.error.createFailed')); return; }
       setSelectedClient(json.data);
       setClientDropdown(false); setClientSearch(''); setClients([]); setShowCreateForm(false);
       setCreateForm({ firstName: '', lastName: '', phone: '', email: '' });
-    } catch { setCreateError('Сетевая ошибка'); } finally { setCreating(false); }
+    } catch { setCreateError(t('bookings.error.network')); } finally { setCreating(false); }
   };
 
   const selectedService = allServices.find((s) => s.id === form.serviceId);
@@ -389,11 +418,11 @@ export default function BookingsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClient) { setFormError('Выберите клиента'); return; }
-    if (!form.specialistId) { setFormError('Выберите специалиста'); return; }
-    if (!form.locationId) { setFormError('Не удалось определить локацию. Обновите страницу.'); return; }
-    if (!selectedService) { setFormError('Выберите услугу'); return; }
-    if (!form.date) { setFormError('Выберите дату'); return; }
+    if (!selectedClient) { setFormError(t('bookings.error.selectClient')); return; }
+    if (!form.specialistId) { setFormError(t('bookings.error.selectSpecialist')); return; }
+    if (!form.locationId) { setFormError(t('bookings.error.locationError')); return; }
+    if (!selectedService) { setFormError(t('bookings.error.selectService')); return; }
+    if (!form.date) { setFormError(t('bookings.error.selectDate')); return; }
     setSubmitting(true); setFormError(''); setConflictSlots([]);
     const startAt = new Date(`${form.date}T${form.time}:00`);
     const finalPrice = form.priceOverride !== '' ? Number(form.priceOverride) : selectedService.basePrice;
@@ -416,14 +445,14 @@ export default function BookingsPage() {
           const slots: string[] = json.error?.details?.nextAvailableSlots ?? [];
           setConflictSlots(slots);
         }
-        setFormError(json.error?.message ?? 'Ошибка создания записи');
+        setFormError(json.error?.message ?? t('bookings.error.bookingFailed'));
         return;
       }
       setShowModal(false); setSelectedClient(null); setClientSearch('');
       setAllowOverlap(false); setConflictSlots([]);
       setForm((f) => ({ ...f, specialistId: '', serviceId: '', notes: '', priceOverride: '' }));
       fetchBookings();
-    } catch { setFormError('Сетевая ошибка. Попробуйте снова.'); } finally { setSubmitting(false); }
+    } catch { setFormError(t('bookings.error.networkRetry')); } finally { setSubmitting(false); }
   };
 
   function applyConflictSlot(isoSlot: string) {
@@ -465,27 +494,27 @@ export default function BookingsPage() {
 
       const XLSX = await import('xlsx');
       const rows = (json.data.items as Booking[]).map((b) => ({
-        'ID клиента': b.clientId,
-        'Клиент': b.clientName,
-        'Email': b.clientEmail,
-        'Специалист': b.specialistName,
-        'Продавец': b.soldByName ?? '—',
-        'Услуга': b.services.map((s) => s.name).join(', '),
-        'Дата': new Date(b.startAt).toLocaleDateString('ru-RU'),
-        'Время': new Date(b.startAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-        'Длит. (мин)': b.totalDuration,
-        'Статус': getAppointmentStatusLabel(b.status),
-        'Стоимость (₽)': b.totalPrice,
-        'Локация': b.locationName,
-        'Примечания': b.notes ?? '',
+        [t('bookings.export.clientId')]: b.clientId,
+        [t('bookings.export.client')]: b.clientName,
+        [t('bookings.export.email')]: b.clientEmail,
+        [t('bookings.export.specialist')]: b.specialistName,
+        [t('bookings.export.seller')]: b.soldByName ?? '—',
+        [t('bookings.export.service')]: b.services.map((s) => s.name).join(', '),
+        [t('bookings.export.date')]: new Date(b.startAt).toLocaleDateString(locale),
+        [t('bookings.export.time')]: new Date(b.startAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
+        [t('bookings.export.duration')]: b.totalDuration,
+        [t('bookings.export.status')]: getAppointmentStatusLabel(b.status),
+        [t('bookings.export.price')]: b.totalPrice,
+        [t('bookings.export.location')]: b.locationName,
+        [t('bookings.export.notes')]: b.notes ?? '',
       }));
 
       const ws = XLSX.utils.json_to_sheet(rows);
       ws['!cols'] = [18, 22, 25, 22, 20, 28, 12, 8, 10, 15, 14, 20, 30].map((w) => ({ wch: w }));
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Записи');
+      XLSX.utils.book_append_sheet(wb, ws, t('bookings.export.sheet'));
 
-      const date = new Date().toLocaleDateString('ru-RU').replace(/\./g, '-');
+      const date = new Date().toLocaleDateString(locale).replace(/\./g, '-');
       XLSX.writeFile(wb, `bookings-${date}.xlsx`);
     } catch {} finally { setExporting(false); }
   };
@@ -493,7 +522,7 @@ export default function BookingsPage() {
   const filterSpecialistLabel = specialistFilter
     ? allSpecialists.find((s) => s.id === specialistFilter)
       ? `${allSpecialists.find((s) => s.id === specialistFilter)!.firstName} ${allSpecialists.find((s) => s.id === specialistFilter)!.lastName}`
-      : 'Специалист'
+      : t('bookings.filter.specialist')
     : null;
 
   return (
@@ -501,9 +530,9 @@ export default function BookingsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">Записи</h2>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('bookings.title')}</h2>
           <p className="text-text-secondary mt-1 text-sm">
-            {loading ? 'Загрузка...' : `${total.toLocaleString('ru-RU')} записей`}
+            {loading ? t('bookings.loading') : `${total.toLocaleString(locale)} ${t('bookings.pagination.records')}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -517,7 +546,7 @@ export default function BookingsPage() {
             )}
           >
             <BarChart2 className="w-4 h-4" />
-            Аналитика
+            {t('bookings.analytics')}
           </button>
           <button
             onClick={handleExport}
@@ -525,10 +554,10 @@ export default function BookingsPage() {
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border-luxury text-sm text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
-            {exporting ? 'Экспорт...' : 'Excel'}
+            {exporting ? t('bookings.exporting') : t('bookings.excel')}
           </button>
           <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
-            Новая запись
+            {t('bookings.new')}
           </Button>
         </div>
       </div>
@@ -537,7 +566,7 @@ export default function BookingsPage() {
       {showAnalytics && (
         <div className="mb-6 bg-onyx border border-border-luxury rounded-2xl p-5 animate-fade-in">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-serif text-base font-medium text-text-primary">Аналитика записей</h3>
+            <h3 className="font-serif text-base font-medium text-text-primary">{t('bookings.analyticsTitle')}</h3>
             <div className="flex gap-1.5">
               {ANALYTICS_PERIODS.map((p) => (
                 <button
@@ -563,7 +592,7 @@ export default function BookingsPage() {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Количество записей</p>
+                <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">{t('bookings.chartCount')}</p>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={chartData} margin={{ top: 0, right: 8, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -571,14 +600,14 @@ export default function BookingsPage() {
                     <YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip
                       contentStyle={{ background: 'var(--color-onyx)', border: '1px solid var(--color-border-luxury)', borderRadius: 12, color: 'var(--color-text-primary)', fontSize: 12 }}
-                      formatter={(v: number) => [v, 'Записей']}
+                      formatter={(v: number) => [v, t('bookings.count')]}
                     />
                     <Bar dataKey="bookings" fill="#C9A84C" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <div>
-                <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Выручка (₽)</p>
+                <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">{t('bookings.chartRevenue')}</p>
                 <ResponsiveContainer width="100%" height={180}>
                   <BarChart data={chartData} margin={{ top: 0, right: 8, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -586,7 +615,7 @@ export default function BookingsPage() {
                     <YAxis tick={{ fill: 'var(--color-text-tertiary)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}к` : String(v)} />
                     <Tooltip
                       contentStyle={{ background: 'var(--color-onyx)', border: '1px solid var(--color-border-luxury)', borderRadius: 12, color: 'var(--color-text-primary)', fontSize: 12 }}
-                      formatter={(v: number) => [`${v.toLocaleString('ru-RU')} ₽`, 'Выручка']}
+                      formatter={(v: number) => [`${v.toLocaleString(locale)} ₽`, t('bookings.chartRevenue')]}
                     />
                     <Bar dataKey="revenue" fill="#A67C00" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -638,7 +667,7 @@ export default function BookingsPage() {
               onClick={() => { setSpecialistFilter(''); setServiceFilter(''); setPage(1); }}
               className="text-xs text-text-tertiary hover:text-champagne transition-colors"
             >
-              Сбросить фильтры
+              {t('bookings.filter.reset')}
             </button>
           )}
           <button
@@ -651,7 +680,7 @@ export default function BookingsPage() {
             )}
           >
             <Filter className="w-3.5 h-3.5" />
-            Фильтры{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+            {t('bookings.filter.filters')}{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
           </button>
         </div>
       </div>
@@ -660,26 +689,26 @@ export default function BookingsPage() {
       {showFilters && (
         <div className="grid grid-cols-2 gap-3 mb-6 p-4 bg-onyx border border-border-luxury rounded-2xl animate-fade-in">
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Специалист</p>
+            <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('bookings.filter.specialist')}</p>
             <select
               value={specialistFilter}
               onChange={(e) => { setSpecialistFilter(e.target.value); setPage(1); }}
               className={cn(selectCls, 'py-2 text-sm')}
             >
-              <option value="">Все специалисты</option>
+              <option value="">{t('bookings.filter.allSpecialists')}</option>
               {allSpecialists.map((s) => (
                 <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
               ))}
             </select>
           </div>
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Процедура</p>
+            <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('bookings.filter.procedure')}</p>
             <select
               value={serviceFilter}
               onChange={(e) => { setServiceFilter(e.target.value); setPage(1); }}
               className={cn(selectCls, 'py-2 text-sm')}
             >
-              <option value="">Все процедуры</option>
+              <option value="">{t('bookings.filter.allProcedures')}</option>
               {allServices.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
@@ -699,7 +728,7 @@ export default function BookingsPage() {
           )}
           {serviceFilter && (
             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-champagne/10 border border-champagne/20 text-xs text-champagne">
-              {allServices.find((s) => s.id === serviceFilter)?.name ?? 'Процедура'}
+              {allServices.find((s) => s.id === serviceFilter)?.name ?? t('bookings.filter.procedure')}
               <button onClick={() => setServiceFilter('')}><X className="w-3 h-3" /></button>
             </span>
           )}
@@ -713,9 +742,9 @@ export default function BookingsPage() {
       ) : bookings.length === 0 ? (
         <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-24 gap-4">
           <CalendarIcon className="w-12 h-12 text-text-tertiary" />
-          <p className="text-text-secondary text-sm">Записей нет</p>
+          <p className="text-text-secondary text-sm">{t('bookings.empty')}</p>
           <Button variant="secondary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
-            Создать запись
+            {t('bookings.createFirst')}
           </Button>
         </div>
       ) : (
@@ -724,15 +753,15 @@ export default function BookingsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border-luxury">
-                  <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Клиент</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Услуга</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Специалист</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Дата / Время</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Создан</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Длит.</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Статус</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Сумма</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Действие</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.client')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.service')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.specialist')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.datetime')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.created')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.duration')}</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.status')}</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.amount')}</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.action')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-luxury">
@@ -754,15 +783,15 @@ export default function BookingsPage() {
                     <td className="px-4 py-3.5 text-text-secondary max-w-[180px] truncate">{b.services[0]?.name ?? '—'}</td>
                     <td className="px-4 py-3.5 text-text-secondary whitespace-nowrap">{b.specialistName}</td>
                     <td className="px-4 py-3.5 text-text-secondary whitespace-nowrap tabular-nums">
-                      <div>{new Date(b.startAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</div>
+                      <div>{new Date(b.startAt).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}</div>
                       <div className="text-xs text-text-tertiary">{formatTime(new Date(b.startAt))}</div>
                     </td>
                     <td className="px-4 py-3.5 whitespace-nowrap tabular-nums">
-                      <div className="text-xs text-text-tertiary">{new Date(b.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</div>
+                      <div className="text-xs text-text-tertiary">{new Date(b.createdAt).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}</div>
                       <div className="text-xs text-text-tertiary">{formatTime(new Date(b.createdAt))}</div>
                       {b.soldByName && <div className="text-[10px] text-champagne/70 truncate max-w-[100px]">{b.soldByName}</div>}
                     </td>
-                    <td className="px-4 py-3.5 text-text-tertiary whitespace-nowrap tabular-nums">{b.totalDuration} мин</td>
+                    <td className="px-4 py-3.5 text-text-tertiary whitespace-nowrap tabular-nums">{b.totalDuration} {t('common.min')}</td>
                     <td className="px-4 py-3.5">
                       <Badge variant={getAppointmentStatusBadgeVariant(b.status)} dot>
                         {getAppointmentStatusLabel(b.status)}
@@ -777,23 +806,23 @@ export default function BookingsPage() {
                           {canProgress && (
                             <button
                               onClick={() => updateBookingStatus(b.id, 'IN_PROGRESS')}
-                              title="В процессе"
+                              title={t('bookings.action.inProgress')}
                               className="px-2 py-1 rounded-lg text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors whitespace-nowrap"
-                            >▶ Начато</button>
+                            >{t('bookings.action.start')}</button>
                           )}
                           {canComplete && (
                             <button
                               onClick={() => updateBookingStatus(b.id, 'COMPLETED')}
-                              title="Завершить"
+                              title={t('bookings.action.completeTitle')}
                               className="px-2 py-1 rounded-lg text-[10px] font-medium bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20 transition-colors whitespace-nowrap"
-                            >✓ Завершить</button>
+                            >{t('bookings.action.complete')}</button>
                           )}
                           {canCancel && (
                             <button
                               onClick={() => updateBookingStatus(b.id, 'CANCELLED')}
-                              title="Отменить"
+                              title={t('bookings.action.cancelTitle')}
                               className="px-2 py-1 rounded-lg text-[10px] font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors whitespace-nowrap"
-                            >✕</button>
+                            >{t('bookings.action.cancel')}</button>
                           )}
                         </div>
                       )}
@@ -819,7 +848,7 @@ export default function BookingsPage() {
                   </div>
                   <p className="text-xs text-text-secondary mt-0.5 truncate">{b.services[0]?.name ?? '—'}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-text-tertiary">{new Date(b.startAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>
+                    <span className="text-xs text-text-tertiary">{new Date(b.startAt).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}</span>
                     <span className="text-xs text-text-tertiary">·</span>
                     <span className="text-xs text-text-tertiary">{formatTime(new Date(b.startAt))}</span>
                     <span className="text-xs text-text-tertiary">·</span>
@@ -836,10 +865,10 @@ export default function BookingsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-6">
-          <p className="text-sm text-text-tertiary">Страница {page} из {totalPages} · {total} записей</p>
+          <p className="text-sm text-text-tertiary">{t('bookings.pagination.page')} {page} {t('bookings.pagination.of')} {totalPages} · {total} {t('bookings.pagination.records')}</p>
           <div className="flex gap-2">
-            {page > 1 && <Button variant="secondary" size="sm" onClick={() => setPage((p) => p - 1)}>← Назад</Button>}
-            {page < totalPages && <Button variant="secondary" size="sm" onClick={() => setPage((p) => p + 1)}>Вперёд →</Button>}
+            {page > 1 && <Button variant="secondary" size="sm" onClick={() => setPage((p) => p - 1)}>{t('bookings.pagination.prev')}</Button>}
+            {page < totalPages && <Button variant="secondary" size="sm" onClick={() => setPage((p) => p + 1)}>{t('bookings.pagination.next')}</Button>}
           </div>
         </div>
       )}
@@ -850,7 +879,7 @@ export default function BookingsPage() {
           <div className="absolute inset-0 bg-obsidian/80 backdrop-blur-sm" onClick={closeModal} />
           <div className="relative bg-onyx border border-border-luxury rounded-2xl w-full max-w-lg shadow-luxury-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
-              <h3 className="font-serif text-lg font-medium text-text-primary">Новая запись</h3>
+              <h3 className="font-serif text-lg font-medium text-text-primary">{t('bookings.modal.title')}</h3>
               <button onClick={closeModal} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
                 <X className="w-5 h-5" />
               </button>
@@ -859,7 +888,7 @@ export default function BookingsPage() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {/* Client search */}
               <div className="space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Клиент *</span>
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('bookings.modal.client')}</span>
                 {selectedClient ? (
                   <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-obsidian border border-champagne/40">
                     <Avatar name={`${selectedClient.firstName} ${selectedClient.lastName}`} size="sm" />
@@ -884,7 +913,7 @@ export default function BookingsPage() {
                       onChange={(e) => { setClientSearch(e.target.value); setClientDropdown(true); setShowCreateForm(false); }}
                       onFocus={() => { setClientDropdown(true); setShowCreateForm(false); }}
                       onBlur={() => setTimeout(() => setClientDropdown(false), 200)}
-                      placeholder="Имя, email или телефон..."
+                      placeholder={t('bookings.modal.searchClient')}
                       className={cn(inputCls, 'pl-10')}
                       autoComplete="off"
                     />
@@ -892,7 +921,7 @@ export default function BookingsPage() {
                     {clientDropdown && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg z-30 max-h-72 overflow-y-auto animate-slide-down">
                         {!clientSearch.trim() && clients.length > 0 && (
-                          <p className="px-3 pt-2.5 pb-1 text-[10px] font-medium text-text-tertiary uppercase tracking-wider">Недавние клиенты</p>
+                          <p className="px-3 pt-2.5 pb-1 text-[10px] font-medium text-text-tertiary uppercase tracking-wider">{t('bookings.modal.recentClients')}</p>
                         )}
                         {clients.map((c) => (
                           <button key={c.id} type="button" onMouseDown={() => { setSelectedClient(c); setClientDropdown(false); setClientSearch(''); setClients([]); setShowCreateForm(false); }}
@@ -909,27 +938,27 @@ export default function BookingsPage() {
                           </button>
                         ))}
                         {clientSearch.trim() && !clientLoading && clients.length === 0 && !showCreateForm && (
-                          <div className="px-3 py-3 text-center"><p className="text-sm text-text-tertiary mb-2">Клиент не найден</p></div>
+                          <div className="px-3 py-3 text-center"><p className="text-sm text-text-tertiary mb-2">{t('bookings.modal.clientNotFound')}</p></div>
                         )}
                         {!showCreateForm ? (
                           <button type="button" onMouseDown={() => { setShowCreateForm(true); setCreateError(''); setCreateForm({ firstName: '', lastName: '', phone: '', email: '' }); }}
                             className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-champagne hover:bg-charcoal transition-colors border-t border-border-luxury"
                           >
-                            <Plus className="w-4 h-4" /> Создать нового клиента
+                            <Plus className="w-4 h-4" /> {t('bookings.modal.createClient')}
                           </button>
                         ) : (
                           <div className="p-3 border-t border-border-luxury space-y-2.5">
-                            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">Новый клиент</p>
+                            <p className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('bookings.modal.newClient')}</p>
                             <div className="grid grid-cols-2 gap-2">
-                              <input value={createForm.firstName} onChange={(e) => setCreateForm((f) => ({ ...f, firstName: e.target.value }))} placeholder="Имя *" className={cn(inputCls, 'py-2 text-xs')} autoFocus />
-                              <input value={createForm.lastName} onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))} placeholder="Фамилия *" className={cn(inputCls, 'py-2 text-xs')} />
+                              <input value={createForm.firstName} onChange={(e) => setCreateForm((f) => ({ ...f, firstName: e.target.value }))} placeholder={t('bookings.modal.firstName')} className={cn(inputCls, 'py-2 text-xs')} autoFocus />
+                              <input value={createForm.lastName} onChange={(e) => setCreateForm((f) => ({ ...f, lastName: e.target.value }))} placeholder={t('bookings.modal.lastName')} className={cn(inputCls, 'py-2 text-xs')} />
                             </div>
-                            <input value={createForm.phone} onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Телефон *" className={cn(inputCls, 'py-2 text-xs')} />
-                            <input value={createForm.email} onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email (необязательно)" className={cn(inputCls, 'py-2 text-xs')} />
+                            <input value={createForm.phone} onChange={(e) => setCreateForm((f) => ({ ...f, phone: e.target.value }))} placeholder={t('bookings.modal.phone')} className={cn(inputCls, 'py-2 text-xs')} />
+                            <input value={createForm.email} onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))} placeholder={t('bookings.modal.emailOpt')} className={cn(inputCls, 'py-2 text-xs')} />
                             {createError && <p className="text-xs text-red-400">{createError}</p>}
                             <div className="flex gap-2">
-                              <button type="button" onClick={() => setShowCreateForm(false)} className="flex-1 py-1.5 rounded-lg border border-border-luxury text-xs text-text-secondary hover:text-text-primary transition-colors">Отмена</button>
-                              <button type="button" onClick={handleCreateClient} disabled={creating} className="flex-1 py-1.5 rounded-lg bg-champagne text-obsidian text-xs font-medium hover:bg-champagne-light transition-colors disabled:opacity-50">{creating ? 'Создание...' : 'Создать'}</button>
+                              <button type="button" onClick={() => setShowCreateForm(false)} className="flex-1 py-1.5 rounded-lg border border-border-luxury text-xs text-text-secondary hover:text-text-primary transition-colors">{t('common.cancel')}</button>
+                              <button type="button" onClick={handleCreateClient} disabled={creating} className="flex-1 py-1.5 rounded-lg bg-champagne text-obsidian text-xs font-medium hover:bg-champagne-light transition-colors disabled:opacity-50">{creating ? t('bookings.modal.creating') : t('bookings.modal.submit')}</button>
                             </div>
                           </div>
                         )}
@@ -941,24 +970,24 @@ export default function BookingsPage() {
 
               {/* Specialist */}
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Специалист *</span>
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('bookings.modal.specialist')}</span>
                 <select required value={form.specialistId} onChange={(e) => setForm((f) => ({ ...f, specialistId: e.target.value, serviceId: '' }))} className={selectCls}>
-                  <option value="">Выберите специалиста</option>
+                  <option value="">{t('bookings.modal.selectSpecialist')}</option>
                   {allSpecialists.map((s) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}{s.specialization ? ` — ${s.specialization}` : ''}</option>)}
                 </select>
               </label>
 
               {/* Service */}
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Услуга *</span>
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('bookings.modal.service')}</span>
                 {form.specialistId && filteredServices.length === 0 ? (
                   <div className="px-3 py-2.5 rounded-xl border border-border-luxury bg-charcoal text-sm text-text-tertiary">
-                    Нет доступных услуг для выбранного специалиста
+                    {t('bookings.modal.noServices')}
                   </div>
                 ) : (
                   <select required value={form.serviceId} onChange={(e) => setForm((f) => ({ ...f, serviceId: e.target.value }))} className={selectCls}>
-                    <option value="">{form.specialistId ? 'Выберите услугу' : 'Сначала выберите специалиста'}</option>
-                    {filteredServices.map((s) => <option key={s.id} value={s.id}>{s.name} — {s.baseDuration} мин · {s.basePrice.toLocaleString('ru-RU')} ₽</option>)}
+                    <option value="">{form.specialistId ? t('bookings.modal.selectService') : t('bookings.modal.selectSpecialistFirst')}</option>
+                    {filteredServices.map((s) => <option key={s.id} value={s.id}>{s.name} — {s.baseDuration} {t('common.min')} · {s.basePrice.toLocaleString(locale)} ₽</option>)}
                   </select>
                 )}
               </label>
@@ -966,18 +995,23 @@ export default function BookingsPage() {
               {/* Location auto-resolved — shown as info, not editable */}
               {locations[0] && (
                 <div className="px-3 py-2 rounded-xl border border-border-luxury bg-charcoal/30 text-xs text-text-tertiary">
-                  Локация: <span className="text-text-secondary">{locations[0].name}</span>
+                  {t('bookings.modal.location')} <span className="text-text-secondary">{locations[0].name}</span>
                 </div>
               )}
 
               {/* Date & Time */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Дата *</span>
-                  <DatePickerField value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} />
+                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('bookings.modal.date')}</span>
+                  <DatePickerField
+                    value={form.date}
+                    onChange={(v) => setForm((f) => ({ ...f, date: v }))}
+                    placeholder={t('bookings.pickDate')}
+                    locale={locale}
+                  />
                 </div>
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Время *</span>
+                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('bookings.modal.time')}</span>
                   <select required value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} className={selectCls}>
                     {TIME_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
@@ -987,11 +1021,11 @@ export default function BookingsPage() {
               {selectedService && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="px-4 py-3 rounded-xl bg-charcoal/50 border border-border-luxury text-sm col-span-2 sm:col-span-1">
-                    <p className="text-xs text-text-tertiary mb-1">Длительность</p>
-                    <p className="text-text-primary font-medium">{selectedService.baseDuration} мин</p>
+                    <p className="text-xs text-text-tertiary mb-1">{t('bookings.modal.duration')}</p>
+                    <p className="text-text-primary font-medium">{selectedService.baseDuration} {t('common.min')}</p>
                   </div>
                   <label className="block space-y-1.5 col-span-2 sm:col-span-1">
-                    <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Цена (₽)</span>
+                    <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('bookings.modal.price')}</span>
                     <input
                       type="number"
                       min="0"
@@ -1007,8 +1041,8 @@ export default function BookingsPage() {
 
               {/* Notes */}
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Примечания</span>
-                <textarea rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Особые пожелания..." className={cn(inputCls, 'resize-none')} />
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('bookings.modal.notes')}</span>
+                <textarea rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder={t('bookings.modal.notesPlaceholder')} className={cn(inputCls, 'resize-none')} />
               </label>
 
               {formError && (
@@ -1016,11 +1050,11 @@ export default function BookingsPage() {
                   <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{formError}</p>
                   {conflictSlots.length > 0 && (
                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2.5 space-y-2">
-                      <p className="text-xs font-medium text-amber-400">Ближайшие свободные слоты:</p>
+                      <p className="text-xs font-medium text-amber-400">{t('bookings.modal.conflictSlots')}</p>
                       <div className="flex flex-wrap gap-2">
                         {conflictSlots.map((slot) => {
                           const d = new Date(slot);
-                          const label = d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+                          const label = d.toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
                           return (
                             <button
                               key={slot}
@@ -1040,7 +1074,7 @@ export default function BookingsPage() {
                           onChange={(e) => setAllowOverlap(e.target.checked)}
                           className="w-3.5 h-3.5 rounded accent-champagne"
                         />
-                        <span className="text-xs text-text-tertiary">Принудительная запись (только для администраторов)</span>
+                        <span className="text-xs text-text-tertiary">{t('bookings.modal.forceBooking')}</span>
                       </label>
                     </div>
                   )}
@@ -1048,8 +1082,8 @@ export default function BookingsPage() {
               )}
 
               <div className="flex gap-3 pt-2">
-                <Button type="button" variant="secondary" className="flex-1" onClick={closeModal}>Отмена</Button>
-                <Button type="submit" variant="primary" className="flex-1" disabled={submitting}>{submitting ? 'Создание...' : 'Создать запись'}</Button>
+                <Button type="button" variant="secondary" className="flex-1" onClick={closeModal}>{t('common.cancel')}</Button>
+                <Button type="submit" variant="primary" className="flex-1" disabled={submitting}>{submitting ? t('bookings.modal.creating') : t('bookings.modal.submit')}</Button>
               </div>
             </form>
           </div>
