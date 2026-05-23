@@ -113,6 +113,7 @@ const PAY_STATUS_KEY: Record<string, { key: string; color: string }> = {
   PAID:         { key: 'finance.payStatus.paid',     color: 'text-emerald-400' },
   REFUNDED:     { key: 'finance.payStatus.refunded', color: 'text-blue-400' },
   FAILED:       { key: 'finance.payStatus.failed',   color: 'text-red-500' },
+  OVERDUE:      { key: 'finance.payStatus.overdue',  color: 'text-red-500' },
 };
 
 const EXPENSE_CAT_KEY: Record<string, string> = {

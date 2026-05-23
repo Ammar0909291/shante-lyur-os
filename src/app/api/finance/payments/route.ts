@@ -154,6 +154,9 @@ export async function POST(req: NextRequest) {
         discountAmount: true,
         paymentStatus: true,
         status: true,
+        clientId: true,
+        specialistId: true,
+        locationId: true,
       },
     });
     if (!apt) return apiError('NOT_FOUND', 'Appointment not found', 404);
@@ -191,13 +194,14 @@ export async function POST(req: NextRequest) {
       payment = await tx.payment.create({
         data: {
           appointmentId,
-          provider: provider as never,
+          provider:           provider as never,
           amount,
-          status:         'CAPTURED',
+          status:             'CAPTURED',
           isDeposit,
-          description:    description ?? null,
-          idempotencyKey: idempotencyKey ?? null,
-          paidAt:         new Date(),
+          description:        description ?? null,
+          idempotencyKey:     idempotencyKey ?? null,
+          paidAt:             new Date(),
+          processedByUserId:  userId ?? null,
         },
         select: { id: true, amount: true, status: true, provider: true, isDeposit: true, paidAt: true, createdAt: true },
       });
@@ -209,6 +213,34 @@ export async function POST(req: NextRequest) {
           paymentStatus: newPaymentStatus as never,
         },
       });
+
+      // Revenue record for financial analytics
+      await tx.revenueRecord.create({
+        data: {
+          date:          new Date(),
+          type:          'SERVICE_PAYMENT',
+          amount,
+          paymentId:     payment.id,
+          appointmentId,
+          specialistId:  apt.specialistId,
+          locationId:    apt.locationId,
+        },
+      });
+
+      // Update client lifetime spend
+      const clientProfile = await tx.customerProfile.findUnique({
+        where:  { userId: apt.clientId },
+        select: { id: true, totalSpent: true },
+      });
+      if (clientProfile) {
+        await tx.customerProfile.update({
+          where: { id: clientProfile.id },
+          data: {
+            totalSpent: Number(clientProfile.totalSpent) + amount,
+            ...(newPaymentStatus === 'PAID' ? { lastVisitAt: new Date() } : {}),
+          },
+        });
+      }
 
       // Audit log
       await tx.auditLog.create({

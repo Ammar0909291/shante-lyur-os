@@ -5,8 +5,9 @@ import {
   Clock, CheckCircle2, AlertTriangle, User, Wifi, WifiOff,
   CalendarCheck, ChevronRight, Activity, Loader2, RefreshCw,
 } from 'lucide-react';
-import { cn, formatTime } from '@/lib/utils';
+import { cn, formatTime, formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
+import { TrendingUp } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -331,6 +332,91 @@ function TimelineRow({ apt }: { apt: AppointmentSlot }) {
   );
 }
 
+// ─── Performance Stats ────────────────────────────────────────────────────────
+
+interface PerfStats {
+  totalSessions: number;
+  revenueGenerated: number;
+  workloadCompliance: number | null;
+  clientRetentionRate: number;
+  trendVsLastMonth: number;
+}
+
+function StatChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border-luxury bg-charcoal/30 p-3">
+      <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">{label}</p>
+      <p className="text-lg font-semibold text-text-primary tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function PerformanceSection({ specialistId, headers }: { specialistId: string; headers: Record<string, string> }) {
+  const { t } = useLanguage();
+  const [perf, setPerf] = React.useState<PerfStats | null>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const from = new Date(Date.now() - 30 * 86_400_000).toISOString().split('T')[0];
+    const to   = new Date().toISOString().split('T')[0];
+    void fetch(`/api/analytics/specialists/${specialistId}/performance?from=${from}&to=${to}`, { headers })
+      .then((r) => r.json())
+      .then((j: { success: boolean; data?: { totalSessions?: number; revenueGenerated?: number; workloadCompliance?: number | null; clientRetentionRate?: number; trendVsLastMonth?: number } }) => {
+        if (j.success && j.data) {
+          setPerf({
+            totalSessions:       j.data.totalSessions ?? 0,
+            revenueGenerated:    j.data.revenueGenerated ?? 0,
+            workloadCompliance:  j.data.workloadCompliance ?? null,
+            clientRetentionRate: j.data.clientRetentionRate ?? 0,
+            trendVsLastMonth:    j.data.trendVsLastMonth ?? 0,
+          });
+        }
+      })
+      .catch(() => {/* ignore */})
+      .finally(() => setLoading(false));
+  }, [specialistId, headers]);
+
+  return (
+    <div className="rounded-2xl border border-border-luxury bg-onyx/50">
+      <div className="px-4 py-3 border-b border-border-luxury flex items-center gap-2">
+        <TrendingUp className="w-4 h-4 text-champagne" />
+        <h3 className="text-sm font-semibold text-text-primary">{t('myPanel.stats.title')}</h3>
+      </div>
+      <div className="p-4">
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-border-luxury bg-charcoal/30 p-3 h-16 animate-pulse" />
+            ))}
+          </div>
+        ) : perf ? (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <StatChip label={t('myPanel.stats.completed')} value={String(perf.totalSessions)} />
+              <StatChip label={t('myPanel.stats.revenue')} value={formatCurrency(perf.revenueGenerated)} />
+              {perf.workloadCompliance !== null && (
+                <StatChip label={t('myPanel.stats.utilization')} value={`${perf.workloadCompliance}%`} />
+              )}
+              <StatChip label={t('myPanel.stats.cancelRate')} value={`${perf.clientRetentionRate}%`} />
+              {perf.trendVsLastMonth !== 0 && (
+                <div className="rounded-xl border border-border-luxury bg-charcoal/30 p-3">
+                  <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-1">Тренд</p>
+                  <p className={cn('text-lg font-semibold tabular-nums', perf.trendVsLastMonth > 0 ? 'text-emerald-400' : 'text-red-400')}>
+                    {perf.trendVsLastMonth > 0 ? '+' : ''}{perf.trendVsLastMonth}%
+                  </p>
+                </div>
+              )}
+            </div>
+            <p className="text-[10px] text-text-tertiary mt-3">{t('myPanel.stats.period')}</p>
+          </>
+        ) : (
+          <p className="text-sm text-text-tertiary text-center py-4">—</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function MyPanelPage() {
@@ -508,8 +594,8 @@ export default function MyPanelPage() {
           )}
         </div>
 
-        {/* Right: full timeline */}
-        <div className="lg:col-span-2">
+        {/* Right: full timeline + performance stats */}
+        <div className="lg:col-span-2 space-y-4">
           <div className="rounded-2xl border border-border-luxury bg-onyx/50">
             <div className="px-4 py-3 border-b border-border-luxury flex items-center justify-between">
               <h3 className="text-sm font-semibold text-text-primary">{t('panel.title')}</h3>
@@ -530,6 +616,8 @@ export default function MyPanelPage() {
               )}
             </div>
           </div>
+
+          <PerformanceSection specialistId={specialist.id} headers={getAuthHeaders()} />
         </div>
       </div>
     </div>

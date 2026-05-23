@@ -32,7 +32,7 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
 export default async function ClientProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [user, statusStats, topServiceRows] = await Promise.all([
+  const [user, statusStats, topServiceRows, unpaidAgg, finProfile] = await Promise.all([
     prisma.user.findFirst({
       where: { id, role: 'CLIENT' },
       include: {
@@ -63,6 +63,18 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
       _sum: { price: true },
       orderBy: { _count: { id: 'desc' } },
       take: 5,
+    }),
+    prisma.appointment.aggregate({
+      where: {
+        clientId: id,
+        paymentStatus: { in: ['UNPAID', 'PARTIAL_PAID', 'DEPOSIT_PAID', 'OVERDUE'] },
+        status: { notIn: ['CANCELLED', 'NO_SHOW'] },
+      },
+      _sum: { totalPrice: true, paidAmount: true },
+    }),
+    prisma.customerProfile.findUnique({
+      where: { userId: id },
+      select: { prepaidBalance: true },
     }),
   ]);
 
@@ -104,6 +116,13 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
   const cancelledCount = statusStats.find((s) => s.status === 'CANCELLED')?._count.id ?? 0;
   const noShowCount = statusStats.find((s) => s.status === 'NO_SHOW')?._count.id ?? 0;
   const totalAll = statusStats.reduce((sum, s) => sum + s._count.id, 0);
+
+  const unpaidBalance = Math.max(
+    0,
+    Number(unpaidAgg._sum.totalPrice ?? 0) - Number(unpaidAgg._sum.paidAmount ?? 0),
+  );
+  const prepaidBalance = Number(finProfile?.prepaidBalance ?? 0);
+  const isHighValue = totalSpent >= 50000;
 
   return (
     <div className="p-6 lg:p-8 animate-fade-in space-y-6">
@@ -234,6 +253,50 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
           </div>
         </div>
       )}
+
+      {/* Financial Profile */}
+      <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-luxury flex items-center gap-3">
+          <h3 className="font-serif text-lg font-medium text-text-primary">Финансовый профиль</h3>
+          {isHighValue && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-champagne/10 border border-champagne/30 text-champagne text-xs font-medium">
+              <Star className="w-3 h-3" /> Высокая ценность
+            </span>
+          )}
+        </div>
+        <div className="p-6 space-y-4">
+          {unpaidBalance > 0.01 && (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-red-950/30 border border-red-700/40 text-sm">
+              <TrendingUp className="w-4 h-4 text-red-400 shrink-0" />
+              <span className="text-red-300">Есть неоплаченные визиты:</span>
+              <span className="font-semibold text-red-200 ml-auto">{formatCurrency(unpaidBalance)}</span>
+            </div>
+          )}
+          {prepaidBalance > 0.01 && (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-950/20 border border-amber-700/30 text-sm">
+              <Award className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="text-amber-300">Предоплата на счету:</span>
+              <span className="font-semibold text-amber-200 ml-auto">{formatCurrency(prepaidBalance)}</span>
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-charcoal rounded-xl p-4">
+              <p className="text-xs text-text-tertiary uppercase tracking-wider mb-1">Потрачено всего</p>
+              <p className="text-xl font-semibold text-champagne tabular-nums">{formatCurrency(totalSpent)}</p>
+            </div>
+            <div className="bg-charcoal rounded-xl p-4">
+              <p className="text-xs text-text-tertiary uppercase tracking-wider mb-1">Баланс предоплаты</p>
+              <p className="text-xl font-semibold text-text-primary tabular-nums">{formatCurrency(prepaidBalance)}</p>
+            </div>
+            <div className="bg-charcoal rounded-xl p-4">
+              <p className="text-xs text-text-tertiary uppercase tracking-wider mb-1">Задолженность</p>
+              <p className={`text-xl font-semibold tabular-nums ${unpaidBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                {unpaidBalance > 0 ? formatCurrency(unpaidBalance) : '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Appointment history */}
       <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">

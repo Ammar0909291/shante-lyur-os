@@ -60,9 +60,10 @@ model User {
   clientAppointments Appointment[]     @relation("ClientAppointments")
   messagesSent       InternalMessage[] @relation("MessagesSent")
   messagesReceived   InternalMessage[] @relation("MessagesReceived")
-  soldAppointments   Appointment[]     @relation("SoldByAppointments")
-  inventoryMovements StockMovement[]   @relation("InventoryMovementUser")
-  expensesCreated    Expense[]         @relation("ExpenseCreator")
+  soldAppointments    Appointment[]              @relation("SoldByAppointments")
+  inventoryMovements  StockMovement[]            @relation("InventoryMovementUser")
+  expensesCreated     Expense[]                  @relation("ExpenseCreator")
+  balanceTransactions ClientBalanceTransaction[] @relation("ClientBalanceTransactions")
 
   @@index([email])
   @@index([role, status])
@@ -283,6 +284,7 @@ enum AppointmentPaymentStatus {
   PAID
   REFUNDED
   FAILED
+  OVERDUE
 }
 
 model Appointment {
@@ -448,6 +450,7 @@ model CustomerProfile {
   loyaltyPoints         Int       @default(0) @map("loyalty_points")
   loyaltyTier           String    @default("BRONZE") @map("loyalty_tier") @db.VarChar(20)
   churnRiskScore        Decimal?  @map("churn_risk_score") @db.Decimal(3, 2)
+  prepaidBalance        Decimal   @default(0) @map("prepaid_balance") @db.Decimal(12, 2)
   notes                 String?   @db.Text
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
@@ -646,6 +649,7 @@ model Payment {
   failureReason        String?         @map("failure_reason") @db.Text
   idempotencyKey       String?         @unique @map("idempotency_key") @db.VarChar(255)
   isDeposit            Boolean         @default(false) @map("is_deposit")
+  processedByUserId    String?         @map("processed_by_user_id") @db.Uuid
   commissionAmount     Decimal?        @map("commission_amount") @db.Decimal(10, 2)
   specialistCommission Decimal?        @map("specialist_commission") @db.Decimal(10, 2)
   createdAt            DateTime        @default(now()) @map("created_at")
@@ -679,6 +683,34 @@ model Refund {
   @@index([paymentId])
   @@index([status])
   @@map("refunds")
+}
+
+// ─── Client Prepaid Balance Ledger ───────────────────────────────────────────
+
+enum BalanceTxType {
+  TOP_UP
+  PAYMENT
+  REFUND
+  ADJUSTMENT
+}
+
+model ClientBalanceTransaction {
+  id            String       @id @default(uuid()) @db.Uuid
+  clientId      String       @map("client_id") @db.Uuid
+  amount        Decimal      @db.Decimal(10, 2) // positive = credit, negative = debit
+  balanceAfter  Decimal      @map("balance_after") @db.Decimal(12, 2)
+  type          BalanceTxType
+  appointmentId String?      @map("appointment_id") @db.Uuid
+  paymentId     String?      @map("payment_id") @db.Uuid
+  note          String?      @db.VarChar(500)
+  processedBy   String?      @map("processed_by") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  client User @relation("ClientBalanceTransactions", fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, createdAt])
+  @@index([appointmentId])
+  @@map("client_balance_transactions")
 }
 
 // ═══════════════════════════════════════════════════════════════
