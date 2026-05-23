@@ -11,7 +11,7 @@ export class SmtpEmailService implements EmailServicePort {
     const pass = process.env.SMTP_PASS ?? '';
     const secure = port === 465;
 
-    this.transporter = nodemailer.createTransporter({
+    this.transporter = nodemailer.createTransport({
       host,
       port,
       secure,

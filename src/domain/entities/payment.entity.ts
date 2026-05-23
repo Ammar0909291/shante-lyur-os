@@ -28,6 +28,19 @@ export class Payment extends BaseEntity {
   private _commissionAmount?: Money;
   private _specialistCommission?: Money;
 
+  static reconstitute(props: PaymentProps): Payment {
+    return new Payment(props);
+  }
+
+  static create(props: Omit<PaymentProps, 'id' | 'createdAt' | 'updatedAt'>): Payment {
+    return new Payment({
+      ...props,
+      id: crypto.randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
   constructor(private readonly props: PaymentProps) {
     super(props.id, props.createdAt, props.updatedAt);
     this._status = props.status;

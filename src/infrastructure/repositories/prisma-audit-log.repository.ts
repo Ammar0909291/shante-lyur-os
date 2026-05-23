@@ -6,17 +6,20 @@ import { AuditAction } from '@/domain/enums/audit-action.enum';
 export class PrismaAuditLogRepository implements AuditLogRepositoryPort {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; userId: string | null; action: string; entityType: string; entityId: string | null; oldValue: unknown | null; newValue: unknown | null; ipAddress: string | null; userAgent: string | null; createdAt: Date }): AuditLog {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private toDomain(raw: any): AuditLog {
     return AuditLog.reconstitute({
       id: raw.id,
       userId: raw.userId ?? undefined,
+      appointmentId: raw.appointmentId ?? undefined,
       action: raw.action as AuditAction,
       entityType: raw.entityType,
       entityId: raw.entityId ?? undefined,
-      oldValue: (raw.oldValue as Record<string, unknown>) ?? undefined,
-      newValue: (raw.newValue as Record<string, unknown>) ?? undefined,
+      oldValues: (raw.oldValues as Record<string, unknown>) ?? undefined,
+      newValues: (raw.newValues as Record<string, unknown>) ?? undefined,
       ipAddress: raw.ipAddress ?? undefined,
       userAgent: raw.userAgent ?? undefined,
+      metadata: (raw.metadata as Record<string, unknown>) ?? undefined,
       createdAt: raw.createdAt,
     });
   }
@@ -26,7 +29,16 @@ export class PrismaAuditLogRepository implements AuditLogRepositoryPort {
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findMany(options: { userId?: string; action?: AuditAction; entityType?: string; entityId?: string; from?: Date; to?: Date; page?: number; limit?: number }): Promise<{ items: AuditLog[]; total: number }> {
+  async findMany(options: {
+    userId?: string;
+    action?: AuditAction;
+    entityType?: string;
+    entityId?: string;
+    from?: Date;
+    to?: Date;
+    page?: number;
+    limit?: number;
+  }): Promise<{ items: AuditLog[]; total: number }> {
     const { userId, action, entityType, entityId, from, to, page = 1, limit = 50 } = options;
     const where: Prisma.AuditLogWhereInput = {};
     if (userId) where.userId = userId;
@@ -49,15 +61,26 @@ export class PrismaAuditLogRepository implements AuditLogRepositoryPort {
       data: {
         id: log.id,
         userId: log.userId,
+        appointmentId: log.appointmentId,
         action: log.action,
         entityType: log.entityType,
         entityId: log.entityId,
-        oldValue: log.oldValue as Prisma.InputJsonValue,
-        newValue: log.newValue as Prisma.InputJsonValue,
+        oldValues: log.oldValues as Prisma.InputJsonValue,
+        newValues: log.newValues as Prisma.InputJsonValue,
         ipAddress: log.ipAddress,
         userAgent: log.userAgent,
+        metadata: log.metadata as Prisma.InputJsonValue,
       },
     });
     return this.toDomain(raw);
+  }
+
+  async getRecentActions(userId: string, limit: number): Promise<AuditLog[]> {
+    const raws = await this.db.auditLog.findMany({
+      where: { userId },
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+    return raws.map(r => this.toDomain(r));
   }
 }

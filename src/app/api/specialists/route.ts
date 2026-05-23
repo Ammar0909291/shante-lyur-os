@@ -36,8 +36,6 @@ export async function GET(req: NextRequest) {
     const registry = DIRegistry.instance;
     const result = await registry.specialistRepository.findMany({
       status: SpecialistStatus.ACTIVE,
-      serviceId: parsed.data.serviceId,
-      locationId: parsed.data.locationId,
       page: parsed.data.page,
       limit: parsed.data.limit,
     });

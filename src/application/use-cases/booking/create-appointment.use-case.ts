@@ -82,7 +82,8 @@ export class CreateAppointmentUseCase {
     let totalPrice = Money.zero('RUB');
     const appointmentServices: AppointmentServiceItem[] = [];
 
-    for (const [idx, svcDto] of dto.services.entries()) {
+    for (let idx = 0; idx < dto.services.length; idx++) {
+      const svcDto = dto.services[idx];
       const service = services.find(s => s.id === svcDto.serviceId)!;
       const locationPrice = await this.serviceRepo.getLocationPrice(service.id, location.id);
       const price = locationPrice ? Money.create(locationPrice.price, 'RUB') : service.basePrice;

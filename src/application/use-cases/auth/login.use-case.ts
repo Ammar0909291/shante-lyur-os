@@ -59,7 +59,8 @@ export class LoginUseCase {
       throw new UnauthorizedError(`Account locked until ${user.lockedUntil?.toISOString()}`);
     }
 
-    const valid = await this.passwordHasher.verify(dto.password, user.passwordHash);
+    const hashFn = this.passwordHasher.verify ?? this.passwordHasher.compare;
+    const valid = hashFn ? await hashFn.call(this.passwordHasher, dto.password, user.passwordHash) : false;
     if (!valid) {
       user.recordFailedLogin();
       await this.userRepo.update(user);
@@ -81,21 +82,20 @@ export class LoginUseCase {
     user.recordLogin();
     await this.userRepo.update(user);
 
-    const accessToken = await this.tokenService.generateAccessToken({
-      sub: user.id,
+    const accessResult = this.tokenService.generateAccessToken({
+      userId: user.id,
       email: user.email.value,
       role: user.role,
     });
 
-    const refreshTokenStr = await this.tokenService.generateRefreshToken({
-      sub: user.id,
-      version: Date.now(),
+    const refreshResult = this.tokenService.generateRefreshToken({
+      userId: user.id,
     });
 
     const refreshToken = new RefreshToken({
       id: crypto.randomUUID(),
       userId: user.id,
-      tokenHash: await this.passwordHasher.hash(refreshTokenStr),
+      tokenHash: await this.passwordHasher.hash(refreshResult.token),
       expiresAt: new Date(Date.now() + (dto.rememberMe ? 30 : 7) * 24 * 60 * 60 * 1000),
       ipAddress,
       createdAt: new Date(),
@@ -114,6 +114,6 @@ export class LoginUseCase {
       })
     );
 
-    return { user, accessToken, refreshToken: refreshTokenStr };
+    return { user, accessToken: accessResult.token, refreshToken: refreshResult.token };
   }
 }

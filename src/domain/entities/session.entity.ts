@@ -11,6 +11,19 @@ export interface SessionProps {
 }
 
 export class Session extends BaseEntity {
+  static reconstitute(props: SessionProps): Session {
+    return new Session(props);
+  }
+
+  static create(props: Omit<SessionProps, 'id' | 'createdAt' | 'token'>): Session {
+    return new Session({
+      ...props,
+      id: crypto.randomUUID(),
+      token: crypto.randomUUID(),
+      createdAt: new Date(),
+    });
+  }
+
   constructor(private readonly props: SessionProps) {
     super(props.id, props.createdAt, props.createdAt);
   }

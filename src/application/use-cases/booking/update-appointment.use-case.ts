@@ -45,7 +45,7 @@ export class UpdateAppointmentStatusUseCase {
     }
 
     const oldStatus = appointment.status;
-    const newStatus = dto.status;
+    const newStatus = dto.status as AppointmentStatus;
 
     // Validate transition
     if (!canTransitionStatus(oldStatus, newStatus)) {

@@ -29,6 +29,23 @@ export class User extends BaseEntity {
   private _failedLogins: number;
   private _lockedUntil?: Date;
 
+  static reconstitute(props: UserProps): User {
+    return new User(props);
+  }
+
+  static create(props: Omit<UserProps, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'emailVerified' | 'phoneVerified' | 'failedLogins'> & { status?: UserStatus }): User {
+    return new User({
+      ...props,
+      id: crypto.randomUUID(),
+      status: props.status ?? UserStatus.ACTIVE,
+      emailVerified: false,
+      phoneVerified: false,
+      failedLogins: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
   constructor(private readonly props: UserProps) {
     super(props.id, props.createdAt, props.updatedAt);
     this._passwordHash = props.passwordHash;
@@ -55,6 +72,7 @@ export class User extends BaseEntity {
   get isActive(): boolean {
     return this._status === UserStatus.ACTIVE && !this.isLocked;
   }
+  get avatarUrl(): string | undefined { return this.props.avatarUrl; }
   get passwordHash(): string { return this._passwordHash; }
 
   recordLogin(): void {

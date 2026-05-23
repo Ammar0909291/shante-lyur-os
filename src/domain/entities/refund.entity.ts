@@ -18,6 +18,10 @@ export interface RefundProps {
 export class Refund extends BaseEntity {
   private _status: RefundStatus;
 
+  static reconstitute(props: RefundProps): Refund {
+    return new Refund(props);
+  }
+
   constructor(private readonly props: RefundProps) {
     super(props.id, props.createdAt, props.createdAt);
     this._status = props.status;

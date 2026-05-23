@@ -22,21 +22,20 @@ export class RefreshTokenUseCase {
   ) {}
 
   async execute(dto: RefreshTokenDto): Promise<RefreshResult> {
-    let payload: Record<string, unknown>;
+    let payload: { userId: string; jti: string };
     try {
-      payload = await this.tokenService.verifyRefreshToken(dto.refreshToken);
+      payload = this.tokenService.verifyRefreshToken(dto.refreshToken);
     } catch {
       throw new UnauthorizedError('Invalid refresh token');
     }
 
-    const userId = payload.sub as string;
+    const userId = payload.userId;
     const user = await this.userRepo.findById(userId);
     if (!user || !user.isActive) {
       throw new UnauthorizedError('User not found or inactive');
     }
 
-    const tokenHash = await this.passwordHasher.hash(dto.refreshToken);
-    const stored = await this.refreshTokenRepo.findByTokenHash(tokenHash);
+    const stored = await this.refreshTokenRepo.findByToken(dto.refreshToken);
     if (!stored || !stored.isValid) {
       // Security: revoke all tokens for this user if token reuse detected
       if (stored && stored.isRevoked) {
@@ -46,24 +45,23 @@ export class RefreshTokenUseCase {
     }
 
     // Rotate: revoke old, issue new
-    await stored.revoke();
+    stored.revoke();
     await this.refreshTokenRepo.update(stored);
 
-    const newAccessToken = await this.tokenService.generateAccessToken({
-      sub: user.id,
+    const newAccessResult = this.tokenService.generateAccessToken({
+      userId: user.id,
       email: user.email.value,
       role: user.role,
     });
 
-    const newRefreshTokenStr = await this.tokenService.generateRefreshToken({
-      sub: user.id,
-      version: Date.now(),
+    const newRefreshResult = this.tokenService.generateRefreshToken({
+      userId: user.id,
     });
 
     const newRefreshToken = new RefreshToken({
       id: crypto.randomUUID(),
       userId: user.id,
-      tokenHash: await this.passwordHasher.hash(newRefreshTokenStr),
+      tokenHash: await this.passwordHasher.hash(newRefreshResult.token),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       replacedBy: stored.id,
       createdAt: new Date(),
@@ -71,6 +69,6 @@ export class RefreshTokenUseCase {
 
     await this.refreshTokenRepo.create(newRefreshToken);
 
-    return { accessToken: newAccessToken, refreshToken: newRefreshTokenStr };
+    return { accessToken: newAccessResult.token, refreshToken: newRefreshResult.token };
   }
 }

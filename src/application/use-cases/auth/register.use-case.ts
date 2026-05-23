@@ -57,21 +57,20 @@ export class RegisterUseCase {
 
     const saved = await this.userRepo.create(user);
 
-    const accessToken = await this.tokenService.generateAccessToken({
-      sub: saved.id,
+    const accessResult = this.tokenService.generateAccessToken({
+      userId: saved.id,
       email: saved.email.value,
       role: saved.role,
     });
 
-    const refreshTokenStr = await this.tokenService.generateRefreshToken({
-      sub: saved.id,
-      version: 1,
+    const refreshResult = this.tokenService.generateRefreshToken({
+      userId: saved.id,
     });
 
     const refreshToken = new RefreshToken({
       id: crypto.randomUUID(),
       userId: saved.id,
-      tokenHash: await this.passwordHasher.hash(refreshTokenStr),
+      tokenHash: await this.passwordHasher.hash(refreshResult.token),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       ipAddress,
       createdAt: new Date(),
@@ -81,7 +80,7 @@ export class RegisterUseCase {
 
     await this.emailService.sendTemplate(saved.email.value, 'welcome', {
       firstName: saved.firstName,
-      verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${accessToken}`,
+      verifyUrl: `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${accessResult.token}`,
     });
 
     await this.eventBus.publish(
@@ -93,6 +92,6 @@ export class RegisterUseCase {
       })
     );
 
-    return { user: saved, accessToken, refreshToken: refreshTokenStr };
+    return { user: saved, accessToken: accessResult.token, refreshToken: refreshResult.token };
   }
 }

@@ -40,7 +40,6 @@ export async function GET(req: NextRequest) {
     const result = await registry.serviceRepository.findMany({
       isActive: true,
       category: parsed.data.category as ServiceCategory | undefined,
-      search: parsed.data.search,
       page: parsed.data.page,
       limit: parsed.data.limit,
     });

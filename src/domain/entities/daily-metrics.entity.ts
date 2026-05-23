@@ -19,6 +19,10 @@ export interface DailyMetricsProps {
 }
 
 export class DailyMetrics extends BaseEntity {
+  static reconstitute(props: DailyMetricsProps): DailyMetrics {
+    return new DailyMetrics(props);
+  }
+
   constructor(private readonly props: DailyMetricsProps) {
     super(props.id, props.createdAt, props.updatedAt);
   }

@@ -19,7 +19,7 @@ export class CreateUserUseCase {
   ) {}
 
   async execute(dto: CreateUserDto, actorId: string, actorRole: UserRole) {
-    if (!actorRole.can('user:create')) {
+    if (actorRole === UserRole.CLIENT || actorRole === UserRole.SPECIALIST) {
       throw new ForbiddenError();
     }
 

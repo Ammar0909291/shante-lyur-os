@@ -50,9 +50,11 @@ export class CreatePaymentUseCase {
       throw new ConflictError('Cannot create payment for cancelled or no-show appointment');
     }
 
+    const provider = dto.provider as PaymentProvider;
+
     // Check for duplicate idempotency
     if (dto.idempotencyKey) {
-      const existing = await this.paymentRepo.findByProviderPaymentId(dto.idempotencyKey, dto.provider);
+      const existing = await this.paymentRepo.findByProviderPaymentId(dto.idempotencyKey, provider);
       if (existing) {
         return { payment: existing };
       }
@@ -63,9 +65,8 @@ export class CreatePaymentUseCase {
     const payment = new Payment({
       id: crypto.randomUUID(),
       appointmentId: dto.appointmentId,
-      provider: dto.provider,
+      provider,
       amount,
-      currency: dto.currency,
       status: PaymentStatus.PENDING,
       description: dto.description,
       metadata: dto.metadata,
@@ -79,8 +80,8 @@ export class CreatePaymentUseCase {
     let paymentUrl: string | undefined;
 
     // For online payments, initiate gateway flow
-    if (dto.provider === PaymentProvider.YOOKASSA || dto.provider === PaymentProvider.ROBOKASSA) {
-      const gateway = this.gateways[dto.provider];
+    if (provider === PaymentProvider.YOOKASSA || provider === PaymentProvider.ROBOKASSA) {
+      const gateway = this.gateways[provider];
       const result = await gateway.createPayment({
         amount,
         description: dto.description ?? `Payment for appointment ${dto.appointmentId}`,

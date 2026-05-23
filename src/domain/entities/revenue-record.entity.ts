@@ -17,6 +17,10 @@ export interface RevenueRecordProps {
 }
 
 export class RevenueRecord extends BaseEntity {
+  static reconstitute(props: RevenueRecordProps): RevenueRecord {
+    return new RevenueRecord(props);
+  }
+
   constructor(private readonly props: RevenueRecordProps) {
     super(props.id, props.createdAt, props.createdAt);
   }

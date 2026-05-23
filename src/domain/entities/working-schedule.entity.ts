@@ -20,6 +20,10 @@ export interface WorkingScheduleProps {
 export class WorkingSchedule extends BaseEntity {
   private _isActive: boolean;
 
+  static reconstitute(props: WorkingScheduleProps): WorkingSchedule {
+    return new WorkingSchedule(props);
+  }
+
   constructor(private readonly props: WorkingScheduleProps) {
     super(props.id, props.createdAt, props.updatedAt);
     this._isActive = props.isActive;

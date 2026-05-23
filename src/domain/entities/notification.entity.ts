@@ -21,6 +21,18 @@ export interface NotificationProps {
 export class Notification extends BaseEntity {
   private _status: NotificationStatus;
 
+  static reconstitute(props: NotificationProps): Notification {
+    return new Notification(props);
+  }
+
+  static create(props: Omit<NotificationProps, 'id' | 'createdAt'>): Notification {
+    return new Notification({
+      ...props,
+      id: crypto.randomUUID(),
+      createdAt: new Date(),
+    });
+  }
+
   constructor(private readonly props: NotificationProps) {
     super(props.id, props.createdAt, props.createdAt);
     this._status = props.status;

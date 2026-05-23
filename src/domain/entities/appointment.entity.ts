@@ -40,6 +40,10 @@ export class Appointment extends BaseEntity {
   private _services: AppointmentServiceItem[];
   private _totalPrice: Money;
 
+  static reconstitute(props: AppointmentProps): Appointment {
+    return new Appointment(props);
+  }
+
   constructor(private readonly props: AppointmentProps) {
     super(props.id, props.createdAt, props.updatedAt);
     this._status = props.status;

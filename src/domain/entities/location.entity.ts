@@ -17,6 +17,10 @@ export interface LocationProps {
 export class Location extends BaseEntity {
   private _isActive: boolean;
 
+  static reconstitute(props: LocationProps): Location {
+    return new Location(props);
+  }
+
   constructor(private readonly props: LocationProps) {
     super(props.id, props.createdAt, props.updatedAt);
     this._isActive = props.isActive;

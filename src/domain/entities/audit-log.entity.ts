@@ -17,6 +17,10 @@ export interface AuditLogProps {
 }
 
 export class AuditLog extends BaseEntity {
+  static reconstitute(props: AuditLogProps): AuditLog {
+    return new AuditLog(props);
+  }
+
   constructor(private readonly props: AuditLogProps) {
     super(props.id, props.createdAt, props.createdAt);
   }

@@ -31,6 +31,10 @@ export class CustomerProfile extends BaseEntity {
   private _loyaltyTier: string;
   private _churnRiskScore?: number;
 
+  static reconstitute(props: CustomerProfileProps): CustomerProfile {
+    return new CustomerProfile(props);
+  }
+
   constructor(private readonly props: CustomerProfileProps) {
     super(props.id, props.createdAt, props.updatedAt);
     this._totalVisits = props.totalVisits;

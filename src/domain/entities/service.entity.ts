@@ -21,6 +21,10 @@ export class Service extends BaseEntity {
   private _isActive: boolean;
   private _basePrice: Money;
 
+  static reconstitute(props: ServiceProps): Service {
+    return new Service(props);
+  }
+
   constructor(private readonly props: ServiceProps) {
     super(props.id, props.createdAt, props.updatedAt);
     this._isActive = props.isActive;

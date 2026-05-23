@@ -14,6 +14,32 @@ export interface AIPredictionProps {
 }
 
 export class AIPrediction extends BaseEntity {
+  static reconstitute(props: AIPredictionProps): AIPrediction {
+    return new AIPrediction(props);
+  }
+
+  static create(props: {
+    type?: string;
+    modelType?: string;
+    entityType?: string;
+    entityId?: string;
+    prediction: number | Record<string, unknown>;
+    confidence?: number;
+    features?: unknown;
+    modelVersion?: string;
+  }): AIPrediction {
+    return new AIPrediction({
+      id: crypto.randomUUID(),
+      modelType: props.type ?? props.modelType ?? 'default',
+      entityType: props.entityType ?? 'default',
+      entityId: props.entityId,
+      prediction: typeof props.prediction === 'number' ? { value: props.prediction } : (props.prediction as Record<string, unknown>),
+      confidence: props.confidence,
+      trainedAt: new Date(),
+      createdAt: new Date(),
+    });
+  }
+
   constructor(private readonly props: AIPredictionProps) {
     super(props.id, props.createdAt, props.createdAt);
   }

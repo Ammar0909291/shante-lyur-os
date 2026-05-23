@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { RefundRepositoryPort } from '@/application/ports/refund-repository.port';
 import { Refund } from '@/domain/entities/refund.entity';
 import { RefundStatus } from '@/domain/enums/refund-status.enum';
@@ -7,17 +7,18 @@ import { Money } from '@/domain/value-objects/money.vo';
 export class PrismaRefundRepository implements RefundRepositoryPort {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; paymentId: string; amount: number; reason: string | null; status: string; processedAt: Date | null; processedBy: string | null; createdAt: Date; updatedAt: Date }): Refund {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private toDomain(raw: any): Refund {
     return Refund.reconstitute({
       id: raw.id,
       paymentId: raw.paymentId,
-      amount: Money.create(raw.amount).getValue(),
+      providerRefundId: raw.providerRefundId ?? undefined,
+      amount: Money.create(raw.amount.toNumber()),
       reason: raw.reason ?? undefined,
       status: raw.status as RefundStatus,
       processedAt: raw.processedAt ?? undefined,
       processedBy: raw.processedBy ?? undefined,
       createdAt: raw.createdAt,
-      updatedAt: raw.updatedAt,
     });
   }
 
@@ -39,7 +40,8 @@ export class PrismaRefundRepository implements RefundRepositoryPort {
       data: {
         id: refund.id,
         paymentId: refund.paymentId,
-        amount: refund.amount,
+        providerRefundId: refund.providerRefundId,
+        amount: refund.amount.amount,
         reason: refund.reason,
         status: refund.status,
         processedAt: refund.processedAt,
@@ -53,14 +55,35 @@ export class PrismaRefundRepository implements RefundRepositoryPort {
     const raw = await this.db.refund.update({
       where: { id: refund.id },
       data: {
-        amount: refund.amount,
+        providerRefundId: refund.providerRefundId,
+        amount: refund.amount.amount,
         reason: refund.reason,
         status: refund.status,
         processedAt: refund.processedAt,
         processedBy: refund.processedBy,
-        updatedAt: new Date(),
       },
     });
     return this.toDomain(raw);
+  }
+
+  async findMany(options: {
+    status?: RefundStatus;
+    from?: Date;
+    to?: Date;
+    page?: number;
+    limit?: number;
+  }): Promise<{ items: Refund[]; total: number }> {
+    const { status, from, to, page = 1, limit = 20 } = options;
+    const where: Prisma.RefundWhereInput = {};
+    if (status) where.status = status;
+    if (from || to) where.createdAt = {};
+    if (from) (where.createdAt as Prisma.DateTimeFilter).gte = from;
+    if (to) (where.createdAt as Prisma.DateTimeFilter).lte = to;
+
+    const [raws, total] = await Promise.all([
+      this.db.refund.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' } }),
+      this.db.refund.count({ where }),
+    ]);
+    return { items: raws.map(r => this.toDomain(r)), total };
   }
 }

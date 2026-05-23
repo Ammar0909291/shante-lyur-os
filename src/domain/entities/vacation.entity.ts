@@ -15,6 +15,10 @@ export interface VacationProps {
 export class Vacation extends BaseEntity {
   private _isApproved: boolean;
 
+  static reconstitute(props: VacationProps): Vacation {
+    return new Vacation(props);
+  }
+
   constructor(private readonly props: VacationProps) {
     super(props.id, props.createdAt, props.createdAt);
     this._isApproved = props.isApproved;

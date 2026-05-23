@@ -6,17 +6,21 @@ import { Money } from '@/domain/value-objects/money.vo';
 export class PrismaDailyMetricsRepository implements DailyMetricsRepositoryPort {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; date: Date; totalRevenue: number; totalAppointments: number; completedAppointments: number; cancelledAppointments: number; noShowCount: number; newCustomers: number; averageTicket: number; createdAt: Date; updatedAt: Date }): DailyMetrics {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private toDomain(raw: any): DailyMetrics {
     return DailyMetrics.reconstitute({
       id: raw.id,
       date: raw.date,
-      totalRevenue: Money.create(raw.totalRevenue).getValue(),
       totalAppointments: raw.totalAppointments,
       completedAppointments: raw.completedAppointments,
       cancelledAppointments: raw.cancelledAppointments,
-      noShowCount: raw.noShowCount,
+      noShowAppointments: raw.noShowAppointments,
+      totalRevenue: Money.create(raw.totalRevenue.toNumber()),
+      totalRefunds: Money.create(raw.totalRefunds.toNumber()),
       newCustomers: raw.newCustomers,
-      averageTicket: Money.create(raw.averageTicket).getValue(),
+      returningCustomers: raw.returningCustomers,
+      avgAppointmentValue: raw.avgAppointmentValue ? Money.create(raw.avgAppointmentValue.toNumber()) : undefined,
+      avgBookingLeadTime: raw.avgBookingLeadTime ?? undefined,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
     });
@@ -28,12 +32,19 @@ export class PrismaDailyMetricsRepository implements DailyMetricsRepositoryPort 
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findByDateRange(start: Date, end: Date): Promise<DailyMetrics[]> {
+  async findRange(from: Date, to: Date): Promise<DailyMetrics[]> {
     const raws = await this.db.dailyMetrics.findMany({
-      where: { date: { gte: start, lte: end } },
+      where: { date: { gte: from, lte: to } },
       orderBy: { date: 'asc' },
     });
     return raws.map(r => this.toDomain(r));
+  }
+
+  async getLatest(): Promise<DailyMetrics | null> {
+    const raw = await this.db.dailyMetrics.findFirst({
+      orderBy: { date: 'desc' },
+    });
+    return raw ? this.toDomain(raw) : null;
   }
 
   async create(metrics: DailyMetrics): Promise<DailyMetrics> {
@@ -41,13 +52,16 @@ export class PrismaDailyMetricsRepository implements DailyMetricsRepositoryPort 
       data: {
         id: metrics.id,
         date: metrics.date,
-        totalRevenue: metrics.totalRevenue,
         totalAppointments: metrics.totalAppointments,
         completedAppointments: metrics.completedAppointments,
         cancelledAppointments: metrics.cancelledAppointments,
-        noShowCount: metrics.noShowCount,
+        noShowAppointments: metrics.noShowAppointments,
+        totalRevenue: metrics.totalRevenue.amount,
+        totalRefunds: metrics.totalRefunds.amount,
         newCustomers: metrics.newCustomers,
-        averageTicket: metrics.averageTicket,
+        returningCustomers: metrics.returningCustomers,
+        avgAppointmentValue: metrics.avgAppointmentValue?.amount,
+        avgBookingLeadTime: metrics.avgBookingLeadTime,
       },
     });
     return this.toDomain(raw);
@@ -57,13 +71,16 @@ export class PrismaDailyMetricsRepository implements DailyMetricsRepositoryPort 
     const raw = await this.db.dailyMetrics.update({
       where: { id: metrics.id },
       data: {
-        totalRevenue: metrics.totalRevenue,
         totalAppointments: metrics.totalAppointments,
         completedAppointments: metrics.completedAppointments,
         cancelledAppointments: metrics.cancelledAppointments,
-        noShowCount: metrics.noShowCount,
+        noShowAppointments: metrics.noShowAppointments,
+        totalRevenue: metrics.totalRevenue.amount,
+        totalRefunds: metrics.totalRefunds.amount,
         newCustomers: metrics.newCustomers,
-        averageTicket: metrics.averageTicket,
+        returningCustomers: metrics.returningCustomers,
+        avgAppointmentValue: metrics.avgAppointmentValue?.amount,
+        avgBookingLeadTime: metrics.avgBookingLeadTime,
         updatedAt: new Date(),
       },
     });

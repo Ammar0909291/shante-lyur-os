@@ -24,6 +24,10 @@ export class Specialist extends BaseEntity {
   private _rating?: number;
   private _reviewCount: number;
 
+  static reconstitute(props: SpecialistProps): Specialist {
+    return new Specialist(props);
+  }
+
   constructor(private readonly props: SpecialistProps) {
     super(props.id, props.createdAt, props.updatedAt);
     this._status = props.status;

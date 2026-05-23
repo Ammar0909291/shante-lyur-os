@@ -13,7 +13,7 @@ import {
 } from '@/application/ports';
 import { CancelAppointmentDto } from '@/application/dto';
 import { AuditLog, Refund } from '@/domain/entities';
-import { AuditAction, RefundStatus } from '@/domain/enums';
+import { AuditAction, RefundStatus, CancellationReason } from '@/domain/enums';
 
 export class CancelAppointmentUseCase {
   constructor(
@@ -61,7 +61,7 @@ export class CancelAppointmentUseCase {
       refundPolicy = 'full';
     }
 
-    appointment.cancel(dto.reason, actorId);
+    appointment.cancel(dto.reason as CancellationReason, actorId);
     const saved = await this.appointmentRepo.update(appointment);
 
     // Process refunds if applicable

@@ -1,9 +1,10 @@
 export type TokenServicePort = ITokenService;
 
 export interface ITokenService {
-  generateAccessToken(payload: Record<string, unknown>): Promise<string>;
-  generateRefreshToken(payload: Record<string, unknown>): Promise<string>;
-  verifyAccessToken(token: string): Promise<Record<string, unknown>>;
-  verifyRefreshToken(token: string): Promise<Record<string, unknown>>;
-  decode(token: string): Record<string, unknown> | null;
+  generateAccessToken(payload: { userId: string; email: string; role: string }): { token: string; expiresAt: Date };
+  generateRefreshToken(payload: { userId: string }): { token: string; expiresAt: Date };
+  verifyAccessToken(token: string): { userId: string; email: string; role: string; jti: string };
+  verifyRefreshToken(token: string): { userId: string; jti: string };
+  decodeToken?(token: string): { userId: string; email: string; role: string } | null;
+  decode?(token: string): Record<string, unknown> | null;
 }

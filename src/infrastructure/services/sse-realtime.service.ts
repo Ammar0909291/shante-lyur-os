@@ -33,18 +33,18 @@ export class SSERealtimeService implements RealtimeServicePort {
 
   broadcastToUser(userId: string, payload: Record<string, unknown>): void {
     const message = `data: ${JSON.stringify(payload)}\n\n`;
-    for (const client of this.clients.values()) {
+    Array.from(this.clients.values()).forEach(client => {
       if (client.userId === userId) {
         try { client.controller.enqueue(new TextEncoder().encode(message)); } catch { this.removeClient(client.id); }
       }
-    }
+    });
   }
 
   broadcastToAll(payload: Record<string, unknown>): void {
     const message = `data: ${JSON.stringify(payload)}\n\n`;
-    for (const client of this.clients.values()) {
+    Array.from(this.clients.values()).forEach(client => {
       try { client.controller.enqueue(new TextEncoder().encode(message)); } catch { this.removeClient(client.id); }
-    }
+    });
   }
 
   broadcastToRole(role: string, payload: Record<string, unknown>): void {
@@ -53,7 +53,8 @@ export class SSERealtimeService implements RealtimeServicePort {
   }
 
   getConnectedUsers(): string[] {
-    return [...new Set([...this.clients.values()].map(c => c.userId))];
+    const userIds = new Set(Array.from(this.clients.values()).map(c => c.userId));
+    return Array.from(userIds);
   }
 
   getClientCount(): number {
@@ -63,7 +64,7 @@ export class SSERealtimeService implements RealtimeServicePort {
   private startHeartbeat(): void {
     this.heartbeatTimer = setInterval(() => {
       const now = Date.now();
-      for (const client of this.clients.values()) {
+      Array.from(this.clients.values()).forEach(client => {
         if (now - client.lastPing > this.HEARTBEAT_INTERVAL * 2) {
           this.removeClient(client.id);
         } else {
@@ -73,14 +74,14 @@ export class SSERealtimeService implements RealtimeServicePort {
             this.removeClient(client.id);
           }
         }
-      }
+      });
     }, this.HEARTBEAT_INTERVAL);
   }
 
   dispose(): void {
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-    for (const client of this.clients.values()) {
+    Array.from(this.clients.values()).forEach(client => {
       this.removeClient(client.id);
-    }
+    });
   }
 }

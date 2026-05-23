@@ -56,7 +56,7 @@ export const CancelAppointmentSchema = z.object({
 
 export type CancelAppointmentDto = z.infer<typeof CancelAppointmentSchema>;
 
-export const ListAppointmentsSchema = PaginationSchema.merge(DateRangeSchema).extend({
+export const ListAppointmentsSchema = PaginationSchema.merge(DateRangeSchema.innerType()).extend({
   specialistId: z.string().uuid().optional(),
   clientId: z.string().uuid().optional(),
   locationId: z.string().uuid().optional(),

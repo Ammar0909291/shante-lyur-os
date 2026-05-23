@@ -15,6 +15,7 @@ export interface IRevenueRecordRepository {
     limit?: number;
   }): Promise<{ items: RevenueRecord[]; total: number }>;
   create(record: RevenueRecord): Promise<RevenueRecord>;
+  findByDateRange?(from: Date, to: Date): Promise<RevenueRecord[]>;
   getDailyRevenue(date: Date): Promise<number>;
   getMonthlyRevenue(year: number, month: number): Promise<number>;
   getSpecialistRevenue(specialistId: string, from: Date, to: Date): Promise<number>;

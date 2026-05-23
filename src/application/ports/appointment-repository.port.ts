@@ -17,6 +17,8 @@ export interface IAppointmentRepository {
     limit?: number;
   }): Promise<{ items: Appointment[]; total: number }>;
   findOverlapping(specialistId: string, timeRange: DateRange, excludeId?: string): Promise<Appointment[]>;
+  findByDateRange?(start: Date, end: Date, filters?: { specialistId?: string; locationId?: string; status?: AppointmentStatus[] }): Promise<Appointment[]>;
+  findByCustomerId?(customerId: string, page?: number, limit?: number): Promise<{ items: Appointment[]; total: number }>;
   create(appointment: Appointment): Promise<Appointment>;
   update(appointment: Appointment): Promise<Appointment>;
   delete(id: string): Promise<void>;

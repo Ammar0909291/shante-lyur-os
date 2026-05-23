@@ -1,5 +1,7 @@
 import { Money } from '@/domain/value-objects';
 
+export type PaymentGatewayPort = IPaymentGateway;
+
 export interface PaymentGatewayInitResult {
   paymentUrl: string;
   providerPaymentId: string;

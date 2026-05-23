@@ -13,6 +13,10 @@ export interface BlockedTimeProps {
 }
 
 export class BlockedTime extends BaseEntity {
+  static reconstitute(props: BlockedTimeProps): BlockedTime {
+    return new BlockedTime(props);
+  }
+
   constructor(private readonly props: BlockedTimeProps) {
     super(props.id, props.createdAt, props.createdAt);
   }

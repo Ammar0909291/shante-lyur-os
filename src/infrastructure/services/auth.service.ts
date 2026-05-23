@@ -12,6 +12,7 @@ import { ConflictError } from '@/domain/errors/conflict-error';
 import { NotFoundError } from '@/domain/errors/not-found-error';
 import { UserRole } from '@/domain/enums/user-role.enum';
 import { UserStatus } from '@/domain/enums/user-status.enum';
+import { Email } from '@/domain/value-objects/email.vo';
 
 interface AuthResult {
   user: User;
@@ -33,18 +34,19 @@ export class AuthService implements AuthServicePort {
   async authenticate(email: string, password: string, ipAddress?: string, userAgent?: string): Promise<AuthResult> {
     const user = await this.userRepo.findByEmail(email);
     if (!user) throw new UnauthorizedError('Invalid credentials');
-    if (user.status === UserStatus.BLOCKED) throw new UnauthorizedError('Account is blocked');
+    if (user.status === UserStatus.SUSPENDED) throw new UnauthorizedError('Account is blocked');
     if (user.status === UserStatus.INACTIVE) throw new UnauthorizedError('Account is inactive');
 
-    const valid = await this.passwordHasher.compare(password, user.passwordHash);
+    const hashFn = this.passwordHasher.compare ?? this.passwordHasher.verify;
+    const valid = hashFn ? await hashFn.call(this.passwordHasher, password, user.passwordHash) : false;
     if (!valid) throw new UnauthorizedError('Invalid credentials');
 
-    user.markLogin();
+    user.recordLogin();
     await this.userRepo.update(user);
 
     const access = this.tokenService.generateAccessToken({
       userId: user.id,
-      email: user.email,
+      email: user.email.toString(),
       role: user.role,
     });
 
@@ -88,11 +90,10 @@ export class AuthService implements AuthServicePort {
     const passwordHash = await this.passwordHasher.hash(data.password);
 
     const user = User.create({
-      email: data.email,
+      email: Email.create(data.email),
       passwordHash,
       firstName: data.firstName,
       lastName: data.lastName,
-      phone: data.phone,
       role: data.role ?? UserRole.CLIENT,
     });
 
@@ -114,7 +115,7 @@ export class AuthService implements AuthServicePort {
 
     const access = this.tokenService.generateAccessToken({
       userId: user.id,
-      email: user.email,
+      email: user.email.toString(),
       role: user.role,
     });
 

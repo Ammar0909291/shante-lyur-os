@@ -7,20 +7,27 @@ import { Money } from '@/domain/value-objects/money.vo';
 export class PrismaPromoCodeRepository implements PromoCodeRepositoryPort {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; code: string; description: string | null; discountType: string; discountValue: number; minOrderAmount: number | null; maxUses: number | null; usedCount: number; validFrom: Date; validUntil: Date | null; isActive: boolean; applicableServiceIds: string[]; createdBy: string; createdAt: Date; updatedAt: Date }): PromoCode {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private toDomain(raw: any): PromoCode {
+    const applicableServicesRaw = raw.applicableServices;
+    const applicableServices = Array.isArray(applicableServicesRaw)
+      ? (applicableServicesRaw as string[])
+      : undefined;
+
     return PromoCode.reconstitute({
       id: raw.id,
       code: raw.code,
       description: raw.description ?? undefined,
       discountType: raw.discountType as DiscountType,
-      discountValue: raw.discountValue,
-      minOrderAmount: raw.minOrderAmount ? Money.create(raw.minOrderAmount).getValue() : undefined,
+      discountValue: raw.discountValue.toNumber(),
       maxUses: raw.maxUses ?? undefined,
-      usedCount: raw.usedCount,
+      currentUses: raw.currentUses,
+      maxUsesPerUser: raw.maxUsesPerUser,
+      minOrderAmount: raw.minOrderAmount ? Money.create(raw.minOrderAmount.toNumber()) : undefined,
       validFrom: raw.validFrom,
-      validUntil: raw.validUntil ?? undefined,
+      validUntil: raw.validUntil,
+      applicableServices,
       isActive: raw.isActive,
-      applicableServiceIds: raw.applicableServiceIds,
       createdBy: raw.createdBy,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
@@ -57,13 +64,14 @@ export class PrismaPromoCodeRepository implements PromoCodeRepositoryPort {
         description: pc.description,
         discountType: pc.discountType,
         discountValue: pc.discountValue,
-        minOrderAmount: pc.minOrderAmount,
         maxUses: pc.maxUses,
-        usedCount: pc.usedCount,
+        currentUses: pc.currentUses,
+        maxUsesPerUser: pc.maxUsesPerUser,
+        minOrderAmount: pc.minOrderAmount?.amount,
         validFrom: pc.validFrom,
         validUntil: pc.validUntil,
+        applicableServices: pc.applicableServices as Prisma.InputJsonValue,
         isActive: pc.isActive,
-        applicableServiceIds: pc.applicableServiceIds,
         createdBy: pc.createdBy,
       },
     });
@@ -78,13 +86,14 @@ export class PrismaPromoCodeRepository implements PromoCodeRepositoryPort {
         description: pc.description,
         discountType: pc.discountType,
         discountValue: pc.discountValue,
-        minOrderAmount: pc.minOrderAmount,
         maxUses: pc.maxUses,
-        usedCount: pc.usedCount,
+        currentUses: pc.currentUses,
+        maxUsesPerUser: pc.maxUsesPerUser,
+        minOrderAmount: pc.minOrderAmount?.amount,
         validFrom: pc.validFrom,
         validUntil: pc.validUntil,
+        applicableServices: pc.applicableServices as Prisma.InputJsonValue,
         isActive: pc.isActive,
-        applicableServiceIds: pc.applicableServiceIds,
         updatedAt: new Date(),
       },
     });
@@ -98,7 +107,30 @@ export class PrismaPromoCodeRepository implements PromoCodeRepositoryPort {
   async incrementUsage(id: string): Promise<void> {
     await this.db.promoCode.update({
       where: { id },
-      data: { usedCount: { increment: 1 } },
+      data: { currentUses: { increment: 1 } },
     });
+  }
+
+  async recordUsage(promoCodeId: string, userId: string, appointmentId: string, discountAmount: number): Promise<void> {
+    await this.db.promoCodeUsage.create({
+      data: {
+        promoCodeId,
+        userId,
+        appointmentId,
+        discountAmount,
+      },
+    });
+    await this.db.promoCode.update({
+      where: { id: promoCodeId },
+      data: { currentUses: { increment: 1 } },
+    });
+  }
+
+  async getUsageCount(promoCodeId: string): Promise<number> {
+    return this.db.promoCodeUsage.count({ where: { promoCodeId } });
+  }
+
+  async getUsageCountByUser(promoCodeId: string, userId: string): Promise<number> {
+    return this.db.promoCodeUsage.count({ where: { promoCodeId, userId } });
   }
 }

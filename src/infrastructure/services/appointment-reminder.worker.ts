@@ -30,14 +30,12 @@ export class AppointmentReminderWorker {
       const tomorrowEnd = new Date(tomorrow);
       tomorrowEnd.setHours(23, 59, 59, 999);
 
-      const appointments = await this.appointmentRepo.findByDateRange(
-        tomorrow,
-        tomorrowEnd,
-        { status: [AppointmentStatus.CONFIRMED] }
-      );
+      const appointmentResult = this.appointmentRepo.findByDateRange
+        ? await this.appointmentRepo.findByDateRange(tomorrow, tomorrowEnd, { status: [AppointmentStatus.CONFIRMED] })
+        : (await this.appointmentRepo.findMany({ from: tomorrow, to: tomorrowEnd, status: AppointmentStatus.CONFIRMED })).items;
 
-      for (const appt of appointments) {
-        const user = await this.userRepo.findById(appt.customerId);
+      for (const appt of appointmentResult) {
+        const user = await this.userRepo.findById(appt.clientId);
         if (!user) continue;
 
         const dateStr = appt.startAt.toLocaleDateString('ru-RU');

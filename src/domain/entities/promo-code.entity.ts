@@ -26,6 +26,10 @@ export class PromoCode extends BaseEntity {
   private _isActive: boolean;
   private _currentUses: number;
 
+  static reconstitute(props: PromoCodeProps): PromoCode {
+    return new PromoCode(props);
+  }
+
   constructor(private readonly props: PromoCodeProps) {
     super(props.id, props.createdAt, props.updatedAt);
     this._isActive = props.isActive;

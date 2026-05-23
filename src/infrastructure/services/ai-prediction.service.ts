@@ -13,12 +13,12 @@ export class AIPredictionService implements AIPredictionServicePort {
   ) {}
 
   async predictNoShow(customerId: string): Promise<{ probability: number; factors: string[] }> {
-    const history = await this.appointmentRepo.findByCustomerId(customerId);
+    const history = await this.appointmentRepo.findMany({ clientId: customerId, limit: 100 });
     const total = history.total;
     if (total === 0) return { probability: 0.1, factors: ['Новый клиент'] };
 
-    const noShows = history.items.filter(a => a.status === AppointmentStatus.NO_SHOW).length;
-    const cancelled = history.items.filter(a => a.status === AppointmentStatus.CANCELLED).length;
+    const noShows = history.items.filter((a) => a.status === AppointmentStatus.NO_SHOW).length;
+    const cancelled = history.items.filter((a) => a.status === AppointmentStatus.CANCELLED).length;
     const noShowRate = total > 0 ? noShows / total : 0;
     const cancelRate = total > 0 ? cancelled / total : 0;
 
@@ -50,9 +50,15 @@ export class AIPredictionService implements AIPredictionServicePort {
     const start = new Date();
     start.setDate(start.getDate() - 30);
 
-    const history = await this.revenueRepo.findByDateRange(start, end);
+    const revenueResult = this.revenueRepo.findByDateRange
+      ? await this.revenueRepo.findByDateRange(start, end)
+      : [];
+    const history = revenueResult;
     const avgDaily = history.length > 0
-      ? history.reduce((sum, h) => sum + h.amount, 0) / history.length
+      ? history.reduce((sum: number, h: { amount: { amount: number } | number }) => {
+          const amt = typeof h.amount === 'number' ? h.amount : (h.amount as { amount: number }).amount;
+          return sum + amt;
+        }, 0) / history.length
       : 0;
 
     const results: { date: string; predictedRevenue: number; confidence: number }[] = [];

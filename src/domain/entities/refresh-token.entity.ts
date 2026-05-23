@@ -12,6 +12,22 @@ export interface RefreshTokenProps {
 }
 
 export class RefreshToken extends BaseEntity {
+  static reconstitute(props: RefreshTokenProps): RefreshToken {
+    return new RefreshToken(props);
+  }
+
+  static create(props: { token: string; userId: string; expiresAt: Date; ipAddress?: string }): RefreshToken {
+    const tokenHash = props.token; // In production, this should be hashed
+    return new RefreshToken({
+      id: crypto.randomUUID(),
+      userId: props.userId,
+      tokenHash,
+      expiresAt: props.expiresAt,
+      ipAddress: props.ipAddress,
+      createdAt: new Date(),
+    });
+  }
+
   constructor(private readonly props: RefreshTokenProps) {
     super(props.id, props.createdAt, props.createdAt);
   }
