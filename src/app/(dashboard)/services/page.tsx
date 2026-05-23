@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Flower2, Plus, X, Power, Pencil } from 'lucide-react';
+import { Flower2, Plus, X, Power, Pencil, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -11,6 +11,8 @@ interface Service {
   id: string;
   name: string;
   category: string;
+  displayCategory: string | null;
+  serviceCode: string | null;
   basePrice: number;
   baseDuration: number;
   description: string | null;
@@ -36,12 +38,23 @@ const selectCls = cn(
 const defaultForm = {
   name: '',
   category: 'OTHER',
+  displayCategory: '',
   basePrice: '',
   baseDuration: '',
   description: '',
   requiresConsultation: false,
   sortOrder: '0',
 };
+
+function groupBy<T>(arr: T[], key: (item: T) => string): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const item of arr) {
+    const k = key(item);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k)!.push(item);
+  }
+  return map;
+}
 
 export default function ServicesPage() {
   const { t } = useLanguage();
@@ -67,6 +80,8 @@ export default function ServicesPage() {
   const [error, setError] = React.useState('');
   const [form, setForm] = React.useState(defaultForm);
   const [showInactive, setShowInactive] = React.useState(false);
+  const [search, setSearch] = React.useState('');
+  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(new Set());
 
   const fetchServices = React.useCallback(async () => {
     setLoading(true);
@@ -93,6 +108,7 @@ export default function ServicesPage() {
     setForm({
       name: s.name,
       category: s.category,
+      displayCategory: s.displayCategory ?? '',
       basePrice: String(s.basePrice),
       baseDuration: String(s.baseDuration),
       description: s.description ?? '',
@@ -111,36 +127,32 @@ export default function ServicesPage() {
 
     setSubmitting(true); setError('');
     try {
+      const payload = {
+        name: form.name.trim(),
+        category: form.category,
+        displayCategory: form.displayCategory.trim() || null,
+        basePrice: Number(form.basePrice),
+        baseDuration: Number(form.baseDuration),
+        description: form.description.trim() || null,
+        requiresConsultation: form.requiresConsultation,
+        sortOrder: Number(form.sortOrder) || 0,
+      };
+
       let res: Response;
       if (editService) {
         res = await fetch(`/api/admin/services?id=${editService.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: form.name.trim(),
-            category: form.category,
-            basePrice: Number(form.basePrice),
-            baseDuration: Number(form.baseDuration),
-            description: form.description.trim() || null,
-            requiresConsultation: form.requiresConsultation,
-            sortOrder: Number(form.sortOrder) || 0,
-          }),
+          body: JSON.stringify(payload),
         });
       } else {
         res = await fetch('/api/admin/services', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: form.name.trim(),
-            category: form.category,
-            basePrice: Number(form.basePrice),
-            baseDuration: Number(form.baseDuration),
-            description: form.description.trim() || undefined,
-            requiresConsultation: form.requiresConsultation,
-            sortOrder: Number(form.sortOrder) || 0,
-          }),
+          body: JSON.stringify(payload),
         });
       }
+
       const json = await res.json();
       if (!json.success) { setError(json.error?.message ?? t('common.error')); return; }
       setShowModal(false);
@@ -168,11 +180,79 @@ export default function ServicesPage() {
     } catch {}
   };
 
-  const visible = services.filter((s) => showInactive || s.isActive);
+  const toggleGroup = (group: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+  };
+
+  const searchLower = search.toLowerCase();
+  const filtered = services.filter((s) => {
+    if (!showInactive && !s.isActive) return false;
+    if (!searchLower) return true;
+    return (
+      s.name.toLowerCase().includes(searchLower) ||
+      (s.displayCategory ?? '').toLowerCase().includes(searchLower) ||
+      (s.description ?? '').toLowerCase().includes(searchLower)
+    );
+  });
+
+  const grouped = groupBy(filtered, (s) => s.displayCategory ?? CATEGORY_LABELS[s.category] ?? s.category);
   const activeCount = services.filter((s) => s.isActive).length;
+
+  const ServiceRow = ({ s }: { s: Service }) => (
+    <tr className={cn('hover:bg-charcoal/50 transition-colors', !s.isActive && 'opacity-50')}>
+      <td className="px-6 py-4">
+        <p className="font-medium text-text-primary">{s.name}</p>
+        {s.description && <p className="text-xs text-text-tertiary mt-0.5 max-w-xs truncate">{s.description}</p>}
+        <div className="flex items-center gap-2 mt-1">
+          {s.requiresConsultation && (
+            <span className="text-[10px] text-champagne bg-champagne/10 px-1.5 py-0.5 rounded">{t('services.consultation')}</span>
+          )}
+          {s.serviceCode && (
+            <span className="text-[10px] text-text-tertiary font-mono bg-charcoal px-1.5 py-0.5 rounded">{s.serviceCode}</span>
+          )}
+        </div>
+      </td>
+      <td className="px-4 py-4 tabular-nums whitespace-nowrap text-text-secondary">{s.baseDuration} {t('services.duration.suffix')}</td>
+      <td className="px-4 py-4 font-medium text-text-primary tabular-nums whitespace-nowrap">{formatCurrency(s.basePrice)}</td>
+      <td className="px-4 py-4">
+        <Badge variant={s.isActive ? 'success' : 'default'} dot>
+          {s.isActive ? t('services.status.active') : t('services.status.inactive')}
+        </Badge>
+      </td>
+      <td className="px-6 py-4 text-right">
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={() => openEdit(s)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-text-secondary hover:bg-charcoal hover:text-text-primary transition-colors"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            {t('services.action.edit')}
+          </button>
+          <button
+            onClick={() => toggleActive(s)}
+            className={cn(
+              'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors',
+              s.isActive
+                ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
+                : 'text-text-secondary hover:bg-charcoal hover:text-text-primary',
+            )}
+          >
+            <Power className="w-3.5 h-3.5" />
+            {s.isActive ? t('services.action.deactivate') : t('services.action.activate')}
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
 
   return (
     <div className="p-6 lg:p-8 animate-fade-in">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('services.title')}</h2>
@@ -198,100 +278,113 @@ export default function ServicesPage() {
         </div>
       </div>
 
+      {/* Search */}
+      <div className="relative mb-5">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('services.search.placeholder')}
+          className={cn(inputCls, 'pl-10')}
+        />
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
       {loading ? (
         <div className="bg-onyx border border-border-luxury rounded-2xl flex items-center justify-center py-24">
           <div className="w-6 h-6 border-2 border-champagne/30 border-t-champagne rounded-full animate-spin" />
         </div>
-      ) : visible.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-24 gap-4">
           <Flower2 className="w-12 h-12 text-text-tertiary" />
           <p className="text-text-secondary text-sm">{t('services.empty')}</p>
-          <Button variant="secondary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={openCreate}>
-            {t('services.addFirst')}
-          </Button>
+          {!search && (
+            <Button variant="secondary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={openCreate}>
+              {t('services.addFirst')}
+            </Button>
+          )}
         </div>
       ) : (
-        <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
-          <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border-luxury">
-                  <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.name')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.category')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.duration')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.price')}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.status')}</th>
-                  <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-luxury">
-                {visible.map((s) => (
-                  <tr key={s.id} className={cn('hover:bg-charcoal/50 transition-colors', !s.isActive && 'opacity-50')}>
-                    <td className="px-6 py-4">
-                      <p className="font-medium text-text-primary">{s.name}</p>
-                      {s.description && <p className="text-xs text-text-tertiary mt-0.5 max-w-xs truncate">{s.description}</p>}
-                      {s.requiresConsultation && <span className="text-[10px] text-champagne bg-champagne/10 px-1.5 py-0.5 rounded mt-1 inline-block">{t('services.consultation')}</span>}
-                    </td>
-                    <td className="px-4 py-4 text-text-secondary whitespace-nowrap">{CATEGORY_LABELS[s.category] ?? s.category}</td>
-                    <td className="px-4 py-4 text-text-secondary tabular-nums whitespace-nowrap">{s.baseDuration} {t('services.duration.suffix')}</td>
-                    <td className="px-4 py-4 font-medium text-text-primary tabular-nums whitespace-nowrap">{formatCurrency(s.basePrice)}</td>
-                    <td className="px-4 py-4">
-                      <Badge variant={s.isActive ? 'success' : 'default'} dot>{s.isActive ? t('services.status.active') : t('services.status.inactive')}</Badge>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => openEdit(s)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-text-secondary hover:bg-charcoal hover:text-text-primary transition-colors"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                          {t('services.action.edit')}
-                        </button>
-                        <button
-                          onClick={() => toggleActive(s)}
-                          className={cn(
-                            'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors',
-                            s.isActive
-                              ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
-                              : 'text-text-secondary hover:bg-charcoal hover:text-text-primary',
-                          )}
-                        >
-                          <Power className="w-3.5 h-3.5" />
-                          {s.isActive ? t('services.action.deactivate') : t('services.action.activate')}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="sm:hidden divide-y divide-border-luxury">
-            {visible.map((s) => (
-              <div key={s.id} className={cn('px-4 py-4', !s.isActive && 'opacity-50')}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-text-primary text-sm">{s.name}</p>
-                    <p className="text-xs text-text-tertiary mt-0.5">{CATEGORY_LABELS[s.category] ?? s.category}</p>
-                  </div>
-                  <Badge variant={s.isActive ? 'success' : 'default'} dot>{s.isActive ? t('services.status.active') : t('services.status.inactive')}</Badge>
-                </div>
-                <div className="flex items-center justify-between mt-2">
+        <div className="space-y-4">
+          {[...grouped.entries()].map(([groupName, groupServices]) => {
+            const isCollapsed = collapsedGroups.has(groupName);
+            return (
+              <div key={groupName} className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
+                {/* Group header */}
+                <button
+                  onClick={() => toggleGroup(groupName)}
+                  className="w-full flex items-center justify-between px-6 py-3.5 border-b border-border-luxury hover:bg-charcoal/30 transition-colors"
+                >
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-text-secondary">{s.baseDuration} {t('services.duration.suffix')}</span>
-                    <span className="text-xs font-medium text-champagne">{formatCurrency(s.basePrice)}</span>
+                    <span className="font-medium text-text-primary text-sm">{groupName}</span>
+                    <span className="text-xs text-text-tertiary bg-charcoal px-2 py-0.5 rounded-full">
+                      {groupServices.length}
+                    </span>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => openEdit(s)} className="text-xs text-text-tertiary hover:text-champagne transition-colors">{t('services.action.edit')}</button>
-                    <button onClick={() => toggleActive(s)} className="text-xs text-text-tertiary hover:text-text-primary transition-colors">
-                      {s.isActive ? t('services.action.deactivateFull') : t('services.action.activateFull')}
-                    </button>
-                  </div>
-                </div>
+                  {isCollapsed
+                    ? <ChevronDown className="w-4 h-4 text-text-tertiary" />
+                    : <ChevronUp className="w-4 h-4 text-text-tertiary" />}
+                </button>
+
+                {!isCollapsed && (
+                  <>
+                    {/* Desktop table */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border-luxury/50">
+                            <th className="text-left px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.name')}</th>
+                            <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.duration')}</th>
+                            <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.price')}</th>
+                            <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.status')}</th>
+                            <th className="text-right px-6 py-2.5 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('services.col.actions')}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border-luxury">
+                          {groupServices.map((s) => <ServiceRow key={s.id} s={s} />)}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile cards */}
+                    <div className="sm:hidden divide-y divide-border-luxury">
+                      {groupServices.map((s) => (
+                        <div key={s.id} className={cn('px-4 py-4', !s.isActive && 'opacity-50')}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-text-primary text-sm">{s.name}</p>
+                              {s.serviceCode && (
+                                <p className="text-[10px] text-text-tertiary font-mono mt-0.5">{s.serviceCode}</p>
+                              )}
+                            </div>
+                            <Badge variant={s.isActive ? 'success' : 'default'} dot>
+                              {s.isActive ? t('services.status.active') : t('services.status.inactive')}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-text-secondary">{s.baseDuration} {t('services.duration.suffix')}</span>
+                              <span className="text-xs font-medium text-champagne">{formatCurrency(s.basePrice)}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={() => openEdit(s)} className="text-xs text-text-tertiary hover:text-champagne transition-colors">{t('services.action.edit')}</button>
+                              <button onClick={() => toggleActive(s)} className="text-xs text-text-tertiary hover:text-text-primary transition-colors">
+                                {s.isActive ? t('services.action.deactivateFull') : t('services.action.activateFull')}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
 
@@ -315,12 +408,18 @@ export default function ServicesPage() {
                 <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t('services.form.namePlaceholder')} className={inputCls} />
               </label>
 
-              <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('services.form.category')}</span>
-                <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className={selectCls}>
-                  {CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('services.form.category')}</span>
+                  <select value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className={selectCls}>
+                    {CATEGORIES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('services.form.displayCategory')}</span>
+                  <input value={form.displayCategory} onChange={(e) => setForm((f) => ({ ...f, displayCategory: e.target.value }))} placeholder={t('services.form.displayCategoryPlaceholder')} className={inputCls} />
+                </label>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <label className="space-y-1.5">

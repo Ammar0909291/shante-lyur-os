@@ -3,21 +3,92 @@ import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-// Russian name pools for realistic seeding
+// ─── Real service catalog imported from Shante Lyur price list ───────────────
+const REAL_SERVICES = [
+  // Лицо / Шея / Декольте
+  { code: 'FACIAL-001', displayCategory: 'Лицо / Шея / Декольте', name: 'Мышечно-структурный уход по лицу, шее и зоне декольте', category: ServiceCategory.FACIAL, baseDuration: 90, basePrice: 5600 },
+  { code: 'FACIAL-002', displayCategory: 'Лицо / Шея / Декольте', name: '3D Моделирование по лицу, шее и зоне декольте', category: ServiceCategory.FACIAL, baseDuration: 60, basePrice: 4900 },
+  { code: 'FACIAL-003', displayCategory: 'Лицо / Шея / Декольте', name: 'Французский уход по лицу, шее и зоне декольте', category: ServiceCategory.FACIAL, baseDuration: 60, basePrice: 4900 },
+  { code: 'FACIAL-004', displayCategory: 'Лицо / Шея / Декольте', name: '«MIX» Уход по лицу, шее и зоне декольте', category: ServiceCategory.FACIAL, baseDuration: 60, basePrice: 4900 },
+  // Тело / Массаж
+  { code: 'MASSAGE-001', displayCategory: 'Тело / Массаж', name: 'Расслабляющий уход при помощи камней', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4600 },
+  { code: 'MASSAGE-002', displayCategory: 'Тело / Массаж', name: 'Программа «Увартана»', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 6500 },
+  { code: 'MASSAGE-003', displayCategory: 'Тело / Массаж', name: 'Уход по телу «4 Руки»', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 6200 },
+  { code: 'MASSAGE-004', displayCategory: 'Тело / Массаж', name: 'Индийский уход по телу', category: ServiceCategory.MASSAGE, baseDuration: 90, basePrice: 6500 },
+  { code: 'MASSAGE-005', displayCategory: 'Тело / Массаж', name: 'Поющие чаши', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4600 },
+  { code: 'MASSAGE-006', displayCategory: 'Тело / Массаж', name: 'Работа по Меридианам', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4600 },
+  { code: 'MASSAGE-007', displayCategory: 'Тело / Массаж', name: 'Программа «Жиротоп»', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 6200 },
+  { code: 'MASSAGE-008', displayCategory: 'Тело / Массаж', name: 'Антистрессовый уход по телу (Спина)', category: ServiceCategory.MASSAGE, baseDuration: 40, basePrice: 3000 },
+  { code: 'MASSAGE-009', displayCategory: 'Тело / Массаж', name: 'Антистрессовый уход по телу (Шейно-воротниковая зона)', category: ServiceCategory.MASSAGE, baseDuration: 40, basePrice: 3000 },
+  { code: 'MASSAGE-010', displayCategory: 'Тело / Массаж', name: 'Антистрессовый уход по телу (Стопы)', category: ServiceCategory.MASSAGE, baseDuration: 40, basePrice: 3000 },
+  // Косметология
+  { code: 'COSM-001', displayCategory: 'Косметология', name: 'Пилинг «Reach Peel»', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 7000 },
+  { code: 'COSM-002', displayCategory: 'Косметология', name: 'УЗ Чистка (Лицо) + Маска по типу кожи', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4000 },
+  { code: 'COSM-003', displayCategory: 'Косметология', name: 'Комбинированная Чистка', category: ServiceCategory.COSMETOLOGY, baseDuration: 105, basePrice: 4900 },
+  { code: 'COSM-004', displayCategory: 'Косметология', name: 'Биолифтинг', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4500 },
+  { code: 'COSM-005', displayCategory: 'Косметология', name: 'Криолифтинг', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4500 },
+  { code: 'COSM-006', displayCategory: 'Косметология', name: 'Барофорез', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4500 },
+  { code: 'COSM-007', displayCategory: 'Косметология', name: 'Ультра Фоно Форез', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4500 },
+  { code: 'COSM-008', displayCategory: 'Косметология', name: 'Программа «Индибо»', category: ServiceCategory.COSMETOLOGY, baseDuration: 90, basePrice: 6500 },
+  { code: 'COSM-009', displayCategory: 'Косметология', name: 'Интенсивная лифтинг программа (RF)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4500 },
+  { code: 'COSM-010', displayCategory: 'Косметология', name: 'Фракционное увлажнение (Др)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 6500 },
+  { code: 'COSM-011', displayCategory: 'Косметология', name: 'Антикуперозная программа', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 6900 },
+  { code: 'COSM-012', displayCategory: 'Косметология', name: 'Экспресс омоложение', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4600 },
+  { code: 'COSM-013', displayCategory: 'Косметология', name: 'Эффективное и глубокое очищение кожи лица + Маска по типу кожи (Am)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 5200 },
+  { code: 'COSM-014', displayCategory: 'Косметология', name: 'Обогащение кожи кислородом (Кр)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4500 },
+  { code: 'COSM-015', displayCategory: 'Косметология', name: 'Пилинг «Anti Age»', category: ServiceCategory.COSMETOLOGY, baseDuration: 30, basePrice: 4200 },
+  { code: 'COSM-016', displayCategory: 'Косметология', name: 'Поверхностный пилинг (Всесезонный)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4200 },
+  { code: 'COSM-017', displayCategory: 'Косметология', name: 'Коралловый пилинг', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 7000 },
+  { code: 'COSM-018', displayCategory: 'Косметология', name: 'Азелаиновый пилинг', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4500 },
+  { code: 'COSM-019', displayCategory: 'Косметология', name: 'Ангельский пилинг', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 5000 },
+  { code: 'COSM-020', displayCategory: 'Косметология', name: 'Пилинг «BTX»', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4500 },
+  // Аппаратная косметология
+  { code: 'HARDWARE-001', displayCategory: 'Аппаратная косметология', name: 'Дермальный стимулятор («Reach Peel» / PRX)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 7000 },
+  { code: 'HARDWARE-002', displayCategory: 'Аппаратная косметология', name: 'Фракционная мезотерапия («Rosalex» / Multi pep)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 9000 },
+  { code: 'HARDWARE-003', displayCategory: 'Аппаратная косметология', name: 'Фото-омоложение (1 Посещение)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 8000 },
+  { code: 'HARDWARE-004', displayCategory: 'Аппаратная косметология', name: 'Карбоновый пилинг', category: ServiceCategory.COSMETOLOGY, baseDuration: 40, basePrice: 6000 },
+  { code: 'HARDWARE-005', displayCategory: 'Аппаратная косметология', name: 'Программа «Контраст»', category: ServiceCategory.COSMETOLOGY, baseDuration: 40, basePrice: 4500 },
+  { code: 'HARDWARE-006', displayCategory: 'Аппаратная косметология', name: 'Бьютификация (Лицо, шея, зона декольте)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 29000 },
+  // Тело / Аппаратные процедуры
+  { code: 'BODY-HW-001', displayCategory: 'Тело / Аппаратные процедуры', name: 'Антистрессовый уход по телу (Живот)', category: ServiceCategory.BODY_CONTOURING, baseDuration: 30, basePrice: 4500 },
+  { code: 'BODY-HW-002', displayCategory: 'Тело / Аппаратные процедуры', name: 'Триггерный уход по телу', category: ServiceCategory.BODY_CONTOURING, baseDuration: 60, basePrice: 4600 },
+  { code: 'BODY-HW-003', displayCategory: 'Тело / Аппаратные процедуры', name: 'Программа «Тайский Слим»', category: ServiceCategory.BODY_CONTOURING, baseDuration: 60, basePrice: 5200 },
+  { code: 'BODY-HW-004', displayCategory: 'Тело / Аппаратные процедуры', name: 'Программа «Эндосфера»', category: ServiceCategory.BODY_CONTOURING, baseDuration: 70, basePrice: 6500 },
+  { code: 'BODY-HW-005', displayCategory: 'Тело / Аппаратные процедуры', name: 'Программа «Индибо»', category: ServiceCategory.BODY_CONTOURING, baseDuration: 60, basePrice: 5800 },
+  { code: 'BODY-HW-006', displayCategory: 'Тело / Аппаратные процедуры', name: 'RF Тело', category: ServiceCategory.BODY_CONTOURING, baseDuration: 40, basePrice: 3500 },
+  { code: 'BODY-HW-007', displayCategory: 'Тело / Аппаратные процедуры', name: 'Программа «УВТ»', category: ServiceCategory.BODY_CONTOURING, baseDuration: 45, basePrice: 3200 },
+  { code: 'BODY-HW-008', displayCategory: 'Тело / Аппаратные процедуры', name: 'Миостимуляция', category: ServiceCategory.BODY_CONTOURING, baseDuration: 45, basePrice: 3200 },
+  { code: 'BODY-HW-009', displayCategory: 'Тело / Аппаратные процедуры', name: 'Криолиполиз (1 Насадка)', category: ServiceCategory.BODY_CONTOURING, baseDuration: 60, basePrice: 3500 },
+  // Тело / SPA
+  { code: 'SPA-001', displayCategory: 'Тело / SPA', name: 'Обще-расслабляющий, антистрессовый уход по телу (Спина, ноги, стопы, руки)', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4600 },
+  { code: 'SPA-002', displayCategory: 'Тело / SPA', name: 'Обще-расслабляющий, антистрессовый уход по телу', category: ServiceCategory.MASSAGE, baseDuration: 90, basePrice: 6500 },
+  { code: 'SPA-003', displayCategory: 'Тело / SPA', name: 'Программа «Легкость»', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4600 },
+  { code: 'SPA-004', displayCategory: 'Тело / SPA', name: 'Триггерный уход по телу', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4600 },
+  { code: 'SPA-005', displayCategory: 'Тело / SPA', name: '«Медовый рай» (Спина, ноги, руки, живот)', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4800 },
+  { code: 'SPA-006', displayCategory: 'Тело / SPA', name: 'Ци-сюэ-тонг', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4600 },
+  { code: 'SPA-007', displayCategory: 'Тело / SPA', name: 'Программа «Силуэт»', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4600 },
+  { code: 'SPA-008', displayCategory: 'Тело / SPA', name: 'Индийский уход по телу', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4700 },
+  { code: 'SPA-009', displayCategory: 'Тело / SPA', name: 'Коррекционный уход по телу', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4700 },
+  { code: 'SPA-010', displayCategory: 'Тело / SPA', name: '«Сибирское здоровье»', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4700 },
+] as const;
+
+// Old demo service fixed IDs created by previous seed — deactivate, do not delete
+const OLD_DEMO_SERVICE_IDS = Array.from({ length: 10 }, (_, i) =>
+  `00000000-0000-0000-0001-${String(i + 1).padStart(12, '0')}`,
+);
+
 const FIRST_NAMES_F = ['Анна', 'Мария', 'Екатерина', 'Наталья', 'Ольга', 'Светлана', 'Татьяна', 'Ирина', 'Елена', 'Юлия', 'Людмила', 'Виктория', 'Галина', 'Надежда', 'Алина', 'Дарья', 'Полина', 'Ксения', 'Валерия', 'Алёна', 'Нина', 'Вера', 'Лариса', 'Маргарита', 'Зоя', 'Кристина', 'Яна', 'Диана', 'Евгения', 'Антонина'];
 const FIRST_NAMES_M = ['Александр', 'Дмитрий', 'Максим', 'Сергей', 'Андрей', 'Алексей', 'Артём', 'Илья', 'Кирилл', 'Михаил', 'Никита', 'Павел', 'Роман', 'Владимир', 'Денис', 'Игорь', 'Владислав', 'Иван', 'Антон', 'Олег'];
-const LAST_NAMES = ['Иванова', 'Петрова', 'Сидорова', 'Смирнова', 'Кузнецова', 'Попова', 'Васильева', 'Михайлова', 'Новикова', 'Фёдорова', 'Морозова', 'Волкова', 'Алексеева', 'Лебедева', 'Семёнова', 'Егорова', 'Павлова', 'Козлова', 'Степанова', 'Николаева', 'Орлова', 'Соколова', 'Захарова', 'Чернова', 'Борисова', 'Ефимова', 'Фомина', 'Громова', 'Беляева', 'Антонова', 'Белова', 'Назарова', 'Давыдова', 'Романова', 'Тихонова', 'Макарова', 'Филиппова', 'Голубева', 'Соловьёва', 'Виноградова', 'Богданова', 'Воробьёва', 'Медведева', 'Лазарева', 'Крылова', 'Зайцева', 'Лукьянова', 'Осипова', 'Прокофьева', 'Архипова'];
+const LAST_NAMES = ['Иванова', 'Петрова', 'Сидорова', 'Смирнова', 'Кузнецова', 'Попова', 'Васильева', 'Михайлова', 'Новикова', 'Фёдорова', 'Морозова', 'Волкова', 'Алексеева', 'Лебедева', 'Семёнова', 'Егорова', 'Павлова', 'Козлова', 'Степанова', 'Николаева', 'Орлова', 'Соколова', 'Захарова', 'Чернова', 'Борисова', 'Ефимова', 'Фомина', 'Громова', 'Беляева', 'Антонова'];
 const REFERRAL_SOURCES = ['instagram', 'vk', 'telegram', 'friend', 'google', 'yandex', 'flyer', 'event', 'repeat'];
 const LOYALTY_TIERS = ['BRONZE', 'BRONZE', 'BRONZE', 'SILVER', 'SILVER', 'GOLD', 'PLATINUM', 'VIP'];
 
-function pick<T>(arr: T[]): T {
+function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
-
 function randomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-
 function randomDate(start: Date, end: Date): Date {
   return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 }
@@ -64,51 +135,88 @@ async function main() {
     },
   });
 
-  // ─── Services ────────────────────────────────────────────────
-  // Only two operational categories: MASSAGE and COSMETOLOGY
-  const serviceData = [
-    { name: 'Классический массаж лица', category: ServiceCategory.MASSAGE, basePrice: 3500, baseDuration: 60, description: 'Расслабляющий массаж лица и шеи' },
-    { name: 'RF-лифтинг', category: ServiceCategory.COSMETOLOGY, basePrice: 5500, baseDuration: 45, description: 'Радиоволновой лифтинг кожи' },
-    { name: 'Мезотерапия', category: ServiceCategory.COSMETOLOGY, basePrice: 8000, baseDuration: 30, requiresConsultation: true, description: 'Инъекционное омоложение' },
-    { name: 'SPA-массаж всего тела', category: ServiceCategory.MASSAGE, basePrice: 7000, baseDuration: 90, description: 'Полный расслабляющий массаж' },
-    { name: 'Лазерная эпиляция', category: ServiceCategory.COSMETOLOGY, basePrice: 2500, baseDuration: 30, description: 'Безболезненное удаление волос' },
-    { name: 'Биоревитализация', category: ServiceCategory.COSMETOLOGY, basePrice: 9500, baseDuration: 45, requiresConsultation: true, description: 'Глубокое увлажнение кожи' },
-    { name: 'Гиалуроновый лифтинг', category: ServiceCategory.COSMETOLOGY, basePrice: 6500, baseDuration: 60, description: 'Лифтинг с гиалуроновой кислотой' },
-    { name: 'Антицеллюлитный массаж', category: ServiceCategory.MASSAGE, basePrice: 4500, baseDuration: 60, description: 'Интенсивный массаж проблемных зон' },
-    { name: 'Пилинг & Детокс', category: ServiceCategory.COSMETOLOGY, basePrice: 4000, baseDuration: 60, description: 'Глубокое очищение кожи' },
-    { name: 'Ароматерапевтический массаж', category: ServiceCategory.MASSAGE, basePrice: 5500, baseDuration: 75, description: 'Расслабляющий массаж с эфирными маслами' },
-  ];
+  // ─── Deactivate old demo services ────────────────────────────
+  const deactivated = await prisma.service.updateMany({
+    where: { id: { in: OLD_DEMO_SERVICE_IDS } },
+    data: { isActive: false },
+  });
+  if (deactivated.count > 0) {
+    console.log(`   Deactivated ${deactivated.count} legacy demo service(s)`);
+  }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const allServices: any[] = [];
-  for (const svc of serviceData) {
+  // ─── Real service catalog (60 procedures) ────────────────────
+  console.log(`   Importing ${REAL_SERVICES.length} real procedures...`);
+  const allServices: { id: string; category: ServiceCategory; baseDuration: number; basePrice: number }[] = [];
+
+  for (let i = 0; i < REAL_SERVICES.length; i++) {
+    const svc = REAL_SERVICES[i];
     const service = await prisma.service.upsert({
-      where: { id: `00000000-0000-0000-0001-${String(serviceData.indexOf(svc) + 1).padStart(12, '0')}` },
-      update: { name: svc.name, category: svc.category },
-      create: {
-        id: `00000000-0000-0000-0001-${String(serviceData.indexOf(svc) + 1).padStart(12, '0')}`,
-        ...svc,
+      where: { serviceCode: svc.code },
+      update: {
+        name: svc.name,
+        displayCategory: svc.displayCategory,
+        category: svc.category,
+        basePrice: svc.basePrice,
+        baseDuration: svc.baseDuration,
         isActive: true,
-        sortOrder: serviceData.indexOf(svc),
+      },
+      create: {
+        serviceCode: svc.code,
+        displayCategory: svc.displayCategory,
+        name: svc.name,
+        category: svc.category,
+        basePrice: svc.basePrice,
+        baseDuration: svc.baseDuration,
+        isActive: true,
+        sortOrder: i,
       },
     });
-    allServices.push(service);
 
     await prisma.serviceLocationPrice.upsert({
       where: { serviceId_locationId: { serviceId: service.id, locationId: location.id } },
       update: {},
       create: { serviceId: service.id, locationId: location.id, price: svc.basePrice, duration: svc.baseDuration },
     });
-  }
 
-  // ─── Specialists ─────────────────────────────────────────────
+    allServices.push({ id: service.id, category: service.category, baseDuration: service.baseDuration, basePrice: Number(service.basePrice) });
+  }
+  console.log(`   ✓ ${allServices.length} services ready`);
+
+  // ─── Placeholder specialists ──────────────────────────────────
+  // NOTE: Real staff names were not included in the uploaded price list.
+  // Add real specialists via the admin panel at /dashboard/specialists.
   const specialistPassword = await hash('spec123', 10);
   const specialistProfiles = [
-    { email: 'specialist1@shantelyur.ru', firstName: 'Елена', lastName: 'Иванова', specialization: 'Косметология, инъекции', bio: 'Сертифицированный косметолог с 8-летним опытом', experienceYears: 8, commissionRate: 0.35, color: '#6366f1' },
-    { email: 'specialist2@shantelyur.ru', firstName: 'Мария', lastName: 'Петрова', specialization: 'Массаж, SPA', bio: 'Профессиональный массажист, специалист по антистрессовым техникам', experienceYears: 6, commissionRate: 0.30, color: '#D4AF7A' },
-    { email: 'specialist3@shantelyur.ru', firstName: 'Ольга', lastName: 'Ким', specialization: 'Лазерная косметология', bio: 'Специалист по лазерным процедурам с 5-летним опытом', experienceYears: 5, commissionRate: 0.32, color: '#8BA888' },
-    { email: 'specialist4@shantelyur.ru', firstName: 'Наталья', lastName: 'Волкова', specialization: 'Инъекционная косметология', bio: 'Врач-косметолог, специалист по инъекционному омоложению', experienceYears: 10, commissionRate: 0.38, color: '#E8C4B8' },
-    { email: 'specialist5@shantelyur.ru', firstName: 'Дарья', lastName: 'Соколова', specialization: 'Уходовые процедуры', bio: 'Мастер по уходовым процедурам и массажу лица', experienceYears: 4, commissionRate: 0.28, color: '#B8A8D4' },
+    {
+      email: 'specialist1@shantelyur.ru', firstName: 'Елена', lastName: 'Иванова',
+      specialization: 'Косметология, инъекции', bio: 'Сертифицированный косметолог с 8-летним опытом',
+      experienceYears: 8, color: '#6366f1',
+      serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL],
+    },
+    {
+      email: 'specialist2@shantelyur.ru', firstName: 'Мария', lastName: 'Петрова',
+      specialization: 'Массаж, SPA', bio: 'Профессиональный массажист, специалист по антистрессовым техникам',
+      experienceYears: 6, color: '#D4AF7A',
+      serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING],
+    },
+    {
+      email: 'specialist3@shantelyur.ru', firstName: 'Ольга', lastName: 'Ким',
+      specialization: 'Аппаратная косметология', bio: 'Специалист по аппаратным процедурам с 5-летним опытом',
+      experienceYears: 5, color: '#8BA888',
+      serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.BODY_CONTOURING],
+    },
+    {
+      email: 'specialist4@shantelyur.ru', firstName: 'Наталья', lastName: 'Волкова',
+      specialization: 'Инъекционная косметология', bio: 'Врач-косметолог, специалист по инъекционному омоложению',
+      experienceYears: 10, color: '#E8C4B8',
+      serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL],
+    },
+    {
+      email: 'specialist5@shantelyur.ru', firstName: 'Дарья', lastName: 'Соколова',
+      specialization: 'Уходовые процедуры, SPA', bio: 'Мастер по уходовым процедурам, массажу лица и SPA',
+      experienceYears: 4, color: '#B8A8D4',
+      serviceCategories: [ServiceCategory.FACIAL, ServiceCategory.MASSAGE],
+    },
   ];
 
   const createdSpecialists = [];
@@ -125,35 +233,24 @@ async function main() {
 
     const specialist = await prisma.specialist.upsert({
       where: { userId: user.id },
-      update: {},
+      update: { specialization: sp.specialization },
       create: {
         id: specId, userId: user.id, bio: sp.bio, specialization: sp.specialization,
-        experienceYears: sp.experienceYears, commissionRate: sp.commissionRate, color: sp.color,
+        experienceYears: sp.experienceYears, commissionRate: 0.30, color: sp.color,
         status: SpecialistStatus.ACTIVE, reviewCount: 0, sortOrder: i,
       },
     });
 
     createdSpecialists.push(specialist);
 
-    // Two specialist types: MASSAGIST (contains 'массаж'/'spa') gets MASSAGE services only,
-    // COSMETOLOGIST gets COSMETOLOGY services only.
-    // MASSAGE indices: 0(массаж лица), 3(SPA-массаж), 7(антицелл), 9(ароматерап)
-    // COSMETOLOGY indices: 1(RF), 2(мезо), 4(лазер.эпил), 5(биорев), 6(гиалурон), 8(пилинг)
-    const specLower = sp.specialization.toLowerCase();
-    const isMassagist = specLower.includes('массаж') || specLower.includes('spa') || specLower.includes('спа');
-    const myServiceIndices = isMassagist ? [0, 3, 7, 9] : [1, 2, 4, 5, 6, 8];
+    // Link to real services matching this specialist's categories
+    const myServices = allServices.filter((s) => (sp.serviceCategories as ServiceCategory[]).includes(s.category));
 
-    // Remove stale links not in current set
     await prisma.specialistService.deleteMany({
-      where: {
-        specialistId: specialist.id,
-        serviceId: { notIn: myServiceIndices.map((idx) => allServices[idx]?.id).filter(Boolean) as string[] },
-      },
+      where: { specialistId: specialist.id, serviceId: { notIn: myServices.map((s) => s.id) } },
     });
 
-    for (const idx of myServiceIndices) {
-      const svc = allServices[idx];
-      if (!svc) continue;
+    for (const svc of myServices) {
       await prisma.specialistService.upsert({
         where: { specialistId_serviceId: { specialistId: specialist.id, serviceId: svc.id } },
         update: { isActive: true },
@@ -183,74 +280,56 @@ async function main() {
   const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
 
   let clientsCreated = 0;
-  const clientBatch: Array<{ id: string; email: string; firstName: string; lastName: string }> = [];
+  const clientBatch: Array<{ id: string; email: string }> = [];
 
   for (let i = 0; i < 500; i++) {
     const isFemale = Math.random() > 0.15;
     const firstName = isFemale ? pick(FIRST_NAMES_F) : pick(FIRST_NAMES_M);
     const lastNameRaw = pick(LAST_NAMES);
-    const lastName = isFemale ? lastNameRaw : lastNameRaw.replace(/а$/, '').replace(/ова$/, 'ов').replace(/ева$/, 'ев').replace(/ова$/, 'ов');
+    const lastName = isFemale ? lastNameRaw : lastNameRaw.replace(/а$/, '').replace(/ова$/, 'ов').replace(/ева$/, 'ев');
     const emailId = `${i + 1}`.padStart(5, '0');
     const email = `client${emailId}@salon-demo.ru`;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
-      clientBatch.push({ id: existingUser.id, email, firstName, lastName });
+      clientBatch.push({ id: existingUser.id, email });
       continue;
     }
 
     const userId = await prisma.user.create({
-      data: {
-        email,
-        passwordHash: 'CLIENT_NO_LOGIN',
-        firstName,
-        lastName,
-        role: UserRole.CLIENT,
-        status: UserStatus.ACTIVE,
-        emailVerified: false,
-      },
+      data: { email, passwordHash: 'CLIENT_NO_LOGIN', firstName, lastName, role: UserRole.CLIENT, status: UserStatus.ACTIVE, emailVerified: false },
       select: { id: true },
     });
-
-    clientBatch.push({ id: userId.id, email, firstName, lastName });
+    clientBatch.push({ id: userId.id, email });
     clientsCreated++;
   }
-
   console.log(`   Created ${clientsCreated} new clients`);
 
-  // Create customer profiles for clients
-  console.log('   Creating customer profiles...');
   let profilesCreated = 0;
-  for (let i = 0; i < clientBatch.length; i++) {
-    const client = clientBatch[i];
+  for (const client of clientBatch) {
     const existing = await prisma.customerProfile.findUnique({ where: { userId: client.id } });
     if (existing) continue;
 
     const visits = randomInt(0, 24);
     const spent = visits * randomInt(3000, 12000);
-    const tier = pick(LOYALTY_TIERS);
-    const firstVisit = randomDate(twoYearsAgo, now);
-    const lastVisit = visits > 0 ? randomDate(firstVisit, now) : null;
-
     await prisma.customerProfile.create({
       data: {
         userId: client.id,
         referralSource: pick(REFERRAL_SOURCES),
         totalVisits: visits,
         totalSpent: spent,
-        loyaltyTier: tier,
+        loyaltyTier: pick(LOYALTY_TIERS),
         loyaltyPoints: Math.floor(spent / 100),
-        firstVisitAt: visits > 0 ? firstVisit : null,
-        lastVisitAt: lastVisit,
+        firstVisitAt: visits > 0 ? randomDate(twoYearsAgo, now) : null,
+        lastVisitAt: visits > 0 ? randomDate(twoYearsAgo, now) : null,
         createdAt: randomDate(twoYearsAgo, now),
       },
     });
     profilesCreated++;
   }
-
   console.log(`   Created ${profilesCreated} customer profiles`);
 
-  // ─── Original single client (for login) ──────────────────────
+  // ─── Test client (for login) ──────────────────────────────────
   const clientPassword = await hash('client123', 10);
   const mainClient = await prisma.user.upsert({
     where: { email: 'client@example.com' },
@@ -284,35 +363,31 @@ async function main() {
     },
   });
 
-  // ─── Some historical appointments ────────────────────────────
+  // ─── Sample appointments ──────────────────────────────────────
   console.log('   Creating sample appointments...');
-  const specialist = createdSpecialists[0];
-  if (specialist && clientBatch.length > 0) {
-    const svc = allServices[0];
+  const firstSpecialist = createdSpecialists[0];
+  const firstService = allServices[0];
+  if (firstSpecialist && firstService && clientBatch.length > 0) {
     for (let i = 0; i < 10 && i < clientBatch.length; i++) {
       const start = randomDate(new Date(now.getFullYear(), now.getMonth() - 1, 1), now);
       start.setMinutes(0, 0, 0);
-      const end = new Date(start.getTime() + svc.baseDuration * 60_000);
+      const end = new Date(start.getTime() + firstService.baseDuration * 60_000);
       try {
         await prisma.appointment.create({
           data: {
             clientId: clientBatch[i].id,
-            specialistId: specialist.id,
+            specialistId: firstSpecialist.id,
             locationId: location.id,
             startAt: start,
             endAt: end,
             status: 'COMPLETED',
-            totalPrice: svc.basePrice,
-            totalDuration: svc.baseDuration,
+            totalPrice: firstService.basePrice,
+            totalDuration: firstService.baseDuration,
             source: 'admin',
-            services: {
-              create: [{ serviceId: svc.id, price: svc.basePrice, duration: svc.baseDuration, sortOrder: 0 }],
-            },
+            services: { create: [{ serviceId: firstService.id, price: firstService.basePrice, duration: firstService.baseDuration, sortOrder: 0 }] },
           },
         });
-      } catch {
-        // Skip duplicate time slots
-      }
+      } catch { /* skip duplicate time slots */ }
     }
   }
 
@@ -358,18 +433,20 @@ async function main() {
         data: {
           id: randomUUID(),
           name: item.name,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           category: item.category as any,
           unit: item.unit,
           currentStock: item.currentStock,
           minStock: item.minStock,
           costPerUnit: item.costPerUnit,
           supplier: item.supplier ?? null,
-          expiresAt: item.expiresAt ?? null,
-          notes: item.notes ?? null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          expiresAt: (item as any).expiresAt ?? null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          notes: (item as any).notes ?? null,
           isActive: true,
         },
       });
-      // Initial stock movement
       await prisma.stockMovement.create({
         data: {
           id: randomUUID(),
@@ -397,11 +474,12 @@ async function main() {
   const totalSpecialists = await prisma.specialist.count();
 
   console.log('✅ Seed completed!');
-  console.log(`   Admin:      admin@shantelyur.ru / admin123`);
-  console.log(`   Specialist: specialist1@shantelyur.ru / spec123`);
-  console.log(`   Client:     client@example.com / client123`);
-  console.log(`   Clients in DB: ${totalClients}`);
-  console.log(`   Specialists in DB: ${totalSpecialists}`);
+  console.log(`   Admin:       admin@shantelyur.ru / admin123`);
+  console.log(`   Specialist:  specialist1@shantelyur.ru / spec123`);
+  console.log(`   Client:      client@example.com / client123`);
+  console.log(`   Services:    ${allServices.length} real procedures imported`);
+  console.log(`   Clients:     ${totalClients}`);
+  console.log(`   Specialists: ${totalSpecialists} (add real staff via admin panel)`);
 }
 
 main()

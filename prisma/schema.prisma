@@ -127,8 +127,11 @@ model Specialist {
   reviewCount     Int              @default(0) @map("review_count")
   commissionRate  Decimal          @default(0.30) @map("commission_rate") @db.Decimal(5, 4)
   status          SpecialistStatus @default(ACTIVE)
-  color           String?          @db.VarChar(7) // Calendar color hex
+  color           String?          @db.VarChar(7)
   sortOrder       Int              @default(0) @map("sort_order")
+  hiredAt         DateTime?        @map("hired_at")
+  certifications  String?          @db.Text
+  internalNotes   String?          @map("internal_notes") @db.Text
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
@@ -183,18 +186,20 @@ enum ServiceCategory {
 }
 
 model Service {
-  id          String          @id @default(uuid()) @db.Uuid
-  name        String          @db.VarChar(255)
-  description String?         @db.Text
-  category    ServiceCategory @default(OTHER)
-  basePrice   Decimal         @map("base_price") @db.Decimal(10, 2)
-  baseDuration Int            @map("base_duration") // minutes
-  imageUrl    String?         @map("image_url")
-  isActive    Boolean         @default(true) @map("is_active")
-  requiresConsultation Boolean @default(false) @map("requires_consultation")
-  sortOrder   Int             @default(0) @map("sort_order")
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  id              String          @id @default(uuid()) @db.Uuid
+  name            String          @db.VarChar(255)
+  description     String?         @db.Text
+  category        ServiceCategory @default(OTHER)
+  displayCategory String?         @map("display_category") @db.VarChar(255)
+  serviceCode     String?         @unique @map("service_code") @db.VarChar(100)
+  basePrice       Decimal         @map("base_price") @db.Decimal(10, 2)
+  baseDuration    Int             @map("base_duration") // minutes
+  imageUrl        String?         @map("image_url")
+  isActive        Boolean         @default(true) @map("is_active")
+  requiresConsultation Boolean    @default(false) @map("requires_consultation")
+  sortOrder       Int             @default(0) @map("sort_order")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
   // Relations
   specialists    SpecialistService[]

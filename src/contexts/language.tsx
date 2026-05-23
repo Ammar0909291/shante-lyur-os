@@ -738,6 +738,13 @@ const RU: Record<string, string> = {
   'services.consultation': 'Консультация',
   'services.addFirst': 'Добавить услугу',
   'services.duration.suffix': 'мин',
+  'services.search.placeholder': 'Поиск по названию или категории...',
+  'services.error.network': 'Ошибка сети, повторите попытку',
+  'services.form.displayCategory': 'Группа процедур',
+  'services.form.displayCategoryPlaceholder': 'Тело / Массаж...',
+  'specialist.hiredAt': 'Дата найма',
+  'specialist.certifications': 'Сертификаты',
+  'specialist.internalNotes': 'Внутренние заметки',
 
   // ─── Extra Analytics ──────────────────────────────────────────────────────────
   'analytics.export': 'Экспорт Excel',
@@ -1792,6 +1799,13 @@ const EN: Record<string, string> = {
   'services.consultation': 'Consultation',
   'services.addFirst': 'Add service',
   'services.duration.suffix': 'min',
+  'services.search.placeholder': 'Search by name or category...',
+  'services.error.network': 'Network error, please retry',
+  'services.form.displayCategory': 'Procedure group',
+  'services.form.displayCategoryPlaceholder': 'Body / Massage...',
+  'specialist.hiredAt': 'Hired date',
+  'specialist.certifications': 'Certifications',
+  'specialist.internalNotes': 'Internal notes',
 
   // ─── Extra Analytics ──────────────────────────────────────────────────────────
   'analytics.export': 'Export Excel',
