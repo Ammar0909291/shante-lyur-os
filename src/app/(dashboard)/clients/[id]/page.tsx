@@ -7,7 +7,7 @@ import {
   User, MapPin, Star, Clock, CreditCard, Scissors, FileText,
   TrendingUp, AlertTriangle, CheckCircle2,
 } from 'lucide-react';
-import { cn, formatCurrency, formatDate, formatDateTime, getInitials } from '@/lib/utils';
+import { cn, formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel, getPaymentStatusBadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -407,7 +407,7 @@ export default function ClientProfilePage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <StatPill label="Визитов" value={client.totalVisits} sub={client.firstVisitAt ? `с ${formatDate(client.firstVisitAt)}` : undefined} />
-              <StatPill label="Потрачено" value={formatCurrency(client.totalSpent / 100)} />
+              <StatPill label="Потрачено" value={formatCurrency(client.totalSpent)} />
               <StatPill label="Последний визит" value={client.lastVisitAt ? formatDate(client.lastVisitAt) : '—'} />
             </div>
           </div>
@@ -497,7 +497,7 @@ export default function ClientProfilePage() {
                 </div>
                 <span className="text-sm font-semibold text-text-primary">
                   {client.totalVisits > 0
-                    ? formatCurrency(client.totalSpent / client.totalVisits / 100)
+                    ? formatCurrency(client.totalSpent / client.totalVisits)
                     : '—'}
                 </span>
               </div>
@@ -505,7 +505,7 @@ export default function ClientProfilePage() {
                 <div className="flex items-center gap-2 text-sm text-text-secondary">
                   <CreditCard className="w-4 h-4 text-text-tertiary" /> Оплачено
                 </div>
-                <span className="text-sm font-semibold text-sage">{formatCurrency(totalPaid / 100)}</span>
+                <span className="text-sm font-semibold text-sage">{formatCurrency(totalPaid)}</span>
               </div>
               <div className="flex items-center justify-between py-2.5 border-b border-border-luxury">
                 <div className="flex items-center gap-2 text-sm text-text-secondary">
@@ -560,7 +560,7 @@ export default function ClientProfilePage() {
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-sm text-text-primary">
-                      {formatCurrency(apt.price / 100)}
+                      {formatCurrency(apt.price)}
                     </td>
                     <td className="px-5 py-3.5">
                       <Badge variant={getAppointmentStatusBadgeVariant(apt.status)} dot>
@@ -585,7 +585,7 @@ export default function ClientProfilePage() {
             </div>
             <div className="text-right">
               <p className="text-xs text-text-tertiary">Итого оплачено</p>
-              <p className="text-base font-semibold text-sage">{formatCurrency(totalPaid / 100)}</p>
+              <p className="text-base font-semibold text-sage">{formatCurrency(totalPaid)}</p>
             </div>
           </div>
           {payments.length === 0 ? (
@@ -612,7 +612,7 @@ export default function ClientProfilePage() {
                       {pay.method === 'card' ? 'Карта' : pay.method === 'cash' ? 'Наличные' : pay.method}
                     </td>
                     <td className="px-5 py-3.5 text-sm font-semibold text-text-primary">
-                      {formatCurrency(pay.amount / 100)}
+                      {formatCurrency(pay.amount)}
                     </td>
                     <td className="px-5 py-3.5">
                       <Badge variant={getPaymentStatusBadgeVariant(pay.status)} dot>
@@ -653,7 +653,7 @@ export default function ClientProfilePage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-text-primary">{proc.count}×</p>
-                    <p className="text-xs text-text-tertiary mt-0.5">{formatCurrency(proc.totalSpent / 100)}</p>
+                    <p className="text-xs text-text-tertiary mt-0.5">{formatCurrency(proc.totalSpent)}</p>
                   </div>
                 </div>
               ))}
