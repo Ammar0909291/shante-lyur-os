@@ -8,6 +8,7 @@ import {
   BarChart2, ArrowUpRight, ArrowDownLeft, FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -94,14 +95,44 @@ interface Report {
   unpaidBalances: { total: number; count: number };
 }
 
+// ─── Module-level lookup maps (keys only — no Russian strings) ─────────────────
+
+const PROVIDER_KEY: Record<string, string> = {
+  CASH:          'finance.method.cash',
+  CARD_TERMINAL: 'finance.method.card',
+  TRANSFER:      'finance.method.transfer',
+  YOOKASSA:      'finance.method.yookassa',
+  ROBOKASSA:     'finance.method.robokassa',
+  INTERNAL:      'finance.method.internal',
+};
+
+const PAY_STATUS_KEY: Record<string, { key: string; color: string }> = {
+  UNPAID:       { key: 'finance.payStatus.unpaid',   color: 'text-red-400' },
+  DEPOSIT_PAID: { key: 'finance.payStatus.deposit',  color: 'text-amber-400' },
+  PARTIAL_PAID: { key: 'finance.payStatus.partial',  color: 'text-amber-400' },
+  PAID:         { key: 'finance.payStatus.paid',     color: 'text-emerald-400' },
+  REFUNDED:     { key: 'finance.payStatus.refunded', color: 'text-blue-400' },
+  FAILED:       { key: 'finance.payStatus.failed',   color: 'text-red-500' },
+};
+
+const EXPENSE_CAT_KEY: Record<string, string> = {
+  INVENTORY_PURCHASE: 'finance.expense.purchase',
+  RENT:               'finance.expense.rent',
+  UTILITIES:          'finance.expense.utilities',
+  SALARY:             'finance.expense.salary',
+  OPERATIONAL:        'finance.expense.operational',
+  MARKETING:          'finance.expense.marketing',
+  OTHER:              'finance.expense.other',
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(n: number) {
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
+function fmt(n: number, locale: string) {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+function fmtDate(iso: string, locale: string) {
+  return new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function today() {
@@ -112,35 +143,18 @@ function thirtyDaysAgo() {
   return new Date(Date.now() - 30 * 86_400_000).toISOString().split('T')[0];
 }
 
-const PROVIDER_LABELS: Record<string, string> = {
-  CASH:          'Наличные',
-  CARD_TERMINAL: 'Карта',
-  TRANSFER:      'Перевод',
-  YOOKASSA:      'ЮKassa',
-  ROBOKASSA:     'Robokassa',
-  INTERNAL:      'Внутренний',
-};
+function authHeaders(): Record<string, string> {
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+    if (!match) return { 'x-user-id': 'system', 'x-user-role': 'ADMIN' };
+    const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string; role?: string };
+    return { 'x-user-id': payload.sub ?? 'system', 'x-user-role': payload.role ?? 'ADMIN' };
+  } catch {
+    return { 'x-user-id': 'system', 'x-user-role': 'ADMIN' };
+  }
+}
 
-const PAYMENT_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  UNPAID:       { label: 'Не оплачено',  color: 'text-red-400' },
-  DEPOSIT_PAID: { label: 'Задаток',       color: 'text-amber-400' },
-  PARTIAL_PAID: { label: 'Частично',      color: 'text-amber-400' },
-  PAID:         { label: 'Оплачено',      color: 'text-emerald-400' },
-  REFUNDED:     { label: 'Возврат',       color: 'text-blue-400' },
-  FAILED:       { label: 'Ошибка',        color: 'text-red-500' },
-};
-
-const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
-  INVENTORY_PURCHASE: 'Закупка товаров',
-  RENT:               'Аренда',
-  UTILITIES:          'Коммунальные',
-  SALARY:             'Зарплата',
-  OPERATIONAL:        'Операционные',
-  MARKETING:          'Маркетинг',
-  OTHER:              'Прочее',
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
 
 function KpiCard({ label, value, sub, icon: Icon, trend }: {
   label: string;
@@ -171,13 +185,11 @@ function KpiCard({ label, value, sub, icon: Icon, trend }: {
 
 // ─── Payment creation modal ───────────────────────────────────────────────────
 
-function PaymentModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: () => void;
-}) {
+function PaymentModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { t, lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+  const providerLabels = Object.fromEntries(Object.entries(PROVIDER_KEY).map(([k, v]) => [k, t(v)]));
+
   const [form, setForm] = React.useState({
     appointmentId: '',
     provider: 'CASH',
@@ -192,60 +204,57 @@ function PaymentModal({
     e.preventDefault();
     setError('');
     const amount = Number(form.amount);
-    if (!form.appointmentId.trim()) return setError('Укажите ID записи');
-    if (!amount || amount <= 0) return setError('Укажите корректную сумму');
+    if (!form.appointmentId.trim()) return setError(t('finance.modal.errNoId'));
+    if (!amount || amount <= 0) return setError(t('finance.modal.errNoAmount'));
 
     setLoading(true);
     try {
-      const userId = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/)
-        ? (() => { try { return JSON.parse(atob(document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/)![1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub; } catch { return 'system'; } })()
-        : 'system';
-      const role = (() => { try { return JSON.parse(atob(document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/)![1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role; } catch { return 'ADMIN'; } })();
-
       const res = await fetch('/api/finance/payments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId, 'x-user-role': role },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ ...form, amount }),
       });
       const json = await res.json() as { success: boolean; error?: { message: string } };
-      if (!json.success) { setError(json.error?.message ?? 'Ошибка'); return; }
+      if (!json.success) { setError(json.error?.message ?? t('common.error')); return; }
       onCreated();
       onClose();
     } catch {
-      setError('Сетевая ошибка');
+      setError(t('common.error'));
     } finally {
       setLoading(false);
     }
   }
 
+  void locale;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-onyx border border-border-luxury rounded-2xl w-full max-w-md p-6">
-        <h2 className="text-lg font-bold text-text-primary font-serif mb-5">Новый платёж</h2>
+        <h2 className="text-lg font-bold text-text-primary font-serif mb-5">{t('finance.modal.newPayment')}</h2>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">ID записи</label>
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.appointmentId')}</label>
             <input
               className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne"
-              placeholder="UUID записи"
+              placeholder={t('finance.modal.uuid')}
               value={form.appointmentId}
               onChange={(e) => setForm((f) => ({ ...f, appointmentId: e.target.value }))}
             />
           </div>
           <div>
-            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">Метод оплаты</label>
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.method')}</label>
             <select
               className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne"
               value={form.provider}
               onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
             >
-              {Object.entries(PROVIDER_LABELS).map(([k, v]) => (
+              {Object.entries(providerLabels).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">Сумма (₽)</label>
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.amount')}</label>
             <input
               type="number"
               min="0"
@@ -257,10 +266,10 @@ function PaymentModal({
             />
           </div>
           <div>
-            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">Описание</label>
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.description')}</label>
             <input
               className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne"
-              placeholder="Необязательно"
+              placeholder={t('finance.modal.optional')}
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             />
@@ -272,15 +281,15 @@ function PaymentModal({
               checked={form.isDeposit}
               onChange={(e) => setForm((f) => ({ ...f, isDeposit: e.target.checked }))}
             />
-            <span className="text-sm text-text-secondary">Это задаток (предоплата)</span>
+            <span className="text-sm text-text-secondary">{t('finance.modal.deposit')}</span>
           </label>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-border-luxury text-text-secondary text-sm hover:bg-charcoal transition-colors">
-              Отмена
+              {t('common.cancel')}
             </button>
             <button type="submit" disabled={loading} className="flex-1 px-4 py-2.5 rounded-lg luxury-gradient text-obsidian text-sm font-semibold disabled:opacity-50">
-              {loading ? 'Создание...' : 'Принять платёж'}
+              {loading ? t('finance.modal.creating') : t('finance.acceptPayment')}
             </button>
           </div>
         </form>
@@ -292,6 +301,9 @@ function PaymentModal({
 // ─── Expense creation modal ───────────────────────────────────────────────────
 
 function ExpenseModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const { t } = useLanguage();
+  const expenseCatLabels = Object.fromEntries(Object.entries(EXPENSE_CAT_KEY).map(([k, v]) => [k, t(v)]));
+
   const [form, setForm] = React.useState({
     date: today(),
     category: 'OPERATIONAL',
@@ -307,25 +319,22 @@ function ExpenseModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
     e.preventDefault();
     setError('');
     const amount = Number(form.amount);
-    if (!form.description.trim()) return setError('Укажите описание');
-    if (!amount || amount <= 0) return setError('Укажите корректную сумму');
+    if (!form.description.trim()) return setError(t('finance.modal.errNoDesc'));
+    if (!amount || amount <= 0) return setError(t('finance.modal.errNoAmount'));
 
     setLoading(true);
     try {
-      const userId = (() => { try { return JSON.parse(atob(document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/)![1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub; } catch { return 'system'; } })();
-      const role   = (() => { try { return JSON.parse(atob(document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/)![1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role; } catch { return 'ADMIN'; } })();
-
       const res = await fetch('/api/finance/expenses', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId, 'x-user-role': role },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ ...form, amount }),
       });
       const json = await res.json() as { success: boolean; error?: { message: string } };
-      if (!json.success) { setError(json.error?.message ?? 'Ошибка'); return; }
+      if (!json.success) { setError(json.error?.message ?? t('common.error')); return; }
       onCreated();
       onClose();
     } catch {
-      setError('Сетевая ошибка');
+      setError(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -334,42 +343,42 @@ function ExpenseModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-onyx border border-border-luxury rounded-2xl w-full max-w-md p-6">
-        <h2 className="text-lg font-bold text-text-primary font-serif mb-5">Новый расход</h2>
+        <h2 className="text-lg font-bold text-text-primary font-serif mb-5">{t('finance.modal.newExpense')}</h2>
         <form onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">Дата</label>
+              <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.date')}</label>
               <input type="date" className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">Сумма (₽)</label>
+              <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.amount')}</label>
               <input type="number" min="0" step="0.01" className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" placeholder="0.00" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} />
             </div>
           </div>
           <div>
-            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">Категория</label>
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.category')}</label>
             <select className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
-              {Object.entries(EXPENSE_CATEGORY_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
+              {Object.entries(expenseCatLabels).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
             </select>
           </div>
           <div>
-            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">Описание</label>
-            <input className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" placeholder="Обязательно" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.description')}</label>
+            <input className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" placeholder={t('finance.modal.required')} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">Поставщик</label>
-              <input className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" placeholder="Необязательно" value={form.supplier} onChange={(e) => setForm((f) => ({ ...f, supplier: e.target.value }))} />
+              <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.supplier')}</label>
+              <input className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" placeholder={t('finance.modal.optional')} value={form.supplier} onChange={(e) => setForm((f) => ({ ...f, supplier: e.target.value }))} />
             </div>
             <div>
-              <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">№ чека</label>
-              <input className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" placeholder="Необязательно" value={form.receiptRef} onChange={(e) => setForm((f) => ({ ...f, receiptRef: e.target.value }))} />
+              <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.receiptRef')}</label>
+              <input className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" placeholder={t('finance.modal.optional')} value={form.receiptRef} onChange={(e) => setForm((f) => ({ ...f, receiptRef: e.target.value }))} />
             </div>
           </div>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-border-luxury text-text-secondary text-sm hover:bg-charcoal transition-colors">Отмена</button>
-            <button type="submit" disabled={loading} className="flex-1 px-4 py-2.5 rounded-lg luxury-gradient text-obsidian text-sm font-semibold disabled:opacity-50">{loading ? 'Сохранение...' : 'Добавить расход'}</button>
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-border-luxury text-text-secondary text-sm hover:bg-charcoal transition-colors">{t('common.cancel')}</button>
+            <button type="submit" disabled={loading} className="flex-1 px-4 py-2.5 rounded-lg luxury-gradient text-obsidian text-sm font-semibold disabled:opacity-50">{loading ? t('finance.modal.saving') : t('finance.modal.addExpenseBtn')}</button>
           </div>
         </form>
       </div>
@@ -382,6 +391,9 @@ function ExpenseModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
 function RefundModal({ paymentId, maxAmount, onClose, onRefunded }: {
   paymentId: string; maxAmount: number; onClose: () => void; onRefunded: () => void;
 }) {
+  const { t, lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+
   const [amount, setAmount] = React.useState(String(maxAmount));
   const [reason, setReason] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -391,25 +403,22 @@ function RefundModal({ paymentId, maxAmount, onClose, onRefunded }: {
     e.preventDefault();
     setError('');
     const amt = Number(amount);
-    if (!amt || amt <= 0) return setError('Укажите сумму');
-    if (amt > maxAmount) return setError(`Максимум: ${maxAmount}`);
+    if (!amt || amt <= 0) return setError(t('finance.modal.errNoRefund'));
+    if (amt > maxAmount) return setError(`${t('finance.modal.refundMaxLabel')} ${fmt(maxAmount, locale)}`);
 
     setLoading(true);
     try {
-      const userId = (() => { try { return JSON.parse(atob(document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/)![1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub; } catch { return 'system'; } })();
-      const role   = (() => { try { return JSON.parse(atob(document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/)![1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role; } catch { return 'ADMIN'; } })();
-
       const res = await fetch(`/api/finance/payments/${paymentId}/refund`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': userId, 'x-user-role': role },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ amount: amt, reason: reason || undefined }),
       });
       const json = await res.json() as { success: boolean; error?: { message: string } };
-      if (!json.success) { setError(json.error?.message ?? 'Ошибка'); return; }
+      if (!json.success) { setError(json.error?.message ?? t('common.error')); return; }
       onRefunded();
       onClose();
     } catch {
-      setError('Сетевая ошибка');
+      setError(t('common.error'));
     } finally {
       setLoading(false);
     }
@@ -418,20 +427,22 @@ function RefundModal({ paymentId, maxAmount, onClose, onRefunded }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-onyx border border-border-luxury rounded-2xl w-full max-w-sm p-6">
-        <h2 className="text-lg font-bold text-text-primary font-serif mb-5">Возврат платежа</h2>
+        <h2 className="text-lg font-bold text-text-primary font-serif mb-5">{t('finance.refund')}</h2>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">Сумма возврата (макс. {fmt(maxAmount)})</label>
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">
+              {t('finance.modal.refundMaxLabel')} {fmt(maxAmount, locale)})
+            </label>
             <input type="number" min="0.01" max={maxAmount} step="0.01" className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </div>
           <div>
-            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">Причина</label>
-            <input className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" placeholder="Необязательно" value={reason} onChange={(e) => setReason(e.target.value)} />
+            <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.modal.reason')}</label>
+            <input className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" placeholder={t('finance.modal.optional')} value={reason} onChange={(e) => setReason(e.target.value)} />
           </div>
           {error && <p className="text-red-400 text-sm">{error}</p>}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-border-luxury text-text-secondary text-sm hover:bg-charcoal transition-colors">Отмена</button>
-            <button type="submit" disabled={loading} className="flex-1 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors">{loading ? 'Обработка...' : 'Оформить возврат'}</button>
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border border-border-luxury text-text-secondary text-sm hover:bg-charcoal transition-colors">{t('common.cancel')}</button>
+            <button type="submit" disabled={loading} className="flex-1 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50 transition-colors">{loading ? t('finance.modal.processing') : t('finance.refundAction')}</button>
           </div>
         </form>
       </div>
@@ -442,6 +453,23 @@ function RefundModal({ paymentId, maxAmount, onClose, onRefunded }: {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function FinancePage() {
+  const { t, lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+
+  const providerLabels = Object.fromEntries(Object.entries(PROVIDER_KEY).map(([k, v]) => [k, t(v)]));
+  const payStatusLabels = Object.fromEntries(
+    Object.entries(PAY_STATUS_KEY).map(([k, v]) => [k, { label: t(v.key), color: v.color }])
+  );
+  const expenseCatLabels = Object.fromEntries(Object.entries(EXPENSE_CAT_KEY).map(([k, v]) => [k, t(v)]));
+
+  const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
+    { id: 'payments', label: t('finance.tab.payments'), icon: CreditCard },
+    { id: 'closing',  label: t('finance.tab.closing'),  icon: Receipt },
+    { id: 'expenses', label: t('finance.tab.expenses'), icon: Wallet },
+    { id: 'reports',  label: t('finance.tab.reports'),  icon: BarChart2 },
+    { id: 'export',   label: t('finance.tab.export'),   icon: Download },
+  ];
+
   const [tab, setTab] = React.useState<TabId>('payments');
 
   // Payments state
@@ -474,18 +502,6 @@ export default function FinancePage() {
   const [expExFrom, setExpExFrom] = React.useState(thirtyDaysAgo());
   const [expExTo, setExpExTo]     = React.useState(today());
   const [exporting, setExporting] = React.useState(false);
-
-  // ── Auth headers helper ──────────────────────────────────────────────────────
-  function authHeaders(): Record<string, string> {
-    try {
-      const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-      if (!match) return { 'x-user-id': 'system', 'x-user-role': 'ADMIN' };
-      const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string; role?: string };
-      return { 'x-user-id': payload.sub ?? 'system', 'x-user-role': payload.role ?? 'ADMIN' };
-    } catch {
-      return { 'x-user-id': 'system', 'x-user-role': 'ADMIN' };
-    }
-  }
 
   // ── Fetch functions ──────────────────────────────────────────────────────────
   async function fetchPayments() {
@@ -533,7 +549,7 @@ export default function FinancePage() {
   }
 
   async function deleteExpense(id: string) {
-    if (!confirm('Удалить расход?')) return;
+    if (!confirm(t('finance.confirmDelete'))) return;
     const res = await fetch(`/api/finance/expenses/${id}`, { method: 'DELETE', headers: authHeaders() });
     const json = await res.json() as { success: boolean };
     if (json.success) fetchExpenses();
@@ -543,7 +559,7 @@ export default function FinancePage() {
     setExporting(true);
     try {
       const res = await fetch(`/api/finance/export?from=${expExFrom}&to=${expExTo}`, { headers: authHeaders() });
-      if (!res.ok) { alert('Ошибка экспорта'); return; }
+      if (!res.ok) { alert(t('common.error')); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -564,15 +580,6 @@ export default function FinancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-    { id: 'payments', label: 'Платежи',       icon: CreditCard },
-    { id: 'closing',  label: 'Закрытие дня',  icon: Receipt },
-    { id: 'expenses', label: 'Расходы',        icon: Wallet },
-    { id: 'reports',  label: 'Отчёты',         icon: BarChart2 },
-    { id: 'export',   label: 'Экспорт',        icon: Download },
-  ];
-
-  // ── Payments tab ─────────────────────────────────────────────────────────────
   const totalReceived  = payments.reduce((s, p) => s + p.amount, 0);
   const totalRefundedP = payments.reduce((s, p) => s + p.totalRefunded, 0);
 
@@ -581,8 +588,8 @@ export default function FinancePage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary font-serif">Финансовый центр</h1>
-          <p className="text-sm text-text-tertiary mt-0.5">Платежи · Расходы · Отчётность · Экспорт</p>
+          <h1 className="text-2xl font-bold text-text-primary font-serif">{t('finance.title')}</h1>
+          <p className="text-sm text-text-tertiary mt-0.5">{t('finance.subtitle')}</p>
         </div>
       </div>
 
@@ -608,75 +615,72 @@ export default function FinancePage() {
       {/* ── PAYMENTS TAB ─────────────────────────────────────────────────────────── */}
       {tab === 'payments' && (
         <div className="space-y-5">
-          {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiCard label="Принято" value={fmt(totalReceived)} icon={ArrowUpRight} />
-            <KpiCard label="Возвращено" value={fmt(totalRefundedP)} icon={ArrowDownLeft} />
-            <KpiCard label="Нетто" value={fmt(totalReceived - totalRefundedP)} icon={DollarSign} />
-            <KpiCard label="Транзакций" value={String(payments.length)} icon={CreditCard} />
+            <KpiCard label={t('finance.total.received')}     value={fmt(totalReceived, locale)}                  icon={ArrowUpRight} />
+            <KpiCard label={t('finance.total.refunded')}     value={fmt(totalRefundedP, locale)}                 icon={ArrowDownLeft} />
+            <KpiCard label={t('finance.total.net')}          value={fmt(totalReceived - totalRefundedP, locale)} icon={DollarSign} />
+            <KpiCard label={t('finance.total.transactions')} value={String(payments.length)}                     icon={CreditCard} />
           </div>
 
-          {/* Filters + action */}
           <div className="flex flex-wrap gap-3 items-end">
             <div>
-              <label className="text-xs text-text-tertiary block mb-1">С</label>
+              <label className="text-xs text-text-tertiary block mb-1">{t('finance.from')}</label>
               <input type="date" className="bg-onyx border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={payFrom} onChange={(e) => setPayFrom(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-text-tertiary block mb-1">По</label>
+              <label className="text-xs text-text-tertiary block mb-1">{t('finance.to')}</label>
               <input type="date" className="bg-onyx border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={payTo} onChange={(e) => setPayTo(e.target.value)} />
             </div>
             <button onClick={fetchPayments} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border-luxury text-text-secondary text-sm hover:bg-charcoal transition-colors">
-              <RefreshCw className="w-4 h-4" /> Обновить
+              <RefreshCw className="w-4 h-4" /> {t('finance.refresh')}
             </button>
             <button onClick={() => setShowPayModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg luxury-gradient text-obsidian text-sm font-semibold ml-auto">
-              <Plus className="w-4 h-4" /> Принять платёж
+              <Plus className="w-4 h-4" /> {t('finance.acceptPayment')}
             </button>
           </div>
 
-          {/* Table */}
           <div className="bg-onyx border border-border-luxury rounded-xl overflow-hidden">
             {paymentsLoading ? (
               <div className="flex items-center justify-center h-32"><RefreshCw className="w-6 h-6 text-champagne animate-spin" /></div>
             ) : payments.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-text-tertiary gap-2">
                 <CreditCard className="w-8 h-8 opacity-40" />
-                <span className="text-sm">Платежи не найдены</span>
+                <span className="text-sm">{t('finance.noPayments')}</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border-luxury">
-                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">Дата</th>
-                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">Клиент</th>
-                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">Специалист</th>
-                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">Метод</th>
-                      <th className="px-4 py-3 text-right text-xs text-text-tertiary uppercase tracking-wider">Сумма</th>
-                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">Статус</th>
-                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">Оплата записи</th>
-                      <th className="px-4 py-3 text-center text-xs text-text-tertiary uppercase tracking-wider">Действия</th>
+                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.date')}</th>
+                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.client')}</th>
+                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.specialist')}</th>
+                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.method')}</th>
+                      <th className="px-4 py-3 text-right text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.amount')}</th>
+                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.status')}</th>
+                      <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.payStatus')}</th>
+                      <th className="px-4 py-3 text-center text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {payments.map((pmt) => {
-                      const ps = PAYMENT_STATUS_LABELS[pmt.appointment?.paymentStatus ?? ''];
+                      const ps = payStatusLabels[pmt.appointment?.paymentStatus ?? ''];
                       const refundable = pmt.amount - pmt.totalRefunded;
                       return (
                         <tr key={pmt.id} className="border-b border-border-luxury/40 hover:bg-charcoal/30 transition-colors">
-                          <td className="px-4 py-3 text-text-secondary">{pmt.paidAt ? fmtDate(pmt.paidAt) : '—'}</td>
+                          <td className="px-4 py-3 text-text-secondary">{pmt.paidAt ? fmtDate(pmt.paidAt, locale) : '—'}</td>
                           <td className="px-4 py-3 text-text-primary font-medium">{pmt.appointment?.client ?? '—'}</td>
                           <td className="px-4 py-3 text-text-secondary">{pmt.appointment?.specialist ?? '—'}</td>
                           <td className="px-4 py-3">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-charcoal text-xs text-text-secondary">
-                              {PROVIDER_LABELS[pmt.provider] ?? pmt.provider}
-                              {pmt.isDeposit && <span className="text-amber-400 text-[10px]">Задаток</span>}
+                              {providerLabels[pmt.provider] ?? pmt.provider}
+                              {pmt.isDeposit && <span className="text-amber-400 text-[10px]">{t('finance.payStatus.deposit')}</span>}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right font-semibold text-text-primary">{fmt(pmt.amount)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-text-primary">{fmt(pmt.amount, locale)}</td>
                           <td className="px-4 py-3">
                             {pmt.totalRefunded > 0 && (
-                              <span className="text-xs text-blue-400">−{fmt(pmt.totalRefunded)}</span>
+                              <span className="text-xs text-blue-400">−{fmt(pmt.totalRefunded, locale)}</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -690,7 +694,7 @@ export default function FinancePage() {
                                 onClick={() => setRefundTarget({ id: pmt.id, amount: refundable })}
                                 className="text-xs px-2 py-1 rounded bg-red-900/30 text-red-400 hover:bg-red-900/50 transition-colors"
                               >
-                                Возврат
+                                {t('finance.refundBtn')}
                               </button>
                             )}
                           </td>
@@ -710,11 +714,11 @@ export default function FinancePage() {
         <div className="space-y-5">
           <div className="flex flex-wrap gap-3 items-end">
             <div>
-              <label className="text-xs text-text-tertiary block mb-1">Дата закрытия</label>
+              <label className="text-xs text-text-tertiary block mb-1">{t('finance.closeDate')}</label>
               <input type="date" className="bg-onyx border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
             </div>
             <button onClick={fetchClosing} className="flex items-center gap-2 px-4 py-2 rounded-lg luxury-gradient text-obsidian text-sm font-semibold">
-              <Receipt className="w-4 h-4" /> Сформировать
+              <Receipt className="w-4 h-4" /> {t('finance.generate')}
             </button>
           </div>
 
@@ -724,52 +728,49 @@ export default function FinancePage() {
 
           {closing && !closingLoading && (
             <div className="space-y-5">
-              {/* KPIs */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard label="Выручка" value={fmt(closing.revenue.total)} icon={TrendingUp} trend="up" sub={`${closing.completedBookings} процедур`} />
-                <KpiCard label="Возвраты" value={fmt(closing.refunds.total)} icon={TrendingDown} trend="down" sub={`${closing.refunds.count} шт`} />
-                <KpiCard label="Нетто" value={fmt(closing.netRevenue)} icon={DollarSign} />
-                <KpiCard label="Чистая прибыль" value={fmt(closing.netProfit)} icon={BarChart2} trend={closing.netProfit >= 0 ? 'up' : 'down'} sub={`Расходы: ${fmt(closing.expenses.total)}`} />
+                <KpiCard label={t('finance.kpi.revenue')} value={fmt(closing.revenue.total, locale)} icon={TrendingUp} trend="up" sub={`${closing.completedBookings} ${t('finance.procedures')}`} />
+                <KpiCard label={t('finance.kpi.returns')} value={fmt(closing.refunds.total, locale)} icon={TrendingDown} trend="down" sub={`${closing.refunds.count} ${t('finance.pcs')}`} />
+                <KpiCard label={t('finance.kpi.net')} value={fmt(closing.netRevenue, locale)} icon={DollarSign} />
+                <KpiCard label={t('finance.kpi.profit')} value={fmt(closing.netProfit, locale)} icon={BarChart2} trend={closing.netProfit >= 0 ? 'up' : 'down'} sub={`${t('finance.tab.expenses')}: ${fmt(closing.expenses.total, locale)}`} />
               </div>
 
               <div className="grid lg:grid-cols-2 gap-5">
-                {/* By method */}
                 <div className="bg-onyx border border-border-luxury rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">Выручка по методу</h3>
+                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">{t('finance.revenueByMethod')}</h3>
                   <div className="space-y-2">
                     {[
-                      { label: 'Наличные', value: closing.revenue.byCash },
-                      { label: 'Карта', value: closing.revenue.byCard },
-                      { label: 'Перевод', value: closing.revenue.byTransfer },
-                      { label: 'Онлайн', value: closing.revenue.byOnline },
+                      { label: t('finance.method.cash'),     value: closing.revenue.byCash },
+                      { label: t('finance.method.card'),     value: closing.revenue.byCard },
+                      { label: t('finance.method.transfer'), value: closing.revenue.byTransfer },
+                      { label: t('finance.online'),          value: closing.revenue.byOnline },
                     ].map(({ label, value }) => (
                       <div key={label} className="flex justify-between items-center py-1 border-b border-border-luxury/30">
                         <span className="text-sm text-text-secondary">{label}</span>
-                        <span className="text-sm font-semibold text-text-primary">{fmt(value)}</span>
+                        <span className="text-sm font-semibold text-text-primary">{fmt(value, locale)}</span>
                       </div>
                     ))}
                     <div className="flex justify-between items-center pt-2">
-                      <span className="text-sm font-bold text-champagne">Итого</span>
-                      <span className="text-sm font-bold text-champagne">{fmt(closing.revenue.total)}</span>
+                      <span className="text-sm font-bold text-champagne">{t('finance.expTotal').replace(':', '')}</span>
+                      <span className="text-sm font-bold text-champagne">{fmt(closing.revenue.total, locale)}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Outstanding */}
                 <div className="bg-onyx border border-border-luxury rounded-xl p-5">
                   <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">
-                    Долги / неоплаченные <span className="text-red-400">({fmt(closing.outstanding.total)})</span>
+                    {t('finance.outstanding')} <span className="text-red-400">({fmt(closing.outstanding.total, locale)})</span>
                   </h3>
                   {closing.outstanding.items.length === 0 ? (
-                    <div className="flex items-center gap-2 text-emerald-400 text-sm"><CheckCircle2 className="w-4 h-4" /> Все записи оплачены</div>
+                    <div className="flex items-center gap-2 text-emerald-400 text-sm"><CheckCircle2 className="w-4 h-4" /> {t('finance.allPaid')}</div>
                   ) : (
                     <div className="space-y-2 max-h-52 overflow-y-auto">
                       {closing.outstanding.items.map((item) => (
                         <div key={item.id} className="flex justify-between items-center text-sm border-b border-border-luxury/30 py-1.5">
-                          <span className="text-text-secondary">{item.client ?? 'Клиент'}</span>
+                          <span className="text-text-secondary">{item.client ?? t('finance.col.client')}</span>
                           <div className="flex items-center gap-2">
-                            <span className={PAYMENT_STATUS_LABELS[item.paymentStatus]?.color ?? 'text-text-tertiary'}>{PAYMENT_STATUS_LABELS[item.paymentStatus]?.label}</span>
-                            <span className="text-red-400 font-semibold">{fmt(item.balance)}</span>
+                            <span className={payStatusLabels[item.paymentStatus]?.color ?? 'text-text-tertiary'}>{payStatusLabels[item.paymentStatus]?.label}</span>
+                            <span className="text-red-400 font-semibold">{fmt(item.balance, locale)}</span>
                           </div>
                         </div>
                       ))}
@@ -778,18 +779,17 @@ export default function FinancePage() {
                 </div>
               </div>
 
-              {/* Specialist breakdown */}
               {closing.specialistBreakdown.length > 0 && (
                 <div className="bg-onyx border border-border-luxury rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">Выручка по специалистам</h3>
+                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">{t('finance.specialistRevenue')}</h3>
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {closing.specialistBreakdown.map((spec) => (
                       <div key={spec.name} className="flex justify-between items-center bg-charcoal rounded-lg p-3">
                         <div>
                           <div className="text-sm font-medium text-text-primary">{spec.name}</div>
-                          <div className="text-xs text-text-tertiary">{spec.count} процедур</div>
+                          <div className="text-xs text-text-tertiary">{spec.count} {t('finance.procedures')}</div>
                         </div>
-                        <div className="text-sm font-bold text-champagne">{fmt(spec.revenue)}</div>
+                        <div className="text-sm font-bold text-champagne">{fmt(spec.revenue, locale)}</div>
                       </div>
                     ))}
                   </div>
@@ -801,7 +801,7 @@ export default function FinancePage() {
           {!closing && !closingLoading && (
             <div className="flex flex-col items-center justify-center h-40 text-text-tertiary gap-2">
               <Receipt className="w-10 h-10 opacity-30" />
-              <span className="text-sm">Выберите дату и нажмите «Сформировать»</span>
+              <span className="text-sm">{t('finance.closeHint')}</span>
             </div>
           )}
         </div>
@@ -812,18 +812,18 @@ export default function FinancePage() {
         <div className="space-y-5">
           <div className="flex flex-wrap gap-3 items-end">
             <div>
-              <label className="text-xs text-text-tertiary block mb-1">С</label>
+              <label className="text-xs text-text-tertiary block mb-1">{t('finance.from')}</label>
               <input type="date" className="bg-onyx border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={expFrom} onChange={(e) => setExpFrom(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-text-tertiary block mb-1">По</label>
+              <label className="text-xs text-text-tertiary block mb-1">{t('finance.to')}</label>
               <input type="date" className="bg-onyx border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={expTo} onChange={(e) => setExpTo(e.target.value)} />
             </div>
             <button onClick={fetchExpenses} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border-luxury text-text-secondary text-sm hover:bg-charcoal transition-colors">
-              <RefreshCw className="w-4 h-4" /> Обновить
+              <RefreshCw className="w-4 h-4" /> {t('finance.refresh')}
             </button>
             <button onClick={() => setShowExpModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg luxury-gradient text-obsidian text-sm font-semibold ml-auto">
-              <Plus className="w-4 h-4" /> Добавить расход
+              <Plus className="w-4 h-4" /> {t('finance.addExpense')}
             </button>
           </div>
 
@@ -833,32 +833,32 @@ export default function FinancePage() {
             ) : expenses.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-text-tertiary gap-2">
                 <Wallet className="w-8 h-8 opacity-40" />
-                <span className="text-sm">Расходы не найдены</span>
+                <span className="text-sm">{t('finance.noExpenses')}</span>
               </div>
             ) : (
               <>
                 <div className="px-5 py-3 border-b border-border-luxury flex justify-between items-center">
-                  <span className="text-sm text-text-tertiary">Итого расходов:</span>
-                  <span className="text-base font-bold text-text-primary font-serif">{fmt(expenses.reduce((s, e) => s + e.amount, 0))}</span>
+                  <span className="text-sm text-text-tertiary">{t('finance.expTotal')}</span>
+                  <span className="text-base font-bold text-text-primary font-serif">{fmt(expenses.reduce((s, e) => s + e.amount, 0), locale)}</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border-luxury">
-                        <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">Дата</th>
-                        <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">Категория</th>
-                        <th className="px-4 py-3 text-right text-xs text-text-tertiary uppercase tracking-wider">Сумма</th>
-                        <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">Описание</th>
-                        <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">Поставщик</th>
-                        <th className="px-4 py-3 text-center text-xs text-text-tertiary uppercase tracking-wider">Действия</th>
+                        <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.date')}</th>
+                        <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.category')}</th>
+                        <th className="px-4 py-3 text-right text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.amount')}</th>
+                        <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.desc')}</th>
+                        <th className="px-4 py-3 text-left text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.supplier')}</th>
+                        <th className="px-4 py-3 text-center text-xs text-text-tertiary uppercase tracking-wider">{t('finance.col.actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {expenses.map((e) => (
                         <tr key={e.id} className="border-b border-border-luxury/40 hover:bg-charcoal/30 transition-colors">
-                          <td className="px-4 py-3 text-text-secondary">{fmtDate(e.date + 'T00:00:00')}</td>
-                          <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full bg-charcoal text-xs text-text-secondary">{EXPENSE_CATEGORY_LABELS[e.category] ?? e.category}</span></td>
-                          <td className="px-4 py-3 text-right font-semibold text-text-primary">{fmt(e.amount)}</td>
+                          <td className="px-4 py-3 text-text-secondary">{fmtDate(e.date + 'T00:00:00', locale)}</td>
+                          <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-full bg-charcoal text-xs text-text-secondary">{expenseCatLabels[e.category] ?? e.category}</span></td>
+                          <td className="px-4 py-3 text-right font-semibold text-text-primary">{fmt(e.amount, locale)}</td>
                           <td className="px-4 py-3 text-text-secondary max-w-xs truncate">{e.description}</td>
                           <td className="px-4 py-3 text-text-tertiary text-xs">{e.supplier ?? '—'}</td>
                           <td className="px-4 py-3 text-center">
@@ -882,15 +882,15 @@ export default function FinancePage() {
         <div className="space-y-5">
           <div className="flex flex-wrap gap-3 items-end">
             <div>
-              <label className="text-xs text-text-tertiary block mb-1">С</label>
+              <label className="text-xs text-text-tertiary block mb-1">{t('finance.from')}</label>
               <input type="date" className="bg-onyx border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={repFrom} onChange={(e) => setRepFrom(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-text-tertiary block mb-1">По</label>
+              <label className="text-xs text-text-tertiary block mb-1">{t('finance.to')}</label>
               <input type="date" className="bg-onyx border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={repTo} onChange={(e) => setRepTo(e.target.value)} />
             </div>
             <button onClick={fetchReport} className="flex items-center gap-2 px-4 py-2 rounded-lg luxury-gradient text-obsidian text-sm font-semibold">
-              <BarChart2 className="w-4 h-4" /> Сформировать
+              <BarChart2 className="w-4 h-4" /> {t('finance.generate')}
             </button>
           </div>
 
@@ -898,72 +898,68 @@ export default function FinancePage() {
 
           {report && !repLoading && (
             <div className="space-y-5">
-              {/* P&L Summary */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <KpiCard label="Выручка" value={fmt(report.summary.totalRevenue)} icon={TrendingUp} trend="up" sub={`${report.summary.completedBookings} процедур`} />
-                <KpiCard label="Чистая выручка" value={fmt(report.summary.netRevenue)} icon={DollarSign} sub={`Возвраты: −${fmt(report.summary.totalRefunds)}`} />
-                <KpiCard label="Валовая прибыль" value={fmt(report.summary.grossProfit)} icon={CheckCircle2} sub={`Скидки: −${fmt(report.summary.totalDiscounts)}`} />
-                <KpiCard label="Чистая прибыль" value={fmt(report.summary.netProfit)} icon={BarChart2} trend={report.summary.netProfit >= 0 ? 'up' : 'down'} sub={`Расходы: −${fmt(report.summary.totalExpenses)}`} />
+                <KpiCard label={t('finance.kpi.revenue')}   value={fmt(report.summary.totalRevenue, locale)} icon={TrendingUp} trend="up" sub={`${report.summary.completedBookings} ${t('finance.procedures')}`} />
+                <KpiCard label={t('finance.netRevenue')}    value={fmt(report.summary.netRevenue, locale)}   icon={DollarSign} sub={`${t('finance.kpi.returns')}: −${fmt(report.summary.totalRefunds, locale)}`} />
+                <KpiCard label={t('finance.grossProfit')}   value={fmt(report.summary.grossProfit, locale)}  icon={CheckCircle2} />
+                <KpiCard label={t('finance.kpi.profit')}    value={fmt(report.summary.netProfit, locale)}    icon={BarChart2} trend={report.summary.netProfit >= 0 ? 'up' : 'down'} sub={`${t('finance.tab.expenses')}: −${fmt(report.summary.totalExpenses, locale)}`} />
               </div>
 
               <div className="grid lg:grid-cols-2 gap-5">
-                {/* Specialist performance */}
                 <div className="bg-onyx border border-border-luxury rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">Специалисты</h3>
+                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">{t('finance.specialists')}</h3>
                   <div className="space-y-2">
                     {report.specialists.slice(0, 10).map((sp) => (
                       <div key={sp.id} className="flex justify-between items-center border-b border-border-luxury/30 py-2">
                         <div>
                           <div className="text-sm text-text-primary font-medium">{sp.name}</div>
-                          <div className="text-xs text-text-tertiary">{sp.procedureCount} проц · ср. чек {fmt(sp.avgCheck)}</div>
+                          <div className="text-xs text-text-tertiary">{sp.procedureCount} {t('finance.procedures')} · {t('finance.avgCheckLabel')} {fmt(sp.avgCheck, locale)}</div>
                         </div>
                         <div className="text-right">
-                          <div className="text-sm font-bold text-champagne">{fmt(sp.netRevenue)}</div>
-                          {sp.refunds > 0 && <div className="text-xs text-red-400">−{fmt(sp.refunds)}</div>}
+                          <div className="text-sm font-bold text-champagne">{fmt(sp.netRevenue, locale)}</div>
+                          {sp.refunds > 0 && <div className="text-xs text-red-400">−{fmt(sp.refunds, locale)}</div>}
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Services */}
                 <div className="bg-onyx border border-border-luxury rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">Услуги</h3>
+                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">{t('finance.services')}</h3>
                   <div className="space-y-2">
                     {report.services.slice(0, 10).map((svc) => (
                       <div key={svc.id} className="flex justify-between items-center border-b border-border-luxury/30 py-2">
                         <div>
                           <div className="text-sm text-text-primary">{svc.name}</div>
-                          <div className="text-xs text-text-tertiary">{svc.count} шт · ср. {fmt(svc.avgPrice)}</div>
+                          <div className="text-xs text-text-tertiary">{svc.count} {t('finance.pcs')} · {t('finance.avgCheckLabel')} {fmt(svc.avgPrice, locale)}</div>
                         </div>
-                        <div className="text-sm font-bold text-champagne">{fmt(svc.revenue)}</div>
+                        <div className="text-sm font-bold text-champagne">{fmt(svc.revenue, locale)}</div>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Payment methods + unpaid */}
               <div className="grid lg:grid-cols-2 gap-5">
                 <div className="bg-onyx border border-border-luxury rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">По методу оплаты</h3>
+                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">{t('finance.byMethod')}</h3>
                   <div className="space-y-2">
                     {Object.entries(report.byPaymentMethod).map(([method, amount]) => (
                       <div key={method} className="flex justify-between border-b border-border-luxury/30 py-1.5">
-                        <span className="text-sm text-text-secondary">{PROVIDER_LABELS[method] ?? method}</span>
-                        <span className="text-sm font-semibold text-text-primary">{fmt(amount)}</span>
+                        <span className="text-sm text-text-secondary">{providerLabels[method] ?? method}</span>
+                        <span className="text-sm font-semibold text-text-primary">{fmt(amount, locale)}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 <div className="bg-onyx border border-border-luxury rounded-xl p-5">
-                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">Статус задолженностей</h3>
+                  <h3 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wider">{t('finance.debtStatus')}</h3>
                   <div className="space-y-3">
-                    <div className="flex justify-between"><span className="text-sm text-text-secondary">Неоплаченные балансы</span><span className="text-sm font-bold text-red-400">{fmt(report.unpaidBalances.total)}</span></div>
-                    <div className="flex justify-between"><span className="text-sm text-text-secondary">Кол-во записей</span><span className="text-sm text-text-primary">{report.unpaidBalances.count}</span></div>
-                    <div className="flex justify-between"><span className="text-sm text-text-secondary">Средний чек</span><span className="text-sm text-champagne font-semibold">{fmt(report.summary.avgCheck)}</span></div>
-                    <div className="flex justify-between"><span className="text-sm text-text-secondary">Себест-ть (склад)</span><span className="text-sm text-amber-400">{fmt(report.summary.consumableCost)}</span></div>
+                    <div className="flex justify-between"><span className="text-sm text-text-secondary">{t('finance.unpaidBalances')}</span><span className="text-sm font-bold text-red-400">{fmt(report.unpaidBalances.total, locale)}</span></div>
+                    <div className="flex justify-between"><span className="text-sm text-text-secondary">{t('finance.recordCount')}</span><span className="text-sm text-text-primary">{report.unpaidBalances.count}</span></div>
+                    <div className="flex justify-between"><span className="text-sm text-text-secondary">{t('finance.avgCheckLabel')}</span><span className="text-sm text-champagne font-semibold">{fmt(report.summary.avgCheck, locale)}</span></div>
+                    <div className="flex justify-between"><span className="text-sm text-text-secondary">{t('finance.consumableCost')}</span><span className="text-sm text-amber-400">{fmt(report.summary.consumableCost, locale)}</span></div>
                   </div>
                 </div>
               </div>
@@ -973,7 +969,7 @@ export default function FinancePage() {
           {!report && !repLoading && (
             <div className="flex flex-col items-center justify-center h-40 text-text-tertiary gap-2">
               <FileText className="w-10 h-10 opacity-30" />
-              <span className="text-sm">Выберите период и нажмите «Сформировать»</span>
+              <span className="text-sm">{t('finance.reportHint')}</span>
             </div>
           )}
         </div>
@@ -984,16 +980,16 @@ export default function FinancePage() {
         <div className="space-y-5 max-w-lg">
           <div className="bg-onyx border border-border-luxury rounded-xl p-6 space-y-5">
             <div>
-              <h3 className="text-base font-semibold text-text-primary font-serif mb-1">Экспорт финансового отчёта</h3>
-              <p className="text-sm text-text-tertiary">Скачать полный финансовый отчёт в формате .xlsx (5 листов)</p>
+              <h3 className="text-base font-semibold text-text-primary font-serif mb-1">{t('finance.exportTitle')}</h3>
+              <p className="text-sm text-text-tertiary">{t('finance.exportDesc')}</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">С</label>
+                <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.from')}</label>
                 <input type="date" className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={expExFrom} onChange={(e) => setExpExFrom(e.target.value)} />
               </div>
               <div>
-                <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">По</label>
+                <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1">{t('finance.to')}</label>
                 <input type="date" className="w-full bg-charcoal border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne" value={expExTo} onChange={(e) => setExpExTo(e.target.value)} />
               </div>
             </div>
@@ -1003,16 +999,16 @@ export default function FinancePage() {
               className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl luxury-gradient text-obsidian font-semibold text-sm disabled:opacity-50 transition-opacity"
             >
               <Download className="w-5 h-5" />
-              {exporting ? 'Формирование...' : 'Скачать .xlsx'}
+              {exporting ? t('finance.downloading') : t('finance.download')}
             </button>
             <div className="text-xs text-text-tertiary space-y-1">
-              <p>Содержит листы:</p>
+              <p>{t('finance.exportSheets')}</p>
               <ul className="list-disc list-inside space-y-0.5">
-                <li>Платежи — все транзакции за период</li>
-                <li>Возвраты — оформленные возвраты</li>
-                <li>Расходы — операционные расходы</li>
-                <li>Специалисты — выручка по специалистам</li>
-                <li>P&L — сводный отчёт о прибылях и убытках</li>
+                <li>{t('finance.exportSheet.payments')}</li>
+                <li>{t('finance.exportSheet.refunds')}</li>
+                <li>{t('finance.exportSheet.expenses')}</li>
+                <li>{t('finance.exportSheet.specialists')}</li>
+                <li>{t('finance.exportSheet.pl')}</li>
               </ul>
             </div>
           </div>
@@ -1021,9 +1017,9 @@ export default function FinancePage() {
             <div className="flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
               <div className="text-sm text-text-secondary space-y-1">
-                <p>Данные экспортируются только в формате <span className="text-champagne font-medium">.xlsx</span></p>
-                <p>Все суммы указаны в рублях (RUB)</p>
-                <p>Даты указаны по московскому времени</p>
+                <p>{t('finance.exportNote1')} <span className="text-champagne font-medium">.xlsx</span></p>
+                <p>{t('finance.exportNote2')}</p>
+                <p>{t('finance.exportNote3')}</p>
               </div>
             </div>
           </div>
