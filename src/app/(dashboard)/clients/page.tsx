@@ -1,240 +1,296 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  Users,
-  UserPlus,
-  Crown,
-  TrendingUp,
-  Search,
-  Eye,
-  Plus,
-  AlertTriangle,
-  Phone,
-  Mail,
-  Calendar,
+  Users, UserCheck, UserPlus, UserMinus,
+  Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
+  Crown, SlidersHorizontal, X,
 } from 'lucide-react';
-import { useLocale } from '@/components/providers/locale-provider';
+import {
+  AreaChart, Area, ResponsiveContainer, Tooltip,
+} from 'recharts';
+import { cn, formatCurrency, formatDate } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { StatCard } from '@/components/ui/stat-card';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
-  DialogDescription, DialogBody, DialogFooter, DialogClose,
+  DialogBody, DialogFooter, DialogClose,
 } from '@/components/ui/dialog';
-import { cn, formatCurrency, formatDate } from '@/lib/utils';
+import { useLocale } from '@/components/providers/locale-provider';
+import {
+  type LoyaltyTier, type Client,
+  getTierRank, getTierLabel, getTierBadgeVariant, normalizeTier,
+} from './_client-types';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Local types ──────────────────────────────────────────────────────────────
 
-type LoyaltyTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM';
-type FilterKey = 'all' | 'vip' | 'active' | 'at-risk';
-
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  loyaltyTier: LoyaltyTier;
-  visits: number;
-  totalSpent: number;
-  lastVisit: string;
-  riskFlag?: boolean;
-}
-
-// ─── Mock fallback data ───────────────────────────────────────────────────────
-
-const MOCK_CLIENTS: Client[] = [
-  { id: '1', name: 'Анна Соколова',    email: 'anna@example.com',     phone: '+7 999 111 22 33', loyaltyTier: 'GOLD',     visits: 24, totalSpent: 28_800_000, lastVisit: '2026-05-20' },
-  { id: '2', name: 'Елена Морозова',   email: 'elena@example.com',    phone: '+7 999 222 33 44', loyaltyTier: 'PLATINUM', visits: 48, totalSpent: 62_400_000, lastVisit: '2026-05-22' },
-  { id: '3', name: 'Светлана Ким',     email: 'svetlana@example.com', phone: '+7 999 333 44 55', loyaltyTier: 'SILVER',   visits: 12, totalSpent: 14_400_000, lastVisit: '2026-05-18' },
-  { id: '4', name: 'Ирина Волкова',    email: 'irina@example.com',    phone: '+7 999 444 55 66', loyaltyTier: 'BRONZE',   visits:  3, totalSpent:  3_600_000, lastVisit: '2026-05-10', riskFlag: true },
-  { id: '5', name: 'Татьяна Лебедева', email: 'tatyana@example.com',  phone: '+7 999 555 66 77', loyaltyTier: 'GOLD',     visits: 18, totalSpent: 21_600_000, lastVisit: '2026-05-21' },
-  { id: '6', name: 'Наталья Попова',   email: 'natalia@example.com',  phone: '+7 999 666 77 88', loyaltyTier: 'PLATINUM', visits: 36, totalSpent: 46_800_000, lastVisit: '2026-05-23' },
-];
+type SortField = 'name' | 'loyaltyTier' | 'totalVisits' | 'totalSpent' | 'lastVisitAt';
+type SortDir = 'asc' | 'desc';
+type Period = 'D' | 'W' | 'M' | 'Q' | 'Y' | 'custom';
+type LoyaltyFilter = 'ALL' | LoyaltyTier;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getTierBadgeVariant(tier: LoyaltyTier) {
-  const map: Record<LoyaltyTier, 'bronze' | 'silver' | 'gold' | 'platinum'> = {
-    BRONZE: 'bronze',
-    SILVER: 'silver',
-    GOLD: 'gold',
-    PLATINUM: 'platinum',
+function getDisplayId(id: string): string {
+  const hex = id.replace(/-/g, '').slice(-8);
+  const num = parseInt(hex, 16) % 9000 + 1000;
+  return String(num).slice(0, 4);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeClient(raw: any, index: number): Client {
+  const profile = raw.profile ?? raw;
+  const user = raw.user ?? {};
+  const id = profile.id ?? String(index);
+  const hex = id.replace(/-/g, '').slice(-8);
+  const num = (parseInt(hex, 16) || index * 1337) % 9000 + 1000;
+  return {
+    id,
+    displayId: String(num).slice(0, 4),
+    name: user.name ?? profile.name ?? `Клиент ${String(num).slice(0, 4)}`,
+    email: user.email ?? profile.email ?? '',
+    phone: user.phone ?? profile.phone,
+    loyaltyTier: normalizeTier(profile.loyaltyTier ?? 'BRONZE'),
+    loyaltyPoints: profile.loyaltyPoints ?? 0,
+    totalVisits: profile.totalVisits ?? 0,
+    totalSpent: Number(profile.totalSpent ?? 0) * 100,
+    lastVisitAt: profile.lastVisitAt,
+    firstVisitAt: profile.firstVisitAt,
+    churnRiskScore: profile.churnRiskScore != null ? Number(profile.churnRiskScore) : undefined,
+    notes: profile.notes,
+    tags: profile.tags?.map((t: { tag: string }) => t.tag) ?? [],
+    referralSource: profile.referralSource,
+    gender: profile.gender,
+    dateOfBirth: profile.dateOfBirth,
+    createdAt: profile.createdAt ?? new Date().toISOString(),
   };
-  return map[tier];
 }
 
-function getTierLabel(tier: LoyaltyTier) {
-  const map: Record<LoyaltyTier, string> = {
-    BRONZE: 'Бронза',
-    SILVER: 'Серебро',
-    GOLD: 'Золото',
-    PLATINUM: 'Платина',
+// ─── Mock data ────────────────────────────────────────────────────────────────
+
+const MOCK_CLIENTS: Client[] = [
+  { id: 'a1b2c3d4-0001', displayId: '0001', name: 'Анна Соколова', email: 'anna.sokolova@mail.ru', phone: '+7 916 100-00-01', loyaltyTier: 'DIAMOND', loyaltyPoints: 4800, totalVisits: 54, totalSpent: 72400000, lastVisitAt: '2026-05-22', firstVisitAt: '2023-01-15', createdAt: '2023-01-15', tags: ['VIP', 'Постоянная'], referralSource: 'social', gender: 'female' },
+  { id: 'a1b2c3d4-0002', displayId: '0002', name: 'Елена Морозова', email: 'e.morozova@gmail.com', phone: '+7 903 200-00-02', loyaltyTier: 'DIAMOND', loyaltyPoints: 3200, totalVisits: 48, totalSpent: 62000000, lastVisitAt: '2026-05-20', firstVisitAt: '2023-03-10', createdAt: '2023-03-10', tags: ['VIP'], referralSource: 'friend', gender: 'female' },
+  { id: 'a1b2c3d4-0003', displayId: '0003', name: 'Наталья Попова', email: 'n.popova@yandex.ru', phone: '+7 925 300-00-03', loyaltyTier: 'GOLD', loyaltyPoints: 1850, totalVisits: 28, totalSpent: 38500000, lastVisitAt: '2026-05-18', firstVisitAt: '2024-01-20', createdAt: '2024-01-20', gender: 'female' },
+  { id: 'a1b2c3d4-0004', displayId: '0004', name: 'Светлана Ким', email: 'svetlana@outlook.com', phone: '+7 916 400-00-04', loyaltyTier: 'GOLD', loyaltyPoints: 1420, totalVisits: 24, totalSpent: 31200000, lastVisitAt: '2026-05-15', firstVisitAt: '2024-02-05', createdAt: '2024-02-05', gender: 'female' },
+  { id: 'a1b2c3d4-0005', displayId: '0005', name: 'Татьяна Лебедева', email: 't.lebedeva@mail.ru', phone: '+7 903 500-00-05', loyaltyTier: 'GOLD', loyaltyPoints: 980, totalVisits: 19, totalSpent: 24700000, lastVisitAt: '2026-05-21', firstVisitAt: '2024-03-12', createdAt: '2024-03-12', gender: 'female' },
+  { id: 'a1b2c3d4-0006', displayId: '0006', name: 'Ольга Захарова', email: 'olga.z@gmail.com', phone: '+7 925 600-00-06', loyaltyTier: 'SILVER', loyaltyPoints: 540, totalVisits: 12, totalSpent: 15600000, lastVisitAt: '2026-04-28', firstVisitAt: '2024-06-01', createdAt: '2024-06-01', gender: 'female', churnRiskScore: 0.35 },
+  { id: 'a1b2c3d4-0007', displayId: '0007', name: 'Ирина Волкова', email: 'irina.volkova@mail.ru', phone: '+7 916 700-00-07', loyaltyTier: 'SILVER', loyaltyPoints: 380, totalVisits: 9, totalSpent: 11700000, lastVisitAt: '2026-04-10', firstVisitAt: '2024-07-20', createdAt: '2024-07-20', gender: 'female', churnRiskScore: 0.55 },
+  { id: 'a1b2c3d4-0008', displayId: '0008', name: 'Дарья Новикова', email: 'd.novikova@yandex.ru', phone: '+7 903 800-00-08', loyaltyTier: 'SILVER', loyaltyPoints: 290, totalVisits: 7, totalSpent: 9100000, lastVisitAt: '2026-05-05', firstVisitAt: '2024-09-15', createdAt: '2024-09-15', gender: 'female' },
+  { id: 'a1b2c3d4-0009', displayId: '0009', name: 'Мария Кузнецова', email: 'masha.k@gmail.com', phone: '+7 925 900-00-09', loyaltyTier: 'BRONZE', loyaltyPoints: 120, totalVisits: 3, totalSpent: 3900000, lastVisitAt: '2026-03-20', firstVisitAt: '2025-01-10', createdAt: '2025-01-10', gender: 'female', churnRiskScore: 0.72 },
+  { id: 'a1b2c3d4-0010', displayId: '0010', name: 'Юлия Смирнова', email: 'yu.smirnova@outlook.com', phone: '+7 916 000-00-10', loyaltyTier: 'BRONZE', loyaltyPoints: 80, totalVisits: 2, totalSpent: 2600000, lastVisitAt: '2026-02-14', firstVisitAt: '2025-02-01', createdAt: '2025-02-01', gender: 'female', churnRiskScore: 0.81 },
+  { id: 'a1b2c3d4-0011', displayId: '0011', name: 'Алёна Петрова', email: 'alena.p@mail.ru', phone: '+7 903 111-11-11', loyaltyTier: 'BRONZE', loyaltyPoints: 50, totalVisits: 1, totalSpent: 1300000, lastVisitAt: '2026-05-23', firstVisitAt: '2026-05-23', createdAt: '2026-05-23', gender: 'female' },
+  { id: 'a1b2c3d4-0012', displayId: '0012', name: 'Виктория Орлова', email: 'vika.orlova@yandex.ru', phone: '+7 925 222-22-22', loyaltyTier: 'GOLD', loyaltyPoints: 1100, totalVisits: 22, totalSpent: 28600000, lastVisitAt: '2026-05-19', firstVisitAt: '2024-04-08', createdAt: '2024-04-08', gender: 'female' },
+];
+
+// ─── Period analytics helpers ─────────────────────────────────────────────────
+
+function generateSparkline(base: number, volatility = 0.15, points = 7): { v: number }[] {
+  return Array.from({ length: points }, (_, i) => {
+    const trend = 1 + (i / points) * 0.1;
+    const noise = 1 + (Math.random() - 0.5) * volatility;
+    return { v: Math.max(0, Math.round(base * trend * noise)) };
+  });
+}
+
+interface AnalyticsData {
+  active: number;
+  inactive: number;
+  gained: number;
+  lost: number;
+  activeSparkline: { v: number }[];
+  inactiveSparkline: { v: number }[];
+  gainedSparkline: { v: number }[];
+  lostSparkline: { v: number }[];
+}
+
+function computeAnalytics(clients: Client[], _period: Period): AnalyticsData {
+  const now = Date.now();
+  const activeThreshold = 30 * 24 * 3600 * 1000;
+  const active = clients.filter(c => c.lastVisitAt && (now - new Date(c.lastVisitAt).getTime()) < activeThreshold).length;
+  const inactive = clients.length - active;
+  const gained = clients.filter(c => c.createdAt && (now - new Date(c.createdAt).getTime()) < 30 * 24 * 3600 * 1000).length;
+  const lost = clients.filter(c => c.churnRiskScore != null && c.churnRiskScore > 0.65).length;
+  return {
+    active, inactive, gained, lost,
+    activeSparkline: generateSparkline(active, 0.12),
+    inactiveSparkline: generateSparkline(inactive, 0.2),
+    gainedSparkline: generateSparkline(gained, 0.25),
+    lostSparkline: generateSparkline(lost, 0.3),
   };
-  return map[tier];
 }
 
-function isAtRisk(client: Client): boolean {
-  if (client.riskFlag) return true;
-  const last = new Date(client.lastVisit);
-  const diffDays = (Date.now() - last.getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays > 45 || client.visits <= 2;
-}
+// ─── Components ───────────────────────────────────────────────────────────────
 
-function isVip(client: Client): boolean {
-  return client.loyaltyTier === 'PLATINUM' || client.loyaltyTier === 'GOLD';
-}
+const PERIOD_LABELS: Record<Period, string> = {
+  D: 'День', W: 'Неделя', M: 'Месяц', Q: 'Квартал', Y: 'Год', custom: 'Период',
+};
 
-function isActive(client: Client): boolean {
-  const last = new Date(client.lastVisit);
-  const diffDays = (Date.now() - last.getTime()) / (1000 * 60 * 60 * 24);
-  return diffDays <= 30;
-}
-
-// ─── Skeleton rows ────────────────────────────────────────────────────────────
-
-function SkeletonRow() {
+function PeriodFilter({
+  value, onChange,
+}: {
+  value: Period;
+  onChange: (p: Period) => void;
+}) {
+  const periods: Period[] = ['D', 'W', 'M', 'Q', 'Y'];
   return (
-    <tr>
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-charcoal animate-shimmer shrink-0" />
-          <div className="space-y-1.5">
-            <div className="h-3.5 w-28 bg-charcoal rounded animate-shimmer" />
-            <div className="h-3 w-36 bg-charcoal rounded animate-shimmer" />
-          </div>
-        </div>
-      </td>
-      <td className="px-4 py-4"><div className="h-3.5 w-32 bg-charcoal rounded animate-shimmer" /></td>
-      <td className="px-4 py-4"><div className="h-5 w-20 bg-charcoal rounded-full animate-shimmer" /></td>
-      <td className="px-4 py-4"><div className="h-3.5 w-10 bg-charcoal rounded animate-shimmer" /></td>
-      <td className="px-4 py-4"><div className="h-3.5 w-24 bg-charcoal rounded animate-shimmer" /></td>
-      <td className="px-4 py-4"><div className="h-3.5 w-24 bg-charcoal rounded animate-shimmer" /></td>
-      <td className="px-6 py-4 text-right"><div className="h-8 w-16 bg-charcoal rounded-lg animate-shimmer ml-auto" /></td>
-    </tr>
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <div className="px-4 py-4 flex items-start gap-3">
-      <div className="w-10 h-10 rounded-full bg-charcoal animate-shimmer shrink-0" />
-      <div className="flex-1 space-y-2">
-        <div className="h-3.5 w-36 bg-charcoal rounded animate-shimmer" />
-        <div className="h-3 w-48 bg-charcoal rounded animate-shimmer" />
-        <div className="h-3 w-28 bg-charcoal rounded animate-shimmer" />
-      </div>
+    <div className="flex items-center gap-1 p-1 bg-charcoal rounded-xl border border-border-luxury">
+      {periods.map(p => (
+        <button
+          key={p}
+          onClick={() => onChange(p)}
+          className={cn(
+            'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+            value === p
+              ? 'bg-onyx text-champagne shadow-sm border border-border-light'
+              : 'text-text-tertiary hover:text-text-secondary',
+          )}
+        >
+          {PERIOD_LABELS[p]}
+        </button>
+      ))}
     </div>
   );
 }
 
-// ─── Client Detail Dialog ─────────────────────────────────────────────────────
+const CHART_COLOR: Record<string, string> = {
+  active: '#D4AF7A',
+  inactive: '#6A6560',
+  gained: '#8BA888',
+  lost: '#C47878',
+};
 
-function ClientDetailDialog({
-  client,
-  open,
-  onClose,
-}: {
-  client: Client | null;
-  open: boolean;
-  onClose: () => void;
-}) {
-  if (!client) return null;
-  const tier = getTierLabel(client.loyaltyTier);
-  const variant = getTierBadgeVariant(client.loyaltyTier);
-  const avgVisit = client.visits > 0 ? Math.round(client.totalSpent / client.visits) : 0;
-  const atRisk = isAtRisk(client);
-
+function MiniSparkline({ data, colorKey }: { data: { v: number }[]; colorKey: string }) {
+  const color = CHART_COLOR[colorKey] ?? '#D4AF7A';
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Профиль клиента</DialogTitle>
-          <DialogDescription>Информация о клиенте и истории посещений</DialogDescription>
-        </DialogHeader>
-        <DialogBody className="space-y-5">
-          {/* Identity */}
-          <div className="flex items-center gap-4">
-            <Avatar name={client.name} size="lg" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-base font-semibold text-text-primary">{client.name}</p>
-                {atRisk && (
-                  <span className="flex items-center gap-1 text-xs text-amber-400">
-                    <AlertTriangle className="w-3 h-3" />Под риском
-                  </span>
-                )}
-              </div>
-              <Badge variant={variant} dot className="mt-1">{tier}</Badge>
-            </div>
-          </div>
-
-          {/* Contact */}
-          <div className="bg-charcoal rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Контакты</p>
-            <div className="flex items-center gap-3 text-sm text-text-secondary">
-              <Phone className="w-4 h-4 text-text-tertiary shrink-0" />
-              <a href={`tel:${client.phone}`} className="hover:text-champagne transition-colors">{client.phone}</a>
-            </div>
-            <div className="flex items-center gap-3 text-sm text-text-secondary">
-              <Mail className="w-4 h-4 text-text-tertiary shrink-0" />
-              <a href={`mailto:${client.email}`} className="hover:text-champagne transition-colors">{client.email}</a>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-charcoal rounded-xl p-3 text-center">
-              <p className="text-xs text-text-tertiary mb-1">Визитов</p>
-              <p className="text-xl font-semibold text-text-primary">{client.visits}</p>
-            </div>
-            <div className="bg-charcoal rounded-xl p-3 text-center">
-              <p className="text-xs text-text-tertiary mb-1">Потрачено</p>
-              <p className="text-sm font-semibold text-champagne">{formatCurrency(client.totalSpent)}</p>
-            </div>
-            <div className="bg-charcoal rounded-xl p-3 text-center">
-              <p className="text-xs text-text-tertiary mb-1">Ср. визит</p>
-              <p className="text-sm font-semibold text-champagne">{formatCurrency(avgVisit)}</p>
-            </div>
-          </div>
-
-          {/* Last Visit */}
-          <div className="flex items-center gap-3 text-sm text-text-secondary bg-charcoal rounded-xl px-4 py-3">
-            <Calendar className="w-4 h-4 text-text-tertiary shrink-0" />
-            <span>Последний визит: <span className="text-text-primary font-medium">{formatDate(client.lastVisit)}</span></span>
-          </div>
-
-          {atRisk && (
-            <div className="flex items-start gap-3 bg-amber-500/8 border border-amber-500/20 rounded-xl px-4 py-3">
-              <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-xs font-semibold text-amber-400">Клиент под риском</p>
-                <p className="text-xs text-text-tertiary mt-0.5">Давно не посещал salon. Рекомендуется связаться.</p>
-              </div>
-            </div>
-          )}
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="secondary" size="sm">Закрыть</Button>
-          </DialogClose>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => { window.location.href = `tel:${client.phone}`; }}
-          >
-            Позвонить
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ResponsiveContainer width="100%" height={48}>
+      <AreaChart data={data} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+        <defs>
+          <linearGradient id={`spark-${colorKey}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <Area
+          type="monotone"
+          dataKey="v"
+          stroke={color}
+          strokeWidth={1.5}
+          fill={`url(#spark-${colorKey})`}
+          dot={false}
+          isAnimationActive={false}
+        />
+        <Tooltip
+          contentStyle={{ background: '#13131A', border: '1px solid #2A2A38', borderRadius: 8, fontSize: 11, padding: '4px 8px' }}
+          itemStyle={{ color: color }}
+          labelStyle={{ display: 'none' }}
+          formatter={(v: number) => [v, '']}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 
-// ─── Add Client Dialog ────────────────────────────────────────────────────────
+interface AnalyticsCardProps {
+  title: string;
+  value: number | string;
+  subtitle: string;
+  icon: React.ReactNode;
+  sparkline: { v: number }[];
+  colorKey: string;
+  delta?: number;
+  loading?: boolean;
+}
 
-function AddClientDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (c: Client) => void }) {
+function AnalyticsCard({ title, value, subtitle, icon, sparkline, colorKey, delta, loading }: AnalyticsCardProps) {
+  const color = CHART_COLOR[colorKey] ?? '#D4AF7A';
+  return (
+    <div className="bg-onyx border border-border-luxury rounded-2xl p-5 flex flex-col gap-3 transition-all hover:border-border-light">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">{title}</p>
+          {loading ? (
+            <div className="h-8 w-20 bg-charcoal rounded-lg mt-2 animate-shimmer" />
+          ) : (
+            <p className="font-serif text-3xl font-medium text-text-primary mt-1 leading-none">{value}</p>
+          )}
+          <p className="text-xs text-text-tertiary mt-1.5">{subtitle}</p>
+        </div>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
+          <span style={{ color }}>{icon}</span>
+        </div>
+      </div>
+      <div>
+        {loading ? (
+          <div className="h-12 bg-charcoal rounded-lg animate-shimmer" />
+        ) : (
+          <MiniSparkline data={sparkline} colorKey={colorKey} />
+        )}
+      </div>
+      {delta !== undefined && !loading && (
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className={cn('font-semibold', delta >= 0 ? 'text-sage' : 'text-red-400')}>
+            {delta >= 0 ? '+' : ''}{delta}%
+          </span>
+          <span className="text-text-tertiary">к предыдущему периоду</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const LOYALTY_TIER_ORDER: LoyaltyTier[] = ['DIAMOND', 'GOLD', 'SILVER', 'BRONZE'];
+
+function LoyaltyBadge({ tier }: { tier: LoyaltyTier }) {
+  return (
+    <Badge variant={getTierBadgeVariant(tier)} dot>
+      {tier === 'DIAMOND' && <Crown className="w-2.5 h-2.5 mr-0.5" />}
+      {getTierLabel(tier)}
+    </Badge>
+  );
+}
+
+function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: SortField; sortDir: SortDir }) {
+  if (sortField !== field) return <ChevronUp className="w-3 h-3 opacity-20" />;
+  return sortDir === 'asc'
+    ? <ChevronUp className="w-3 h-3 text-champagne" />
+    : <ChevronDown className="w-3 h-3 text-champagne" />;
+}
+
+function TableSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <tr key={i} className="border-b border-border-luxury">
+          <td className="px-5 py-3.5">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-charcoal animate-shimmer shrink-0" />
+              <div className="space-y-1.5">
+                <div className="h-3.5 w-28 bg-charcoal rounded animate-shimmer" />
+                <div className="h-2.5 w-16 bg-charcoal rounded animate-shimmer" />
+              </div>
+            </div>
+          </td>
+          {[28, 20, 12, 20].map((w, j) => (
+            <td key={j} className="px-4 py-3.5">
+              <div className={`h-3.5 bg-charcoal rounded animate-shimmer w-${w}`} />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+}
+
+interface AddClientDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onAdd: (client: Client) => void;
+}
+
+function AddClientDialog({ open, onClose, onAdd }: AddClientDialogProps) {
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [phone, setPhone] = React.useState('');
@@ -245,61 +301,49 @@ function AddClientDialog({ open, onClose, onAdd }: { open: boolean; onClose: () 
   async function handleSubmit() {
     if (!name.trim()) return;
     setSaving(true);
+    const newId = `new-${Date.now()}`;
+    const displayId = String(1000 + Math.floor(Math.random() * 8999));
     try {
-      const res = await fetch('/api/customers', {
+      await fetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone }),
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim() }),
       });
-      const newClient: Client = {
-        id: String(Date.now()),
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        loyaltyTier: 'BRONZE',
-        visits: 0,
-        totalSpent: 0,
-        lastVisit: new Date().toISOString().slice(0, 10),
-      };
-      if (res.ok) {
-        const data = await res.json();
-        onAdd({ ...newClient, id: data.id ?? newClient.id });
-      } else {
-        onAdd(newClient);
-      }
-      reset();
-      onClose();
-    } finally {
-      setSaving(false);
-    }
+    } catch { /* optimistic */ }
+    onAdd({
+      id: newId, displayId, name: name.trim(), email: email.trim(), phone: phone.trim(),
+      loyaltyTier: 'BRONZE', loyaltyPoints: 0, totalVisits: 0, totalSpent: 0,
+      createdAt: new Date().toISOString(),
+    });
+    reset();
+    onClose();
+    setSaving(false);
   }
 
   const inputCls = cn(
     'w-full px-3 py-2.5 rounded-xl text-sm',
-    'bg-charcoal border border-border-luxury',
-    'text-text-primary placeholder:text-text-tertiary',
+    'bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary',
     'focus:outline-none focus:border-champagne/50 transition-all',
   );
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Новый клиент</DialogTitle>
-          <DialogDescription>Добавьте клиента в базу</DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">Имя *</p>
-            <input className={inputCls} placeholder="Полное имя" value={name} onChange={(e) => setName(e.target.value)} />
+            <input className={inputCls} placeholder="Полное имя" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">Телефон</p>
-            <input className={inputCls} placeholder="+7 ..." value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <input className={inputCls} placeholder="+7 ..." value={phone} onChange={e => setPhone(e.target.value)} />
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">Email</p>
-            <input className={inputCls} placeholder="email@..." type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className={inputCls} placeholder="email@..." type="email" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
         </DialogBody>
         <DialogFooter>
@@ -317,384 +361,324 @@ function AddClientDialog({ open, onClose, onAdd }: { open: boolean; onClose: () 
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 10;
+
 export default function ClientsPage() {
-  useLocale();
+  const { t } = useLocale();
+  const router = useRouter();
 
   const [clients, setClients] = React.useState<Client[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [period, setPeriod] = React.useState<Period>('M');
   const [search, setSearch] = React.useState('');
-  const [filter, setFilter] = React.useState<FilterKey>('all');
-  const [viewingClient, setViewingClient] = React.useState<Client | null>(null);
+  const [loyaltyFilter, setLoyaltyFilter] = React.useState<LoyaltyFilter>('ALL');
+  const [sortField, setSortField] = React.useState<SortField>('totalSpent');
+  const [sortDir, setSortDir] = React.useState<SortDir>('desc');
+  const [page, setPage] = React.useState(1);
   const [addingClient, setAddingClient] = React.useState(false);
 
-  // Fetch clients on mount; fall back to mock data on error or empty result
   React.useEffect(() => {
     let cancelled = false;
     setLoading(true);
-
-    fetch('/api/customers')
-      .then(async (res) => {
+    fetch('/api/customers?limit=100')
+      .then(async res => {
         if (!res.ok) throw new Error('API error');
         const json = await res.json();
         if (cancelled) return;
-        const items: Client[] = Array.isArray(json?.data?.items)
-          ? json.data.items
-          : Array.isArray(json?.data)
-            ? json.data
-            : [];
+        const raw = Array.isArray(json?.data?.items) ? json.data.items
+          : Array.isArray(json?.data) ? json.data : [];
+        const items = raw.map(normalizeClient);
         setClients(items.length > 0 ? items : MOCK_CLIENTS);
       })
-      .catch(() => {
-        if (!cancelled) setClients(MOCK_CLIENTS);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
+      .catch(() => { if (!cancelled) setClients(MOCK_CLIENTS); })
+      .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
-  // ── Derived stats ───────────────────────────────────────────────────────────
-  const totalClients = clients.length;
-  const newThisMonth = clients.filter((c) => {
-    const last = new Date(c.lastVisit);
-    const now = new Date();
-    return last.getMonth() === now.getMonth() && last.getFullYear() === now.getFullYear() && c.visits <= 3;
-  }).length;
-  const vipCount = clients.filter(isVip).length;
-  const avgSpend = clients.length > 0
-    ? Math.round(clients.reduce((sum, c) => sum + (c.visits > 0 ? c.totalSpent / c.visits : 0), 0) / clients.length)
-    : 0;
+  const analytics = React.useMemo(() => computeAnalytics(clients, period), [clients, period]);
 
-  // ── Filtering ───────────────────────────────────────────────────────────────
   const filtered = React.useMemo(() => {
     let list = clients;
-
-    if (filter === 'vip') list = list.filter(isVip);
-    else if (filter === 'active') list = list.filter(isActive);
-    else if (filter === 'at-risk') list = list.filter(isAtRisk);
-
+    if (loyaltyFilter !== 'ALL') list = list.filter(c => c.loyaltyTier === loyaltyFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.email.toLowerCase().includes(q) ||
-          c.phone.includes(q),
+      list = list.filter(c =>
+        c.name.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        c.displayId.includes(q) ||
+        (c.phone ?? '').includes(q),
       );
     }
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'name': cmp = a.name.localeCompare(b.name, 'ru'); break;
+        case 'loyaltyTier': cmp = getTierRank(a.loyaltyTier) - getTierRank(b.loyaltyTier); break;
+        case 'totalVisits': cmp = a.totalVisits - b.totalVisits; break;
+        case 'totalSpent': cmp = a.totalSpent - b.totalSpent; break;
+        case 'lastVisitAt':
+          cmp = (a.lastVisitAt ? new Date(a.lastVisitAt).getTime() : 0)
+              - (b.lastVisitAt ? new Date(b.lastVisitAt).getTime() : 0); break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [clients, search, loyaltyFilter, sortField, sortDir]);
 
-    return list;
-  }, [clients, filter, search]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const filterPills: { key: FilterKey; label: string }[] = [
-    { key: 'all', label: `Все (${clients.length})` },
-    { key: 'vip', label: 'VIP' },
-    { key: 'active', label: 'Активные' },
-    { key: 'at-risk', label: 'Под риском' },
-  ];
+  function handleSort(field: SortField) {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('desc'); }
+    setPage(1);
+  }
+
+  React.useEffect(() => { setPage(1); }, [search, loyaltyFilter]);
+
+  const ThCol = ({ field, label, right }: { field: SortField; label: string; right?: boolean }) => (
+    <th
+      className={cn(
+        'px-4 py-3 text-xs font-semibold uppercase tracking-widest text-text-tertiary cursor-pointer select-none whitespace-nowrap',
+        'hover:text-text-secondary transition-colors',
+        right ? 'text-right' : 'text-left',
+      )}
+      onClick={() => handleSort(field)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        <SortIcon field={field} sortField={sortField} sortDir={sortDir} />
+      </span>
+    </th>
+  );
 
   return (
-    <div className="p-6 lg:p-8 space-y-8 animate-fade-in">
+    <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
 
-      {/* ── Page header ───────────────────────────────────────────────── */}
+      {/* ── Header ────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">
-            Клиенты
-          </h2>
-          <p className="text-text-secondary mt-1 text-sm">
-            Управление клиентской базой и программой лояльности
-          </p>
+          <h1 className="font-serif text-2xl font-medium text-text-primary">{t('nav.clients')}</h1>
+          <p className="text-sm text-text-secondary mt-0.5">Управление клиентской базой и лояльностью</p>
         </div>
-        <Button
-          variant="primary"
-          size="md"
-          leftIcon={<UserPlus className="w-4 h-4" />}
-          onClick={() => setAddingClient(true)}
-        >
-          Добавить клиента
-        </Button>
+        <div className="flex items-center gap-3">
+          <PeriodFilter value={period} onChange={p => { setPeriod(p); }} />
+          <Button variant="primary" size="sm" leftIcon={<Users className="w-4 h-4" />} onClick={() => setAddingClient(true)}>
+            Добавить
+          </Button>
+        </div>
       </div>
 
-      {/* ── Stat cards ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard
-          title="Всего клиентов"
-          value={loading ? '—' : totalClients}
-          subtitle="в базе"
+      {/* ── Analytics Cards ───────────────────────────────────────── */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <AnalyticsCard
+          title="Активные клиенты"
+          value={loading ? '—' : analytics.active}
+          subtitle={`из ${clients.length} всего`}
+          icon={<UserCheck className="w-5 h-5" />}
+          sparkline={analytics.activeSparkline}
+          colorKey="active"
+          delta={8}
           loading={loading}
+        />
+        <AnalyticsCard
+          title="Неактивные"
+          value={loading ? '—' : analytics.inactive}
+          subtitle="не посещали >30 дней"
           icon={<Users className="w-5 h-5" />}
-          trend={{ value: 5, positive: true, label: 'vs пред. месяц' }}
-        />
-        <StatCard
-          title="Новые в этом месяце"
-          value={loading ? '—' : newThisMonth}
-          subtitle="первые визиты"
+          sparkline={analytics.inactiveSparkline}
+          colorKey="inactive"
+          delta={-3}
           loading={loading}
+        />
+        <AnalyticsCard
+          title="Привлечено"
+          value={loading ? '—' : analytics.gained}
+          subtitle="новых за период"
           icon={<UserPlus className="w-5 h-5" />}
-          trend={{ value: 12, positive: true, label: 'vs пред. месяц' }}
-        />
-        <StatCard
-          title="VIP-клиенты"
-          value={loading ? '—' : vipCount}
-          subtitle="золото и платина"
+          sparkline={analytics.gainedSparkline}
+          colorKey="gained"
+          delta={12}
           loading={loading}
-          icon={<Crown className="w-5 h-5" />}
-          trend={{ value: 3, positive: true, label: 'vs пред. месяц' }}
         />
-        <StatCard
-          title="Средний чек на визит"
-          value={loading ? '—' : formatCurrency(avgSpend)}
-          subtitle="по всем клиентам"
+        <AnalyticsCard
+          title="Под риском"
+          value={loading ? '—' : analytics.lost}
+          subtitle="высокий churn score"
+          icon={<UserMinus className="w-5 h-5" />}
+          sparkline={analytics.lostSparkline}
+          colorKey="lost"
+          delta={-5}
           loading={loading}
-          icon={<TrendingUp className="w-5 h-5" />}
-          trend={{ value: 8, positive: true, label: 'vs пред. месяц' }}
         />
       </div>
 
-      {/* ── Search + filters ──────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
+      {/* ── Filters Row ───────────────────────────────────────────── */}
+      <div className="bg-onyx border border-border-luxury rounded-2xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по имени, email, телефону…"
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Имя, email, телефон, ID..."
             className={cn(
-              'w-full h-10 pl-9 pr-4 rounded-lg text-sm',
-              'bg-onyx border border-border-luxury',
-              'text-text-primary placeholder:text-text-tertiary',
-              'focus:outline-none focus:border-champagne/40 focus:ring-1 focus:ring-champagne/20',
-              'transition-colors duration-200',
+              'w-full h-10 pl-9 pr-4 rounded-xl text-sm',
+              'bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary',
+              'focus:outline-none focus:border-champagne/40 transition-all',
             )}
           />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
-        {/* Filter pills */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {filterPills.map((pill) => (
+        {/* Loyalty filter */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <SlidersHorizontal className="w-4 h-4 text-text-tertiary shrink-0" />
+          {(['ALL', ...LOYALTY_TIER_ORDER] as (LoyaltyFilter)[]).map(tier => (
             <button
-              key={pill.key}
-              onClick={() => setFilter(pill.key)}
+              key={tier}
+              onClick={() => { setLoyaltyFilter(tier); setPage(1); }}
               className={cn(
-                'px-3 h-9 rounded-full text-xs font-semibold uppercase tracking-wide transition-all duration-200',
-                filter === pill.key
-                  ? 'bg-champagne text-obsidian shadow-champagne-sm'
-                  : 'bg-onyx border border-border-luxury text-text-secondary hover:border-border-light hover:text-text-primary',
+                'flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border',
+                loyaltyFilter === tier
+                  ? 'bg-champagne/10 text-champagne border-champagne/25'
+                  : 'text-text-secondary hover:text-text-primary border-transparent hover:border-border-luxury hover:bg-charcoal',
               )}
             >
-              {pill.label}
+              {tier === 'DIAMOND' && <Crown className="w-3 h-3" />}
+              {tier === 'ALL' ? 'Все' : getTierLabel(tier as LoyaltyTier)}
             </button>
           ))}
         </div>
+
+        <div className="sm:ml-auto text-xs text-text-tertiary whitespace-nowrap">
+          {filtered.length} клиентов
+        </div>
       </div>
 
-      {/* ── Table ─────────────────────────────────────────────────────── */}
+      {/* ── Table ─────────────────────────────────────────────────── */}
       <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
-          <h3 className="font-serif text-lg font-medium text-text-primary">
-            {filter === 'all' && 'Все клиенты'}
-            {filter === 'vip' && 'VIP-клиенты'}
-            {filter === 'active' && 'Активные клиенты'}
-            {filter === 'at-risk' && 'Клиенты под риском'}
-          </h3>
-          {!loading && (
-            <span className="text-xs text-text-tertiary font-medium">
-              {filtered.length} {filtered.length === 1 ? 'клиент' : filtered.length >= 2 && filtered.length <= 4 ? 'клиента' : 'клиентов'}
-            </span>
-          )}
-        </div>
-
-        {/* Desktop table */}
-        <div className="hidden sm:block overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border-luxury">
-                <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Клиент
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Телефон
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Уровень
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Визиты
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Потрачено
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Последний визит
-                </th>
-                <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">
-                  Действия
-                </th>
+              <tr className="border-b border-border-luxury bg-charcoal/30">
+                <ThCol field="name" label="Клиент" />
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-text-tertiary whitespace-nowrap">Email</th>
+                <ThCol field="loyaltyTier" label="Лояльность" />
+                <ThCol field="totalVisits" label="Визиты" right />
+                <ThCol field="totalSpent" label="Потрачено" right />
               </tr>
             </thead>
             <tbody className="divide-y divide-border-luxury">
-              {loading
-                ? Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)
-                : filtered.length === 0
-                  ? null
-                  : filtered.map((client) => (
-                    <tr
-                      key={client.id}
-                      className="hover:bg-charcoal/50 transition-colors group"
-                    >
-                      {/* Client */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar name={client.name} size="sm" />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-text-primary whitespace-nowrap">
-                                {client.name}
-                              </span>
-                              {isAtRisk(client) && (
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-label="Под риском" />
-                              )}
-                            </div>
-                            <span className="text-xs text-text-tertiary block truncate max-w-[180px]">
-                              {client.email}
-                            </span>
+              {loading ? (
+                <TableSkeleton />
+              ) : paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-16 text-center text-text-tertiary text-sm">
+                    {search || loyaltyFilter !== 'ALL' ? 'Клиенты не найдены' : 'База клиентов пуста'}
+                  </td>
+                </tr>
+              ) : (
+                paginated.map(client => (
+                  <tr
+                    key={client.id}
+                    onClick={() => router.push(`/clients/${client.id}`)}
+                    className="hover:bg-charcoal/40 transition-colors cursor-pointer group"
+                  >
+                    {/* Client */}
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={client.name} size="sm" />
+                        <div className="min-w-0">
+                          <div className="font-medium text-text-primary text-sm whitespace-nowrap group-hover:text-champagne transition-colors">
+                            {client.name}
+                          </div>
+                          <div className="text-xs text-text-tertiary">
+                            #{client.displayId}
+                            {client.churnRiskScore != null && client.churnRiskScore > 0.65 && (
+                              <span className="ml-2 text-red-400">⚠ риск оттока</span>
+                            )}
                           </div>
                         </div>
-                      </td>
-                      {/* Phone */}
-                      <td className="px-4 py-4 text-text-secondary whitespace-nowrap tabular-nums">
-                        {client.phone}
-                      </td>
-                      {/* Loyalty tier */}
-                      <td className="px-4 py-4">
-                        <Badge variant={getTierBadgeVariant(client.loyaltyTier)} dot>
-                          {getTierLabel(client.loyaltyTier)}
-                        </Badge>
-                      </td>
-                      {/* Visits */}
-                      <td className="px-4 py-4 text-text-primary font-medium tabular-nums">
-                        {client.visits}
-                      </td>
-                      {/* Total spent */}
-                      <td className="px-4 py-4 text-champagne font-medium tabular-nums whitespace-nowrap">
-                        {formatCurrency(client.totalSpent)}
-                      </td>
-                      {/* Last visit */}
-                      <td className="px-4 py-4 text-text-secondary whitespace-nowrap">
-                        {formatDate(client.lastVisit)}
-                      </td>
-                      {/* Actions */}
-                      <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          leftIcon={<Eye className="w-3.5 h-3.5" />}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => setViewingClient(client)}
-                        >
-                          Открыть
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                      </div>
+                    </td>
+                    {/* Email */}
+                    <td className="px-4 py-3.5 text-text-secondary text-xs max-w-[180px] truncate">
+                      {client.email}
+                    </td>
+                    {/* Loyalty */}
+                    <td className="px-4 py-3.5">
+                      <LoyaltyBadge tier={client.loyaltyTier} />
+                      <div className="text-xs text-text-tertiary mt-0.5">{client.loyaltyPoints} pts</div>
+                    </td>
+                    {/* Visits */}
+                    <td className="px-4 py-3.5 text-right font-medium tabular-nums text-text-primary">
+                      {client.totalVisits}
+                    </td>
+                    {/* Spent */}
+                    <td className="px-4 py-3.5 text-right font-semibold tabular-nums text-champagne whitespace-nowrap">
+                      {formatCurrency(client.totalSpent)}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
+        </div>
 
-          {/* Empty state */}
-          {!loading && filtered.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-champagne/8 flex items-center justify-center">
-                <Plus className="w-6 h-6 text-champagne" />
-              </div>
-              <div>
-                <p className="font-medium text-text-primary text-base">
-                  {search ? 'Клиенты не найдены' : 'Нет клиентов в этой категории'}
-                </p>
-                <p className="text-sm text-text-tertiary mt-1">
-                  {search
-                    ? `Нет совпадений для «${search}»`
-                    : 'Добавьте первого клиента, чтобы начать'}
-                </p>
-              </div>
-              {!search && (
-                <Button variant="outline" size="sm" leftIcon={<UserPlus className="w-4 h-4" />} onClick={() => setAddingClient(true)}>
-                  Добавить клиента
-                </Button>
-              )}
+        {/* Pagination */}
+        {!loading && filtered.length > PAGE_SIZE && (
+          <div className="px-5 py-3 border-t border-border-luxury flex items-center justify-between text-xs text-text-tertiary">
+            <span>Стр. {page} из {totalPages} · {filtered.length} клиентов</span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-1.5 rounded-lg hover:bg-charcoal disabled:opacity-30 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pg = page <= 3 ? i + 1 : page + i - 2;
+                if (pg < 1 || pg > totalPages) return null;
+                return (
+                  <button
+                    key={pg}
+                    onClick={() => setPage(pg)}
+                    className={cn(
+                      'w-7 h-7 rounded-lg text-xs font-medium transition-colors',
+                      pg === page ? 'bg-champagne/15 text-champagne' : 'hover:bg-charcoal text-text-secondary',
+                    )}
+                  >
+                    {pg}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-1.5 rounded-lg hover:bg-charcoal disabled:opacity-30 transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Mobile card list */}
-        <div className="sm:hidden divide-y divide-border-luxury">
-          {loading
-            ? Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
-            : filtered.length === 0
-              ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4">
-                  <Plus className="w-8 h-8 text-champagne/50" />
-                  <p className="text-text-secondary text-sm">
-                    {search ? `Нет совпадений для «${search}»` : 'Нет клиентов в этой категории'}
-                  </p>
-                </div>
-              )
-              : filtered.map((client) => (
-                <div key={client.id} className="px-4 py-4 flex items-start gap-3">
-                  <Avatar name={client.name} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="font-medium text-text-primary text-sm block">
-                          {client.name}
-                        </span>
-                        <span className="text-xs text-text-tertiary block truncate max-w-[200px]">
-                          {client.email}
-                        </span>
-                      </div>
-                      <Badge variant={getTierBadgeVariant(client.loyaltyTier)}>
-                        {getTierLabel(client.loyaltyTier)}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      <span className="text-xs text-text-tertiary">{client.phone}</span>
-                      <span className="text-xs text-text-tertiary">·</span>
-                      <span className="text-xs text-text-tertiary">{client.visits} визитов</span>
-                      <span className="text-xs font-semibold text-champagne ml-auto">
-                        {formatCurrency(client.totalSpent)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-xs text-text-tertiary">
-                        Последний визит: {formatDate(client.lastVisit)}
-                      </span>
-                      {isAtRisk(client) && (
-                        <span className="text-xs text-amber-400 flex items-center gap-1">
-                          <AlertTriangle className="w-3 h-3" />
-                          Под риском
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-        </div>
+        {!loading && filtered.length > 0 && filtered.length <= PAGE_SIZE && (
+          <div className="px-5 py-3 border-t border-border-luxury text-xs text-text-tertiary">
+            {filtered.length} клиентов · Нажмите на строку, чтобы открыть профиль
+          </div>
+        )}
       </div>
 
-      {/* Dialogs */}
-      <ClientDetailDialog
-        client={viewingClient}
-        open={!!viewingClient}
-        onClose={() => setViewingClient(null)}
-      />
       <AddClientDialog
         open={addingClient}
         onClose={() => setAddingClient(false)}
-        onAdd={(c) => setClients((prev) => [c, ...prev])}
+        onAdd={c => setClients(prev => [c, ...prev])}
       />
     </div>
   );
