@@ -37,6 +37,18 @@
   --color-info: #7898C4;
 }
 
+/* ─── Light Mode Overrides ───────────────────────────────────────────── */
+html.light {
+  --color-obsidian: #F8F5F0;
+  --color-onyx: #FFFFFF;
+  --color-charcoal: #F0EDE8;
+  --color-text-primary: #0A0A0F;
+  --color-text-secondary: #3A3440;
+  --color-text-tertiary: #6A6560;
+  --color-border: #E0DBD4;
+  --color-border-light: #CCC7BF;
+}
+
 /* ─── Base Styles ────────────────────────────────────────────────────── */
 @layer base {
   *,
