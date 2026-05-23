@@ -13,6 +13,8 @@ import {
   TrendingUp,
   Scissors,
   Plus,
+  UserX,
+  CheckCircle2,
 } from 'lucide-react';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Avatar } from '@/components/ui/avatar';
@@ -155,19 +157,18 @@ function SkeletonCard() {
 
 interface ActionButtonsProps {
   booking: Booking;
-  onConfirm: (id: string) => void;
-  onCancel: (id: string) => void;
+  onStatusChange: (id: string, status: BookingStatus) => void;
   updatingId: string | null;
 }
 
-function ActionButtons({ booking, onConfirm, onCancel, updatingId }: ActionButtonsProps) {
+function ActionButtons({ booking, onStatusChange, updatingId }: ActionButtonsProps) {
   const isUpdating = updatingId === booking.id;
 
   if (booking.status === 'PENDING') {
     return (
       <div className="flex items-center justify-end gap-1.5">
         <button
-          onClick={() => onConfirm(booking.id)}
+          onClick={() => onStatusChange(booking.id, 'CONFIRMED')}
           disabled={isUpdating}
           title="Подтвердить"
           className={cn(
@@ -180,7 +181,53 @@ function ActionButtons({ booking, onConfirm, onCancel, updatingId }: ActionButto
           <Check className="w-3.5 h-3.5" />
         </button>
         <button
-          onClick={() => onCancel(booking.id)}
+          onClick={() => onStatusChange(booking.id, 'CANCELLED')}
+          disabled={isUpdating}
+          title="Отменить"
+          className={cn(
+            'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200',
+            'bg-red-500/10 text-red-400 border border-red-500/20',
+            'hover:bg-red-500/20 hover:border-red-500/40',
+            'disabled:opacity-40 disabled:cursor-not-allowed',
+          )}
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  if (booking.status === 'CONFIRMED') {
+    return (
+      <div className="flex items-center justify-end gap-1.5">
+        <button
+          onClick={() => onStatusChange(booking.id, 'COMPLETED')}
+          disabled={isUpdating}
+          title="Завершить"
+          className={cn(
+            'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200',
+            'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+            'hover:bg-blue-500/20 hover:border-blue-500/40',
+            'disabled:opacity-40 disabled:cursor-not-allowed',
+          )}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => onStatusChange(booking.id, 'NO_SHOW')}
+          disabled={isUpdating}
+          title="Не явился"
+          className={cn(
+            'w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200',
+            'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20',
+            'hover:bg-zinc-500/20 hover:border-zinc-500/40',
+            'disabled:opacity-40 disabled:cursor-not-allowed',
+          )}
+        >
+          <UserX className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => onStatusChange(booking.id, 'CANCELLED')}
           disabled={isUpdating}
           title="Отменить"
           className={cn(
@@ -300,43 +347,19 @@ export default function BookingsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Confirm a booking via PATCH /api/appointments/[id]
-  const handleConfirm = React.useCallback(async (id: string) => {
+  // Update booking status via PATCH /api/appointments/[id]
+  const handleStatusChange = React.useCallback(async (id: string, status: BookingStatus) => {
     setUpdatingId(id);
+    // Optimistic update
+    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     try {
-      const res = await fetch(`/api/appointments/${id}`, {
+      await fetch(`/api/appointments/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CONFIRMED' }),
+        body: JSON.stringify({ status }),
       });
-      if (res.ok) {
-        setBookings((prev) =>
-          prev.map((b) => (b.id === id ? { ...b, status: 'CONFIRMED' } : b)),
-        );
-      }
     } catch {
-      // silently keep current state
-    } finally {
-      setUpdatingId(null);
-    }
-  }, []);
-
-  // Cancel a booking via PATCH /api/appointments/[id]
-  const handleCancel = React.useCallback(async (id: string) => {
-    setUpdatingId(id);
-    try {
-      const res = await fetch(`/api/appointments/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'CANCELLED' }),
-      });
-      if (res.ok) {
-        setBookings((prev) =>
-          prev.map((b) => (b.id === id ? { ...b, status: 'CANCELLED' } : b)),
-        );
-      }
-    } catch {
-      // silently keep current state
+      // silently keep optimistic state
     } finally {
       setUpdatingId(null);
     }
@@ -622,8 +645,7 @@ export default function BookingsPage() {
                       <td className="px-6 py-4">
                         <ActionButtons
                           booking={booking}
-                          onConfirm={handleConfirm}
-                          onCancel={handleCancel}
+                          onStatusChange={handleStatusChange}
                           updatingId={updatingId}
                         />
                       </td>
@@ -719,32 +741,30 @@ export default function BookingsPage() {
                           <span className="text-sm font-semibold text-champagne tabular-nums">
                             {formatCurrency(booking.amount)}
                           </span>
-                          {booking.status === 'PENDING' && (
+                          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
                             <div className="flex items-center gap-1.5">
+                              {booking.status === 'PENDING' && (
+                                <button
+                                  onClick={() => handleStatusChange(booking.id, 'CONFIRMED')}
+                                  disabled={updatingId === booking.id}
+                                  title="Подтвердить"
+                                  className={cn('w-7 h-7 rounded-lg flex items-center justify-center','bg-sage/10 text-sage border border-sage/20','hover:bg-sage/20 transition-colors','disabled:opacity-40')}
+                                ><Check className="w-3 h-3" /></button>
+                              )}
+                              {booking.status === 'CONFIRMED' && (
+                                <button
+                                  onClick={() => handleStatusChange(booking.id, 'COMPLETED')}
+                                  disabled={updatingId === booking.id}
+                                  title="Завершить"
+                                  className={cn('w-7 h-7 rounded-lg flex items-center justify-center','bg-blue-500/10 text-blue-400 border border-blue-500/20','hover:bg-blue-500/20 transition-colors','disabled:opacity-40')}
+                                ><CheckCircle2 className="w-3 h-3" /></button>
+                              )}
                               <button
-                                onClick={() => handleConfirm(booking.id)}
+                                onClick={() => handleStatusChange(booking.id, 'CANCELLED')}
                                 disabled={updatingId === booking.id}
-                                className={cn(
-                                  'w-7 h-7 rounded-lg flex items-center justify-center',
-                                  'bg-sage/10 text-sage border border-sage/20',
-                                  'hover:bg-sage/20 transition-colors',
-                                  'disabled:opacity-40',
-                                )}
-                              >
-                                <Check className="w-3 h-3" />
-                              </button>
-                              <button
-                                onClick={() => handleCancel(booking.id)}
-                                disabled={updatingId === booking.id}
-                                className={cn(
-                                  'w-7 h-7 rounded-lg flex items-center justify-center',
-                                  'bg-red-500/10 text-red-400 border border-red-500/20',
-                                  'hover:bg-red-500/20 transition-colors',
-                                  'disabled:opacity-40',
-                                )}
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
+                                title="Отменить"
+                                className={cn('w-7 h-7 rounded-lg flex items-center justify-center','bg-red-500/10 text-red-400 border border-red-500/20','hover:bg-red-500/20 transition-colors','disabled:opacity-40')}
+                              ><X className="w-3 h-3" /></button>
                             </div>
                           )}
                         </div>

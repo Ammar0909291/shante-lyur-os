@@ -8,10 +8,18 @@ import {
   Tag,
   ChevronDown,
   ChevronUp,
+  Edit2,
+  Check,
+  X,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { StatCard } from '@/components/ui/stat-card';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogBody, DialogFooter, DialogClose,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { useLocale } from '@/components/providers/locale-provider';
 
 interface Service {
@@ -79,6 +87,146 @@ function formatDuration(minutes: number): string {
   return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
 }
 
+interface EditServiceForm {
+  name: string;
+  description: string;
+  durationMinutes: number;
+  price: number;
+  isActive: boolean;
+}
+
+function ServiceEditDialog({
+  service,
+  open,
+  onClose,
+  onSave,
+}: {
+  service: Service | null;
+  open: boolean;
+  onClose: () => void;
+  onSave: (updated: Service) => void;
+}) {
+  const [form, setForm] = React.useState<EditServiceForm>({ name: '', description: '', durationMinutes: 60, price: 0, isActive: true });
+  const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  React.useEffect(() => {
+    if (service) {
+      setForm({
+        name: service.name,
+        description: service.description ?? '',
+        durationMinutes: service.durationMinutes,
+        price: Math.round(service.price / 100),
+        isActive: service.isActive,
+      });
+      setSaved(false);
+    }
+  }, [service]);
+
+  async function handleSave() {
+    if (!service) return;
+    setSaving(true);
+    const updated: Service = {
+      ...service,
+      name: form.name,
+      description: form.description,
+      durationMinutes: form.durationMinutes,
+      price: form.price * 100,
+      isActive: form.isActive,
+    };
+    try {
+      await fetch(`/api/services/${service.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name, description: form.description, durationMinutes: form.durationMinutes, price: form.price * 100, isActive: form.isActive }),
+      });
+    } catch { /* optimistic */ }
+    onSave(updated);
+    setSaved(true);
+    setTimeout(onClose, 700);
+    setSaving(false);
+  }
+
+  if (!service) return null;
+
+  const inputCls = cn(
+    'w-full px-3 py-2.5 rounded-xl text-sm',
+    'bg-charcoal border border-border-luxury',
+    'text-text-primary placeholder:text-text-tertiary',
+    'focus:outline-none focus:border-champagne/50 transition-all',
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Редактировать услугу</DialogTitle>
+          <DialogDescription>Изменение цены, длительности и статуса</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="space-y-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">Название</p>
+            <input className={inputCls} value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">Описание</p>
+            <textarea
+              rows={2}
+              className={cn(inputCls, 'resize-none')}
+              value={form.description}
+              onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">Длительность (мин)</p>
+              <input
+                type="number"
+                min={5}
+                step={5}
+                className={inputCls}
+                value={form.durationMinutes}
+                onChange={(e) => setForm(f => ({ ...f, durationMinutes: Number(e.target.value) }))}
+              />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">Цена (₽)</p>
+              <input
+                type="number"
+                min={0}
+                step={100}
+                className={inputCls}
+                value={form.price}
+                onChange={(e) => setForm(f => ({ ...f, price: Number(e.target.value) }))}
+              />
+            </div>
+          </div>
+          <button
+            onClick={() => setForm(f => ({ ...f, isActive: !f.isActive }))}
+            className={cn(
+              'flex items-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-medium transition-all border',
+              form.isActive
+                ? 'bg-sage/10 text-sage border-sage/20'
+                : 'bg-charcoal text-text-tertiary border-border-luxury',
+            )}
+          >
+            {form.isActive ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+            {form.isActive ? 'Услуга активна' : 'Услуга неактивна'}
+          </button>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="secondary" size="sm">Отмена</Button>
+          </DialogClose>
+          <Button variant="primary" size="sm" onClick={handleSave} isLoading={saving} disabled={saving || saved}>
+            {saved ? 'Сохранено' : 'Сохранить'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ServicesPage() {
   const { t } = useLocale();
   const [categories, setCategories] = React.useState<ServiceCategory[]>([]);
@@ -86,6 +234,7 @@ export default function ServicesPage() {
   const [search, setSearch] = React.useState('');
   const [expandedCats, setExpandedCats] = React.useState<Set<string>>(new Set());
   const [showInactive, setShowInactive] = React.useState(false);
+  const [editingService, setEditingService] = React.useState<Service | null>(null);
 
   React.useEffect(() => {
     async function load() {
@@ -147,6 +296,13 @@ export default function ServicesPage() {
     const minPrice = allServices.length > 0 ? Math.min(...allServices.map(s => s.price)) : 0;
     return { total: allServices.length, active, categories: categories.length, avgPrice, minPrice };
   }, [allServices, categories.length]);
+
+  function handleServiceSave(updated: Service) {
+    setCategories(prev => prev.map(cat => ({
+      ...cat,
+      services: cat.services.map(s => s.id === updated.id ? updated : s),
+    })));
+  }
 
   const toggleCat = (id: string) => {
     setExpandedCats(prev => {
@@ -277,9 +433,10 @@ export default function ServicesPage() {
                           key={svc.id}
                           className={cn(
                             'px-5 py-4 flex flex-col sm:grid sm:grid-cols-12 sm:items-center gap-2',
-                            'hover:bg-charcoal/30 transition-colors',
+                            'hover:bg-charcoal/30 transition-colors group cursor-pointer',
                             !svc.isActive && 'opacity-50',
                           )}
+                          onClick={() => setEditingService(svc)}
                         >
                           <div className="col-span-5">
                             <p className="text-sm font-medium text-text-primary">{svc.name}</p>
@@ -296,10 +453,17 @@ export default function ServicesPage() {
                               {formatCurrency(svc.price)}
                             </span>
                           </div>
-                          <div className="col-span-2">
+                          <div className="col-span-2 flex items-center gap-2">
                             <Badge variant={svc.isActive ? 'success' : 'default'} dot>
                               {svc.isActive ? 'Активна' : 'Неактивна'}
                             </Badge>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditingService(svc); }}
+                              className="ml-auto p-1.5 rounded-lg text-text-tertiary hover:text-champagne hover:bg-champagne/10 transition-all opacity-0 group-hover:opacity-100"
+                              title="Редактировать"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -311,6 +475,13 @@ export default function ServicesPage() {
           })}
         </div>
       )}
+
+      <ServiceEditDialog
+        service={editingService}
+        open={!!editingService}
+        onClose={() => setEditingService(null)}
+        onSave={handleServiceSave}
+      />
     </div>
   );
 }

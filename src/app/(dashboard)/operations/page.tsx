@@ -10,6 +10,8 @@ import {
   Loader2,
   RefreshCw,
   Zap,
+  X,
+  Play,
 } from 'lucide-react';
 import { cn, formatTime } from '@/lib/utils';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
@@ -116,6 +118,7 @@ export default function OperationsPage() {
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
   const [now, setNow] = React.useState(new Date());
+  const [actingId, setActingId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 30000);
@@ -143,6 +146,20 @@ export default function OperationsPage() {
   }, []);
 
   React.useEffect(() => { load(); }, [load]);
+
+  const handleQueueAction = React.useCallback(async (id: string, status: string) => {
+    setActingId(id);
+    setQueue((prev) => prev.map((q) => q.id === id ? { ...q, status } : q));
+    try {
+      await fetch(`/api/appointments/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+    } catch { /* keep optimistic state */ } finally {
+      setActingId(null);
+    }
+  }, []);
 
   const activeNow = queue.filter(
     (q) => q.status === 'CONFIRMED' && new Date(q.startTime) <= now && new Date(q.endTime) >= now,
@@ -225,7 +242,7 @@ export default function OperationsPage() {
                 activeNow.map((item) => {
                   const remaining = Math.round((new Date(item.endTime).getTime() - now.getTime()) / 60000);
                   return (
-                    <div key={item.id} className="px-5 py-4 flex items-start gap-3">
+                    <div key={item.id} className="px-5 py-4 flex items-start gap-3 group">
                       <StatusIcon status={item.status} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -245,9 +262,19 @@ export default function OperationsPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="shrink-0 text-right">
+                      <div className="shrink-0 flex flex-col items-end gap-1">
                         <p className="text-xs text-text-primary font-medium">{formatTime(item.startTime)}</p>
                         <p className="text-xs text-text-tertiary">{formatTime(item.endTime)}</p>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                          <button
+                            onClick={() => handleQueueAction(item.id, 'COMPLETED')}
+                            disabled={actingId === item.id}
+                            title="Завершить сеанс"
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-sage/10 text-sage border border-sage/20 hover:bg-sage/20 transition-colors disabled:opacity-40"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />Завершить
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -277,7 +304,7 @@ export default function OperationsPage() {
                 </div>
               ) : (
                 upcoming.slice(0, 8).map((item) => (
-                  <div key={item.id} className="px-5 py-3 flex items-center gap-4">
+                  <div key={item.id} className="px-5 py-3 flex items-center gap-3 group">
                     <span className="text-sm font-medium text-champagne w-12 shrink-0">
                       {formatTime(item.startTime)}
                     </span>
@@ -290,6 +317,38 @@ export default function OperationsPage() {
                     <Badge variant={getAppointmentStatusBadgeVariant(item.status)}>
                       {getAppointmentStatusLabel(item.status)}
                     </Badge>
+                    {item.status === 'PENDING' && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleQueueAction(item.id, 'CONFIRMED')}
+                          disabled={actingId === item.id}
+                          title="Подтвердить"
+                          className="w-7 h-7 rounded-lg bg-sage/10 text-sage border border-sage/20 hover:bg-sage/20 flex items-center justify-center transition-colors disabled:opacity-40"
+                        ><Play className="w-3 h-3" /></button>
+                        <button
+                          onClick={() => handleQueueAction(item.id, 'CANCELLED')}
+                          disabled={actingId === item.id}
+                          title="Отменить"
+                          className="w-7 h-7 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 flex items-center justify-center transition-colors disabled:opacity-40"
+                        ><X className="w-3 h-3" /></button>
+                      </div>
+                    )}
+                    {item.status === 'CONFIRMED' && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleQueueAction(item.id, 'COMPLETED')}
+                          disabled={actingId === item.id}
+                          title="Завершить"
+                          className="w-7 h-7 rounded-lg bg-sage/10 text-sage border border-sage/20 hover:bg-sage/20 flex items-center justify-center transition-colors disabled:opacity-40"
+                        ><CheckCircle2 className="w-3 h-3" /></button>
+                        <button
+                          onClick={() => handleQueueAction(item.id, 'CANCELLED')}
+                          disabled={actingId === item.id}
+                          title="Отменить"
+                          className="w-7 h-7 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 flex items-center justify-center transition-colors disabled:opacity-40"
+                        ><X className="w-3 h-3" /></button>
+                      </div>
+                    )}
                   </div>
                 ))
               )}

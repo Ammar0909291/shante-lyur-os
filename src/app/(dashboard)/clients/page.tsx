@@ -10,12 +10,19 @@ import {
   Eye,
   Plus,
   AlertTriangle,
+  Phone,
+  Mail,
+  Calendar,
 } from 'lucide-react';
 import { useLocale } from '@/components/providers/locale-provider';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StatCard } from '@/components/ui/stat-card';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogDescription, DialogBody, DialogFooter, DialogClose,
+} from '@/components/ui/dialog';
 import { cn, formatCurrency, formatDate } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -122,15 +129,203 @@ function SkeletonCard() {
   );
 }
 
+// ─── Client Detail Dialog ─────────────────────────────────────────────────────
+
+function ClientDetailDialog({
+  client,
+  open,
+  onClose,
+}: {
+  client: Client | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  if (!client) return null;
+  const tier = getTierLabel(client.loyaltyTier);
+  const variant = getTierBadgeVariant(client.loyaltyTier);
+  const avgVisit = client.visits > 0 ? Math.round(client.totalSpent / client.visits) : 0;
+  const atRisk = isAtRisk(client);
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Профиль клиента</DialogTitle>
+          <DialogDescription>Информация о клиенте и истории посещений</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="space-y-5">
+          {/* Identity */}
+          <div className="flex items-center gap-4">
+            <Avatar name={client.name} size="lg" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-base font-semibold text-text-primary">{client.name}</p>
+                {atRisk && (
+                  <span className="flex items-center gap-1 text-xs text-amber-400">
+                    <AlertTriangle className="w-3 h-3" />Под риском
+                  </span>
+                )}
+              </div>
+              <Badge variant={variant} dot className="mt-1">{tier}</Badge>
+            </div>
+          </div>
+
+          {/* Contact */}
+          <div className="bg-charcoal rounded-2xl p-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">Контакты</p>
+            <div className="flex items-center gap-3 text-sm text-text-secondary">
+              <Phone className="w-4 h-4 text-text-tertiary shrink-0" />
+              <a href={`tel:${client.phone}`} className="hover:text-champagne transition-colors">{client.phone}</a>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-text-secondary">
+              <Mail className="w-4 h-4 text-text-tertiary shrink-0" />
+              <a href={`mailto:${client.email}`} className="hover:text-champagne transition-colors">{client.email}</a>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-charcoal rounded-xl p-3 text-center">
+              <p className="text-xs text-text-tertiary mb-1">Визитов</p>
+              <p className="text-xl font-semibold text-text-primary">{client.visits}</p>
+            </div>
+            <div className="bg-charcoal rounded-xl p-3 text-center">
+              <p className="text-xs text-text-tertiary mb-1">Потрачено</p>
+              <p className="text-sm font-semibold text-champagne">{formatCurrency(client.totalSpent)}</p>
+            </div>
+            <div className="bg-charcoal rounded-xl p-3 text-center">
+              <p className="text-xs text-text-tertiary mb-1">Ср. визит</p>
+              <p className="text-sm font-semibold text-champagne">{formatCurrency(avgVisit)}</p>
+            </div>
+          </div>
+
+          {/* Last Visit */}
+          <div className="flex items-center gap-3 text-sm text-text-secondary bg-charcoal rounded-xl px-4 py-3">
+            <Calendar className="w-4 h-4 text-text-tertiary shrink-0" />
+            <span>Последний визит: <span className="text-text-primary font-medium">{formatDate(client.lastVisit)}</span></span>
+          </div>
+
+          {atRisk && (
+            <div className="flex items-start gap-3 bg-amber-500/8 border border-amber-500/20 rounded-xl px-4 py-3">
+              <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-amber-400">Клиент под риском</p>
+                <p className="text-xs text-text-tertiary mt-0.5">Давно не посещал salon. Рекомендуется связаться.</p>
+              </div>
+            </div>
+          )}
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="secondary" size="sm">Закрыть</Button>
+          </DialogClose>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => { window.location.href = `tel:${client.phone}`; }}
+          >
+            Позвонить
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Add Client Dialog ────────────────────────────────────────────────────────
+
+function AddClientDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (c: Client) => void }) {
+  const [name, setName] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [phone, setPhone] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+
+  function reset() { setName(''); setEmail(''); setPhone(''); }
+
+  async function handleSubmit() {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone }),
+      });
+      const newClient: Client = {
+        id: String(Date.now()),
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        loyaltyTier: 'BRONZE',
+        visits: 0,
+        totalSpent: 0,
+        lastVisit: new Date().toISOString().slice(0, 10),
+      };
+      if (res.ok) {
+        const data = await res.json();
+        onAdd({ ...newClient, id: data.id ?? newClient.id });
+      } else {
+        onAdd(newClient);
+      }
+      reset();
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputCls = cn(
+    'w-full px-3 py-2.5 rounded-xl text-sm',
+    'bg-charcoal border border-border-luxury',
+    'text-text-primary placeholder:text-text-tertiary',
+    'focus:outline-none focus:border-champagne/50 transition-all',
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Новый клиент</DialogTitle>
+          <DialogDescription>Добавьте клиента в базу</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="space-y-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">Имя *</p>
+            <input className={inputCls} placeholder="Полное имя" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">Телефон</p>
+            <input className={inputCls} placeholder="+7 ..." value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">Email</p>
+            <input className={inputCls} placeholder="email@..." type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="secondary" size="sm" onClick={reset}>Отмена</Button>
+          </DialogClose>
+          <Button variant="primary" size="sm" onClick={handleSubmit} disabled={!name.trim() || saving} isLoading={saving}>
+            Добавить
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ClientsPage() {
-  useLocale(); // locale context available for future i18n use
+  useLocale();
 
   const [clients, setClients] = React.useState<Client[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
   const [filter, setFilter] = React.useState<FilterKey>('all');
+  const [viewingClient, setViewingClient] = React.useState<Client | null>(null);
+  const [addingClient, setAddingClient] = React.useState(false);
 
   // Fetch clients on mount; fall back to mock data on error or empty result
   React.useEffect(() => {
@@ -216,6 +411,7 @@ export default function ClientsPage() {
           variant="primary"
           size="md"
           leftIcon={<UserPlus className="w-4 h-4" />}
+          onClick={() => setAddingClient(true)}
         >
           Добавить клиента
         </Button>
@@ -399,7 +595,7 @@ export default function ClientsPage() {
                           size="sm"
                           leftIcon={<Eye className="w-3.5 h-3.5" />}
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => {/* navigate to /clients/[id] */}}
+                          onClick={() => setViewingClient(client)}
                         >
                           Открыть
                         </Button>
@@ -426,7 +622,7 @@ export default function ClientsPage() {
                 </p>
               </div>
               {!search && (
-                <Button variant="outline" size="sm" leftIcon={<UserPlus className="w-4 h-4" />}>
+                <Button variant="outline" size="sm" leftIcon={<UserPlus className="w-4 h-4" />} onClick={() => setAddingClient(true)}>
                   Добавить клиента
                 </Button>
               )}
@@ -488,6 +684,18 @@ export default function ClientsPage() {
               ))}
         </div>
       </div>
+
+      {/* Dialogs */}
+      <ClientDetailDialog
+        client={viewingClient}
+        open={!!viewingClient}
+        onClose={() => setViewingClient(null)}
+      />
+      <AddClientDialog
+        open={addingClient}
+        onClose={() => setAddingClient(false)}
+        onAdd={(c) => setClients((prev) => [c, ...prev])}
+      />
     </div>
   );
 }
