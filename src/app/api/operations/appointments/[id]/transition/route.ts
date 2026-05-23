@@ -318,16 +318,18 @@ export async function POST(
     console.log('[ops/transition] done', { id, from: currentStatus, action, to: updated.status });
 
     // ── SSE broadcast + notification ───────────────────────────────────────────
-    const clientName = `${apt.client.firstName} ${apt.client.lastName}`;
-    const specialistName = `${apt.specialist.user.firstName} ${apt.specialist.user.lastName}`;
+    const clientName = apt.client ? `${apt.client.firstName} ${apt.client.lastName}` : '';
+    const specialistName = apt.specialist?.user
+      ? `${apt.specialist.user.firstName} ${apt.specialist.user.lastName}`
+      : '';
     const roomName = apt.room?.name ?? null;
-    const serviceNames = apt.services.map((s) => s.service.name);
+    const serviceNames = apt.services?.map((s) => s.service.name) ?? [];
 
     const sseEvent: OpsEvent = {
       type: ACTION_TO_EVENT[action as TransitionAction] ?? 'ops_refresh',
       appointmentId: id,
       clientName,
-      specialistId: apt.specialist.id,
+      specialistId: apt.specialist?.id,
       specialistName,
       roomName: roomName ?? undefined,
       fromStatus: currentStatus,
@@ -336,15 +338,17 @@ export async function POST(
     };
     broadcastOpsEvent(sseEvent);
 
-    void notifySpecialist(action as TransitionAction, {
-      id,
-      specialistUserId: apt.specialist.user.id,
-      clientName,
-      specialistName,
-      startAt: apt.startAt.toISOString(),
-      roomName,
-      serviceNames,
-    });
+    if (apt.specialist?.user?.id) {
+      void notifySpecialist(action as TransitionAction, {
+        id,
+        specialistUserId: apt.specialist.user.id,
+        clientName,
+        specialistName,
+        startAt: apt.startAt?.toISOString() ?? now.toISOString(),
+        roomName,
+        serviceNames,
+      });
+    }
 
     // ── Audit ──────────────────────────────────────────────────────────────────
     const { ipAddress, userAgent } = getRequestMeta(request);
