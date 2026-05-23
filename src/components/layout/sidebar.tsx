@@ -5,42 +5,152 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
+  MonitorDot,
   Calendar,
   Users,
   Sparkles,
   Flower2,
   BarChart3,
+  ShoppingCart,
+  Package,
+  Wallet,
+  MessageSquare,
   Settings,
   ChevronLeft,
   ChevronRight,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UserRole } from '@/domain/enums';
 
 interface NavItem {
   label: string;
   href: string;
   icon: React.ElementType;
+  roles?: UserRole[];
 }
 
-const navItems: NavItem[] = [
-  { label: 'Дашборд', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Записи', href: '/bookings', icon: Calendar },
-  { label: 'Клиенты', href: '/clients', icon: Users },
-  { label: 'Специалисты', href: '/specialists', icon: Sparkles },
-  { label: 'Услуги', href: '/services', icon: Flower2 },
-  { label: 'Аналитика', href: '/analytics', icon: BarChart3 },
-  { label: 'Настройки', href: '/settings', icon: Settings },
+interface NavGroup {
+  label?: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    items: [
+      {
+        label: 'Дашборд',
+        href: '/dashboard',
+        icon: LayoutDashboard,
+      },
+      {
+        label: 'Операционный центр',
+        href: '/operations',
+        icon: MonitorDot,
+        roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR],
+      },
+    ],
+  },
+  {
+    label: 'Управление',
+    items: [
+      {
+        label: 'Записи',
+        href: '/bookings',
+        icon: Calendar,
+        roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.SPECIALIST],
+      },
+      {
+        label: 'Клиенты',
+        href: '/clients',
+        icon: Users,
+        roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR],
+      },
+      {
+        label: 'Специалисты',
+        href: '/specialists',
+        icon: Sparkles,
+        roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN],
+      },
+      {
+        label: 'Услуги',
+        href: '/services',
+        icon: Flower2,
+        roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN],
+      },
+    ],
+  },
+  {
+    label: 'Продажи и финансы',
+    items: [
+      {
+        label: 'Продажи',
+        href: '/sales',
+        icon: ShoppingCart,
+        roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR],
+      },
+      {
+        label: 'Склад',
+        href: '/inventory',
+        icon: Package,
+        roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN],
+      },
+      {
+        label: 'Финансы',
+        href: '/finance',
+        icon: Wallet,
+        roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN],
+      },
+    ],
+  },
+  {
+    label: 'Аналитика',
+    items: [
+      {
+        label: 'Аналитика',
+        href: '/analytics',
+        icon: BarChart3,
+        roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN],
+      },
+    ],
+  },
+  {
+    items: [
+      {
+        label: 'Чат',
+        href: '/chat',
+        icon: MessageSquare,
+      },
+      {
+        label: 'Настройки',
+        href: '/settings',
+        icon: Settings,
+        roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN],
+      },
+    ],
+  },
 ];
+
+function isVisible(item: NavItem, role: UserRole | null): boolean {
+  if (!item.roles) return true;
+  if (!role) return true; // show all when role not yet loaded
+  return item.roles.includes(role);
+}
 
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  userRole?: UserRole | null;
 }
 
-export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
+export function Sidebar({ mobileOpen = false, onMobileClose, userRole = null }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(false);
+
+  const visibleGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => isVisible(item, userRole)),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <>
@@ -74,7 +184,6 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           )}
         >
           <div className={cn('flex items-center gap-3', collapsed && 'lg:justify-center')}>
-            {/* Monogram */}
             <div
               className={cn(
                 'flex items-center justify-center',
@@ -83,11 +192,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               )}
               aria-hidden="true"
             >
-              <span className="font-serif text-sm font-bold text-obsidian tracking-tight">
-                SL
-              </span>
+              <span className="font-serif text-sm font-bold text-obsidian tracking-tight">SL</span>
             </div>
-            {/* Brand name */}
             <div className={cn('flex flex-col', collapsed && 'lg:hidden')}>
               <span className="font-serif text-sm font-medium text-text-primary leading-tight">
                 Shante Lyur
@@ -114,7 +220,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               'hidden lg:flex p-1.5 rounded-md',
               'text-text-tertiary hover:text-text-primary hover:bg-charcoal',
               'transition-colors',
-              collapsed && 'hidden',
+              collapsed && 'lg:hidden',
             )}
             aria-label={collapsed ? 'Развернуть' : 'Свернуть'}
           >
@@ -127,40 +233,56 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1" aria-label="Основная навигация">
-          {navItems.map(({ label, href, icon: Icon }) => {
-            const isActive = pathname === href || pathname.startsWith(`${href}/`);
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={onMobileClose}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl',
-                  'text-sm font-medium transition-all duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
-                  isActive
-                    ? 'bg-champagne/8 text-champagne shadow-champagne-sm'
-                    : 'text-text-secondary hover:text-text-primary hover:bg-white/4',
-                  collapsed && 'lg:justify-center lg:px-0',
+        <nav className="flex-1 min-h-0 overflow-y-auto p-3" aria-label="Основная навигация">
+          <div className="space-y-4">
+            {visibleGroups.map((group, groupIdx) => (
+              <div key={groupIdx}>
+                {group.label && !collapsed && (
+                  <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">
+                    {group.label}
+                  </p>
                 )}
-                aria-current={isActive ? 'page' : undefined}
-                title={collapsed ? label : undefined}
-              >
-                <Icon
-                  className={cn(
-                    'w-5 h-5 shrink-0 transition-colors',
-                    isActive ? 'text-champagne' : 'text-text-tertiary group-hover:text-text-primary',
-                  )}
-                  aria-hidden="true"
-                />
-                <span className={cn('truncate', collapsed && 'lg:hidden')}>{label}</span>
-                {isActive && !collapsed && (
-                  <span className="ml-auto w-1 h-4 rounded-full bg-champagne shrink-0" aria-hidden="true" />
-                )}
-              </Link>
-            );
-          })}
+                <div className="space-y-0.5">
+                  {group.items.map(({ label, href, icon: Icon }) => {
+                    const isActive = pathname === href || pathname.startsWith(`${href}/`);
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={onMobileClose}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-2.5 rounded-xl',
+                          'text-sm font-medium transition-all duration-150',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
+                          isActive
+                            ? 'bg-champagne/8 text-champagne shadow-champagne-sm'
+                            : 'text-text-secondary hover:text-text-primary hover:bg-white/4',
+                          collapsed && 'lg:justify-center lg:px-0',
+                        )}
+                        aria-current={isActive ? 'page' : undefined}
+                        title={collapsed ? label : undefined}
+                      >
+                        <Icon
+                          className={cn(
+                            'w-5 h-5 shrink-0 transition-colors',
+                            isActive ? 'text-champagne' : 'text-text-tertiary',
+                          )}
+                          aria-hidden="true"
+                        />
+                        <span className={cn('truncate', collapsed && 'lg:hidden')}>{label}</span>
+                        {isActive && !collapsed && (
+                          <span
+                            className="ml-auto w-1 h-4 rounded-full bg-champagne shrink-0"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </nav>
 
         {/* Bottom section */}
@@ -176,7 +298,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                 <span className="text-[9px] font-bold text-obsidian">v3</span>
               </div>
               <div className={cn('flex flex-col min-w-0', collapsed && 'lg:hidden')}>
-                <span className="text-xs font-medium text-text-secondary truncate">Shante Lyur OS</span>
+                <span className="text-xs font-medium text-text-secondary truncate">
+                  Shante Lyur OS
+                </span>
                 <span className="text-[10px] text-text-tertiary">v3.0.0</span>
               </div>
             </div>

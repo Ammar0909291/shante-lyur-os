@@ -7,11 +7,16 @@ import { Header } from '@/components/layout/header';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Дашборд',
+  '/operations': 'Операционный центр',
   '/bookings': 'Записи',
   '/clients': 'Клиенты',
   '/specialists': 'Специалисты',
   '/services': 'Услуги',
+  '/sales': 'Продажи',
+  '/inventory': 'Склад',
+  '/finance': 'Финансы',
   '/analytics': 'Аналитика',
+  '/chat': 'Чат',
   '/settings': 'Настройки',
 };
 
