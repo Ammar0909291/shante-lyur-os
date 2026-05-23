@@ -1,5 +1,6 @@
 // Shared types and helpers for the Specialists module
 
+export type SpecialistType = 'MASSAGE_THERAPIST' | 'COSMETOLOGIST';
 export type SpecialistStatus = 'ACTIVE' | 'INACTIVE' | 'ON_VACATION' | 'TERMINATED';
 
 export type WorkDay =
@@ -10,6 +11,7 @@ export interface Specialist {
   id: string;
   status: SpecialistStatus;
   isActive: boolean;
+  type?: SpecialistType;
   rating?: number;
   totalBookings?: number;
   revenue?: number;
@@ -65,58 +67,76 @@ export function getStatusVariant(
   return m[status];
 }
 
+export function getTypeLabel(type: SpecialistType): string {
+  return type === 'MASSAGE_THERAPIST' ? 'Массажист' : 'Косметолог';
+}
+
+export const MASSAGE_SPECIALIZATIONS: string[] = [
+  'Классический расслабляющий массаж', 'Тайский массаж', 'Спортивный массаж',
+  'Лечебный массаж', 'Глубокотканный массаж', 'Ароматерапевтический массаж',
+  'Горячий камень (стоун-терапия)', 'Антицеллюлитный массаж',
+  'Лимфодренажный массаж', 'Нейромышечный массаж', 'СПА-массаж (4 руки)',
+];
+
+export const COSMETOLOGY_SPECIALIZATIONS: string[] = [
+  'Гиалуроновый лифтинг', 'Биоревитализация', 'Мезотерапия',
+  'Химический пилинг', 'Аппаратная косметология', 'Антивозрастной уход',
+  'Глубокое увлажнение', 'RF-лифтинг', 'Лазерная эпиляция', 'Детокс-программа',
+];
+
 export const ALL_SPECIALIZATIONS: string[] = [
-  'Окрашивание', 'Стрижки', 'Укладки',
-  'Маникюр', 'Педикюр', 'Дизайн ногтей',
-  'Уход за лицом', 'Пилинг', 'Аппаратная косметология',
-  'Визаж', 'Брови', 'Ресницы',
-  'Массаж', 'СПА', 'Обертывание',
-  'Эпиляция', 'Шугаринг', 'Лазерная эпиляция',
-  'Уход за телом',
+  ...MASSAGE_SPECIALIZATIONS,
+  ...COSMETOLOGY_SPECIALIZATIONS,
 ];
 
 export const MOCK_SPECIALISTS: Specialist[] = [
   {
-    id: 's1', status: 'ACTIVE', isActive: true, rating: 4.9, totalBookings: 312,
-    revenue: 154000000, todayBookings: 6, specializations: ['Окрашивание', 'Стрижки', 'Укладки'],
-    bio: 'Мастер по работе с цветом, 8 лет опыта. Специализируется на сложных техниках окрашивания.',
+    id: 's1', status: 'ACTIVE', isActive: true, type: 'MASSAGE_THERAPIST',
+    rating: 4.9, totalBookings: 312, revenue: 154000000, todayBookings: 6,
+    specializations: ['Тайский массаж', 'Ароматерапевтический массаж', 'Классический расслабляющий массаж'],
+    bio: 'Сертифицированный массажист с 8-летним опытом. Специализируется на тайских техниках и ароматерапии. Прошла обучение в Бангкоке.',
     experienceYears: 8, commissionRate: 0.35,
-    user: { name: 'Елена Смирнова', email: 'e.smirnova@shantelyur.ru', phone: '+7 916 111-22-33' },
+    user: { name: 'Наталья Владимирова', email: 'n.vladimirova@shantelyur.ru', phone: '+7 916 111-22-33' },
   },
   {
-    id: 's2', status: 'ACTIVE', isActive: true, rating: 4.8, totalBookings: 278,
-    revenue: 126000000, todayBookings: 5, specializations: ['Маникюр', 'Педикюр', 'Дизайн ногтей'],
-    bio: 'Мастер маникюра и педикюра. Работает с гель-лаком, акрилом и натуральными ногтями.',
+    id: 's2', status: 'ACTIVE', isActive: true, type: 'MASSAGE_THERAPIST',
+    rating: 4.8, totalBookings: 278, revenue: 126000000, todayBookings: 5,
+    specializations: ['Спортивный массаж', 'Нейромышечный массаж', 'Глубокотканный массаж'],
+    bio: 'Массажист-реабилитолог. Работает со спортсменами и людьми с хроническими болями. Диплом по спортивной медицине.',
     experienceYears: 6, commissionRate: 0.30,
-    user: { name: 'Мария Попова', email: 'm.popova@shantelyur.ru', phone: '+7 903 222-33-44' },
+    user: { name: 'Ольга Козлова', email: 'o.kozlova@shantelyur.ru', phone: '+7 903 222-33-44' },
   },
   {
-    id: 's3', status: 'ACTIVE', isActive: true, rating: 4.7, totalBookings: 241,
-    revenue: 118500000, todayBookings: 4, specializations: ['Уход за лицом', 'Пилинг', 'Массаж'],
-    bio: 'Косметолог с дипломом медицинской эстетики. Работает с аппаратными процедурами.',
+    id: 's3', status: 'ACTIVE', isActive: true, type: 'MASSAGE_THERAPIST',
+    rating: 4.7, totalBookings: 241, revenue: 118500000, todayBookings: 4,
+    specializations: ['Горячий камень (стоун-терапия)', 'Антицеллюлитный массаж', 'СПА-массаж (4 руки)'],
+    bio: 'Специалист по СПА-программам и стоун-терапии. Создаёт индивидуальные ритуалы расслабления для каждого клиента.',
     experienceYears: 5, commissionRate: 0.32,
-    user: { name: 'Ирина Соколова', email: 'i.sokolova@shantelyur.ru', phone: '+7 925 333-44-55' },
+    user: { name: 'Дарья Соколова', email: 'd.sokolova@shantelyur.ru', phone: '+7 925 333-44-55' },
   },
   {
-    id: 's4', status: 'ACTIVE', isActive: true, rating: 4.6, totalBookings: 189,
-    revenue: 95000000, todayBookings: 3, specializations: ['Визаж', 'Брови', 'Ресницы'],
-    bio: 'Специалист по перманентному макияжу и коррекции бровей. Художественное образование.',
+    id: 's4', status: 'ACTIVE', isActive: true, type: 'COSMETOLOGIST',
+    rating: 4.6, totalBookings: 189, revenue: 95000000, todayBookings: 3,
+    specializations: ['Биоревитализация', 'Гиалуроновый лифтинг', 'Мезотерапия'],
+    bio: 'Врач-косметолог, специалист по инъекционным методикам. Работает с гиалуроновой кислотой и мезотерапевтическими препаратами.',
     experienceYears: 4, commissionRate: 0.30,
-    user: { name: 'Алина Петрова', email: 'a.petrova@shantelyur.ru', phone: '+7 916 444-55-66' },
+    user: { name: 'Мария Волкова', email: 'm.volkova@shantelyur.ru', phone: '+7 916 444-55-66' },
   },
   {
-    id: 's5', status: 'INACTIVE', isActive: false, rating: 4.5, totalBookings: 156,
-    revenue: 72000000, todayBookings: 0, specializations: ['Массаж', 'СПА'],
-    bio: 'Дипломированный массажист. Тайский, расслабляющий, лечебный массаж.',
+    id: 's5', status: 'INACTIVE', isActive: false, type: 'MASSAGE_THERAPIST',
+    rating: 4.5, totalBookings: 156, revenue: 72000000, todayBookings: 0,
+    specializations: ['Лимфодренажный массаж', 'Классический расслабляющий массаж'],
+    bio: 'Дипломированный массажист. Специализируется на лимфодренаже и расслабляющих техниках.',
     experienceYears: 7, commissionRate: 0.30,
     user: { name: 'Юлия Новикова', email: 'yu.novikova@shantelyur.ru', phone: '+7 903 555-66-77' },
   },
   {
-    id: 's6', status: 'ACTIVE', isActive: true, rating: 4.8, totalBookings: 203,
-    revenue: 108000000, todayBookings: 7, specializations: ['Эпиляция', 'Шугаринг', 'Уход за телом'],
-    bio: 'Мастер лазерной и восковой эпиляции. Работает с чувствительной кожей.',
+    id: 's6', status: 'ACTIVE', isActive: true, type: 'COSMETOLOGIST',
+    rating: 4.8, totalBookings: 203, revenue: 108000000, todayBookings: 7,
+    specializations: ['Химический пилинг', 'Аппаратная косметология', 'Лазерная эпиляция'],
+    bio: 'Косметолог с медицинским образованием. Специалист по аппаратным процедурам, сертифицирована по работе с лазерным оборудованием.',
     experienceYears: 5, commissionRate: 0.30,
-    user: { name: 'Ольга Лебедева', email: 'o.lebedeva@shantelyur.ru', phone: '+7 925 666-77-88' },
+    user: { name: 'Ирина Соколова', email: 'i.sokolova@shantelyur.ru', phone: '+7 925 666-77-88' },
   },
 ];
 

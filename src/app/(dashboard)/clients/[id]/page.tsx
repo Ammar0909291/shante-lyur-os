@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Crown, Edit2, Save, X, Phone, Mail, Calendar,
-  User, MapPin, Star, Clock, CreditCard, Scissors, FileText,
+  User, MapPin, Star, Clock, CreditCard, Sparkles, FileText,
   TrendingUp, AlertTriangle, CheckCircle2,
 } from 'lucide-react';
 import { cn, formatCurrency, formatDate, formatDateTime } from '@/lib/utils';
@@ -79,7 +79,7 @@ const MOCK_PROFILES: Record<string, ProfileClient> = {
     phone: '+7 916 100-00-01', loyaltyTier: 'DIAMOND', loyaltyPoints: 4800, totalVisits: 54,
     totalSpent: 72400000, lastVisitAt: '2026-05-22', firstVisitAt: '2023-01-15',
     createdAt: '2023-01-15', gender: 'female', dateOfBirth: '1988-03-12',
-    referralSource: 'social', notes: 'Предпочитает мастера Елену. Аллергия на некоторые краски — уточнять перед записью.',
+    referralSource: 'social', notes: 'Предпочитает массажиста Наталью. Чувствительная кожа — уточнять препараты перед косметологическими процедурами.',
     tags: ['VIP', 'Постоянная'],
   },
   'a1b2c3d4-0002': {
@@ -98,25 +98,25 @@ const MOCK_PROFILES: Record<string, ProfileClient> = {
 };
 
 const MOCK_APPOINTMENTS: Appointment[] = [
-  { id: 'apt-1', scheduledAt: '2026-05-22T14:00:00Z', status: 'COMPLETED', serviceName: 'Окрашивание', specialistName: 'Елена К.', durationMinutes: 120, price: 650000 },
-  { id: 'apt-2', scheduledAt: '2026-04-18T11:30:00Z', status: 'COMPLETED', serviceName: 'Стрижка и укладка', specialistName: 'Мария В.', durationMinutes: 60, price: 320000 },
-  { id: 'apt-3', scheduledAt: '2026-03-05T10:00:00Z', status: 'COMPLETED', serviceName: 'Уход за волосами', specialistName: 'Елена К.', durationMinutes: 90, price: 480000 },
-  { id: 'apt-4', scheduledAt: '2026-02-14T15:00:00Z', status: 'NO_SHOW', serviceName: 'Маникюр', specialistName: 'Анна Р.', durationMinutes: 75, price: 280000 },
-  { id: 'apt-5', scheduledAt: '2026-01-20T12:00:00Z', status: 'COMPLETED', serviceName: 'Окрашивание', specialistName: 'Елена К.', durationMinutes: 120, price: 650000 },
+  { id: 'apt-1', scheduledAt: '2026-05-22T14:00:00Z', status: 'COMPLETED', serviceName: 'Гиалуроновый лифтинг', specialistName: 'Мария В.', durationMinutes: 90, price: 1200000 },
+  { id: 'apt-2', scheduledAt: '2026-04-18T11:30:00Z', status: 'COMPLETED', serviceName: 'Тайский массаж', specialistName: 'Наталья В.', durationMinutes: 90, price: 750000 },
+  { id: 'apt-3', scheduledAt: '2026-03-05T10:00:00Z', status: 'COMPLETED', serviceName: 'Биоревитализация', specialistName: 'Мария В.', durationMinutes: 60, price: 1800000 },
+  { id: 'apt-4', scheduledAt: '2026-02-14T15:00:00Z', status: 'NO_SHOW', serviceName: 'Химический пилинг', specialistName: 'Ирина С.', durationMinutes: 45, price: 800000 },
+  { id: 'apt-5', scheduledAt: '2026-01-20T12:00:00Z', status: 'COMPLETED', serviceName: 'Антивозрастной уход', specialistName: 'Мария В.', durationMinutes: 90, price: 1150000 },
 ];
 
 const MOCK_PAYMENTS: Payment[] = [
-  { id: 'pay-1', createdAt: '2026-05-22T15:30:00Z', amount: 650000, status: 'PAID', method: 'card', description: 'Окрашивание' },
-  { id: 'pay-2', createdAt: '2026-04-18T12:45:00Z', amount: 320000, status: 'PAID', method: 'card', description: 'Стрижка и укладка' },
-  { id: 'pay-3', createdAt: '2026-03-05T11:30:00Z', amount: 480000, status: 'PAID', method: 'cash', description: 'Уход за волосами' },
-  { id: 'pay-4', createdAt: '2026-01-20T13:15:00Z', amount: 650000, status: 'PAID', method: 'card', description: 'Окрашивание' },
+  { id: 'pay-1', createdAt: '2026-05-22T15:30:00Z', amount: 1200000, status: 'PAID', method: 'card', description: 'Гиалуроновый лифтинг' },
+  { id: 'pay-2', createdAt: '2026-04-18T12:45:00Z', amount: 750000, status: 'PAID', method: 'card', description: 'Тайский массаж' },
+  { id: 'pay-3', createdAt: '2026-03-05T11:30:00Z', amount: 1800000, status: 'PAID', method: 'cash', description: 'Биоревитализация' },
+  { id: 'pay-4', createdAt: '2026-01-20T13:15:00Z', amount: 1150000, status: 'PAID', method: 'card', description: 'Антивозрастной уход' },
 ];
 
 const MOCK_PROCEDURES: Procedure[] = [
-  { id: 'proc-1', name: 'Окрашивание', count: 12, lastUsedAt: '2026-05-22', totalSpent: 7800000 },
-  { id: 'proc-2', name: 'Стрижка и укладка', count: 18, lastUsedAt: '2026-04-18', totalSpent: 5760000 },
-  { id: 'proc-3', name: 'Уход за волосами', count: 8, lastUsedAt: '2026-03-05', totalSpent: 3840000 },
-  { id: 'proc-4', name: 'Маникюр', count: 4, lastUsedAt: '2026-01-20', totalSpent: 1120000 },
+  { id: 'proc-1', name: 'Гиалуроновый лифтинг', count: 8, lastUsedAt: '2026-05-22', totalSpent: 9600000 },
+  { id: 'proc-2', name: 'Биоревитализация', count: 6, lastUsedAt: '2026-03-05', totalSpent: 10800000 },
+  { id: 'proc-3', name: 'Тайский массаж', count: 12, lastUsedAt: '2026-04-18', totalSpent: 9000000 },
+  { id: 'proc-4', name: 'Антивозрастной уход', count: 5, lastUsedAt: '2026-01-20', totalSpent: 5750000 },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -509,7 +509,7 @@ export default function ClientProfilePage() {
               </div>
               <div className="flex items-center justify-between py-2.5 border-b border-border-luxury">
                 <div className="flex items-center gap-2 text-sm text-text-secondary">
-                  <Scissors className="w-4 h-4 text-text-tertiary" /> Процедур
+                  <Sparkles className="w-4 h-4 text-text-tertiary" /> Процедур
                 </div>
                 <span className="text-sm font-semibold text-text-primary">{procedures.length}</span>
               </div>
@@ -642,7 +642,7 @@ export default function ClientProfilePage() {
                 <div key={proc.id} className="px-5 py-4 flex items-center justify-between hover:bg-charcoal/30 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-champagne/8 flex items-center justify-center shrink-0">
-                      <Scissors className="w-4 h-4 text-champagne" />
+                      <Sparkles className="w-4 h-4 text-champagne" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-text-primary">{proc.name}</p>

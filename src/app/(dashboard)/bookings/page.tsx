@@ -11,7 +11,7 @@ import {
   CalendarDays,
   Users,
   TrendingUp,
-  Scissors,
+  Sparkles,
   Plus,
   UserX,
   CheckCircle2,
@@ -599,7 +599,7 @@ export default function BookingsPage() {
                       {/* Service */}
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-2 max-w-[200px]">
-                          <Scissors className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+                          <Sparkles className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
                           <span className="text-text-secondary truncate">{booking.service}</span>
                         </div>
                       </td>
@@ -716,7 +716,7 @@ export default function BookingsPage() {
 
                       {/* Row 2: service */}
                       <div className="flex items-center gap-1.5 mt-1">
-                        <Scissors className="w-3 h-3 text-text-tertiary shrink-0" />
+                        <Sparkles className="w-3 h-3 text-text-tertiary shrink-0" />
                         <p className="text-xs text-text-secondary truncate">{booking.service}</p>
                       </div>
 

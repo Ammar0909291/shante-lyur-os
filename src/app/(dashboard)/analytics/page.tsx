@@ -47,19 +47,19 @@ const MOCK_MONTHLY: RevenuePoint[] = [
 ];
 
 const MOCK_TOP_SPECIALISTS: TopSpecialist[] = [
-  { name: 'Елена Смирнова', revenue: 154000000, bookings: 312, share: 28 },
-  { name: 'Мария Попова', revenue: 126000000, bookings: 278, share: 23 },
+  { name: 'Наталья Владимирова', revenue: 154000000, bookings: 312, share: 28 },
+  { name: 'Мария Волкова', revenue: 126000000, bookings: 278, share: 23 },
   { name: 'Ирина Соколова', revenue: 118500000, bookings: 241, share: 22 },
-  { name: 'Алина Петрова', revenue: 95000000, bookings: 189, share: 17 },
-  { name: 'Ольга Лебедева', revenue: 60000000, bookings: 156, share: 10 },
+  { name: 'Ольга Козлова', revenue: 95000000, bookings: 189, share: 17 },
+  { name: 'Дарья Соколова', revenue: 60000000, bookings: 156, share: 10 },
 ];
 
 const MOCK_TOP_SERVICES: TopService[] = [
-  { name: 'Окрашивание волос', count: 184, revenue: 82800000 },
-  { name: 'Маникюр с гель-лаком', count: 267, revenue: 58740000 },
-  { name: 'Уход за лицом', count: 142, revenue: 53960000 },
-  { name: 'Педикюр аппаратный', count: 198, revenue: 55440000 },
-  { name: 'Наращивание ресниц', count: 113, revenue: 47460000 },
+  { name: 'Биоревитализация', count: 184, revenue: 331200000 },
+  { name: 'Тайский массаж', count: 267, revenue: 200250000 },
+  { name: 'Гиалуроновый лифтинг', count: 142, revenue: 170400000 },
+  { name: 'Глубокотканный массаж', count: 198, revenue: 168300000 },
+  { name: 'Химический пилинг', count: 213, revenue: 170400000 },
 ];
 
 function MiniBarChart({ data }: { data: RevenuePoint[] }) {

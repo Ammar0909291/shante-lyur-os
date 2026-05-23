@@ -55,26 +55,26 @@ interface PayoutRecord {
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
 const MOCK_TRANSACTIONS: Transaction[] = [
-  { id: 't1', type: 'INCOME', status: 'COMPLETED', amount: 45000000, method: 'CARD', category: 'Услуги', description: 'Окрашивание — Елена Смирнова', specialist: 'Е. Смирнова', client: 'Анна К.', date: '2026-05-23T10:30:00' },
-  { id: 't2', type: 'INCOME', status: 'COMPLETED', amount: 22000000, method: 'CASH', category: 'Услуги', description: 'Маникюр гель-лак — Мария Попова', specialist: 'М. Попова', client: 'Светлана Р.', date: '2026-05-23T11:00:00' },
-  { id: 't3', type: 'INCOME', status: 'COMPLETED', amount: 38000000, method: 'ONLINE', category: 'Услуги', description: 'Уход за лицом — Ирина Соколова', specialist: 'И. Соколова', client: 'Мария Д.', date: '2026-05-23T12:15:00' },
-  { id: 't4', type: 'EXPENSE', status: 'COMPLETED', amount: 18000000, method: 'CARD', category: 'Расходники', description: 'Краски для волос L\'Oréal', date: '2026-05-23T09:00:00' },
-  { id: 't5', type: 'INCOME', status: 'PENDING', amount: 28000000, method: 'CARD', category: 'Услуги', description: 'Шугаринг — Ольга Лебедева', specialist: 'О. Лебедева', client: 'Елена В.', date: '2026-05-23T14:00:00' },
-  { id: 't6', type: 'INCOME', status: 'COMPLETED', amount: 15000000, method: 'CASH', category: 'Услуги', description: 'Коррекция бровей — Алина Петрова', specialist: 'А. Петрова', client: 'Дарья Л.', date: '2026-05-22T16:30:00' },
-  { id: 't7', type: 'EXPENSE', status: 'COMPLETED', amount: 5500000, method: 'CARD', category: 'Аренда', description: 'Аренда оборудования', date: '2026-05-22T10:00:00' },
-  { id: 't8', type: 'INCOME', status: 'REFUNDED', amount: 20000000, method: 'CARD', category: 'Услуги', description: 'Кератиновое выравнивание (возврат)', client: 'Ольга П.', date: '2026-05-22T13:00:00' },
-  { id: 't9', type: 'INCOME', status: 'COMPLETED', amount: 58000000, method: 'CARD', category: 'Услуги', description: 'Мелирование — Елена Смирнова', specialist: 'Е. Смирнова', client: 'Татьяна С.', date: '2026-05-21T11:00:00' },
-  { id: 't10', type: 'EXPENSE', status: 'COMPLETED', amount: 12000000, method: 'CASH', category: 'Хозтовары', description: 'Полотенца и расходники', date: '2026-05-21T09:00:00' },
-  { id: 't11', type: 'INCOME', status: 'COMPLETED', amount: 32000000, method: 'ONLINE', category: 'Услуги', description: 'Педикюр аппаратный — Мария Попова', specialist: 'М. Попова', client: 'Наталья Г.', date: '2026-05-21T14:30:00' },
-  { id: 't12', type: 'INCOME', status: 'COMPLETED', amount: 42000000, method: 'CARD', category: 'Услуги', description: 'Антивозрастной уход — Ирина Соколова', specialist: 'И. Соколова', client: 'Людмила Б.', date: '2026-05-20T10:00:00' },
+  { id: 't1', type: 'INCOME', status: 'COMPLETED', amount: 75000000, method: 'CARD', category: 'Массаж', description: 'Тайский массаж — Наталья В.', specialist: 'Н. Владимирова', client: 'Анна К.', date: '2026-05-23T10:30:00' },
+  { id: 't2', type: 'INCOME', status: 'COMPLETED', amount: 120000000, method: 'CASH', category: 'Косметология', description: 'Гиалуроновый лифтинг — Мария В.', specialist: 'М. Волкова', client: 'Светлана Р.', date: '2026-05-23T11:00:00' },
+  { id: 't3', type: 'INCOME', status: 'COMPLETED', amount: 180000000, method: 'ONLINE', category: 'Косметология', description: 'Биоревитализация — Ирина С.', specialist: 'И. Соколова', client: 'Мария Д.', date: '2026-05-23T12:15:00' },
+  { id: 't4', type: 'EXPENSE', status: 'COMPLETED', amount: 18000000, method: 'CARD', category: 'Расходники', description: 'Масла и СПА-расходники', date: '2026-05-23T09:00:00' },
+  { id: 't5', type: 'INCOME', status: 'PENDING', amount: 95000000, method: 'CARD', category: 'Массаж', description: 'Горячий камень — Дарья С.', specialist: 'Д. Соколова', client: 'Елена В.', date: '2026-05-23T14:00:00' },
+  { id: 't6', type: 'INCOME', status: 'COMPLETED', amount: 80000000, method: 'CASH', category: 'Косметология', description: 'Химический пилинг — Ирина С.', specialist: 'И. Соколова', client: 'Дарья Л.', date: '2026-05-22T16:30:00' },
+  { id: 't7', type: 'EXPENSE', status: 'COMPLETED', amount: 5500000, method: 'CARD', category: 'Аренда', description: 'Аренда косметологического оборудования', date: '2026-05-22T10:00:00' },
+  { id: 't8', type: 'INCOME', status: 'REFUNDED', amount: 150000000, method: 'CARD', category: 'Косметология', description: 'Лазерная эпиляция (возврат)', client: 'Ольга П.', date: '2026-05-22T13:00:00' },
+  { id: 't9', type: 'INCOME', status: 'COMPLETED', amount: 90000000, method: 'CARD', category: 'Массаж', description: 'Ароматерапевтический массаж — Наталья В.', specialist: 'Н. Владимирова', client: 'Татьяна С.', date: '2026-05-21T11:00:00' },
+  { id: 't10', type: 'EXPENSE', status: 'COMPLETED', amount: 12000000, method: 'CASH', category: 'Хозтовары', description: 'Простыни и расходные материалы', date: '2026-05-21T09:00:00' },
+  { id: 't11', type: 'INCOME', status: 'COMPLETED', amount: 65000000, method: 'ONLINE', category: 'Массаж', description: 'Нейромышечный массаж — Ольга К.', specialist: 'О. Козлова', client: 'Наталья Г.', date: '2026-05-21T14:30:00' },
+  { id: 't12', type: 'INCOME', status: 'COMPLETED', amount: 115000000, method: 'CARD', category: 'Косметология', description: 'Антивозрастной уход — Мария В.', specialist: 'М. Волкова', client: 'Людмила Б.', date: '2026-05-20T10:00:00' },
 ];
 
 const MOCK_PAYOUTS: PayoutRecord[] = [
-  { id: 'p1', specialist: 'Елена Смирнова', period: 'Май 2026', bookings: 52, gross: 154000000, commission: 0.35, net: 53900000, status: 'PENDING' },
-  { id: 'p2', specialist: 'Мария Попова', period: 'Май 2026', bookings: 46, gross: 126000000, commission: 0.30, net: 37800000, status: 'PENDING' },
-  { id: 'p3', specialist: 'Ольга Лебедева', period: 'Май 2026', bookings: 38, gross: 108000000, commission: 0.30, net: 32400000, status: 'PENDING' },
+  { id: 'p1', specialist: 'Наталья Владимирова', period: 'Май 2026', bookings: 52, gross: 154000000, commission: 0.35, net: 53900000, status: 'PENDING' },
+  { id: 'p2', specialist: 'Мария Волкова', period: 'Май 2026', bookings: 46, gross: 126000000, commission: 0.30, net: 37800000, status: 'PENDING' },
+  { id: 'p3', specialist: 'Ольга Козлова', period: 'Май 2026', bookings: 38, gross: 108000000, commission: 0.30, net: 32400000, status: 'PENDING' },
   { id: 'p4', specialist: 'Ирина Соколова', period: 'Апрель 2026', bookings: 44, gross: 118500000, commission: 0.32, net: 37920000, status: 'PAID' },
-  { id: 'p5', specialist: 'Алина Петрова', period: 'Апрель 2026', bookings: 31, gross: 95000000, commission: 0.30, net: 28500000, status: 'PAID' },
+  { id: 'p5', specialist: 'Дарья Соколова', period: 'Апрель 2026', bookings: 31, gross: 95000000, commission: 0.30, net: 28500000, status: 'PAID' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
