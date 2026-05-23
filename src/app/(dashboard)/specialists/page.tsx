@@ -1,21 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  Search,
-  Star,
-  Calendar,
-  TrendingUp,
-  Users,
-  Sparkles,
-  Phone,
-  Mail,
-  Edit2,
-  Plus,
-  Check,
-  Loader2,
-  ToggleLeft,
-  ToggleRight,
+  Search, Star, Calendar, TrendingUp, Users, Sparkles,
+  Phone, Mail, Edit2, Plus, Check, Loader2,
+  ToggleLeft, ToggleRight, X, ChevronRight,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -27,58 +17,13 @@ import {
   DialogDescription, DialogBody, DialogFooter, DialogClose,
 } from '@/components/ui/dialog';
 import { useLocale } from '@/components/providers/locale-provider';
+import {
+  type Specialist, type SpecialistStatus,
+  getStatusLabel, getStatusVariant,
+  ALL_SPECIALIZATIONS, MOCK_SPECIALISTS,
+} from './_specialist-types';
 
-interface Specialist {
-  id: string;
-  rating?: number;
-  totalBookings?: number;
-  user: { name: string; email?: string; phone?: string };
-  specializations?: string[];
-  revenue?: number;
-  isActive?: boolean;
-  bio?: string;
-}
-
-const MOCK_SPECIALISTS: Specialist[] = [
-  {
-    id: 's1', rating: 4.9, totalBookings: 312, revenue: 154000000, isActive: true,
-    specializations: ['Окрашивание', 'Стрижки', 'Укладки'],
-    bio: 'Мастер по работе с цветом, 8 лет опыта. Специализируется на сложных техниках окрашивания.',
-    user: { name: 'Елена Смирнова', email: 'e.smirnova@shantelyur.ru', phone: '+7 916 111-22-33' },
-  },
-  {
-    id: 's2', rating: 4.8, totalBookings: 278, revenue: 126000000, isActive: true,
-    specializations: ['Маникюр', 'Педикюр', 'Дизайн'],
-    bio: 'Мастер маникюра и педикюра. Работает с гель-лаком, акрилом и натуральными ногтями.',
-    user: { name: 'Мария Попова', email: 'm.popova@shantelyur.ru', phone: '+7 903 222-33-44' },
-  },
-  {
-    id: 's3', rating: 4.7, totalBookings: 241, revenue: 118500000, isActive: true,
-    specializations: ['Уход за лицом', 'Пилинг', 'Массаж'],
-    bio: 'Косметолог с дипломом медицинской эстетики. Работает с аппаратными процедурами.',
-    user: { name: 'Ирина Соколова', email: 'i.sokolova@shantelyur.ru', phone: '+7 925 333-44-55' },
-  },
-  {
-    id: 's4', rating: 4.6, totalBookings: 189, revenue: 95000000, isActive: true,
-    specializations: ['Визаж', 'Брови', 'Ресницы'],
-    bio: 'Специалист по перманентному макияжу и коррекции бровей. Художественное образование.',
-    user: { name: 'Алина Петрова', email: 'a.petrova@shantelyur.ru', phone: '+7 916 444-55-66' },
-  },
-  {
-    id: 's5', rating: 4.5, totalBookings: 156, revenue: 72000000, isActive: false,
-    specializations: ['Массаж', 'СПА'],
-    bio: 'Дипломированный массажист. Тайский, расслабляющий, лечебный массаж.',
-    user: { name: 'Юлия Новикова', email: 'yu.novikova@shantelyur.ru', phone: '+7 903 555-66-77' },
-  },
-  {
-    id: 's6', rating: 4.8, totalBookings: 203, revenue: 108000000, isActive: true,
-    specializations: ['Эпиляция', 'Уход за телом'],
-    bio: 'Мастер лазерной и восковой эпиляции. Работает с чувствительной кожей.',
-    user: { name: 'Ольга Лебедева', email: 'o.lebedeva@shantelyur.ru', phone: '+7 925 666-77-88' },
-  },
-];
-
-const ALL_SPECIALIZATIONS = ['Окрашивание', 'Стрижки', 'Укладки', 'Маникюр', 'Педикюр', 'Дизайн', 'Уход за лицом', 'Пилинг', 'Массаж', 'Визаж', 'Брови', 'Ресницы', 'Эпиляция', 'Уход за телом', 'СПА', 'Обертывание', 'Шугаринг'];
+// ─── Local form type ──────────────────────────────────────────────────────────
 
 interface EditForm {
   name: string;
@@ -88,6 +33,41 @@ interface EditForm {
   specializations: string[];
   isActive: boolean;
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeSpecialist(raw: any, index: number): Specialist {
+  const user = raw.user ?? {};
+  const status: SpecialistStatus =
+    raw.status === 'ACTIVE' ? 'ACTIVE'
+    : raw.status === 'INACTIVE' ? 'INACTIVE'
+    : raw.status === 'ON_VACATION' ? 'ON_VACATION'
+    : raw.status === 'TERMINATED' ? 'TERMINATED'
+    : (raw.isActive === false ? 'INACTIVE' : 'ACTIVE');
+  return {
+    id: raw.id ?? String(index),
+    status,
+    isActive: status === 'ACTIVE',
+    rating: raw.rating != null ? Number(raw.rating) : undefined,
+    totalBookings: raw.totalBookings ?? raw._count?.appointments ?? 0,
+    revenue: raw.revenue != null ? Number(raw.revenue) * 100 : undefined,
+    specializations: Array.isArray(raw.specializations) ? raw.specializations
+      : raw.specialization ? [raw.specialization] : [],
+    bio: raw.bio,
+    experienceYears: raw.experienceYears,
+    commissionRate: raw.commissionRate != null ? Number(raw.commissionRate) : undefined,
+    color: raw.color,
+    todayBookings: raw.todayBookings,
+    user: {
+      name: user.name ?? raw.name ?? `Мастер ${index + 1}`,
+      email: user.email ?? raw.email,
+      phone: user.phone ?? raw.phone,
+    },
+  };
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -99,13 +79,24 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">{children}</p>;
+  return (
+    <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-1.5">
+      {children}
+    </p>
+  );
 }
 
-function TextInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+function TextInput({
+  value, onChange, placeholder, type = 'text',
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
   return (
     <input
-      type="text"
+      type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
@@ -119,11 +110,26 @@ function TextInput({ value, onChange, placeholder }: { value: string; onChange: 
   );
 }
 
+function WorkloadBadge({ count }: { count: number }) {
+  const level = count === 0 ? 'empty' : count <= 3 ? 'low' : count <= 6 ? 'normal' : 'high';
+  const config = {
+    empty: { label: 'Свободен', cls: 'bg-charcoal text-text-tertiary border-border-luxury' },
+    low:   { label: `${count} сег.`, cls: 'bg-sage/10 text-sage border-sage/20' },
+    normal:{ label: `${count} сег.`, cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    high:  { label: `${count} сег.`, cls: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  }[level];
+  return (
+    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium border', config.cls)}>
+      <Calendar className="w-3 h-3 mr-1" />
+      {config.label}
+    </span>
+  );
+}
+
+// ─── Edit dialog ──────────────────────────────────────────────────────────────
+
 function SpecialistEditDialog({
-  specialist,
-  open,
-  onClose,
-  onSave,
+  specialist, open, onClose, onSave,
 }: {
   specialist: Specialist | null;
   open: boolean;
@@ -144,8 +150,8 @@ function SpecialistEditDialog({
         email: specialist.user.email ?? '',
         phone: specialist.user.phone ?? '',
         bio: specialist.bio ?? '',
-        specializations: specialist.specializations ?? [],
-        isActive: specialist.isActive ?? true,
+        specializations: specialist.specializations,
+        isActive: specialist.isActive,
       });
       setSaved(false);
     }
@@ -176,35 +182,27 @@ function SpecialistEditDialog({
     if (!specialist) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/specialists/${specialist.id}`, {
+      await fetch(`/api/specialists/${specialist.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
-          bio: form.bio,
-          specializations: form.specializations,
-          isActive: form.isActive,
+          name: form.name, email: form.email, phone: form.phone,
+          bio: form.bio, specializations: form.specializations, isActive: form.isActive,
         }),
       });
-      const updated: Specialist = {
-        ...specialist,
-        bio: form.bio,
-        specializations: form.specializations,
-        isActive: form.isActive,
-        user: { name: form.name, email: form.email, phone: form.phone },
-      };
-      if (!res.ok) {
-        onSave(updated);
-      } else {
-        onSave(updated);
-      }
-      setSaved(true);
-      setTimeout(onClose, 800);
-    } finally {
-      setSaving(false);
-    }
+    } catch { /* optimistic */ }
+    const status: SpecialistStatus = form.isActive ? 'ACTIVE' : 'INACTIVE';
+    onSave({
+      ...specialist,
+      bio: form.bio,
+      specializations: form.specializations,
+      isActive: form.isActive,
+      status,
+      user: { name: form.name, email: form.email, phone: form.phone },
+    });
+    setSaved(true);
+    setTimeout(onClose, 700);
+    setSaving(false);
   }
 
   if (!specialist) return null;
@@ -214,7 +212,7 @@ function SpecialistEditDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Редактировать мастера</DialogTitle>
-          <DialogDescription>Обновите данные специалиста. Изменения сохраняются сразу.</DialogDescription>
+          <DialogDescription>Изменения применяются немедленно.</DialogDescription>
         </DialogHeader>
 
         <DialogBody className="space-y-5">
@@ -239,13 +237,11 @@ function SpecialistEditDialog({
             </button>
           </div>
 
-          {/* Name */}
           <div>
             <FieldLabel>Имя мастера</FieldLabel>
             <TextInput value={form.name} onChange={(v) => setField('name', v)} placeholder="Полное имя" />
           </div>
 
-          {/* Phone + Email */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <FieldLabel>Телефон</FieldLabel>
@@ -257,7 +253,6 @@ function SpecialistEditDialog({
             </div>
           </div>
 
-          {/* Bio */}
           <div>
             <FieldLabel>О мастере</FieldLabel>
             <textarea
@@ -267,14 +262,12 @@ function SpecialistEditDialog({
               rows={3}
               className={cn(
                 'w-full px-3 py-2.5 rounded-xl text-sm resize-none',
-                'bg-charcoal border border-border-luxury',
-                'text-text-primary placeholder:text-text-tertiary',
+                'bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary',
                 'focus:outline-none focus:border-champagne/50 transition-all',
               )}
             />
           </div>
 
-          {/* Specializations */}
           <div>
             <FieldLabel>Специализации</FieldLabel>
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -302,8 +295,7 @@ function SpecialistEditDialog({
                 placeholder="Добавить специализацию..."
                 className={cn(
                   'flex-1 px-3 py-2 rounded-xl text-xs',
-                  'bg-charcoal border border-border-luxury',
-                  'text-text-primary placeholder:text-text-tertiary',
+                  'bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary',
                   'focus:outline-none focus:border-champagne/50 transition-all',
                 )}
               />
@@ -316,7 +308,7 @@ function SpecialistEditDialog({
             </div>
           </div>
 
-          {/* Stats (read-only) */}
+          {/* Stats read-only */}
           <div className="grid grid-cols-3 gap-3 pt-2 border-t border-border-luxury">
             <div className="bg-charcoal rounded-xl p-3 text-center">
               <p className="text-xs text-text-tertiary mb-1">Записей</p>
@@ -328,7 +320,9 @@ function SpecialistEditDialog({
             </div>
             <div className="bg-charcoal rounded-xl p-3 text-center">
               <p className="text-xs text-text-tertiary mb-1">Выручка</p>
-              <p className="text-xs font-semibold text-champagne">{specialist.revenue ? formatCurrency(specialist.revenue) : '—'}</p>
+              <p className="text-xs font-semibold text-champagne">
+                {specialist.revenue != null ? formatCurrency(specialist.revenue) : '—'}
+              </p>
             </div>
           </div>
         </DialogBody>
@@ -338,8 +332,7 @@ function SpecialistEditDialog({
             <Button variant="secondary" size="sm">Отмена</Button>
           </DialogClose>
           <Button
-            variant="primary"
-            size="sm"
+            variant="primary" size="sm"
             onClick={handleSave}
             disabled={saving || saved}
             isLoading={saving}
@@ -353,21 +346,142 @@ function SpecialistEditDialog({
   );
 }
 
+// ─── Add specialist dialog ────────────────────────────────────────────────────
+
+function AddSpecialistDialog({
+  open, onClose, onAdd,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdd: (s: Specialist) => void;
+}) {
+  const [name, setName] = React.useState('');
+  const [phone, setPhone] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [bio, setBio] = React.useState('');
+  const [specs, setSpecs] = React.useState<string[]>([]);
+  const [saving, setSaving] = React.useState(false);
+
+  function reset() { setName(''); setPhone(''); setEmail(''); setBio(''); setSpecs([]); }
+
+  async function handleSubmit() {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      await fetch('/api/specialists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim(), bio, specializations: specs }),
+      });
+    } catch { /* optimistic */ }
+    onAdd({
+      id: `new-${Date.now()}`, status: 'ACTIVE', isActive: true,
+      specializations: specs, bio: bio.trim() || undefined,
+      todayBookings: 0, totalBookings: 0,
+      user: { name: name.trim(), email: email.trim() || undefined, phone: phone.trim() || undefined },
+    });
+    reset();
+    onClose();
+    setSaving(false);
+  }
+
+  const inputCls = cn(
+    'w-full px-3 py-2.5 rounded-xl text-sm',
+    'bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary',
+    'focus:outline-none focus:border-champagne/50 transition-all',
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Новый мастер</DialogTitle>
+        </DialogHeader>
+        <DialogBody className="space-y-4">
+          <div>
+            <FieldLabel>Имя *</FieldLabel>
+            <input className={inputCls} placeholder="Полное имя" value={name} onChange={e => setName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <FieldLabel>Телефон</FieldLabel>
+              <input className={inputCls} placeholder="+7 ..." value={phone} onChange={e => setPhone(e.target.value)} />
+            </div>
+            <div>
+              <FieldLabel>Email</FieldLabel>
+              <input className={inputCls} placeholder="email@..." value={email} onChange={e => setEmail(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <FieldLabel>О мастере</FieldLabel>
+            <textarea
+              className={cn(inputCls, 'resize-none')}
+              rows={2}
+              placeholder="Краткое описание..."
+              value={bio}
+              onChange={e => setBio(e.target.value)}
+            />
+          </div>
+          <div>
+            <FieldLabel>Специализации</FieldLabel>
+            <div className="flex flex-wrap gap-1.5">
+              {ALL_SPECIALIZATIONS.slice(0, 12).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSpecs(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])}
+                  className={cn(
+                    'px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                    specs.includes(s)
+                      ? 'bg-champagne/15 text-champagne border-champagne/30'
+                      : 'bg-charcoal text-text-secondary border-border-luxury hover:border-border-light',
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="secondary" size="sm" onClick={reset}>Отмена</Button>
+          </DialogClose>
+          <Button
+            variant="primary" size="sm"
+            onClick={handleSubmit}
+            disabled={!name.trim() || saving}
+            isLoading={saving}
+          >
+            Добавить
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function SpecialistsPage() {
   const { t } = useLocale();
+  const router = useRouter();
+
   const [specialists, setSpecialists] = React.useState<Specialist[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [search, setSearch] = React.useState('');
-  const [filter, setFilter] = React.useState<'all' | 'active' | 'inactive'>('all');
+  const [statusFilter, setStatusFilter] = React.useState<'all' | 'active' | 'inactive'>('all');
+  const [specFilter, setSpecFilter] = React.useState<string>('');
   const [editingSpec, setEditingSpec] = React.useState<Specialist | null>(null);
+  const [addingSpec, setAddingSpec] = React.useState(false);
 
   React.useEffect(() => {
     async function load() {
       try {
         const res = await fetch('/api/specialists');
         if (res.ok) {
-          const data = await res.json();
-          const items: Specialist[] = Array.isArray(data) ? data : data.specialists ?? [];
+          const json = await res.json();
+          const raw = Array.isArray(json) ? json : json?.data?.items ?? json?.specialists ?? [];
+          const items = raw.map(normalizeSpecialist);
           setSpecialists(items.length > 0 ? items : MOCK_SPECIALISTS);
         } else {
           setSpecialists(MOCK_SPECIALISTS);
@@ -383,17 +497,18 @@ export default function SpecialistsPage() {
 
   const filtered = React.useMemo(() => {
     return specialists.filter((s) => {
-      if (filter === 'active' && !s.isActive) return false;
-      if (filter === 'inactive' && s.isActive) return false;
+      if (statusFilter === 'active' && !s.isActive) return false;
+      if (statusFilter === 'inactive' && s.isActive) return false;
+      if (specFilter && !s.specializations.some(sp => sp === specFilter)) return false;
       if (search) {
         const q = search.toLowerCase();
         const name = s.user.name.toLowerCase();
-        const specs = s.specializations?.join(' ').toLowerCase() ?? '';
+        const specs = s.specializations.join(' ').toLowerCase();
         if (!name.includes(q) && !specs.includes(q)) return false;
       }
       return true;
     });
-  }, [specialists, filter, search]);
+  }, [specialists, statusFilter, specFilter, search]);
 
   const stats = React.useMemo(() => {
     const active = specialists.filter(s => s.isActive).length;
@@ -402,31 +517,48 @@ export default function SpecialistsPage() {
       ? specialists.reduce((acc, s) => acc + (s.rating ?? 0), 0) / specialists.length
       : 0;
     const totalRevenue = specialists.reduce((acc, s) => acc + (s.revenue ?? 0), 0);
-    return { active, totalBookings, avgRating, totalRevenue };
+    const todayTotal = specialists.reduce((acc, s) => acc + (s.todayBookings ?? 0), 0);
+    return { active, totalBookings, avgRating, totalRevenue, todayTotal };
+  }, [specialists]);
+
+  // All specializations that exist across current specialists
+  const availableSpecs = React.useMemo(() => {
+    const set = new Set<string>();
+    specialists.forEach(s => s.specializations.forEach(sp => set.add(sp)));
+    return Array.from(set).sort();
   }, [specialists]);
 
   function handleSave(updated: Specialist) {
     setSpecialists((prev) => prev.map((s) => s.id === updated.id ? updated : s));
   }
 
+  function handleAdd(s: Specialist) {
+    setSpecialists(prev => [s, ...prev]);
+  }
+
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
-      {/* Header */}
+
+      {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="font-serif text-2xl font-medium text-text-primary">
             {t('nav.specialists')}
           </h1>
           <p className="text-sm text-text-secondary mt-0.5">
-            Команда мастеров и управление профилями
+            Команда мастеров · {stats.todayTotal} записей сегодня
           </p>
         </div>
-        <Button variant="primary" size="md" leftIcon={<Plus className="w-4 h-4" />}>
+        <Button
+          variant="primary" size="md"
+          leftIcon={<Plus className="w-4 h-4" />}
+          onClick={() => setAddingSpec(true)}
+        >
           Добавить мастера
         </Button>
       </div>
 
-      {/* Stat Cards */}
+      {/* ── Stat Cards ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Активных мастеров"
@@ -435,8 +567,8 @@ export default function SpecialistsPage() {
           loading={loading}
         />
         <StatCard
-          title="Всего записей"
-          value={loading ? '—' : stats.totalBookings}
+          title="Сегодня записей"
+          value={loading ? '—' : stats.todayTotal}
           icon={<Calendar className="w-5 h-5" />}
           loading={loading}
         />
@@ -454,42 +586,90 @@ export default function SpecialistsPage() {
         />
       </div>
 
-      {/* Filters */}
-      <div className="bg-onyx border border-border-luxury rounded-2xl p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Поиск по имени, специализации..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={cn(
-              'w-full pl-9 pr-4 py-2.5 rounded-xl text-sm',
-              'bg-charcoal border border-border-luxury',
-              'text-text-primary placeholder:text-text-tertiary',
-              'focus:outline-none focus:border-champagne/50 transition-all',
-            )}
-          />
-        </div>
-        <div className="flex items-center gap-1.5">
-          {([['all', 'Все'], ['active', 'Активные'], ['inactive', 'Неактивные']] as const).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
+      {/* ── Filters ────────────────────────────────────────────────── */}
+      <div className="bg-onyx border border-border-luxury rounded-2xl p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Поиск по имени, специализации..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className={cn(
-                'px-3.5 py-2 rounded-xl text-sm font-medium transition-all',
-                filter === key
-                  ? 'bg-champagne/10 text-champagne border border-champagne/20'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-charcoal border border-transparent',
+                'w-full pl-9 pr-9 py-2.5 rounded-xl text-sm',
+                'bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary',
+                'focus:outline-none focus:border-champagne/50 transition-all',
+              )}
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Status filter */}
+          <div className="flex items-center gap-1.5">
+            {(['all', 'active', 'inactive'] as const).map((key) => (
+              <button
+                key={key}
+                onClick={() => setStatusFilter(key)}
+                className={cn(
+                  'px-3.5 py-2 rounded-xl text-sm font-medium transition-all border',
+                  statusFilter === key
+                    ? 'bg-champagne/10 text-champagne border-champagne/20'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-charcoal border-transparent',
+                )}
+              >
+                {key === 'all' ? 'Все' : key === 'active' ? 'Активные' : 'Неактивные'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Specialization filter chips */}
+        {!loading && availableSpecs.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-text-tertiary shrink-0">Специализация:</span>
+            <button
+              onClick={() => setSpecFilter('')}
+              className={cn(
+                'px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                specFilter === ''
+                  ? 'bg-champagne/10 text-champagne border-champagne/25'
+                  : 'bg-charcoal text-text-secondary border-border-luxury hover:border-border-light',
               )}
             >
-              {label}
+              Все
             </button>
-          ))}
+            {availableSpecs.map(sp => (
+              <button
+                key={sp}
+                onClick={() => setSpecFilter(sp === specFilter ? '' : sp)}
+                className={cn(
+                  'px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                  specFilter === sp
+                    ? 'bg-champagne/10 text-champagne border-champagne/25'
+                    : 'bg-charcoal text-text-secondary border-border-luxury hover:border-border-light',
+                )}
+              >
+                {sp}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="text-xs text-text-tertiary">
+          {filtered.length} из {specialists.length} мастеров
         </div>
       </div>
 
-      {/* Specialist Grid */}
+      {/* ── Grid ───────────────────────────────────────────────────── */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -516,25 +696,27 @@ export default function SpecialistsPage() {
           {filtered.map((spec) => (
             <div
               key={spec.id}
+              onClick={() => router.push(`/specialists/${spec.id}`)}
               className={cn(
-                'bg-onyx border rounded-2xl p-5 transition-all duration-200 group',
-                'hover:border-border-light hover:shadow-luxury cursor-pointer',
-                spec.isActive ? 'border-border-luxury' : 'border-border-luxury opacity-70',
+                'bg-onyx border rounded-2xl p-5 transition-all duration-200 group cursor-pointer',
+                'hover:border-border-light hover:shadow-luxury',
+                spec.isActive ? 'border-border-luxury' : 'border-border-luxury opacity-75',
               )}
-              onClick={() => setEditingSpec(spec)}
             >
               {/* Top row */}
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div className="flex items-center gap-3">
-                  <Avatar name={spec.user.name} size="md" />
-                  <div>
-                    <p className="text-sm font-semibold text-text-primary">{spec.user.name}</p>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar name={spec.user.name} size="md" className="shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-text-primary group-hover:text-champagne transition-colors truncate">
+                      {spec.user.name}
+                    </p>
                     {spec.rating !== undefined && <StarRating rating={spec.rating} />}
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Badge variant={spec.isActive ? 'success' : 'default'} dot>
-                    {spec.isActive ? 'Активен' : 'Неактивен'}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Badge variant={getStatusVariant(spec.status)} dot>
+                    {getStatusLabel(spec.status)}
                   </Badge>
                   <button
                     onClick={(e) => { e.stopPropagation(); setEditingSpec(spec); }}
@@ -543,21 +725,21 @@ export default function SpecialistsPage() {
                       'text-text-tertiary hover:text-champagne hover:bg-champagne/10',
                       'transition-all',
                     )}
-                    title="Редактировать"
+                    title="Быстрое редактирование"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* Bio snippet */}
+              {/* Bio */}
               {spec.bio && (
                 <p className="text-xs text-text-tertiary mb-3 line-clamp-2">{spec.bio}</p>
               )}
 
               {/* Specializations */}
-              {spec.specializations && spec.specializations.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-4">
+              {spec.specializations.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-3">
                   {spec.specializations.slice(0, 3).map((s) => (
                     <span
                       key={s}
@@ -574,22 +756,30 @@ export default function SpecialistsPage() {
                 </div>
               )}
 
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-charcoal rounded-xl p-3">
-                  <p className="text-xs text-text-tertiary mb-1">Записей</p>
-                  <p className="text-lg font-semibold text-text-primary">{spec.totalBookings ?? 0}</p>
+              {/* Stats + workload */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-charcoal rounded-xl p-2.5">
+                  <p className="text-xs text-text-tertiary mb-0.5">Записей</p>
+                  <p className="text-base font-semibold text-text-primary">{spec.totalBookings ?? 0}</p>
                 </div>
-                <div className="bg-charcoal rounded-xl p-3">
-                  <p className="text-xs text-text-tertiary mb-1">Выручка</p>
-                  <p className="text-sm font-semibold text-champagne truncate">
-                    {spec.revenue ? formatCurrency(spec.revenue) : '—'}
+                <div className="bg-charcoal rounded-xl p-2.5">
+                  <p className="text-xs text-text-tertiary mb-0.5">Выручка</p>
+                  <p className="text-xs font-semibold text-champagne truncate">
+                    {spec.revenue != null ? formatCurrency(spec.revenue) : '—'}
                   </p>
                 </div>
               </div>
 
+              {/* Workload today */}
+              {spec.todayBookings !== undefined && (
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-text-tertiary">Сегодня:</span>
+                  <WorkloadBadge count={spec.todayBookings} />
+                </div>
+              )}
+
               {/* Contact */}
-              <div className="space-y-1.5 border-t border-border-luxury pt-3">
+              <div className="space-y-1 border-t border-border-luxury pt-3">
                 {spec.user.phone && (
                   <div className="flex items-center gap-2 text-xs text-text-tertiary">
                     <Phone className="w-3.5 h-3.5 shrink-0" />
@@ -604,12 +794,10 @@ export default function SpecialistsPage() {
                 )}
               </div>
 
-              {/* Edit hint */}
-              <div className="mt-3 pt-3 border-t border-border-luxury opacity-0 group-hover:opacity-100 transition-opacity">
-                <p className="text-xs text-champagne/70 flex items-center gap-1">
-                  <Edit2 className="w-3 h-3" />
-                  Нажмите чтобы открыть профиль
-                </p>
+              {/* Profile link hint */}
+              <div className="mt-3 pt-3 border-t border-border-luxury flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-xs text-champagne/70">Открыть профиль</span>
+                <ChevronRight className="w-3.5 h-3.5 text-champagne/70" />
               </div>
             </div>
           ))}
@@ -618,16 +806,21 @@ export default function SpecialistsPage() {
 
       {!loading && filtered.length > 0 && (
         <p className="text-xs text-text-tertiary text-center">
-          Показано {filtered.length} из {specialists.length} мастеров · Нажмите на карточку для редактирования
+          Нажмите на карточку, чтобы открыть профиль · Значок редактирования — для быстрого изменения
         </p>
       )}
 
-      {/* Edit Modal */}
+      {/* Dialogs */}
       <SpecialistEditDialog
         specialist={editingSpec}
         open={!!editingSpec}
         onClose={() => setEditingSpec(null)}
         onSave={handleSave}
+      />
+      <AddSpecialistDialog
+        open={addingSpec}
+        onClose={() => setAddingSpec(false)}
+        onAdd={handleAdd}
       />
     </div>
   );
