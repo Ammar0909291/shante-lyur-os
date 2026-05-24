@@ -231,9 +231,9 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
       fetch('/api/specialists', { headers }).then((r) => r.json()),
       fetch('/api/operations/rooms', { headers }).then((r) => r.json()),
     ]).then(([svcJson, specJson, roomJson]) => {
-      if (svcJson.success) setServices((svcJson.data?.services ?? svcJson.data ?? []) as Service[]);
+      if (svcJson.success) setServices((svcJson.data?.items ?? svcJson.data?.services ?? []) as Service[]);
       if (specJson.success) {
-        setSpecialists(((specJson.data?.specialists ?? specJson.data ?? []) as Array<{ id: string; user?: { firstName?: string; lastName?: string }; name?: string; firstName?: string; lastName?: string }>).map((s) => ({
+        setSpecialists(((specJson.data?.items ?? specJson.data?.specialists ?? []) as Array<{ id: string; user?: { firstName?: string; lastName?: string }; name?: string; firstName?: string; lastName?: string }>).map((s) => ({
           id: s.id,
           name: s.name ?? `${s.firstName ?? s.user?.firstName ?? ''} ${s.lastName ?? s.user?.lastName ?? ''}`.trim(),
         })));
