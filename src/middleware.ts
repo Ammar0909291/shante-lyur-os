@@ -92,11 +92,9 @@ const PAGE_RULES: PageRule[] = [
   // Specialist (cosmetologist / massagist) only
   { path: '/my-panel', roles: [...SPECIALIST_ROLES], redirect: '/dashboard' },
 
-  // All employees (no clients on internal chat, finance pages, etc.)
+  // All employees only
   { path: '/chat', roles: [...EMPLOYEE_ROLES], redirect: '/dashboard' },
-
-  // Bookings — all authenticated users allowed (CLIENT can view own)
-  // No restriction rule → falls through to generic auth check
+  { path: '/bookings', roles: [...EMPLOYEE_ROLES], redirect: '/dashboard' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -207,7 +205,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     const token = extractToken(request);
     if (token) {
       const user = await verifyToken(token);
-      if (user) {
+      // Only redirect employees to dashboard — CLIENT role is not permitted in the CRM
+      if (user && EMPLOYEE_ROLES.includes(user.role as typeof EMPLOYEE_ROLES[number])) {
         return redirectTo('/dashboard', request);
       }
     }
@@ -239,6 +238,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       const user = await verifyToken(token);
       if (!user) {
         const res = jsonError('UNAUTHORIZED', 'Invalid or expired token', 401);
+        applyCorsHeaders(res, request);
+        applySecurityHeaders(res);
+        return res;
+      }
+
+      // CLIENT role is not permitted to access the CRM
+      if (!EMPLOYEE_ROLES.includes(user.role as typeof EMPLOYEE_ROLES[number])) {
+        const res = jsonError('FORBIDDEN', 'CRM access is restricted to salon staff', 403);
         applyCorsHeaders(res, request);
         applySecurityHeaders(res);
         return res;
@@ -297,6 +304,11 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     const user = await verifyToken(token);
     if (!user) {
       return redirectTo(`/login?next=${encodeURIComponent(pathname)}`, request);
+    }
+
+    // CLIENT role is not permitted in the CRM — redirect to login
+    if (!EMPLOYEE_ROLES.includes(user.role as typeof EMPLOYEE_ROLES[number])) {
+      return redirectTo('/login', request);
     }
 
     // Check page-level role restriction
