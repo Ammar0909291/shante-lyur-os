@@ -36,7 +36,7 @@ interface ApiUser {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST', 'COSMETOLOGIST', 'MASSAGIST', 'CLIENT'];
+const ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST', 'COSMETOLOGIST', 'MASSAGIST'];
 
 const ROLE_META: Record<UserRole, { label: string; color: string; bg: string }> = {
   SUPER_ADMIN:   { label: 'Супер-администратор', color: 'text-amber-400',   bg: 'bg-amber-400/10 border-amber-400/30' },
