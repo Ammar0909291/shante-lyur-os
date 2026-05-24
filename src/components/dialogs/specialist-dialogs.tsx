@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
+import { apiPost, ApiError } from '@/lib/api-client';
 
 export interface SpecialistLike {
   id: string;
@@ -42,17 +43,23 @@ export function CreateSpecialistDialog({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
-      toast.error('Введите имя');
-      return;
-    }
+    if (!name.trim()) { toast.error('Введите имя'); return; }
     setBusy(true);
-    await new Promise((r) => setTimeout(r, 300));
-    toast.success('Специалист добавлен');
-    setBusy(false);
-    setName(''); setSpecialization(''); setEmail(''); setPhone('');
-    onOpenChange(false);
-    onCreated?.();
+    try {
+      await apiPost('/api/specialists', { name: name.trim(), specialization, email, phone }, { silent: true });
+      toast.success('Специалист добавлен');
+      setName(''); setSpecialization(''); setEmail(''); setPhone('');
+      onOpenChange(false);
+      onCreated?.();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        toast.error('Email уже используется');
+      } else {
+        toast.error(err instanceof Error ? err.message : 'Не удалось добавить специалиста');
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

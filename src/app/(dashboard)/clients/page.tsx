@@ -56,8 +56,8 @@ export default function ClientsPage() {
   const t = useT();
 
   React.useEffect(() => {
-    apiGet<{ data: Client[] }>('/api/customers')
-      .then((res) => { if (res.data?.length) setClients(res.data); })
+    apiGet<{ data: { items: Client[] } }>('/api/customers')
+      .then((res) => { if (res.data?.items?.length) setClients(res.data.items); })
       .catch(() => {/* use mock */});
   }, []);
 

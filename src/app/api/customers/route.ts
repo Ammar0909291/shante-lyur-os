@@ -2,10 +2,12 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { DIRegistry } from '@/infrastructure/config/di-registry';
-import { ListCustomersUseCase, CreateCustomerProfileUseCase } from '@/application/use-cases/crm';
-import { ListCustomersSchema, CreateCustomerProfileSchema } from '@/application/dto';
+import { CreateCustomerProfileUseCase } from '@/application/use-cases/crm';
+import { CreateCustomerProfileSchema } from '@/application/dto';
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
+import { prisma } from '@/infrastructure/config/prisma-client';
+import { z } from 'zod';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -31,18 +33,59 @@ export async function GET(req: NextRequest) {
     const raw: Record<string, string> = {};
     params.forEach((value, key) => { raw[key] = value; });
 
-    const parsed = ListCustomersSchema.safeParse(raw);
+    const querySchema = z.object({
+      search: z.string().optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+      loyaltyTier: z.string().optional(),
+    });
+    const parsed = querySchema.safeParse(raw);
     if (!parsed.success) {
       return apiError('VALIDATION_ERROR', 'Invalid query parameters', 400, {
         issues: parsed.error.issues,
       });
     }
 
-    const registry = DIRegistry.instance;
-    const useCase = new ListCustomersUseCase(registry.customerProfileRepository);
-    const result = await useCase.execute(parsed.data);
+    const { search, page, limit, loyaltyTier } = parsed.data;
 
-    return ok(result);
+    const where: Record<string, unknown> = {};
+    if (loyaltyTier) where.loyaltyTier = loyaltyTier;
+    if (search) {
+      where.user = {
+        OR: [
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search } },
+        ],
+      };
+    }
+
+    const [rows, total] = await Promise.all([
+      prisma.customerProfile.findMany({
+        where,
+        include: { user: { select: { firstName: true, lastName: true, email: true, phone: true } } },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.customerProfile.count({ where }),
+    ]);
+
+    const items = rows.map((p) => ({
+      id: p.id,
+      name: `${p.user.firstName} ${p.user.lastName}`.trim(),
+      email: p.user.email,
+      phone: p.user.phone ?? '',
+      visits: p.totalVisits,
+      totalSpent: typeof p.totalSpent === 'object' && 'toNumber' in p.totalSpent
+        ? (p.totalSpent as { toNumber(): number }).toNumber()
+        : Number(p.totalSpent),
+      tier: p.loyaltyTier,
+      lastVisit: p.lastVisitAt ? p.lastVisitAt.toLocaleDateString('ru-RU') : '—',
+    }));
+
+    return ok({ items, total, page, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     if (error instanceof DomainError) {
       return apiError(error.code, error.message, error.statusCode);

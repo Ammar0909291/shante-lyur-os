@@ -39,17 +39,18 @@ export default function SpecialistsPage() {
   const [selected, setSelected] = React.useState<SpecialistLike | null>(null);
   const t = useT();
 
-  React.useEffect(() => {
-    apiGet<{ data: SpecialistLike[] }>('/api/specialists')
-      .then((res) => { if (res.data?.length) setSpecialists(res.data); })
-      .catch(() => {});
-  }, []);
-
-  function reload() {
-    apiGet<{ data: SpecialistLike[] }>('/api/specialists')
-      .then((res) => { if (res.data?.length) setSpecialists(res.data); })
+  function loadSpecialists() {
+    apiGet<{ data: { items: SpecialistLike[] } }>('/api/specialists')
+      .then((res) => {
+        const items = res.data?.items;
+        if (items?.length) setSpecialists(items);
+      })
       .catch(() => {});
   }
+
+  React.useEffect(() => { loadSpecialists(); }, []);
+
+  function reload() { loadSpecialists(); }
 
   return (
     <div className="p-6 lg:p-8 space-y-6 animate-fade-in">
