@@ -47,6 +47,13 @@ jest.mock('@/infrastructure/config/prisma-client', () => ({
     auditLog: {
       create: jest.fn(),
     },
+    revenueRecord: {
+      create: jest.fn(),
+    },
+    customerProfile: {
+      findUnique: jest.fn(),
+      update:     jest.fn(),
+    },
     $transaction: jest.fn(),
   },
 }));
@@ -69,8 +76,10 @@ const p = _prisma as unknown as {
   refund:     { findMany: AnyFn; create: AnyFn; aggregate: AnyFn };
   appointment:{ findMany: AnyFn; findUnique: AnyFn; update: AnyFn };
   expense:    { findMany: AnyFn; findUnique: AnyFn; create: AnyFn; update: AnyFn; delete: AnyFn };
-  stockMovement: { findMany: AnyFn; aggregate: AnyFn };
-  auditLog:   { create: AnyFn };
+  stockMovement:   { findMany: AnyFn; aggregate: AnyFn };
+  auditLog:        { create: AnyFn };
+  revenueRecord:   { create: AnyFn };
+  customerProfile: { findUnique: AnyFn; update: AnyFn };
   $transaction: AnyFn;
 };
 
@@ -101,6 +110,9 @@ const PAYMENT = {
 
 const APT = {
   id:             UUID_APT,
+  clientId:       UUID_USER,
+  specialistId:   UUID_SPEC,
+  locationId:     '550e8400-e29b-41d4-a716-446655440017',
   totalPrice:     dec(5000),
   paidAmount:     dec(0),
   discountAmount: null,
@@ -195,6 +207,9 @@ describe('POST /api/finance/payments', () => {
     });
     p.appointment.update.mockResolvedValue({});
     p.auditLog.create.mockResolvedValue({});
+    p.revenueRecord.create.mockResolvedValue({});
+    p.customerProfile.findUnique.mockResolvedValue(null); // no profile → skip lifetime update
+    p.customerProfile.update.mockResolvedValue({});
   }
 
   it('creates payment and updates appointment to PAID', async () => {
