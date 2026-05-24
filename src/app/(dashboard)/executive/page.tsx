@@ -14,6 +14,7 @@ import {
   ArrowDownLeft, ChevronRight, Minus,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useChartTheme } from '@/lib/use-chart-theme';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -83,10 +84,6 @@ interface RisksData {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TOOLTIP_STYLE = {
-  backgroundColor: '#13131A', border: '1px solid #2A2A38',
-  borderRadius: '12px', padding: '10px 14px', color: '#F0EDE8', fontSize: '12px',
-};
 
 const CHART_COLORS = { champagne: '#C9A96E', sage: '#7C9A7E', red: '#EF4444', amber: '#F59E0B', blue: '#60A5FA', purple: '#A78BFA' };
 
@@ -203,6 +200,7 @@ function HealthGauge({ score, grade }: { score: number; grade: string }) {
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ExecutivePage() {
+  const chart = useChartTheme();
   const [tab, setTab]       = React.useState<TabId>('overview');
   const [period, setPeriod] = React.useState<Period>(30);
 
@@ -385,7 +383,7 @@ export default function ExecutivePage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" />
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#8A8A9A' }} tickFormatter={(v: string) => v.slice(5)} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10, fill: '#8A8A9A' }} tickFormatter={(v: number) => `${(v/1000).toFixed(0)}к`} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatCurrency(v), 'Выручка']} />
+                  <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v), 'Выручка']} />
                   <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.champagne} strokeWidth={2} fill="url(#revGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -503,7 +501,7 @@ export default function ExecutivePage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" />
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#8A8A9A' }} tickFormatter={(v: string) => v.slice(5)} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10, fill: '#8A8A9A' }} tickFormatter={(v: number) => `${(v/1000).toFixed(0)}к`} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatCurrency(v)]} />
+                  <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v)]} />
                   {/* Historical */}
                   <Area type="monotone" data={forecast.historicalDays} dataKey="revenue" stroke={CHART_COLORS.champagne} strokeWidth={2} fill="url(#histGrad)" name="История" />
                   {/* Forecast upper bound */}
@@ -520,7 +518,7 @@ export default function ExecutivePage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#8A8A9A' }} />
                   <YAxis tick={{ fontSize: 10, fill: '#8A8A9A' }} tickFormatter={(v: number) => `${(v/1000).toFixed(0)}к`} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatCurrency(v), 'Ср. выручка']} />
+                  <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v), 'Ср. выручка']} />
                   <Bar dataKey="avgRevenue" radius={[4, 4, 0, 0]}>
                     {forecast.dowDemand.map((entry, i) => (
                       <Cell key={i} fill={entry.isHigh ? CHART_COLORS.champagne : entry.isLow ? '#3A3A48' : '#5A5A6A'} />
@@ -621,7 +619,7 @@ export default function ExecutivePage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" />
                     <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#8A8A9A' }} />
                     <YAxis tick={{ fontSize: 10, fill: '#8A8A9A' }} unit="%" domain={[0, 100]} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}%`, 'Удержание']} />
+                    <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [`${v}%`, 'Удержание']} />
                     <Line type="monotone" dataKey="rate" stroke={CHART_COLORS.champagne} strokeWidth={2} dot={{ r: 4, fill: CHART_COLORS.champagne }} />
                     <ReferenceLine y={50} stroke={CHART_COLORS.red} strokeDasharray="4 4" label={{ value: '50%', fill: '#EF4444', fontSize: 10 }} />
                   </LineChart>
@@ -691,7 +689,7 @@ export default function ExecutivePage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" />
                   <XAxis type="number" tick={{ fontSize: 10, fill: '#8A8A9A' }} domain={[0, 100]} unit="%" />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#C9A96E' }} width={75} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}%`, 'Эффективность']} />
+                  <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [`${v}%`, 'Эффективность']} />
                   <Bar dataKey="efficiency" radius={[0, 4, 4, 0]}>
                     {d.specialists.slice(0, 8).map((entry, i) => (
                       <Cell key={i} fill={entry.efficiency >= 70 ? CHART_COLORS.champagne : entry.efficiency >= 50 ? CHART_COLORS.sage : '#5A5A6A'} />
@@ -771,7 +769,7 @@ export default function ExecutivePage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" />
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#8A8A9A' }} />
                   <YAxis tick={{ fontSize: 10, fill: '#8A8A9A' }} tickFormatter={(v: number) => `${(v/1000).toFixed(0)}к`} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [formatCurrency(v)]} />
+                  <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v)]} />
                   <Legend />
                   <Bar dataKey="Выручка"    fill={CHART_COLORS.champagne} radius={[4, 4, 0, 0]} />
                   <Bar dataKey="Возвраты"   fill={CHART_COLORS.red}       radius={[4, 4, 0, 0]} />

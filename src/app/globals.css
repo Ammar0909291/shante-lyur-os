@@ -228,6 +228,99 @@ html.light [role="tab"] {
 }
 html.light .text-text-tertiary:is(button, a) { color: #5A5550 !important; }
 
+/* ─── Light Theme: Missing opacity variants ──────────────────────────────── */
+
+/* charcoal opacity variants (50 already covered above) */
+html.light .bg-charcoal\/10  { background-color: rgba(227, 221, 213, 0.30) !important; }
+html.light .bg-charcoal\/20  { background-color: rgba(227, 221, 213, 0.40) !important; }
+html.light .bg-charcoal\/30  { background-color: rgba(227, 221, 213, 0.50) !important; }
+html.light .bg-charcoal\/40  { background-color: rgba(227, 221, 213, 0.60) !important; }
+html.light .bg-charcoal\/60  { background-color: rgba(227, 221, 213, 0.72) !important; }
+html.light .bg-charcoal\/70  { background-color: rgba(227, 221, 213, 0.80) !important; }
+html.light .bg-charcoal\/80  { background-color: rgba(227, 221, 213, 0.88) !important; }
+
+html.light .hover\:bg-charcoal\/30:hover { background-color: rgba(227, 221, 213, 0.50) !important; }
+html.light .hover\:bg-charcoal\/40:hover { background-color: rgba(227, 221, 213, 0.60) !important; }
+html.light .hover\:bg-charcoal\/60:hover { background-color: rgba(227, 221, 213, 0.72) !important; }
+html.light .hover\:bg-charcoal\/80:hover { background-color: rgba(227, 221, 213, 0.88) !important; }
+
+/* onyx / obsidian opacity variants */
+html.light .bg-onyx\/50      { background-color: rgba(237, 232, 225, 0.65) !important; }
+html.light .bg-onyx\/80      { background-color: rgba(237, 232, 225, 0.88) !important; }
+html.light .bg-obsidian\/20  { background-color: rgba(245, 241, 236, 0.35) !important; }
+html.light .bg-obsidian\/70  { background-color: rgba(220, 215, 207, 0.88) !important; }
+html.light .border-obsidian  { border-color: #EDE8E1 !important; }
+html.light .border-onyx      { border-color: #EDE8E1 !important; }
+
+/* White opacity classes → dark-on-light inversions */
+html.light .hover\:bg-white\/5:hover   { background-color: rgba(0, 0, 0, 0.05) !important; }
+html.light .hover\:bg-white\/8:hover   { background-color: rgba(0, 0, 0, 0.06) !important; }
+html.light .active\:bg-white\/8:active { background-color: rgba(0, 0, 0, 0.06) !important; }
+
+/* Champagne opacity variants (Tailwind generates static rgba, not CSS-var-aware) */
+html.light .bg-champagne\/10           { background-color: rgba(184, 146, 42, 0.12) !important; }
+html.light .bg-champagne\/15           { background-color: rgba(184, 146, 42, 0.16) !important; }
+html.light .bg-champagne\/20           { background-color: rgba(184, 146, 42, 0.18) !important; }
+html.light .bg-champagne\/5            { background-color: rgba(184, 146, 42, 0.07) !important; }
+html.light .hover\:bg-champagne\/20:hover { background-color: rgba(184, 146, 42, 0.22) !important; }
+html.light .border-champagne\/15       { border-color: rgba(184, 146, 42, 0.22) !important; }
+html.light .border-champagne\/20       { border-color: rgba(184, 146, 42, 0.28) !important; }
+html.light .border-champagne\/50       { border-color: rgba(184, 146, 42, 0.55) !important; }
+html.light .bg-champagne\/60           { background-color: rgba(184, 146, 42, 0.55) !important; }
+html.light .bg-champagne\/50           { background-color: rgba(184, 146, 42, 0.48) !important; }
+
+/* Zinc colors (inventory, status labels) */
+html.light .text-zinc-400        { color: #5A5855 !important; }
+html.light .text-zinc-300        { color: #4A4845 !important; }
+html.light .bg-zinc-500\/10      { background-color: rgba(90, 88, 85, 0.10) !important; }
+html.light .border-zinc-400\/20  { border-color: rgba(90, 88, 85, 0.25) !important; }
+html.light .text-zinc-500        { color: #6A6865 !important; }
+
+/* Slate colors */
+html.light .text-slate-400       { color: #5A6070 !important; }
+html.light .bg-slate-400\/10     { background-color: rgba(90, 96, 112, 0.10) !important; }
+
+/* Lavender accent (appointments, calendar) */
+html.light .text-lavender        { color: #6A4AB0 !important; }
+html.light .bg-lavender\/10      { background-color: rgba(106, 74, 176, 0.10) !important; }
+html.light .bg-lavender\/20      { background-color: rgba(106, 74, 176, 0.16) !important; }
+html.light .border-lavender\/20  { border-color: rgba(106, 74, 176, 0.25) !important; }
+html.light .border-lavender\/30  { border-color: rgba(106, 74, 176, 0.32) !important; }
+
+/* Blush accent (spa, beauty categories) */
+html.light .text-blush           { color: #A04040 !important; }
+html.light .bg-blush\/10         { background-color: rgba(160, 64, 64, 0.10) !important; }
+html.light .bg-blush\/20         { background-color: rgba(160, 64, 64, 0.16) !important; }
+html.light .border-blush\/20     { border-color: rgba(160, 64, 64, 0.25) !important; }
+html.light .border-blush\/30     { border-color: rgba(160, 64, 64, 0.32) !important; }
+
+/* Glass effects — invert for light surfaces */
+html.light .glass {
+  background: rgba(0, 0, 0, 0.02) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+html.light .glass-medium {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.10) !important;
+}
+
+/* Nav link hover — was rgba(255,255,255,0.04) which is invisible on light bg */
+html.light .nav-link:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: #181410 !important;
+}
+
+/* Card hover — lighter depth cue */
+html.light .card-luxury:hover {
+  border-color: #B8B2AA !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10), 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Sage accent in light mode */
+html.light .bg-sage\/15   { background-color: rgba(60, 120, 60, 0.14) !important; }
+html.light .bg-sage\/10   { background-color: rgba(60, 120, 60, 0.10) !important; }
+html.light .border-sage\/30 { border-color: rgba(60, 120, 60, 0.30) !important; }
+
 /* ─── Base Styles ────────────────────────────────────────────────────── */
 @layer base {
   *,
