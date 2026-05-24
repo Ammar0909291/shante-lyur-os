@@ -4,6 +4,7 @@ import { createAppointmentReminderWorker } from './workers/appointment-reminder.
 import { createPaymentWebhookWorker } from './workers/payment-webhook.worker';
 import { createAIPredictionWorker } from './workers/ai-prediction.worker';
 import { createAuditLogWorker } from './workers/audit-log.worker';
+import { createOmnichannelMessageWorker } from './workers/omnichannel-message.worker';
 
 export {
   createNotificationWorker,
@@ -11,6 +12,7 @@ export {
   createPaymentWebhookWorker,
   createAIPredictionWorker,
   createAuditLogWorker,
+  createOmnichannelMessageWorker,
 };
 
 let _workers: Worker[] = [];
@@ -25,6 +27,7 @@ export function startAllWorkers(): Worker[] {
     createPaymentWebhookWorker(),
     createAIPredictionWorker(),
     createAuditLogWorker(),
+    createOmnichannelMessageWorker(),
   ];
 
   console.info(`[WorkerRegistry] Started ${_workers.length} workers`);

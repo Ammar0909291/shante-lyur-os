@@ -28,6 +28,7 @@ const RU: Record<string, string> = {
   'nav.promoCodes': 'Промокоды',
   'nav.executive': 'Аналитика CEO',
   'nav.chat': 'Чат',
+  'nav.communications': 'Коммуникации',
   'nav.settings': 'Настройки',
 
   // ─── Receptionist workflow center ─────────────────────────────────────────────
@@ -1144,6 +1145,7 @@ const EN: Record<string, string> = {
   'nav.promoCodes': 'Promo Codes',
   'nav.executive': 'Executive',
   'nav.chat': 'Chat',
+  'nav.communications': 'Communications',
   'nav.settings': 'Settings',
 
   // ─── Receptionist workflow center ─────────────────────────────────────────────

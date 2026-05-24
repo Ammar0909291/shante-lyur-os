@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings,
   MessageCircle,
+  Radio,
   ShoppingBag,
   Package,
   ChevronLeft,
@@ -52,6 +53,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'nav.promoCodes', href: '/promo-codes', icon: BadgePercent, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { key: 'nav.executive', href: '/executive', icon: Brain, roles: ['SUPER_ADMIN', 'ADMIN'] },
   { key: 'nav.chat', href: '/chat', icon: MessageCircle },
+  { key: 'nav.communications', href: '/communications', icon: Radio, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
   { key: 'nav.settings', href: '/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
 

@@ -14,6 +14,17 @@ export interface NotificationJob {
   data: Record<string, unknown>;
 }
 
+export interface OmnichannelMessageJob {
+  outboundMessageId: string;
+  userId: string;
+  channel: 'whatsapp' | 'telegram' | 'max' | 'email';
+  templateKey: string;
+  vars: Record<string, string>;
+  appointmentId?: string;
+  retryCount?: number;
+  lang?: 'ru' | 'en';
+}
+
 export interface PaymentWebhookJob {
   provider: 'yookassa' | 'robokassa';
   rawPayload: string;

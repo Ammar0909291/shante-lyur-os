@@ -10,6 +10,7 @@ import type { IEventBus } from '@/application/ports';
 import type { DomainEvent } from '@/domain/events';
 import { ok, apiError, validationError, unauthorized, internalError } from '@/lib/api-response';
 import { logAudit, getRequestMeta } from '@/lib/audit-logger';
+import { triggerBookingConfirmation } from '@/lib/communication/booking-triggers';
 
 const noopEventBus: IEventBus = {
   async publish(_event: DomainEvent): Promise<void> {},
@@ -92,6 +93,35 @@ export async function POST(req: NextRequest) {
       effectiveClientId,
       role,
     );
+
+    // Trigger omnichannel booking confirmation (non-blocking)
+    void (async () => {
+      try {
+        const apt = result.appointment;
+        const clientUser = await registry.userRepository.findById(effectiveClientId).catch(() => null);
+        const specialistUser = apt.specialistId
+          ? await registry.userRepository.findById(apt.specialistId).catch(() => null)
+          : null;
+        const services = apt.services ?? [];
+        const serviceName = services[0]?.name ?? 'Услуга';
+        const startAt = new Date(apt.startAt);
+        const dateStr = startAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+        const timeStr = startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+        await triggerBookingConfirmation({
+          appointmentId: apt.id,
+          clientUserId: effectiveClientId,
+          specialistUserId: apt.specialistId ?? undefined,
+          clientName: clientUser ? `${clientUser.firstName} ${clientUser.lastName}` : 'Клиент',
+          specialistName: specialistUser ? `${specialistUser.firstName} ${specialistUser.lastName}` : 'Специалист',
+          serviceName,
+          date: dateStr,
+          time: timeStr,
+        });
+      } catch (err) {
+        console.warn('[Appointments] Booking trigger error (non-critical):', err instanceof Error ? err.message : err);
+      }
+    })();
 
     // Audit: appointment created
     const { ipAddress, userAgent } = getRequestMeta(req);

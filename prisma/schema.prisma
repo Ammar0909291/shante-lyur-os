@@ -64,7 +64,9 @@ model User {
   inventoryMovements  StockMovement[]            @relation("InventoryMovementUser")
   expensesCreated     Expense[]                  @relation("ExpenseCreator")
   balanceTransactions ClientBalanceTransaction[] @relation("ClientBalanceTransactions")
-  promoCodeUsages     PromoCodeUsage[]
+  promoCodeUsages         PromoCodeUsage[]
+  outboundMessages        OutboundMessage[]
+  communicationPreference CommunicationPreference?
 
   @@index([email])
   @@index([role, status])
@@ -333,6 +335,7 @@ model Appointment {
   procedureHistory ProcedureHistory[]
   stockMovements   StockMovement[]
   promoCodeUsages  PromoCodeUsage[]
+  outboundMessages OutboundMessage[]
 
   @@index([clientId, startAt])
   @@index([specialistId, startAt])
@@ -851,6 +854,9 @@ enum NotificationChannel {
   SMS
   PUSH
   IN_APP
+  WHATSAPP
+  TELEGRAM
+  MAX
 }
 
 enum NotificationType {
@@ -864,6 +870,27 @@ enum NotificationType {
   WELCOME
   PASSWORD_RESET
   SYSTEM
+  STAFF_ALERT
+  OPERATIONAL_ALERT
+  PROMOTIONAL
+}
+
+enum OutboundMessageStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  DEAD_LETTER
+}
+
+enum MessageTemplateChannel {
+  WHATSAPP
+  TELEGRAM
+  MAX
+  EMAIL
+  ALL
 }
 
 enum NotificationStatus {
@@ -1385,4 +1412,93 @@ model AttendanceRecord {
   @@index([specialistId, date])
   @@index([date, status])
   @@map("attendance_records")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OMNICHANNEL COMMUNICATION LAYER
+// ═══════════════════════════════════════════════════════════════
+
+model MessageTemplate {
+  id          String                 @id @default(uuid()) @db.Uuid
+  key         String                 @unique @db.VarChar(100)
+  name        String                 @db.VarChar(200)
+  channel     MessageTemplateChannel @default(ALL)
+  type        NotificationType
+  subject     String?                @db.VarChar(255)
+  bodyRu      String                 @map("body_ru") @db.Text
+  bodyEn      String?                @map("body_en") @db.Text
+  variables   Json                   @default("[]")
+  isActive    Boolean                @default(true) @map("is_active")
+  whatsappTemplateName String?       @map("whatsapp_template_name") @db.VarChar(100)
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+
+  outboundMessages OutboundMessage[]
+
+  @@index([key])
+  @@index([channel, type])
+  @@map("message_templates")
+}
+
+model OutboundMessage {
+  id             String                @id @default(uuid()) @db.Uuid
+  userId         String                @map("user_id") @db.Uuid
+  appointmentId  String?               @map("appointment_id") @db.Uuid
+  templateId     String?               @map("template_id") @db.Uuid
+  channel        NotificationChannel
+  provider       String                @db.VarChar(30)
+  recipientPhone String?               @map("recipient_phone") @db.VarChar(30)
+  recipientChatId String?              @map("recipient_chat_id") @db.VarChar(100)
+  recipientEmail String?               @map("recipient_email") @db.VarChar(255)
+  subject        String?               @db.VarChar(255)
+  body           String                @db.Text
+  templateData   Json?                 @map("template_data")
+  status         OutboundMessageStatus @default(PENDING)
+  externalId     String?               @map("external_id") @db.VarChar(255)
+  retryCount     Int                   @default(0) @map("retry_count")
+  maxRetries     Int                   @default(3) @map("max_retries")
+  scheduledAt    DateTime?             @map("scheduled_at")
+  sentAt         DateTime?             @map("sent_at")
+  deliveredAt    DateTime?             @map("delivered_at")
+  readAt         DateTime?             @map("read_at")
+  failedAt       DateTime?             @map("failed_at")
+  errorMessage   String?               @map("error_message") @db.Text
+  providerResponse Json?               @map("provider_response")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  template    MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([appointmentId])
+  @@index([channel, status])
+  @@index([status, scheduledAt])
+  @@index([createdAt])
+  @@map("outbound_messages")
+}
+
+model CommunicationPreference {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  whatsappEnabled Boolean  @default(false) @map("whatsapp_enabled")
+  telegramEnabled Boolean  @default(false) @map("telegram_enabled")
+  maxEnabled      Boolean  @default(false) @map("max_enabled")
+  emailEnabled    Boolean  @default(true) @map("email_enabled")
+  inAppEnabled    Boolean  @default(true) @map("in_app_enabled")
+  whatsappPhone   String?  @map("whatsapp_phone") @db.VarChar(30)
+  telegramChatId  String?  @map("telegram_chat_id") @db.VarChar(100)
+  maxUserId       String?  @map("max_user_id") @db.VarChar(100)
+  allowPromotional Boolean @default(true) @map("allow_promotional")
+  allowReminders  Boolean  @default(true) @map("allow_reminders")
+  allowConfirmations Boolean @default(true) @map("allow_confirmations")
+  allowStaffAlerts Boolean @default(true) @map("allow_staff_alerts")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("communication_preferences")
 }
