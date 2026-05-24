@@ -97,7 +97,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const { t } = useLanguage();
   const [collapsed, setCollapsed] = React.useState(false);
   const role = useUserRole();
-  const visibleItems = NAV_ITEMS.filter((item) => !item.roles || !role || item.roles.includes(role));
+  const visibleItems = NAV_ITEMS.filter((item) => !item.roles || (!!role && item.roles.includes(role)));
 
   return (
     <>

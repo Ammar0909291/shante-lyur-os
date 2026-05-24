@@ -247,7 +247,7 @@ function UserMenu() {
   const [me, setMe] = React.useState<{ firstName: string; lastName: string; email: string; role: string } | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/admin/users/me', { credentials: 'include' })
+    fetch('/api/auth/me', { credentials: 'include' })
       .then((r) => r.json())
       .then((json) => { if (json.success) setMe(json.data); })
       .catch(() => {});
