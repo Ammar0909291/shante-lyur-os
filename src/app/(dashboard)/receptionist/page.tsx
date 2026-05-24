@@ -257,8 +257,9 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     setSelectedServiceIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
 
-  const totalDuration = services.filter((s) => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.baseDuration, 0);
-  const totalPrice = services.filter((s) => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + Number(s.basePrice), 0);
+  const servicesArr: Service[] = Array.isArray(services) ? services : [];
+  const totalDuration = servicesArr.filter((s) => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.baseDuration, 0);
+  const totalPrice = servicesArr.filter((s) => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + Number(s.basePrice), 0);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -348,7 +349,7 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
               {totalDuration > 0 && <span className="ml-2 text-champagne normal-case">{totalDuration} мин · {formatCurrency(totalPrice)}</span>}
             </label>
             <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
-              {services.map((s) => (
+              {servicesArr.map((s) => (
                 <button
                   key={s.id}
                   type="button"
