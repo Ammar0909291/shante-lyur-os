@@ -18,10 +18,7 @@ export async function GET(req: NextRequest) {
 
   const specialist = await prisma.specialist.findUnique({
     where: { userId },
-    select: {
-      id: true,
-      department: true,
-    },
+    select: { id: true, department: true },
   });
   if (!specialist) return err('NOT_FOUND', 'Specialist record not found', 404);
 
@@ -36,66 +33,42 @@ export async function GET(req: NextRequest) {
       status: { notIn: ['CANCELLED'] },
     },
     orderBy: { startAt: 'asc' },
-    select: {
-      id: true,
-      status: true,
-      startAt: true,
-      endAt: true,
-      notes: true,
-      roomId: true,
-      room: { select: { name: true, type: true } },
-      client: {
-        select: {
-          firstName: true,
-          lastName: true,
-          customerProfile: {
-            select: {
-              loyaltyTier: true,
-              serviceNotes: true,
-              allergies: { select: { name: true, severity: true } },
-            },
-          },
-        },
-      },
-      services: {
-        select: {
-          service: { select: { name: true, baseDuration: true } },
-          price: true,
-        },
-      },
+    include: {
+      room:     { select: { name: true, type: true } },
+      client:   { select: { firstName: true, lastName: true, customerProfile: { select: { loyaltyTier: true, notes: true } } } },
+      services: { select: { service: { select: { name: true, baseDuration: true } }, price: true } },
     },
   });
 
   const slots = appointments.map((a) => {
-    const client = a.client;
-    const firstName = client?.firstName ?? '—';
-    const lastInitial = client?.lastName ? client.lastName[0] + '.' : '';
-    const profile = client?.customerProfile;
+    const firstName   = a.client?.firstName ?? '—';
+    const lastInitial = a.client?.lastName ? a.client.lastName[0] + '.' : '';
+    const profile     = a.client?.customerProfile;
     return {
       id: a.id,
       status: a.status,
       startAt: a.startAt.toISOString(),
-      endAt: a.endAt.toISOString(),
-      notes: a.notes,
-      room: a.room ? { name: a.room.name, type: a.room.type } : null,
+      endAt:   a.endAt.toISOString(),
+      notes:   a.notes,
+      room:    a.room ? { name: a.room.name, type: a.room.type } : null,
       client: {
         displayName: `${firstName} ${lastInitial}`.trim(),
-        isVip: profile?.loyaltyTier === 'VIP',
-        serviceNotes: profile?.serviceNotes ?? null,
-        allergies: profile?.allergies ?? [],
+        isVip:        profile?.loyaltyTier === 'VIP',
+        serviceNotes: profile?.notes ?? null,
+        allergies:    [] as string[],
       },
       services: a.services.map((s) => ({
-        name: s.service.name,
+        name:     s.service.name,
         duration: s.service.baseDuration,
-        price: Number(s.price),
+        price:    Number(s.price),
       })),
     };
   });
 
   // Workload tracker for massage specialists (dailyTarget default until schema field added)
-  const dailyTarget = 8;
+  const dailyTarget    = 8;
   const completedToday = slots.filter((s) => s.status === 'COMPLETED').length;
-  const workload = specialist.department === 'MASSAGE'
+  const workload       = specialist.department === 'MASSAGE'
     ? { target: dailyTarget, completed: completedToday, remaining: Math.max(0, dailyTarget - completedToday) }
     : null;
 

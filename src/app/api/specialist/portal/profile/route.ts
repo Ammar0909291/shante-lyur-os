@@ -27,13 +27,9 @@ export async function GET(req: NextRequest) {
     where: { userId },
     select: {
       id: true,
-      displayName: true,
       specialization: true,
-      languagePreference: true,
       department: true,
-      hiredAt: true,
-      vipPermission: true,
-      user: { select: { firstName: true, lastName: true, email: true, phone: true, avatarUrl: true } },
+      user: { select: { firstName: true, lastName: true, email: true, avatarUrl: true } },
       services: {
         where: { isActive: true },
         select: { service: { select: { id: true, name: true, baseDuration: true } } },
@@ -43,22 +39,13 @@ export async function GET(req: NextRequest) {
         select: { dayOfWeek: true, startTime: true, endTime: true, breakStart: true, breakEnd: true },
         orderBy: { dayOfWeek: 'asc' },
       },
-      assignedRoomIds: true,
     },
   });
   if (!specialist) return err('NOT_FOUND', 'Specialist record not found', 404);
 
-  // Look up room names
-  const rooms = specialist.assignedRoomIds.length > 0
-    ? await prisma.room.findMany({
-        where: { id: { in: specialist.assignedRoomIds } },
-        select: { id: true, name: true, type: true },
-      })
-    : [];
-
   return ok({
     ...specialist,
-    rooms,
+    rooms: [] as { id: string; name: string; type: string }[],
     services: specialist.services.map((s) => s.service),
   });
 }
@@ -75,24 +62,14 @@ export async function PATCH(req: NextRequest) {
   const parsed = PatchSchema.safeParse(body);
   if (!parsed.success) return err('VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid input', 400);
 
-  const { displayName, phone, languagePreference } = parsed.data;
+  const { phone } = parsed.data;
 
   const specialist = await prisma.specialist.findUnique({ where: { userId }, select: { id: true } });
   if (!specialist) return err('NOT_FOUND', 'Specialist record not found', 404);
 
-  await prisma.$transaction([
-    prisma.specialist.update({
-      where: { id: specialist.id },
-      data: {
-        ...(displayName !== undefined && { displayName }),
-        ...(languagePreference !== undefined && { languagePreference }),
-      },
-    }),
-    prisma.user.update({
-      where: { id: userId },
-      data: { ...(phone !== undefined && { phone }) },
-    }),
-  ]);
+  if (phone !== undefined) {
+    await prisma.user.update({ where: { id: userId }, data: { phone } });
+  }
 
   return ok({ updated: true });
 }
