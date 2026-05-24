@@ -132,7 +132,12 @@ export async function GET(req: NextRequest) {
     return apiError('VALIDATION_ERROR', 'Missing or invalid query parameters', 400);
   }
 
-  const { specialistId, date, duration, adminOverride } = parsed.data;
+  const { specialistId, date, duration } = parsed.data;
+
+  // adminOverride is only honoured for ADMIN / SUPER_ADMIN roles
+  const userRole = req.headers.get('x-user-role') ?? 'CLIENT';
+  const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN'];
+  const adminOverride = parsed.data.adminOverride && ADMIN_ROLES.includes(userRole);
 
   // day boundaries in UTC
   const dayStartUTC = moscowToUTC(date, SALON_START_HOUR, 0);
