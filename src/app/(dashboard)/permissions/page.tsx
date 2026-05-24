@@ -75,6 +75,7 @@ function RoleSelect({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
   const ref = React.useRef<HTMLDivElement>(null);
+  const meta = ROLE_META[currentRole] ?? ROLE_META['CLIENT'];
 
   React.useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -115,8 +116,8 @@ function RoleSelect({
         disabled={disabled || loading}
         className={cn(
           'flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all',
-          ROLE_META[currentRole].bg,
-          ROLE_META[currentRole].color,
+          meta.bg,
+          meta.color,
           'hover:opacity-80',
           disabled && 'opacity-50 cursor-not-allowed',
         )}
@@ -124,7 +125,7 @@ function RoleSelect({
         {loading ? (
           <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
         ) : null}
-        {ROLE_META[currentRole].label}
+        {meta.label}
         {!disabled && <ChevronDown className="w-3 h-3" />}
       </button>
       {error && <p className="text-red-400 text-xs mt-1 whitespace-nowrap">{error}</p>}
@@ -183,10 +184,11 @@ export default function PermissionsPage() {
       if (!json.success) {
         setError(json.error?.message ?? 'Ошибка загрузки');
       } else {
-        setUsers((json.data?.items ?? []).map((u) => ({
-          ...u,
-          role: u.role as UserRole,
-        })));
+        setUsers(
+          (json.data?.items ?? [])
+            .filter((u) => (ROLES as string[]).includes(u.role))
+            .map((u) => ({ ...u, role: u.role as UserRole })),
+        );
       }
     } catch {
       setError('Ошибка сети');
