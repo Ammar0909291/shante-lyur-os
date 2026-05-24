@@ -66,18 +66,6 @@ export async function POST(req: NextRequest) {
     });
 
     setAuthCookies(response, result.accessToken, result.refreshToken);
-
-    // Decode the new access token to propagate role/userId to readable cookies
-    try {
-      const parts = result.accessToken.split('.');
-      if (parts.length === 3) {
-        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString()) as { sub?: string; role?: string };
-        const isProd = process.env.NODE_ENV === 'production';
-        if (payload.role) response.cookies.set('user_role', payload.role, { httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 15 * 60 });
-        if (payload.sub) response.cookies.set('user_id', payload.sub, { httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 15 * 60 });
-      }
-    } catch { /* best-effort */ }
-
     return response;
   } catch (error) {
     if (error instanceof DomainError) {
