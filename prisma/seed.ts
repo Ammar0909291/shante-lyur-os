@@ -12,7 +12,7 @@ const REAL_SERVICES = [
   { code: 'FACIAL-004', displayCategory: 'Лицо / Шея / Декольте', name: '«MIX» Уход по лицу, шее и зоне декольте', category: ServiceCategory.FACIAL, baseDuration: 60, basePrice: 4900 },
   // Тело / Массаж
   { code: 'MASSAGE-001', displayCategory: 'Тело / Массаж', name: 'Расслабляющий уход при помощи камней', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4600 },
-  { code: 'MASSAGE-002', displayCategory: 'Тело / Массаж', name: 'Программа «Увартана»', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 6500 },
+  { code: 'MASSAGE-002', displayCategory: 'Тело / Массаж', name: 'Программа «Удвартана»', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 6500 },
   { code: 'MASSAGE-003', displayCategory: 'Тело / Массаж', name: 'Уход по телу «4 Руки»', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 6200 },
   { code: 'MASSAGE-004', displayCategory: 'Тело / Массаж', name: 'Индийский уход по телу', category: ServiceCategory.MASSAGE, baseDuration: 90, basePrice: 6500 },
   { code: 'MASSAGE-005', displayCategory: 'Тело / Массаж', name: 'Поющие чаши', category: ServiceCategory.MASSAGE, baseDuration: 60, basePrice: 4600 },
@@ -22,7 +22,7 @@ const REAL_SERVICES = [
   { code: 'MASSAGE-009', displayCategory: 'Тело / Массаж', name: 'Антистрессовый уход по телу (Шейно-воротниковая зона)', category: ServiceCategory.MASSAGE, baseDuration: 40, basePrice: 3000 },
   { code: 'MASSAGE-010', displayCategory: 'Тело / Массаж', name: 'Антистрессовый уход по телу (Стопы)', category: ServiceCategory.MASSAGE, baseDuration: 40, basePrice: 3000 },
   // Косметология
-  { code: 'COSM-001', displayCategory: 'Косметология', name: 'Пилинг «Reach Peel»', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 7000 },
+  { code: 'COSM-001', displayCategory: 'Косметология', name: 'Пилинг «Peach Peel»', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 7000 },
   { code: 'COSM-002', displayCategory: 'Косметология', name: 'УЗ Чистка (Лицо) + Маска по типу кожи', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4000 },
   { code: 'COSM-003', displayCategory: 'Косметология', name: 'Комбинированная Чистка', category: ServiceCategory.COSMETOLOGY, baseDuration: 105, basePrice: 4900 },
   { code: 'COSM-004', displayCategory: 'Косметология', name: 'Биолифтинг', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4500 },
@@ -43,7 +43,7 @@ const REAL_SERVICES = [
   { code: 'COSM-019', displayCategory: 'Косметология', name: 'Ангельский пилинг', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 5000 },
   { code: 'COSM-020', displayCategory: 'Косметология', name: 'Пилинг «BTX»', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 4500 },
   // Аппаратная косметология
-  { code: 'HARDWARE-001', displayCategory: 'Аппаратная косметология', name: 'Дермальный стимулятор («Reach Peel» / PRX)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 7000 },
+  { code: 'HARDWARE-001', displayCategory: 'Аппаратная косметология', name: 'Дермальный стимулятор («Peach Peel» / PRX)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 7000 },
   { code: 'HARDWARE-002', displayCategory: 'Аппаратная косметология', name: 'Фракционная мезотерапия («Rosalex» / Multi pep)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 9000 },
   { code: 'HARDWARE-003', displayCategory: 'Аппаратная косметология', name: 'Фото-омоложение (1 Посещение)', category: ServiceCategory.COSMETOLOGY, baseDuration: 60, basePrice: 8000 },
   { code: 'HARDWARE-004', displayCategory: 'Аппаратная косметология', name: 'Карбоновый пилинг', category: ServiceCategory.COSMETOLOGY, baseDuration: 40, basePrice: 6000 },
