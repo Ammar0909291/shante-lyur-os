@@ -13,6 +13,7 @@ import type { DomainEvent } from '@/domain/events';
 import { ok, apiError, validationError, unauthorized, internalError } from '@/lib/api-response';
 import { logAudit, getRequestMeta } from '@/lib/audit-logger';
 import { triggerBookingConfirmation } from '@/lib/communication/booking-triggers';
+import { buildBookingNotificationPayload } from '@/lib/communication/payload-builder';
 
 const noopEventBus: IEventBus = {
   async publish(_event: DomainEvent): Promise<void> {},
@@ -111,40 +112,12 @@ export async function POST(req: NextRequest) {
     // Trigger omnichannel booking confirmation (non-blocking)
     void (async () => {
       try {
-        const apt = result.appointment;
-        const [clientUser, specialistUser, specRecord] = await Promise.all([
-          registry.userRepository.findById(effectiveClientId).catch(() => null),
-          apt.specialistId ? registry.userRepository.findById(apt.specialistId).catch(() => null) : Promise.resolve(null),
-          apt.specialistId
-            ? prisma.specialist.findUnique({ where: { id: apt.specialistId }, select: { department: true } }).catch(() => null)
-            : Promise.resolve(null),
-        ]);
-
-        // Join ALL booked service names (not just the first), ordered by sortOrder
-        const services = apt.services ?? [];
-        const serviceName = services
-          .slice()
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map(s => s.name)
-          .filter(Boolean)
-          .join(', ') || 'Услуга';
-
-        const startAt = new Date(apt.startAt);
-        const YEKATERINBURG = 'Asia/Yekaterinburg';
-        const dateStr = startAt.toLocaleDateString('ru-RU', { timeZone: YEKATERINBURG, day: 'numeric', month: 'long' });
-        const timeStr = startAt.toLocaleTimeString('ru-RU', { timeZone: YEKATERINBURG, hour: '2-digit', minute: '2-digit' });
-
-        await triggerBookingConfirmation({
-          appointmentId: apt.id,
-          clientUserId: effectiveClientId,
-          specialistUserId: apt.specialistId ?? undefined,
-          clientName:     clientUser    ? `${clientUser.firstName} ${clientUser.lastName}`    : 'Клиент',
-          specialistName: specialistUser ? `${specialistUser.firstName} ${specialistUser.lastName}` : 'Специалист',
-          serviceName,
-          department: specRecord?.department ?? undefined,
-          date: dateStr,
-          time: timeStr,
-        });
+        const payload = await buildBookingNotificationPayload(result.appointment.id);
+        if (payload) {
+          await triggerBookingConfirmation(payload);
+        } else {
+          console.warn('[Appointments] Could not build notification payload for', result.appointment.id);
+        }
       } catch (err) {
         console.warn('[Appointments] Booking trigger error (non-critical):', err instanceof Error ? err.message : err);
       }

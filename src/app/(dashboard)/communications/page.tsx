@@ -105,16 +105,15 @@ function SendPanel({ onSent }: { onSent: () => void }) {
   const [userId, setUserId] = React.useState('');
   const [channel, setChannel] = React.useState<'whatsapp' | 'telegram' | 'max' | 'email'>('telegram');
   const [templateKey, setTemplateKey] = React.useState('booking_confirmation');
-  // Default sample vars — no hardcoded service names; user fills them with real data before sending
   const [vars, setVars] = React.useState({
     clientName: 'Анна Смирнова',
     specialistName: 'Ирина Владимирова',
-    serviceName: '',
+    serviceName: 'Тайский массаж',
     date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }),
     time: '14:00',
-    room: '',
-    department: '',
-    amount: '',
+    room: 'Кабинет №2',
+    department: 'MASSAGE',
+    amount: '3 500',
     currency: 'руб.',
   });
   const [sending, setSending] = React.useState(false);
@@ -525,7 +524,7 @@ export default function CommunicationsPage() {
                   <p className="text-[10px] text-text-tertiary mb-1">🇷🇺 RU</p>
                   <p className="text-xs text-text-secondary whitespace-pre-line leading-relaxed">
                     {(() => {
-                      const body = t.bodyRu({ clientName: 'Анна Смирнова', specialistName: 'Ирина В.', serviceName: '{{услуга}}', date: '1 июня', time: '14:00', salonName: 'Shante Lyur' }).replace(/<[^>]+>/g, '');
+                      const body = t.bodyRu({ clientName: 'Анна Смирнова', specialistName: 'Ирина В.', serviceName: 'Тайский массаж', date: '1 июня', time: '14:00', room: 'Кабинет №2', salonName: 'Shante Lyur', amount: '3 500', currency: 'руб.' }).replace(/<[^>]+>/g, '');
                       return body.length > 200 ? body.slice(0, 200) + '…' : body;
                     })()}
                   </p>
@@ -536,7 +535,7 @@ export default function CommunicationsPage() {
                     <p className="text-[10px] text-blue-400 mb-1">🇬🇧 EN</p>
                     <p className="text-xs text-text-secondary whitespace-pre-line leading-relaxed">
                       {(() => {
-                        const body = t.bodyEn!({ clientName: 'Anna S.', specialistName: 'Irina V.', serviceName: '{{service}}', date: 'June 1', time: '2:00 PM', salonName: 'Shante Lyur' }).replace(/<[^>]+>/g, '');
+                        const body = t.bodyEn!({ clientName: 'Anna S.', specialistName: 'Irina V.', serviceName: 'Thai Massage', date: 'June 1', time: '2:00 PM', room: 'Room 2', salonName: 'Shante Lyur', amount: '3 500', currency: 'rub.' }).replace(/<[^>]+>/g, '');
                         return body.length > 200 ? body.slice(0, 200) + '…' : body;
                       })()}
                     </p>

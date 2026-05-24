@@ -11,6 +11,7 @@ import type { TransitionAction } from '@/types/operations';
 import { logAudit, getRequestMeta } from '@/lib/audit-logger';
 import { broadcastOpsEvent, type OpsEvent } from '@/lib/ops-sse';
 import { triggerBookingCancellation } from '@/lib/communication/booking-triggers';
+import { buildBookingNotificationPayload } from '@/lib/communication/payload-builder';
 
 // ─── Valid transition map ─────────────────────────────────────────────────────
 
@@ -366,20 +367,12 @@ export async function POST(
     if (action === 'cancel' && apt.clientId) {
       void (async () => {
         try {
-          const YEKATERINBURG = 'Asia/Yekaterinburg';
-          const startAt = apt.startAt ?? now;
-          await triggerBookingCancellation({
-            appointmentId: id,
-            clientUserId: apt.clientId!,
-            specialistUserId: apt.specialist?.user?.id,
-            clientName,
-            specialistName,
-            serviceName: serviceNames.join(', ') || 'Услуга',
-            department: apt.specialist?.department ?? undefined,
-            date: startAt.toLocaleDateString('ru-RU', { timeZone: YEKATERINBURG, day: 'numeric', month: 'long' }),
-            time: startAt.toLocaleTimeString('ru-RU', { timeZone: YEKATERINBURG, hour: '2-digit', minute: '2-digit' }),
-            room: roomName ?? undefined,
-          });
+          const payload = await buildBookingNotificationPayload(id);
+          if (payload) {
+            await triggerBookingCancellation(payload);
+          } else {
+            console.warn('[ops/transition] Could not build cancellation payload for', id);
+          }
         } catch (err) {
           console.warn('[ops/transition] cancellation notification error (non-critical):', err instanceof Error ? err.message : err);
         }
