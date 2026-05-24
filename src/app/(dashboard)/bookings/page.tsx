@@ -558,10 +558,7 @@ export default function BookingsPage() {
             <Download className="w-4 h-4" />
             {exporting ? t('bookings.exporting') : t('bookings.excel')}
           </button>
-          <Button variant="secondary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowNewDialog(true)}>
-            {t('bookings.new')} (New)
-          </Button>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
+          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowNewDialog(true)}>
             {t('bookings.new')}
           </Button>
         </div>

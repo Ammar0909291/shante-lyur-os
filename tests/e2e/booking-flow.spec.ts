@@ -35,20 +35,18 @@ test.describe('Booking flow', () => {
 
   test('booking wizard opens and shows step 1 (client selection)', async ({ page }) => {
     await page.goto('/bookings');
-    await page.click('button:has-text("Новая запись")');
+    await page.locator('button:has-text("Новая запись")').first().click();
 
-    // Modal form should appear — it's a flat form (no wizard steps).
-    // Client search input placeholder is "Имя, email или телефон...".
-    // Fallback to the modal heading h3 which is always visible when modal is open.
+    // 6-step booking dialog: heading is h2, client search placeholder contains "имя".
     await expect(
-      page.locator('input[placeholder*="Имя"]')
-        .or(page.locator('h3').filter({ hasText: 'Новая запись' })).first(),
-    ).toBeVisible({ timeout: 5_000 });
+      page.locator('h2').filter({ hasText: 'Новая запись' })
+        .or(page.locator('input[placeholder*="имя"]')).first(),
+    ).toBeVisible({ timeout: 8_000 });
   });
 
   test('booking wizard shows 15-min aligned time slots', async ({ page }) => {
     await page.goto('/bookings');
-    await page.click('button:has-text("Новая запись")');
+    await page.locator('button:has-text("Новая запись")').first().click();
 
     // Navigate wizard to time step — look for time input
     const timeInput = page.locator('input[type="time"]').first();
