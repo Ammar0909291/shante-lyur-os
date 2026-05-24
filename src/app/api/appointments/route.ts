@@ -14,6 +14,7 @@ import { ok, apiError, validationError, unauthorized, internalError } from '@/li
 import { logAudit, getRequestMeta } from '@/lib/audit-logger';
 import { triggerBookingConfirmation } from '@/lib/communication/booking-triggers';
 import { buildBookingNotificationPayload } from '@/lib/communication/payload-builder';
+import { enqueueAppointmentReminder } from '@/shared/queue/enqueue';
 
 const noopEventBus: IEventBus = {
   async publish(_event: DomainEvent): Promise<void> {},
@@ -120,6 +121,33 @@ export async function POST(req: NextRequest) {
         }
       } catch (err) {
         console.warn('[Appointments] Booking trigger error (non-critical):', err instanceof Error ? err.message : err);
+      }
+    })();
+
+    // Schedule 24h and 2h reminder jobs (non-blocking, Redis may not be available)
+    void (async () => {
+      try {
+        const aptId = result.appointment.id;
+        const specialistId = result.appointment.specialistId ?? '';
+        const startAt = new Date(result.appointment.startAt);
+
+        const reminders: Array<{ window: '24h' | '2h'; ms: number }> = [
+          { window: '24h', ms: 24 * 60 * 60 * 1000 },
+          { window: '2h',  ms:  2 * 60 * 60 * 1000 },
+        ];
+
+        for (const { window, ms } of reminders) {
+          const delay = startAt.getTime() - ms - Date.now();
+          if (delay <= 0) continue; // appointment is too close or in the past
+          const scheduledAt = new Date(startAt.getTime() - ms).toISOString();
+          await enqueueAppointmentReminder(
+            { appointmentId: aptId, customerId: effectiveClientId, specialistId, scheduledAt, reminderType: window },
+            { delay, jobId: `reminder-${window}-${aptId}` },
+          );
+          console.info(`[Appointments] Scheduled ${window} reminder for ${aptId} in ${Math.round(delay / 60000)} min`);
+        }
+      } catch (err) {
+        console.warn('[Appointments] Reminder scheduling error (non-critical):', err instanceof Error ? err.message : err);
       }
     })();
 

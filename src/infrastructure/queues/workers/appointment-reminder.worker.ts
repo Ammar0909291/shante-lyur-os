@@ -2,50 +2,48 @@ import { Worker, type Job } from 'bullmq';
 import { redisConnection } from '../redis-connection';
 import { QUEUE_NAMES } from '../queue.config';
 import type { AppointmentReminderJob } from '../job-types';
-import { di } from '@/infrastructure/config/di-registry';
+import { buildBookingNotificationPayload } from '@/lib/communication/payload-builder';
+import { triggerBookingReminder } from '@/lib/communication/booking-triggers';
+import { prisma } from '@/infrastructure/config/prisma-client';
 
 function createProcessor() {
   return async (job: Job<AppointmentReminderJob>): Promise<void> => {
-    const { appointmentId, customerId, reminderType } = job.data;
-    const registry = di();
+    const { appointmentId, reminderType } = job.data;
 
     console.info(
       `[AppointmentReminderWorker] Processing job ${job.id}: appointmentId=${appointmentId}, reminderType=${reminderType}`,
     );
 
-    // Fetch appointment details
-    const appointment = await registry.appointmentRepository.findById(appointmentId);
-    if (!appointment) {
-      console.warn(
-        `[AppointmentReminderWorker] Appointment ${appointmentId} not found — skipping`,
-      );
+    // Skip if appointment is no longer active
+    const status = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: { status: true },
+    });
+    if (!status) {
+      console.warn(`[AppointmentReminderWorker] Appointment ${appointmentId} not found — skipping`);
+      return;
+    }
+    if (['CANCELLED', 'NO_SHOW', 'COMPLETED'].includes(status.status)) {
+      console.info(`[AppointmentReminderWorker] Appointment ${appointmentId} is ${status.status} — skipping reminder`);
       return;
     }
 
-    // Fetch the customer (user) record
-    const user = await registry.userRepository.findById(customerId);
-    if (!user) {
-      console.warn(
-        `[AppointmentReminderWorker] User ${customerId} not found — skipping`,
-      );
+    // Only 24h and 2h windows supported by triggerBookingReminder
+    if (reminderType !== '24h' && reminderType !== '2h') {
+      console.warn(`[AppointmentReminderWorker] Unsupported reminderType '${reminderType}' — skipping`);
       return;
     }
 
-    const dateStr = appointment.startAt.toLocaleDateString('ru-RU');
-    const timeStr = appointment.startAt.toLocaleTimeString('ru-RU', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const payload = await buildBookingNotificationPayload(appointmentId);
+    if (!payload) {
+      console.warn(`[AppointmentReminderWorker] Could not build payload for ${appointmentId} — skipping`);
+      return;
+    }
 
-    // Send reminder notification
-    await registry.notificationService.sendBookingReminder(user, {
-      serviceName: 'Услуга',
-      date: dateStr,
-      time: timeStr,
-    });
+    await triggerBookingReminder({ ...payload, window: reminderType });
 
     console.info(
-      `[AppointmentReminderWorker] Reminder (${reminderType}) sent for appointment ${appointmentId}`,
+      `[AppointmentReminderWorker] Reminder (${reminderType}) sent for appointment ${appointmentId} — service: "${payload.serviceName}"`,
     );
   };
 }

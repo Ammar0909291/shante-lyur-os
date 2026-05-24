@@ -1,7 +1,7 @@
 import { IAppointmentRepository } from '@/application/ports/appointment-repository.port';
-import { INotificationService } from '@/application/ports/notification-service.port';
-import { IUserRepository } from '@/application/ports/user-repository.port';
 import { AppointmentStatus } from '@/domain/enums/appointment-status.enum';
+import { buildBookingNotificationPayload } from '@/lib/communication/payload-builder';
+import { triggerBookingReminder } from '@/lib/communication/booking-triggers';
 
 export class AppointmentReminderWorker {
   private timer: NodeJS.Timeout | null = null;
@@ -9,13 +9,11 @@ export class AppointmentReminderWorker {
 
   constructor(
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly userRepo: IUserRepository,
-    private readonly notificationService: INotificationService,
   ) {}
 
   start(): void {
-    this.timer = setInterval(() => this.run(), this.INTERVAL_MS);
-    this.run();
+    this.timer = setInterval(() => void this.run(), this.INTERVAL_MS);
+    void this.run();
   }
 
   stop(): void {
@@ -24,30 +22,27 @@ export class AppointmentReminderWorker {
 
   private async run(): Promise<void> {
     try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-      const tomorrowEnd = new Date(tomorrow);
-      tomorrowEnd.setHours(23, 59, 59, 999);
+      // Find all CONFIRMED appointments starting in the next 23–25 hour window
+      // (catches anything BullMQ may have missed due to Redis downtime)
+      const now = new Date();
+      const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+      const windowEnd   = new Date(now.getTime() + 25 * 60 * 60 * 1000);
 
       const { items: appointments } = await this.appointmentRepo.findMany({
-        from: tomorrow,
-        to: tomorrowEnd,
+        from: windowStart,
+        to: windowEnd,
         status: AppointmentStatus.CONFIRMED,
       });
 
       for (const appt of appointments) {
-        const user = await this.userRepo.findById(appt.clientId);
-        if (!user) continue;
-
-        const dateStr = appt.startAt.toLocaleDateString('ru-RU');
-        const timeStr = appt.startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-
-        await this.notificationService.sendBookingReminder(user, {
-          serviceName: 'Услуга',
-          date: dateStr,
-          time: timeStr,
-        });
+        try {
+          const payload = await buildBookingNotificationPayload(appt.id);
+          if (!payload) continue;
+          await triggerBookingReminder({ ...payload, window: '24h' });
+          console.info(`[ReminderWorker] 24h reminder sent for appointment ${appt.id} — service: "${payload.serviceName}"`);
+        } catch (err) {
+          console.warn(`[ReminderWorker] Failed for appointment ${appt.id}:`, err instanceof Error ? err.message : err);
+        }
       }
     } catch (err) {
       console.error('[ReminderWorker] Error:', err);
