@@ -166,7 +166,8 @@ export async function GET(req: NextRequest) {
     // Only active appointments block slots
     const existing: Array<{ startAt: Date; endAt: Date; status: string }> =
       await registry.appointmentRepository
-        .findByDateRange(dayStartUTC, dayEndUTC, { specialistId })
+        .findMany({ specialistId, from: dayStartUTC, to: dayEndUTC, limit: 200 })
+        .then(r => r.items)
         .catch(() => []);
 
     const blockedRanges: Array<[number, number]> = existing
