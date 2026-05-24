@@ -45,7 +45,7 @@ export class CreateAppointmentUseCase {
     clientId: string,
     actorRole: UserRole
   ): Promise<CreateAppointmentResult> {
-    if (actorRole === UserRole.CLIENT && clientId !== clientId) {
+    if (actorRole === UserRole.CLIENT && dto.clientId !== undefined && dto.clientId !== clientId) {
       throw new ForbiddenError('Clients can only book for themselves');
     }
 
