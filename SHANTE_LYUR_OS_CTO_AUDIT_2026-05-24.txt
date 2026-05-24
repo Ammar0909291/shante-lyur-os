@@ -1,0 +1,588 @@
+================================================================================
+  SHANTE LYUR OS — FULL CTO-LEVEL STRATEGIC & TECHNICAL AUDIT
+================================================================================
+  Date:     2026-05-24
+  Branch:   work/salon-booking-system-ErCHR
+  Auditors: Two independent parallel exploration agents
+  Method:   Live codebase inspection — 392 TypeScript/TSX files scanned
+================================================================================
+
+
+================================================================================
+  PHASE A — REPOSITORY OVERVIEW
+================================================================================
+
+CURRENT SYSTEM MAP
+------------------
+
+  shante-lyur-os/
+  ├── prisma/schema.prisma          51 models, 18 enums
+  ├── src/
+  │   ├── app/
+  │   │   ├── (auth)/               4 pages  — login, register, forgot-password, reset-password
+  │   │   ├── (dashboard)/          25 pages — full CRM UI
+  │   │   └── api/                  123 route files, 168 HTTP handlers
+  │   ├── application/
+  │   │   ├── use-cases/            25 use cases
+  │   │   ├── ports/                31 interface definitions
+  │   │   └── dto/                  Zod schemas
+  │   ├── domain/
+  │   │   ├── entities/             21 domain entities
+  │   │   ├── enums/                18 enums
+  │   │   ├── errors/               DomainError class
+  │   │   └── events/               Domain event definitions
+  │   ├── infrastructure/
+  │   │   ├── repositories/         19 Prisma-backed repositories
+  │   │   ├── services/             11 infrastructure services
+  │   │   ├── queues/               7 named queues, 6 BullMQ workers
+  │   │   └── config/               DI registry, Prisma client
+  │   ├── lib/
+  │   │   ├── communication/        Email + WhatsApp + Telegram + MAX providers
+  │   │   └── [various utilities]
+  │   ├── next-ui/                  NextUI migration shell (8 files, incomplete)
+  │   ├── contexts/                 React contexts (language, auth, UI version)
+  │   ├── components/               9 shared UI components (thin layer)
+  │   └── workers/index.ts          Standalone worker process entry point
+  ├── tests/
+  │   ├── integration/              13 integration test files
+  │   ├── unit/                     3 unit test files
+  │   └── properties/               1 property-based test file
+  └── [root docs]                   CLAUDE.md, 7 PHASE_B*_VERIFICATION.md,
+                                    ANALYTICS_AUDIT.md, DIAGNOSIS_REPORT.md,
+                                    BUILD-RESUME.md, TESTING.md, TESTING_AUDIT.md
+
+
+CODEBASE STATISTICS
+-------------------
+
+  TypeScript/TSX files .............. 392
+  API routes ........................ 123
+  HTTP handlers ..................... 168  (94 GET, 47 POST, 16 PATCH, 9 DELETE, 2 PUT)
+  Prisma models ..................... 51
+  Domain entities ................... 21
+  Application ports (interfaces) .... 31
+  Use cases ......................... 25
+  Infrastructure repositories ....... 19
+  Infrastructure services ........... 11
+  BullMQ workers .................... 6
+  Dashboard pages ................... 25
+  Integration tests ................. 13
+  Unit tests ........................ 3
+  Root markdown docs ................ 14
+
+
+ENTERPRISE MATURITY LEVEL: 3 / 5 — ADVANCED PROTOTYPE
+------------------------------------------------------
+
+  Sophisticated architecture, real data throughout, production infrastructure
+  patterns in place. NOT production-ready due to 2 critical security gaps,
+  systematic type drift, and a dead event infrastructure.
+
+
+================================================================================
+  PHASE B — MODULE-BY-MODULE AUDIT
+================================================================================
+
+  STATUS KEY:
+    COMPLETE    — Fully implemented and working
+    PARTIAL     — Implemented but missing key features
+    UNSTABLE    — Works but will fail in edge cases or under load
+    BROKEN      — Critical logic flaw or non-functional
+    PLACEHOLDER — Skeleton exists, no real implementation
+
+  ┌──────────────────────────────┬─────────────┬────────────┬──────────┬────────────────────────────────────────────────────────────┐
+  │ Module                       │ Status      │ Real Data? │ Complete │ Notes                                                      │
+  ├──────────────────────────────┼─────────────┼────────────┼──────────┼────────────────────────────────────────────────────────────┤
+  │ Authentication               │ UNSTABLE    │ N/A        │ 90%      │ JWT secret fallbacks hardcoded — silent prod degradation   │
+  │ RBAC / Permissions           │ PARTIAL     │ N/A        │ 70%      │ Middleware enforcement real; permissions page is UI-only   │
+  │ Booking / Appointments       │ COMPLETE    │ Yes        │ 85%      │ Logic bug in use case line 48 (permission check dead code) │
+  │ Available Slots              │ UNSTABLE    │ Yes        │ 70%      │ Silently returns mock data on DB failure instead of 503    │
+  │ Finance / Payments           │ COMPLETE    │ Yes        │ 80%      │ Payment webhook signatures never verified — CRITICAL       │
+  │ Refunds                      │ COMPLETE    │ Yes        │ 85%      │ Atomic transaction, audit trail — solid                    │
+  │ Payroll                      │ PARTIAL     │ Likely     │ 70%      │ Engine exists; 4+ type casts indicate schema drift         │
+  │ Analytics Dashboard          │ COMPLETE    │ Yes        │ 75%      │ Real DB queries; polling only, no real-time refresh        │
+  │ Analytics Exports            │ COMPLETE    │ Yes        │ 80%      │ CSV exports verified working                               │
+  │ Executive Intelligence       │ COMPLETE    │ Yes        │ 80%      │ Real revenue/retention/churn/risk — not mocked             │
+  │ Operations Center            │ COMPLETE    │ Yes        │ 80%      │ alertSeq counter not thread-safe; timezone hardcoded       │
+  │ Inventory                    │ PARTIAL     │ Yes        │ 65%      │ CRUD works; no real-time low-stock alerts                  │
+  │ Clients / Customers          │ COMPLETE    │ Yes        │ 85%      │ Profile, balance, timeline, search all present             │
+  │ Specialists                  │ COMPLETE    │ Yes        │ 85%      │ CRUD, schedules, compensation, performance — solid         │
+  │ Communication Engine         │ COMPLETE    │ Yes        │ 90%      │ Best-built module; all 4 channels; retry logic missing     │
+  │ Chat (Internal)              │ PARTIAL     │ Yes        │ 60%      │ DM + public channel exist; real-time not confirmed         │
+  │ Risk Alerts                  │ COMPLETE    │ Yes        │ 80%      │ Risk scanning, alert CRUD, dashboard all present           │
+  │ Sales Module                 │ PARTIAL     │ Yes        │ 65%      │ Reporting complete; no POST to record cash/walk-in sales   │
+  │ Promo Codes                  │ COMPLETE    │ Yes        │ 85%      │ CRUD + usage tracking; applied at booking time             │
+  │ BullMQ Workers               │ PARTIAL     │ N/A        │ 70%      │ 2 of 6 workers verified complete; 4 not fully reviewed     │
+  │ Domain Event Bus             │ BROKEN      │ N/A        │ 5%       │ noopEventBus in 6 routes — events published, discarded     │
+  │ NextUI Migration             │ PLACEHOLDER │ N/A        │ 10%      │ Shell + layout only; zero pages migrated                   │
+  │ WhatsApp Inbound             │ PLACEHOLDER │ N/A        │ 30%      │ Outbound verified; inbound routing TODO comment            │
+  │ Payment Webhooks             │ BROKEN      │ N/A        │ 40%      │ Routes exist; signature verification absent — CRITICAL     │
+  │ MassageWorkloadOverride      │ PLACEHOLDER │ N/A        │ 0%       │ Schema model exists; analytics routes reference missing    │
+  └──────────────────────────────┴─────────────┴────────────┴──────────┴────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+  PHASE C — ARCHITECTURE PROBLEMS
+================================================================================
+
+C1. DEAD EVENT INFRASTRUCTURE                                     [HIGH SEVERITY]
+--------------------------------------------
+  noopEventBus is wired into 6 of the most critical routes:
+    - createAppointment
+    - rescheduleAppointment
+    - createPayment
+    - paymentWebhooks (×2)
+    - changeUserRole
+
+  Every domain event (AppointmentBookedEvent, PaymentCompletedEvent, etc.)
+  is published and immediately discarded. The entire event-driven architecture
+  is effectively disabled at the core. The communication engine works around
+  this via direct function calls, but proper integration is severed.
+
+  Files: src/app/api/appointments/route.ts
+         src/app/api/appointments/[id]/reschedule/route.ts
+         src/app/api/finance/payments/route.ts
+         src/app/api/payments/webhooks/yookassa/route.ts
+         src/app/api/payments/webhooks/robokassa/route.ts
+         src/app/api/admin/users/[id]/role/route.ts
+
+
+C2. SYSTEMATIC PRISMA TYPE DRIFT                             [MEDIUM-HIGH SEVERITY]
+--------------------------------------------
+  40+ instances of `as never`, `as unknown as`, and unsafe type casts.
+  Confirmed affected files:
+
+    payroll/calculate/route.ts       — compensationType as never (4 occurrences)
+    finance/payments/route.ts        — provider as never
+    payroll/compensation/route.ts    — serviceOverrides as unknown as never
+    me/route.ts                      — payload as unknown as AccessPayload
+    chat/users/route.ts              — ['ADMIN', ...] as never[]
+
+  Root cause: Prisma schema was modified without regenerating TypeScript types,
+  or the generated client is out of sync. TypeScript safety bypassed in all
+  these locations. Runtime crashes are possible.
+
+
+C3. TWO PARALLEL UI SYSTEMS                                   [MEDIUM SEVERITY]
+--------------------------------------------
+  src/app/(dashboard)/   — Legacy Tailwind/custom CSS shell (25 pages, active)
+  src/next-ui/           — NextUI migration shell (layout only, 8 files)
+
+  A UIVersionProvider context controls which shell renders. This creates:
+    - Ongoing confusion about which system to build new features in
+    - Double maintenance burden
+    - Impossible UI consistency guarantees
+  Neither system is finished.
+
+
+C4. PERMISSION SYSTEM IS UI THEATER                           [MEDIUM SEVERITY]
+--------------------------------------------
+  The permissions management page (/dashboard/permissions) displays role →
+  permission mappings as a static hardcoded array in the component file.
+
+  There is NO GET /api/admin/permissions endpoint.
+  No permission data is stored in or read from the database.
+  The "permissions" column is pure decoration.
+
+  The page allows ROLE CHANGES (which IS backed by DB) but the permissions
+  display itself is entirely fictional.
+
+
+C5. PERMISSION LOGIC BUG IN CORE BOOKING USE CASE             [HIGH SEVERITY]
+--------------------------------------------
+  File: src/application/use-cases/booking/create-appointment.use-case.ts
+  Line: 48
+
+  Current code:
+    if (actorRole === UserRole.CLIENT && clientId !== clientId) {
+
+  `clientId !== clientId` is ALWAYS false. This check is completely dead.
+  It was intended to prevent clients from booking for other clients, but
+  it never fires. Any client who knows another client's ID can book for them.
+
+
+C6. MASSAGEWORKLOADOVERRIDE INCOMPLETE                         [LOW SEVERITY]
+--------------------------------------------
+  Two TODO comments in analytics routes reference a MassageWorkloadOverride
+  table. The WorkloadOverride model exists in schema.prisma but the analytics
+  routes that should read from it are stubbed.
+
+  Files: src/app/api/analytics/dashboard/specialists/route.ts
+         src/app/api/analytics/dashboard/summary/route.ts
+
+
+C7. SLOTS ENDPOINT SILENT MOCK FALLBACK                       [MEDIUM SEVERITY]
+--------------------------------------------
+  /api/appointments/available-slots swallows database errors and returns
+  mock slot data instead of a 503. A DB outage produces misleading
+  availability data rather than a visible error — staff could book
+  appointments based on phantom slot data.
+
+
+================================================================================
+  PHASE D — PRODUCTION RISKS
+================================================================================
+
+TOP 10 CRITICAL RISKS
+---------------------
+
+  #  RISK                                          SEVERITY  FILE(S)
+  ─────────────────────────────────────────────────────────────────────────────
+  1  JWT secret falls back to                      CRITICAL  middleware.ts:114
+     'dev-access-secret-change-me' if env var               auth/login/route.ts:17
+     unset — silent compromise in production                 auth/register/route.ts:18
+                                                            auth/refresh/route.ts:8
+
+  2  Payment webhooks (Yookassa, Robokassa)         CRITICAL  payments/webhooks/
+     accept unsigned requests — anyone can POST              yookassa/route.ts
+     fake payment confirmations                             payments/webhooks/
+                                                            robokassa/route.ts
+
+  3  BookedEvent / PaymentEvent / RescheduleEvent   HIGH      6 route files with
+     silently discarded — event-driven downstream            noopEventBus
+     systems never fire
+
+  4  CreateAppointmentUseCase permission check      HIGH      create-appointment
+     always passes — CLIENT can book for any                  .use-case.ts:48
+     other clientId
+
+  5  Available slots silently return mock data      HIGH      appointments/
+     on DB failure — clinic operates on phantom              available-slots/route.ts
+     availability
+
+  6  40+ unsafe type casts — TypeScript safety      HIGH      Distributed across
+     bypassed, runtime crashes possible                       payroll, finance,
+                                                            chat, auth routes
+
+  7  No rate limiting on auth endpoints —           MEDIUM    middleware.ts
+     brute force on login/register unimpeded                 (placeholder headers only)
+
+  8  alertSeq global counter in operations/today   MEDIUM    operations/
+     is not thread-safe under concurrent requests            today/route.ts:79
+
+  9  Email verification not implemented —           MEDIUM    auth/register/route.ts
+     users register unverified, no confirmation flow
+
+  10 Inbound WhatsApp messages silently dropped     LOW       webhooks/
+     (TODO comment, no routing logic)                        whatsapp/route.ts
+
+
+================================================================================
+  PHASE E — ENTERPRISE READINESS
+================================================================================
+
+WHAT IS IMPRESSIVE
+------------------
+
+  1. CLEAN ARCHITECTURE
+     Domain → Application → Infrastructure separation is genuinely rigorous.
+     31 interface ports, 19 concrete repositories, 25 use cases.
+     SOLID principles applied consistently throughout.
+
+  2. COMMUNICATION ENGINE
+     Production-quality omnichannel system. 4 providers (WhatsApp, Telegram,
+     MAX, Email), BullMQ-backed delivery queue, VIP priority (BullMQ priority:1),
+     per-message delivery tracking, template i18n (RU/EN).
+     This rivals commercial messaging solutions.
+
+  3. FINANCE LAYER
+     Atomic payment processing, overpayment prevention, idempotency keys,
+     partial refunds, revenue attribution to selling staff member.
+     Not commonly seen in internal CRM projects.
+
+  4. OPERATIONS CENTER
+     Real-time specialist workload scoring, massage buffer rules (30-min),
+     room assignment, delay/overrun tracking, alert generation.
+     Operationally sophisticated.
+
+  5. RISK MODULE
+     AI-prediction worker, risk scan endpoint, alert management dashboard.
+     A full risk intelligence system.
+
+  6. AUDIT TRAIL
+     logAudit() wired into 15+ routes with IP address + userAgent capture.
+
+  7. DOMAIN EVENTS (DESIGN IS CORRECT)
+     The event architecture is sound. AppointmentBookedEvent, etc. are
+     properly defined and published from use cases. noopEventBus is a
+     WIRING problem, not a design problem. Fixing it is straightforward.
+
+  8. PRISMA SCHEMA DEPTH
+     51 models including BeforeAfterPhoto, CustomerAllergy, CustomerRestriction,
+     SpecialistNote, ProcedureHistory — a fully modeled beauty salon domain.
+
+  9. TEST SUITE
+     17 test files including integration, unit, and property-based tests.
+     Coverage is not verified but the infrastructure is in place.
+
+  10. GRACEFUL WORKER SHUTDOWN
+      SIGTERM/SIGINT handlers in workers/index.ts — production-aware.
+
+
+WHAT IS MISSING FOR PRODUCTION
+-------------------------------
+
+  - Email verification flow on registration
+  - CSRF protection on auth routes
+  - Rate limiting enforcement (not just placeholder headers)
+  - Payment webhook HMAC signature verification
+  - Real EventBus implementation (replace noopEventBus in 6 routes)
+  - TypeScript type cast cleanup (40+ instances)
+  - HTTPS enforcement headers (CSP, HSTS, X-Frame-Options)
+  - Error message sanitization before client responses
+  - Thread safety for alertSeq counter
+  - Access token expiry reduction (current: 8h → should be: 15min)
+  - Content-Security-Policy headers in Next.js middleware
+
+
+================================================================================
+  PHASE F — SCALABILITY ANALYSIS
+================================================================================
+
+WHAT WILL BREAK AT SCALE
+------------------------
+
+  BOTTLENECK                           BREAKS WHEN                 SEVERITY
+  ─────────────────────────────────────────────────────────────────────────
+  Operations polling                   10+ concurrent staff users   HIGH
+  (/api/operations/today hit every
+  few seconds per user)
+
+  alertSeq global in-memory counter   Multiple Node.js instances   HIGH
+  (not thread-safe)                    or PM2 cluster mode
+
+  Analytics queries with no           12+ months of data loaded     MEDIUM
+  pagination (some endpoints load      into memory
+  full date ranges)
+
+  Available slots computation          Specialists with 100+         MEDIUM
+  (brute-force overlap detection)      appointments/month
+
+  Chat SSE connections                 Horizontal scaling without    MEDIUM
+  (stateful per-process)               Redis pub/sub backing
+
+  Promise.all in operations/today      High request volume ×         LOW-MEDIUM
+  (7 parallel DB queries per request)  query cost
+
+  Worker concurrency=5 (hardcoded)     Fine for current scale        LOW
+
+
+WHAT SCALES WELL
+----------------
+
+  - BullMQ workers are stateless and horizontally scalable
+  - Prisma connection pooling (PgBouncer-compatible DSN supported)
+  - All routes are force-dynamic (correct for personalized data)
+  - Repository pattern enables caching layer insertion without route changes
+  - Omnichannel queue: Redis handles 10k+ msgs/day without issue
+
+
+================================================================================
+  PHASE G — SECURITY ANALYSIS
+================================================================================
+
+CRITICAL — FIX BEFORE ANY EXTERNAL USERS TOUCH THE SYSTEM
+----------------------------------------------------------
+
+  ISSUE 1: HARDCODED JWT FALLBACKS
+  Files:  src/middleware.ts:114
+          src/app/api/auth/login/route.ts:17
+          src/app/api/auth/register/route.ts:18
+          src/app/api/auth/refresh/route.ts:8
+
+  Current code pattern:
+    const secret = process.env.JWT_SECRET ?? 'dev-access-secret-change-me';
+
+  An attacker who knows this default (it's in the codebase) can mint valid
+  JWTs for any user including SUPER_ADMIN if the env var is not set.
+
+  Required fix:
+    const secret = process.env.JWT_SECRET;
+    if (!secret) throw new Error('JWT_SECRET environment variable is required');
+
+  ─────────────────────────────────────────────────────────────────────────
+
+  ISSUE 2: UNSIGNED PAYMENT WEBHOOKS
+  Files:  src/app/api/payments/webhooks/yookassa/route.ts
+          src/app/api/payments/webhooks/robokassa/route.ts
+
+  Both Yookassa and Robokassa send HMAC signature headers with each webhook.
+  Neither handler verifies these signatures. A malicious POST to either
+  endpoint with a crafted body will mark appointments as paid without
+  any actual payment occurring.
+
+  Required fix: Implement HMAC-SHA256 verification using
+  YOOKASSA_SECRET_KEY / ROBOKASSA_PASSWORD environment variables.
+
+
+MEDIUM
+------
+
+  ISSUE 3: NO RATE LIMITING ON LOGIN
+  middleware.ts sets X-RateLimit-Limit: 100 headers but no Redis-backed
+  counter enforces them. /api/auth/login can be brute-forced indefinitely.
+
+  ISSUE 4: VERBOSE INTERNAL ERROR EXPOSURE
+  Dozens of routes return `error instanceof Error ? error.message : 'Unknown'`
+  directly to the client. Stack traces, SQL errors, file paths can leak.
+
+  ISSUE 5: JWT ACCESS TOKEN EXPIRY = 8 HOURS
+  Standard practice is 15 minutes with silent refresh via refresh token.
+  8-hour access tokens mean a compromised token is valid for a full workday.
+
+  ISSUE 6: NO CSRF PROTECTION
+  Middleware declares intent (X-CSRF-Token: required) but no route validates
+  the header value.
+
+  ISSUE 7: NO SECURITY HEADERS
+  Missing CSP, X-Frame-Options, and HSTS headers in middleware responses.
+
+
+LOW
+---
+
+  ISSUE 8: CLIENT SEARCH NO INPUT LENGTH LIMIT
+  /api/clients/search?q= accepts unbounded strings. Prisma parameterizes them
+  (no SQL injection risk) but queries can be expensive on long inputs.
+
+  ISSUE 9: REGISTRATION ALWAYS CREATES CLIENT ROLE
+  No way to register as staff via API — requires manual DB update. This is
+  technically a security feature (no privilege escalation via registration)
+  but means staff onboarding has no automated workflow.
+
+
+================================================================================
+  PHASE H — RECOMMENDED ROADMAP
+================================================================================
+
+WHAT MUST BE REWRITTEN (NOT PATCHED)
+-------------------------------------
+
+  1. DOMAIN EVENT BUS
+     noopEventBus in 6 routes must be replaced with a real implementation.
+     Even a synchronous in-process event bus with async handlers would unblock:
+       - Analytics triggers
+       - Reminder scheduling
+       - Notification dispatch
+     This is foundational — everything downstream depends on it.
+
+  2. AVAILABLE SLOTS FALLBACK
+     Remove mock slot fallback entirely. Return 503 with a clear error message.
+     A silent mock causes real operational harm (phantom availability).
+
+  3. PERMISSIONS PAGE
+     The static hardcoded display needs a real GET /api/admin/permissions
+     endpoint backed by database queries or a canonical ROLE_PERMISSIONS
+     configuration object exported from a shared module.
+
+
+WHAT MUST NEVER BE TOUCHED
+---------------------------
+
+  1. src/lib/communication/
+     The omnichannel system is production-quality. Only additive changes.
+
+  2. src/application/use-cases/booking/
+     The booking use cases are the most complex logic in the system.
+     Changes require full test coverage first.
+
+  3. prisma/schema.prisma
+     Every schema change must be validated against all 40+ type casts and
+     all repositories before running the migration.
+
+  4. src/infrastructure/config/di-registry.ts
+     DI wiring must be changed atomically; partial changes cause startup crashes.
+
+  5. src/infrastructure/queues/
+     Queue names and job schemas must remain stable; changing them orphans
+     in-flight BullMQ jobs.
+
+
+TOP 10 STABILIZATION PRIORITIES (IN ORDER)
+------------------------------------------
+
+  PRIORITY  TASK                                                          EFFORT
+  ─────────────────────────────────────────────────────────────────────────────
+  1         Fix JWT secret fallbacks — fail on startup if env missing     30 min
+  2         Verify payment webhook signatures (Yookassa + Robokassa)       2 hours
+  3         Fix CreateAppointmentUseCase permission bug (line 48)          15 min
+  4         Remove available-slots mock fallback — return 503              30 min
+  5         Implement real EventBus — synchronous in-process               4 hours
+  6         Fix 40+ type casts (npx prisma generate + schema reconcile)    1 day
+  7         Add rate limiting to /api/auth/* (Redis token bucket)          3 hours
+  8         Sanitize error responses — never expose error.message          2 hours
+  9         Fix alertSeq thread safety — per-request counter               30 min
+  10        Implement email verification flow                               4 hours
+
+
+EXACT NEXT DEVELOPMENT ORDER
+-----------------------------
+
+  SPRINT 1 — SECURITY HARDENING
+  (Do this before any external users touch the system)
+    1. JWT secret startup validation (fail-fast)
+    2. Payment webhook HMAC verification
+    3. Rate limiting on /api/auth/* (Redis token bucket)
+    4. Error message sanitization (never expose internals to client)
+    5. Fix CreateAppointment permission logic bug
+
+  SPRINT 2 — CORE INFRASTRUCTURE REPAIR
+    6.  Real EventBus implementation (in-process, async)
+    7.  Wire AppointmentBookedEvent → communication triggers
+    8.  Wire PaymentCompletedEvent → receipt notification
+    9.  Wire RescheduleEvent → reminder rescheduling
+    10. Remove mock slot fallback
+
+  SPRINT 3 — TYPE SYSTEM STABILIZATION
+    11. npm run prisma:generate + full type check
+    12. Eliminate all `as never` and `as unknown as` casts
+    13. Fix Prisma model type paths across affected routes
+
+  SPRINT 4 — OPERATIONS RELIABILITY
+    14. Fix alertSeq thread safety
+    15. Convert operations polling to SSE or WebSocket
+    16. Implement email verification flow
+    17. Add CSP / HSTS / X-Frame-Options headers
+
+  SPRINT 5 — FEATURE COMPLETION
+    18. Back permissions page with real API endpoint
+    19. Complete inbound WhatsApp message routing
+    20. Add MassageWorkloadOverride schema support in analytics
+    21. Add walk-in / cash sale recording to sales module
+    22. Decide NextUI migration: commit and complete, or revert entirely
+
+
+================================================================================
+  FINAL VERDICT
+================================================================================
+
+  Shante Lyur OS is a remarkably complete salon CRM prototype built with
+  genuine architectural sophistication. The domain model is fully thought
+  out, the infrastructure patterns are enterprise-grade, and the
+  communication engine alone would justify the entire project.
+
+  The booking, finance, analytics, operations, and executive intelligence
+  modules all query real data and implement real business rules.
+
+  IT IS NOT PRODUCTION-READY FOR TWO REASONS:
+
+    1. Two critical security vulnerabilities that cannot go live:
+         - Hardcoded JWT secret fallbacks (4 files)
+         - Unsigned payment webhook handlers (2 files)
+
+    2. The domain event system is architecturally complete but operationally
+       dead: 6 routes publish domain events that are immediately discarded.
+
+  EVERYTHING ELSE IS POLISH.
+
+  Fix the security issues, wire the event bus, and this system is deployable.
+  The remaining technical debt (type casts, permissions page, mock fallback)
+  is real but non-blocking for an initial production launch.
+
+================================================================================
+  END OF REPORT
+================================================================================
+  Generated: 2026-05-24
+  System:    Shante Lyur OS v3.0.0
+  Scope:     Full codebase — no code was modified during this audit
+================================================================================
