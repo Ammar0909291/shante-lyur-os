@@ -18,6 +18,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useLanguage } from '@/contexts/language';
+import { NewBookingDialog } from './_new-booking-dialog';
 
 interface Booking {
   id: string;
@@ -272,6 +273,7 @@ export default function BookingsPage() {
 
   // Modal state
   const [showModal, setShowModal] = React.useState(false);
+  const [showNewDialog, setShowNewDialog] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState('');
   const [conflictSlots, setConflictSlots] = React.useState<string[]>([]);
@@ -556,6 +558,9 @@ export default function BookingsPage() {
             <Download className="w-4 h-4" />
             {exporting ? t('bookings.exporting') : t('bookings.excel')}
           </button>
+          <Button variant="secondary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowNewDialog(true)}>
+            {t('bookings.new')} (New)
+          </Button>
           <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
             {t('bookings.new')}
           </Button>
@@ -1089,6 +1094,12 @@ export default function BookingsPage() {
           </div>
         </div>
       )}
+
+      <NewBookingDialog
+        open={showNewDialog}
+        onClose={() => setShowNewDialog(false)}
+        onCreated={() => { setShowNewDialog(false); fetchBookings(); }}
+      />
     </div>
   );
 }

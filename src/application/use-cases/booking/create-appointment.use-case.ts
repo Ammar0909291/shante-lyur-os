@@ -129,15 +129,18 @@ export class CreateAppointmentUseCase {
       throw new ConflictError('Specialist is on vacation', 'startAt');
     }
 
-    const dayOfWeek = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][dto.startAt.getDay()] as never;
-    const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(specialist.id, dayOfWeek);
+    // Schedules store times in Moscow time (UTC+3). Convert startAt from UTC to Moscow
+    // before comparing so "10:00 Moscow" stored as 07:00 UTC is handled correctly.
+    const MOSCOW_OFFSET_MS = 3 * 3600_000;
+    const moscowStart = new Date(dto.startAt.getTime() + MOSCOW_OFFSET_MS);
+    const moscowEnd   = new Date(endAt.getTime()       + MOSCOW_OFFSET_MS);
+    const dayOfWeek   = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][moscowStart.getUTCDay()] as never;
+    const schedules   = await this.workingScheduleRepo.findBySpecialistAndDay(specialist.id, dayOfWeek);
     const validSchedule = schedules.find(s => {
       if (!s.isActive || !s.isValidForDate(dto.startAt)) return false;
-      const startMin = s.startMinutes;
-      const endMin = s.endMinutes;
-      const apptStartMin = dto.startAt.getHours() * 60 + dto.startAt.getMinutes();
-      const apptEndMin = endAt.getHours() * 60 + endAt.getMinutes();
-      return apptStartMin >= startMin && apptEndMin <= endMin;
+      const apptStartMin = moscowStart.getUTCHours() * 60 + moscowStart.getUTCMinutes();
+      const apptEndMin   = moscowEnd.getUTCHours()   * 60 + moscowEnd.getUTCMinutes();
+      return apptStartMin >= s.startMinutes && apptEndMin <= s.endMinutes;
     });
     if (!validSchedule) {
       throw new ConflictError('Outside working hours', 'startAt');
@@ -172,7 +175,7 @@ export class CreateAppointmentUseCase {
 
     const saved = await this.appointmentRepo.create(appointment);
 
-    await this.profileRepo.recordVisit(clientId, 0);
+    await this.profileRepo.recordVisit(clientId, 0).catch(() => {});
 
     await this.eventBus.publish(
       new AppointmentBookedEvent(saved.id, {

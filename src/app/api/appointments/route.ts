@@ -72,7 +72,26 @@ export async function POST(req: NextRequest) {
       registry.notificationRepository,
     );
 
-    const result = await useCase.execute(parsed.data, userId, role);
+    // Admin/super-admin can book on behalf of a client via body.clientId.
+    const ADMIN_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
+    const effectiveClientId =
+      ADMIN_ROLES.includes(role) && parsed.data.clientId
+        ? parsed.data.clientId
+        : userId;
+
+    // If the provided locationId doesn't resolve, fall back to the first active location.
+    let resolvedLocationId = parsed.data.locationId;
+    const loc = await registry.locationRepository.findById(resolvedLocationId).catch(() => null);
+    if (!loc || !loc.isActive) {
+      const { items } = await registry.locationRepository.findMany({ isActive: true, limit: 1 }).catch(() => ({ items: [] }));
+      if (items[0]) resolvedLocationId = items[0].id;
+    }
+
+    const result = await useCase.execute(
+      { ...parsed.data, locationId: resolvedLocationId },
+      effectiveClientId,
+      role,
+    );
 
     // Audit: appointment created
     const { ipAddress, userAgent } = getRequestMeta(req);
