@@ -214,7 +214,7 @@ export default function BookingsPage() {
   const [page, setPage] = React.useState(1);
 
   const [showNewDialog, setShowNewDialog] = React.useState(false);
-  const [refreshKey, setRefreshKey] = React.useState(0);
+  const [refreshKey] = React.useState(0);
   const [showOpsBoard, setShowOpsBoard] = React.useState(false);
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -237,8 +237,8 @@ export default function BookingsPage() {
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/bookings?${buildQuery()}`, { credentials: 'include' });
-      const json = await res.json();
-      if (json.success) {
+      const json = await res.json() as { success: boolean; data?: { items: Booking[]; total: number } };
+      if (json.success && json.data) {
         setBookings(json.data.items);
         setTotal(json.data.total);
       }
@@ -248,6 +248,24 @@ export default function BookingsPage() {
   }, [buildQuery]);
 
   React.useEffect(() => { fetchBookings(); }, [fetchBookings]);
+
+  // Direct refresh used after booking creation — bypasses the buildQuery/effect chain
+  // so the list always updates regardless of current filter state.
+  const refreshAfterCreate = React.useCallback(async () => {
+    setLoading(true);
+    setDatePreset('');
+    setPage(1);
+    try {
+      const res = await fetch(`/api/admin/bookings?page=1&limit=${LIMIT}`, { credentials: 'include' });
+      const json = await res.json() as { success: boolean; data?: { items: Booking[]; total: number } };
+      if (json.success && json.data) {
+        setBookings(json.data.items);
+        setTotal(json.data.total);
+      }
+    } catch {} finally {
+      setLoading(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     if (!showAnalytics) return;
@@ -354,7 +372,7 @@ export default function BookingsPage() {
         <NewBookingDialog
           open={showNewDialog}
           onClose={() => setShowNewDialog(false)}
-          onCreated={() => { setShowNewDialog(false); }}
+          onCreated={() => { setShowNewDialog(false); void refreshAfterCreate(); }}
         />
       </div>
     );
@@ -718,7 +736,7 @@ export default function BookingsPage() {
       <NewBookingDialog
         open={showNewDialog}
         onClose={() => setShowNewDialog(false)}
-        onCreated={() => { setShowNewDialog(false); setDatePreset(''); setPage(1); setRefreshKey(k => k + 1); }}
+        onCreated={() => { setShowNewDialog(false); void refreshAfterCreate(); }}
       />
     </div>
   );
