@@ -12,7 +12,7 @@ export const RegisterUserSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
   phone: z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Invalid phone number').optional(),
-  role: z.enum(['CLIENT', 'SPECIALIST']).default('CLIENT'),
+  role: z.enum(['CLIENT']).default('CLIENT'),
 });
 
 export type RegisterUserDto = z.infer<typeof RegisterUserSchema>;
@@ -68,7 +68,7 @@ export type UpdateUserDto = z.infer<typeof UpdateUserSchema>;
 
 export const ChangeRoleSchema = z.object({
   userId: z.string().uuid(),
-  newRole: z.enum(['SUPER_ADMIN', 'ADMIN', 'OPERATOR', 'SPECIALIST', 'CLIENT']),
+  newRole: z.enum(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST', 'COSMETOLOGIST', 'MASSAGIST', 'CLIENT']),
 });
 
 export type ChangeRoleDto = z.infer<typeof ChangeRoleSchema>;

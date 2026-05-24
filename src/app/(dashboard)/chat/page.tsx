@@ -61,10 +61,12 @@ export default function ChatPage() {
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const ROLE_LABEL: Record<string, string> = {
-    ADMIN: t('chat.role.admin'),
-    SPECIALIST: t('chat.role.specialist'),
-    OPERATOR: t('chat.role.operator'),
     SUPER_ADMIN: t('chat.role.super'),
+    ADMIN: t('chat.role.admin'),
+    MANAGER: t('chat.role.manager'),
+    RECEPTIONIST: t('chat.role.receptionist'),
+    COSMETOLOGIST: t('chat.role.cosmetologist'),
+    MASSAGIST: t('chat.role.massagist'),
   };
 
   React.useEffect(() => {

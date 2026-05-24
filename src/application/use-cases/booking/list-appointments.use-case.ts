@@ -23,8 +23,8 @@ export class ListAppointmentsUseCase {
       });
     }
 
-    // SPECIALIST can only see their own appointments
-    if (userRole === 'SPECIALIST') {
+    // Specialists (cosmetologist / massagist) can only see their own appointments
+    if (userRole === 'COSMETOLOGIST' || userRole === 'MASSAGIST') {
       let ownSpecialistId: string | undefined;
       if (this.specialistRepo) {
         const specialist = await this.specialistRepo.findByUserId(userId);

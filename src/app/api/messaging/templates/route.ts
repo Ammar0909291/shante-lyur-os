@@ -7,7 +7,7 @@ import { TEMPLATES } from '@/lib/communication/templates/definitions';
 // GET /api/messaging/templates — list all built-in templates
 export async function GET(request: NextRequest) {
   const role = request.headers.get('x-user-role');
-  if (!['ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(role ?? '')) {
+  if (!['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(role ?? '')) {
     return apiError('FORBIDDEN', 'Admin access required', 403);
   }
 

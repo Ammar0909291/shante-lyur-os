@@ -25,13 +25,18 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(params.get('limit') ?? '20', 10)));
     const role = params.get('role');
 
-    const where = role ? { role: role as UserRole } : { role: { not: 'CLIENT' as UserRole } };
+    const showAll = params.get('all') === 'true';
+    const where = role
+      ? { role: role as UserRole }
+      : showAll
+        ? undefined
+        : { role: { not: 'CLIENT' as UserRole } };
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
-        select: { id: true, firstName: true, lastName: true, email: true, role: true, status: true, createdAt: true },
-        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        select: { id: true, firstName: true, lastName: true, email: true, role: true, status: true, lastLoginAt: true, createdAt: true },
+        orderBy: [{ role: 'asc' }, { lastName: 'asc' }, { firstName: 'asc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),

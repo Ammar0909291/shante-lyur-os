@@ -234,8 +234,10 @@ function NotificationBell() {
 const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: 'Супер-администратор',
   ADMIN: 'Администратор',
-  OPERATOR: 'Оператор',
-  SPECIALIST: 'Специалист',
+  MANAGER: 'Менеджер',
+  RECEPTIONIST: 'Администратор стойки',
+  COSMETOLOGIST: 'Косметолог',
+  MASSAGIST: 'Массажист',
   CLIENT: 'Клиент',
 };
 

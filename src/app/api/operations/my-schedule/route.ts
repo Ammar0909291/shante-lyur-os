@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   if (!userId) return apiError('UNAUTHORIZED', 'Auth required', 401);
 
   // Only specialists (and admins previewing) can call this
-  if (!['SPECIALIST', 'ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(role)) {
+  if (!['COSMETOLOGIST', 'MASSAGIST', 'ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(role)) {
     return apiError('FORBIDDEN', 'Not authorized', 403);
   }
 

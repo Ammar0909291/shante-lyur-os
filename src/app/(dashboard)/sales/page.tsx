@@ -97,10 +97,13 @@ export default function SalesPage() {
   const { t, lang } = useLanguage();
 
   const ROLE_LABEL: Record<string, string> = {
-    ADMIN:       t('sales.role.admin'),
-    SPECIALIST:  t('sales.role.specialist'),
-    OPERATOR:    t('sales.role.operator'),
-    SUPER_ADMIN: t('sales.role.super'),
+    SUPER_ADMIN:   t('sales.role.super'),
+    ADMIN:         t('sales.role.admin'),
+    MANAGER:       t('sales.role.manager'),
+    RECEPTIONIST:  t('sales.role.receptionist'),
+    COSMETOLOGIST: t('sales.role.cosmetologist'),
+    MASSAGIST:     t('sales.role.massagist'),
+    CLIENT:        t('sales.role.client'),
   };
 
   const PRESETS = [

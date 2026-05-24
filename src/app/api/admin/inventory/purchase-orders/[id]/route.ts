@@ -58,7 +58,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { userId, role } = authHeaders(req);
   if (!userId) return apiError('UNAUTHORIZED', 'Auth required', 401);
-  if (!['ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(role)) return apiError('FORBIDDEN', 'Not authorized', 403);
+  if (!['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(role)) return apiError('FORBIDDEN', 'Not authorized', 403);
 
   const { id } = await params;
   let body: { status?: string; notes?: string; orderedAt?: string; expectedAt?: string; supplierId?: string };

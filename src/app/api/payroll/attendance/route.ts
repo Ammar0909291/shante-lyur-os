@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const to   = p.get('to');
 
   let specId = p.get('specialistId') ?? undefined;
-  if (role === 'SPECIALIST') {
+  if (role === 'COSMETOLOGIST' || role === 'MASSAGIST') {
     const spec = await prisma.specialist.findFirst({ where: { userId: userId ?? '' }, select: { id: true } });
     specId = spec?.id;
     if (!spec) return ok({ records: [] });
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
   const { specialistId, date, status, checkInAt, checkOutAt, breakMinutes, notes } = parsed.data;
 
   // Specialists can only record their own attendance
-  if (role === 'SPECIALIST') {
+  if (role === 'COSMETOLOGIST' || role === 'MASSAGIST') {
     const spec = await prisma.specialist.findFirst({ where: { userId: userId ?? '', id: specialistId }, select: { id: true } });
     if (!spec) return apiError('FORBIDDEN', 'Cannot record attendance for another specialist', 403);
   }

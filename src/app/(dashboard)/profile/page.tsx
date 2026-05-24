@@ -53,8 +53,10 @@ export default function ProfilePage() {
   const ROLE_LABEL: Record<string, string> = {
     SUPER_ADMIN: t('profile.role.super'),
     ADMIN: t('profile.role.admin'),
-    OPERATOR: t('profile.role.operator'),
-    SPECIALIST: t('profile.role.specialist'),
+    MANAGER: t('profile.role.manager'),
+    RECEPTIONIST: t('profile.role.receptionist'),
+    COSMETOLOGIST: t('profile.role.cosmetologist'),
+    MASSAGIST: t('profile.role.massagist'),
     CLIENT: t('profile.role.client'),
   };
 
@@ -68,8 +70,10 @@ export default function ProfilePage() {
   const PERMISSIONS: Record<string, string[]> = {
     SUPER_ADMIN: [t('profile.perm.system'), t('profile.perm.users'), t('profile.perm.analytics'), t('profile.perm.settings'), t('profile.perm.finance'), t('profile.perm.export')],
     ADMIN: [t('profile.perm.bookings'), t('profile.perm.clients'), t('profile.perm.specialists'), t('profile.perm.analytics'), t('profile.perm.settings')],
-    OPERATOR: [t('profile.perm.bookings'), t('profile.perm.viewClients'), t('profile.perm.createBookings')],
-    SPECIALIST: [t('profile.perm.viewOwn'), t('profile.perm.schedule')],
+    MANAGER: [t('profile.perm.bookings'), t('profile.perm.clients'), t('profile.perm.analytics')],
+    RECEPTIONIST: [t('profile.perm.bookings'), t('profile.perm.viewClients'), t('profile.perm.createBookings')],
+    COSMETOLOGIST: [t('profile.perm.viewOwn'), t('profile.perm.schedule')],
+    MASSAGIST: [t('profile.perm.viewOwn'), t('profile.perm.schedule')],
     CLIENT: [t('profile.perm.createBookings'), t('profile.perm.selfData')],
   };
 

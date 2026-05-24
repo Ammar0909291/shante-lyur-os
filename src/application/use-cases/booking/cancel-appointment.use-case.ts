@@ -54,7 +54,7 @@ export class CancelAppointmentUseCase {
       refundPolicy = 'partial';
     }
 
-    if ([UserRole.ADMIN, UserRole.OPERATOR, UserRole.SUPER_ADMIN].includes(actorRole)) {
+    if ([UserRole.ADMIN, UserRole.MANAGER, UserRole.RECEPTIONIST, UserRole.SUPER_ADMIN].includes(actorRole)) {
       refundPolicy = 'full';
     }
 

@@ -25,6 +25,7 @@ import {
   CalendarCheck,
   BadgePercent,
   Coins,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -36,25 +37,32 @@ interface NavItem {
   roles?: string[];
 }
 
+const FRONT_DESK = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST'];
+const MANAGER_UP = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
+const ADMIN_ONLY = ['SUPER_ADMIN', 'ADMIN'];
+const SPECIALIST_ONLY = ['COSMETOLOGIST', 'MASSAGIST'];
+const EMPLOYEES = [...FRONT_DESK, ...SPECIALIST_ONLY];
+
 const NAV_ITEMS: NavItem[] = [
   { key: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { key: 'nav.operations', href: '/operations', icon: Activity, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
-  { key: 'nav.receptionist', href: '/receptionist', icon: ClipboardList, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
-  { key: 'nav.myPanel', href: '/my-panel', icon: CalendarCheck, roles: ['SPECIALIST'] },
+  { key: 'nav.operations', href: '/operations', icon: Activity, roles: FRONT_DESK },
+  { key: 'nav.receptionist', href: '/receptionist', icon: ClipboardList, roles: FRONT_DESK },
+  { key: 'nav.myPanel', href: '/my-panel', icon: CalendarCheck, roles: SPECIALIST_ONLY },
   { key: 'nav.bookings', href: '/bookings', icon: Calendar },
-  { key: 'nav.clients', href: '/clients', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
-  { key: 'nav.specialists', href: '/specialists', icon: Sparkles, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
-  { key: 'nav.services', href: '/services', icon: Flower2, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
-  { key: 'nav.analytics', href: '/analytics', icon: BarChart3, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
-  { key: 'nav.sales', href: '/sales', icon: ShoppingBag, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
-  { key: 'nav.inventory', href: '/inventory', icon: Package, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
-  { key: 'nav.finance', href: '/finance', icon: Landmark, roles: ['SUPER_ADMIN', 'ADMIN'] },
-  { key: 'nav.payroll', href: '/payroll', icon: Coins, roles: ['SUPER_ADMIN', 'ADMIN'] },
-  { key: 'nav.promoCodes', href: '/promo-codes', icon: BadgePercent, roles: ['SUPER_ADMIN', 'ADMIN'] },
-  { key: 'nav.executive', href: '/executive', icon: Brain, roles: ['SUPER_ADMIN', 'ADMIN'] },
-  { key: 'nav.chat', href: '/chat', icon: MessageCircle },
-  { key: 'nav.communications', href: '/communications', icon: Radio, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
-  { key: 'nav.settings', href: '/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { key: 'nav.clients', href: '/clients', icon: Users, roles: FRONT_DESK },
+  { key: 'nav.specialists', href: '/specialists', icon: Sparkles, roles: FRONT_DESK },
+  { key: 'nav.services', href: '/services', icon: Flower2, roles: FRONT_DESK },
+  { key: 'nav.analytics', href: '/analytics', icon: BarChart3, roles: FRONT_DESK },
+  { key: 'nav.sales', href: '/sales', icon: ShoppingBag, roles: MANAGER_UP },
+  { key: 'nav.inventory', href: '/inventory', icon: Package, roles: MANAGER_UP },
+  { key: 'nav.finance', href: '/finance', icon: Landmark, roles: ADMIN_ONLY },
+  { key: 'nav.payroll', href: '/payroll', icon: Coins, roles: ADMIN_ONLY },
+  { key: 'nav.promoCodes', href: '/promo-codes', icon: BadgePercent, roles: MANAGER_UP },
+  { key: 'nav.executive', href: '/executive', icon: Brain, roles: ADMIN_ONLY },
+  { key: 'nav.chat', href: '/chat', icon: MessageCircle, roles: EMPLOYEES },
+  { key: 'nav.communications', href: '/communications', icon: Radio, roles: MANAGER_UP },
+  { key: 'nav.permissions', href: '/permissions', icon: ShieldCheck, roles: ['SUPER_ADMIN'] },
+  { key: 'nav.settings', href: '/settings', icon: Settings, roles: ADMIN_ONLY },
 ];
 
 function getJwtRole(): string {

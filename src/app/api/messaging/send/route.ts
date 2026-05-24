@@ -16,7 +16,7 @@ interface SendBody {
 
 export async function POST(request: NextRequest) {
   const role = request.headers.get('x-user-role');
-  if (!role || !['ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(role)) {
+  if (!role || !['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(role)) {
     return apiError('FORBIDDEN', 'Admin access required', 403);
   }
 

@@ -21,10 +21,10 @@ function fmtTime(iso: string) {
 function getAuthHeaders(): Record<string, string> {
   try {
     const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-    if (!match) return { 'x-user-id': 'system', 'x-user-role': 'OPERATOR' };
+    if (!match) return { 'x-user-id': 'system', 'x-user-role': 'RECEPTIONIST' };
     const p = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string; role?: string };
-    return { 'x-user-id': p.sub ?? 'system', 'x-user-role': p.role ?? 'OPERATOR' };
-  } catch { return { 'x-user-id': 'system', 'x-user-role': 'OPERATOR' }; }
+    return { 'x-user-id': p.sub ?? 'system', 'x-user-role': p.role ?? 'RECEPTIONIST' };
+  } catch { return { 'x-user-id': 'system', 'x-user-role': 'RECEPTIONIST' }; }
 }
 
 const STATUS_COLORS: Partial<Record<OperationalStatus, string>> = {
