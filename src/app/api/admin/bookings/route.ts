@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
           services: { include: { service: { select: { id: true, name: true } } }, orderBy: { sortOrder: 'asc' } },
           location: { select: { id: true, name: true } },
         },
-        orderBy: { startAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),

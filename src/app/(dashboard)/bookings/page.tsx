@@ -674,7 +674,7 @@ export default function BookingsPage() {
       <NewBookingDialog
         open={showNewDialog}
         onClose={() => setShowNewDialog(false)}
-        onCreated={() => { setShowNewDialog(false); fetchBookings(); }}
+        onCreated={() => { setShowNewDialog(false); setDatePreset(''); setPage(1); }}
       />
     </div>
   );
