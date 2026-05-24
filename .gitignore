@@ -41,3 +41,4 @@ prisma/migrations/*/migration_lock.toml
 # Misc
 *.pem
 .cache/
+.claude/worktrees/

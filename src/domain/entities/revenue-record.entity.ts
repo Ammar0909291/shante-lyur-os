@@ -30,4 +30,8 @@ export class RevenueRecord extends BaseEntity {
   get appointmentId(): string | undefined { return this.props.appointmentId; }
   get locationId(): string | undefined { return this.props.locationId; }
   get notes(): string | undefined { return this.props.notes; }
+
+  static reconstitute(props: RevenueRecordProps): RevenueRecord {
+    return new RevenueRecord(props);
+  }
 }

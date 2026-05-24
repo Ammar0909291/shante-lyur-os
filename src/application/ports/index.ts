@@ -28,3 +28,6 @@ export * from './specialist-note-repository.port';
 export * from './procedure-history-repository.port';
 export * from './allergy-repository.port';
 export * from './restriction-repository.port';
+export * from './auth-service.port';
+export * from './notification-service.port';
+export * from './ai-prediction-service.port';

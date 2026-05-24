@@ -42,6 +42,7 @@ export class User extends BaseEntity {
   get lastName(): string { return this.props.lastName; }
   get fullName(): string { return `${this.props.firstName} ${this.props.lastName}`; }
   get phone(): PhoneNumber | undefined { return this.props.phone; }
+  get avatarUrl(): string | undefined { return this.props.avatarUrl; }
   get role(): UserRole { return this.props.role; }
   get status(): UserStatus { return this._status; }
   get emailVerified(): boolean { return this.props.emailVerified; }
@@ -88,7 +89,7 @@ export class User extends BaseEntity {
     this.updatedAt = new Date();
   }
 
-  changeRole(newRole: UserRole, actorRole: UserRole, actorId: string): void {
+  changeRole(newRole: UserRole, _actorRole: UserRole, actorId: string): void {
     if (actorId === this.id && newRole !== this.role) {
       throw new ForbiddenError('Cannot change your own role');
     }
@@ -126,6 +127,10 @@ export class User extends BaseEntity {
 
   hasAnyRole(roles: UserRole[]): boolean {
     return roles.includes(this.role);
+  }
+
+  static reconstitute(props: UserProps): User {
+    return new User(props);
   }
 
   can(action: string, targetRole?: UserRole): boolean {

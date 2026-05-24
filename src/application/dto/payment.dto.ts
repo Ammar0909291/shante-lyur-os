@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PaginationSchema, DateRangeSchema } from './pagination.dto';
+import { PaginationSchema, DateRangeBaseSchema } from './pagination.dto';
 
 export const CreatePaymentSchema = z.object({
   appointmentId: z.string().uuid(),
@@ -29,7 +29,7 @@ export const CreateRefundSchema = z.object({
 
 export type CreateRefundDto = z.infer<typeof CreateRefundSchema>;
 
-export const ListPaymentsSchema = PaginationSchema.merge(DateRangeSchema).extend({
+export const ListPaymentsSchema = PaginationSchema.merge(DateRangeBaseSchema).extend({
   status: z.enum(['PENDING', 'PROCESSING', 'AUTHORIZED', 'CAPTURED', 'PARTIALLY_REFUNDED', 'FULLY_REFUNDED', 'FAILED', 'CANCELLED', 'EXPIRED']).optional(),
   provider: z.enum(['YOOKASSA', 'ROBOKASSA', 'CASH', 'CARD_TERMINAL', 'TRANSFER', 'INTERNAL']).optional(),
 });

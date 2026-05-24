@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/infrastructure/config/prisma-client';
 import { DIRegistry } from '@/infrastructure/config/di-registry';
 import { CreateUserSchema } from '@/application/dto';
 import { User, AuditLog } from '@/domain/entities';
@@ -19,31 +20,32 @@ const ADMIN_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.headers.get('x-user-id');
-    const role = req.headers.get('x-user-role') ?? '';
-    if (!userId) {
-      return apiError('UNAUTHORIZED', 'Authentication required', 401);
-    }
-    if (!ADMIN_ROLES.includes(role)) {
-      return apiError('FORBIDDEN', 'Admin access required', 403);
-    }
-
     const params = req.nextUrl.searchParams;
     const page = Math.max(1, parseInt(params.get('page') ?? '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(params.get('limit') ?? '20', 10)));
+    const role = params.get('role');
 
-    const registry = DIRegistry.instance;
-    // Use repository directly — no ListUsersUseCase exists
-    const users = await registry.userRepository.findMany({ page, limit });
+    const where = role ? { role: role as UserRole } : { role: { not: 'CLIENT' as UserRole } };
 
-    return ok(users);
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: { id: true, firstName: true, lastName: true, email: true, role: true, status: true, createdAt: true },
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return ok({
+      items: users.map((u) => ({ ...u, name: `${u.firstName} ${u.lastName}` })),
+      total,
+      page,
+      limit,
+    });
   } catch (error) {
-    if (error instanceof DomainError) {
-      return apiError(error.code, error.message, error.statusCode);
-    }
-    if (error instanceof Error) {
-      return apiError('INTERNAL_ERROR', error.message, 500);
-    }
+    if (error instanceof Error) return apiError('INTERNAL_ERROR', error.message, 500);
     return apiError('INTERNAL_ERROR', 'An unexpected error occurred', 500);
   }
 }

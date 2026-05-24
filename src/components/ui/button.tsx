@@ -69,6 +69,8 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   isLoading?: boolean;
+  loading?: boolean;
+  fullWidth?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   asChild?: boolean;
@@ -105,6 +107,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       variant,
       size,
       isLoading = false,
+      loading = false,
+      fullWidth = false,
       leftIcon,
       rightIcon,
       children,
@@ -113,15 +117,16 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref,
   ) => {
+    const busy = isLoading || loading;
     return (
       <button
         ref={ref}
-        className={cn(buttonVariants({ variant, size }), className)}
-        disabled={disabled || isLoading}
-        aria-disabled={disabled || isLoading}
+        className={cn(buttonVariants({ variant, size }), fullWidth && 'w-full', className)}
+        disabled={disabled || busy}
+        aria-disabled={disabled || busy}
         {...props}
       >
-        {isLoading ? (
+        {busy ? (
           <Spinner />
         ) : leftIcon ? (
           <span className="shrink-0" aria-hidden="true">
@@ -129,7 +134,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           </span>
         ) : null}
         {children && <span>{children}</span>}
-        {!isLoading && rightIcon && (
+        {!busy && rightIcon && (
           <span className="shrink-0" aria-hidden="true">
             {rightIcon}
           </span>

@@ -1,7 +1,7 @@
 import { User, RefreshToken } from '@/domain/entities';
 import { UserRole, UserStatus } from '@/domain/enums';
 import { Email, PhoneNumber } from '@/domain/value-objects';
-import { ConflictError, ValidationError } from '@/domain/errors';
+import { ConflictError } from '@/domain/errors';
 import { UserRegisteredEvent } from '@/domain/events';
 import {
   IUserRepository,

@@ -29,12 +29,12 @@ export class Money {
 
   add(other: Money): Money {
     this.ensureSameCurrency(other);
-    return new Money(this._amount + other._amount, this._currency);
+    return new Money(Math.round((this._amount + other._amount) * 100) / 100, this._currency);
   }
 
   subtract(other: Money): Money {
     this.ensureSameCurrency(other);
-    const result = this._amount - other._amount;
+    const result = Math.round((this._amount - other._amount) * 100) / 100;
     if (result < 0) {
       throw new Error('Insufficient funds');
     }

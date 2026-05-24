@@ -45,4 +45,8 @@ export class DailyMetrics extends BaseEntity {
     if (this.props.totalAppointments === 0) return 0;
     return this.props.noShowAppointments / this.props.totalAppointments;
   }
+
+  static reconstitute(props: DailyMetricsProps): DailyMetrics {
+    return new DailyMetrics(props);
+  }
 }

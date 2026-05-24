@@ -1,32 +1,42 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import { SpecialistRepositoryPort } from '@/application/ports/specialist-repository.port';
+import { ISpecialistRepository } from '@/application/ports/specialist-repository.port';
 import { Specialist } from '@/domain/entities/specialist.entity';
 import { SpecialistStatus } from '@/domain/enums/specialist-status.enum';
-import { Money } from '@/domain/value-objects/money.vo';
+import { Color } from '@/domain/value-objects/color.vo';
 
-export class PrismaSpecialistRepository implements SpecialistRepositoryPort {
+type SpecialistWithUser = Prisma.SpecialistGetPayload<{
+  include: { user: { select: { firstName: true; lastName: true; email: true } } };
+}>;
+
+export class PrismaSpecialistRepository implements ISpecialistRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  private toDomain(raw: { id: string; userId: string; bio: string | null; specialties: string[]; commissionRate: number; rating: number; reviewCount: number; status: string; maxDailyAppointments: number; createdAt: Date; updatedAt: Date } & { user?: { firstName: string; lastName: string; email: string } | null }): Specialist {
+  private toDomain(raw: SpecialistWithUser): Specialist {
     return Specialist.reconstitute({
       id: raw.id,
       userId: raw.userId,
       bio: raw.bio ?? undefined,
-      specialties: raw.specialties,
-      commissionRate: raw.commissionRate,
-      rating: raw.rating,
+      specialization: raw.specialization ?? undefined,
+      experienceYears: raw.experienceYears ?? undefined,
+      rating: raw.rating !== null ? Number(raw.rating) : undefined,
       reviewCount: raw.reviewCount,
+      commissionRate: Number(raw.commissionRate),
       status: raw.status as SpecialistStatus,
-      maxDailyAppointments: raw.maxDailyAppointments,
+      color: raw.color ? Color.create(raw.color) : undefined,
+      sortOrder: raw.sortOrder,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
     });
   }
 
+  private readonly includeUser = {
+    user: { select: { firstName: true, lastName: true, email: true } },
+  } as const;
+
   async findById(id: string): Promise<Specialist | null> {
     const raw = await this.db.specialist.findUnique({
       where: { id },
-      include: { user: { select: { firstName: true, lastName: true, email: true } } },
+      include: this.includeUser,
     });
     return raw ? this.toDomain(raw) : null;
   }
@@ -34,27 +44,38 @@ export class PrismaSpecialistRepository implements SpecialistRepositoryPort {
   async findByUserId(userId: string): Promise<Specialist | null> {
     const raw = await this.db.specialist.findUnique({
       where: { userId },
-      include: { user: { select: { firstName: true, lastName: true, email: true } } },
+      include: this.includeUser,
     });
     return raw ? this.toDomain(raw) : null;
   }
 
-  async findMany(options?: { status?: SpecialistStatus; page?: number; limit?: number }): Promise<{ items: Specialist[]; total: number }> {
-    const { status, page = 1, limit = 50 } = options ?? {};
+  async findMany(options: {
+    status?: SpecialistStatus;
+    serviceId?: string;
+    locationId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ items: Specialist[]; total: number }> {
+    const { status, serviceId, page = 1, limit = 50 } = options;
+
     const where: Prisma.SpecialistWhereInput = {};
     if (status) where.status = status;
+    if (serviceId) {
+      where.services = { some: { serviceId, isActive: true } };
+    }
 
     const [raws, total] = await Promise.all([
       this.db.specialist.findMany({
         where,
-        include: { user: { select: { firstName: true, lastName: true, email: true } } },
+        include: this.includeUser,
         skip: (page - 1) * limit,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       }),
       this.db.specialist.count({ where }),
     ]);
-    return { items: raws.map(r => this.toDomain(r)), total };
+
+    return { items: raws.map((r) => this.toDomain(r)), total };
   }
 
   async create(specialist: Specialist): Promise<Specialist> {
@@ -63,14 +84,16 @@ export class PrismaSpecialistRepository implements SpecialistRepositoryPort {
         id: specialist.id,
         userId: specialist.userId,
         bio: specialist.bio,
-        specialties: specialist.specialties,
+        specialization: specialist.specialization,
+        experienceYears: specialist.experienceYears,
         commissionRate: specialist.commissionRate,
         rating: specialist.rating,
         reviewCount: specialist.reviewCount,
         status: specialist.status,
-        maxDailyAppointments: specialist.maxDailyAppointments,
+        color: specialist.color?.value,
+        sortOrder: specialist.sortOrder,
       },
-      include: { user: { select: { firstName: true, lastName: true, email: true } } },
+      include: this.includeUser,
     });
     return this.toDomain(raw);
   }
@@ -80,20 +103,49 @@ export class PrismaSpecialistRepository implements SpecialistRepositoryPort {
       where: { id: specialist.id },
       data: {
         bio: specialist.bio,
-        specialties: specialist.specialties,
+        specialization: specialist.specialization,
+        experienceYears: specialist.experienceYears,
         commissionRate: specialist.commissionRate,
         rating: specialist.rating,
         reviewCount: specialist.reviewCount,
         status: specialist.status,
-        maxDailyAppointments: specialist.maxDailyAppointments,
+        color: specialist.color?.value,
+        sortOrder: specialist.sortOrder,
         updatedAt: new Date(),
       },
-      include: { user: { select: { firstName: true, lastName: true, email: true } } },
+      include: this.includeUser,
     });
     return this.toDomain(raw);
   }
 
   async delete(id: string): Promise<void> {
     await this.db.specialist.delete({ where: { id } });
+  }
+
+  async updateRating(specialistId: string, newRating: number): Promise<void> {
+    await this.db.specialist.update({
+      where: { id: specialistId },
+      data: { rating: newRating, updatedAt: new Date() },
+    });
+  }
+
+  async assignService(
+    specialistId: string,
+    serviceId: string,
+    priceOverride?: number,
+    durationOverride?: number,
+  ): Promise<void> {
+    await this.db.specialistService.upsert({
+      where: { specialistId_serviceId: { specialistId, serviceId } },
+      create: { specialistId, serviceId, priceOverride, durationOverride, isActive: true },
+      update: { priceOverride, durationOverride, isActive: true },
+    });
+  }
+
+  async removeService(specialistId: string, serviceId: string): Promise<void> {
+    await this.db.specialistService.updateMany({
+      where: { specialistId, serviceId },
+      data: { isActive: false },
+    });
   }
 }

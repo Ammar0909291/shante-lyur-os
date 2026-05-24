@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import {
   ISessionRepository,
   IRefreshTokenRepository,
@@ -5,6 +6,10 @@ import {
 } from '@/application/ports';
 import { AuditLog } from '@/domain/entities';
 import { AuditAction } from '@/domain/enums';
+
+function sha256Token(raw: string): string {
+  return createHash('sha256').update(raw).digest('hex');
+}
 
 export class LogoutUseCase {
   constructor(
@@ -15,12 +20,18 @@ export class LogoutUseCase {
 
   async execute(userId: string, sessionToken?: string, refreshToken?: string, ipAddress?: string): Promise<void> {
     if (sessionToken) {
-      await this.sessionRepo.deleteByToken(sessionToken);
+      try { await this.sessionRepo.deleteByToken(sessionToken); } catch {}
     }
+
     if (refreshToken) {
-      const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(refreshToken));
-      // In real implementation, use passwordHasher or consistent hash
-      // Here we rely on the repo to handle lookup
+      try {
+        const hash = sha256Token(refreshToken);
+        const stored = await this.refreshTokenRepo.findByTokenHash(hash);
+        if (stored && !stored.isRevoked) {
+          stored.revoke();
+          await this.refreshTokenRepo.update(stored);
+        }
+      } catch {}
     }
 
     await this.auditLogRepo.create(

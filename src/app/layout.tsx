@@ -53,9 +53,17 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
-      className={`dark ${inter.variable} ${playfairDisplay.variable}`}
+      className={`${inter.variable} ${playfairDisplay.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Inline theme script — runs before paint, prevents flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');document.documentElement.classList.add(t==='light'?'light':'dark');}catch(e){document.documentElement.classList.add('dark');}})();`,
+          }}
+        />
+      </head>
       <body className={`${inter.className} antialiased`}>{children}</body>
     </html>
   );

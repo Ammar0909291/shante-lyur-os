@@ -6,7 +6,7 @@
 
 /* ─── CSS Custom Properties ─────────────────────────────────────────── */
 :root {
-  /* Backgrounds */
+  /* Backgrounds (dark defaults) */
   --color-obsidian: #0A0A0F;
   --color-onyx: #13131A;
   --color-charcoal: #1E1E2A;
@@ -38,6 +38,85 @@
   --color-error: #C47878;
   --color-info: #7898C4;
 }
+
+/* ─── Light Theme ────────────────────────────────────────────────────── */
+html.light {
+  --color-obsidian: #F5F1EC;
+  --color-onyx: #EDE8E1;
+  --color-charcoal: #E3DDD5;
+  --color-text-primary: #181410;
+  --color-text-secondary: #4A4541;
+  --color-text-tertiary: #7A7570;
+  --color-border: #C8C2BA;
+  --color-border-light: #B8B2AA;
+  --color-champagne: #B8922A;
+  --color-champagne-light: #A07820;
+  --color-champagne-dark: #8A6418;
+}
+
+html.light body {
+  background-color: #F5F1EC;
+  color: #181410;
+}
+
+/* Background surfaces */
+html.light .bg-obsidian { background-color: #F5F1EC !important; }
+html.light .bg-onyx { background-color: #EDE8E1 !important; }
+html.light .bg-charcoal { background-color: #E3DDD5 !important; }
+html.light .bg-charcoal\/50 { background-color: rgba(227, 221, 213, 0.6) !important; }
+html.light .bg-charcoal\/8 { background-color: rgba(184, 146, 42, 0.1) !important; }
+
+/* Hover/focus state overrides */
+html.light .hover\:bg-charcoal\/50:hover { background-color: rgba(227, 221, 213, 0.6) !important; }
+html.light .hover\:bg-charcoal:hover { background-color: #E3DDD5 !important; }
+html.light .focus\:bg-charcoal:focus { background-color: #E3DDD5 !important; }
+html.light .hover\:bg-white\/4:hover { background-color: rgba(0,0,0,0.04) !important; }
+
+/* Text */
+html.light .text-text-primary { color: #181410 !important; }
+html.light .text-text-secondary { color: #4A4541 !important; }
+html.light .text-text-tertiary { color: #7A7570 !important; }
+
+/* Champagne accent in light mode (deeper gold for contrast) */
+html.light .text-champagne { color: #B8922A !important; }
+
+/* Borders */
+html.light .border-border-luxury { border-color: #C8C2BA !important; }
+html.light .divide-border-luxury > * + * { border-color: #C8C2BA !important; }
+html.light .border-border-light { border-color: #B8B2AA !important; }
+html.light .border-champagne\/40 { border-color: rgba(184, 146, 42, 0.4) !important; }
+html.light .border-champagne\/30 { border-color: rgba(184, 146, 42, 0.3) !important; }
+
+/* Header surface */
+html.light .bg-onyx\/80 { background-color: rgba(237, 232, 225, 0.92) !important; }
+
+/* Input fields in light mode */
+html.light .bg-obsidian input,
+html.light input.bg-obsidian,
+html.light textarea.bg-obsidian,
+html.light select.bg-obsidian { background-color: #F0EBE4 !important; border-color: #C8C2BA !important; }
+
+/* Stat cards in light mode — stronger surface separation */
+html.light .bg-onyx.border { box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+
+/* Table rows */
+html.light tbody tr:hover { background-color: rgba(227, 221, 213, 0.5) !important; }
+
+/* Champagne button text stays dark on both themes */
+html.light .bg-champagne-gradient { color: #181410; }
+
+/* Scrollbar */
+html.light ::-webkit-scrollbar-track { background: #EDE8E1; }
+html.light ::-webkit-scrollbar-thumb { background: #B8B2AA; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #7A7570; }
+html.light * { scrollbar-color: #B8B2AA #EDE8E1; }
+
+/* Badge backgrounds need explicit light overrides */
+html.light .bg-sage\/15 { background-color: rgba(100, 140, 100, 0.15) !important; }
+html.light .text-sage { color: #3A6E3A !important; }
+
+/* Language toggle & header buttons */
+html.light .border-border-luxury.px-2 { border-color: #C8C2BA !important; }
 
 /* ─── Base Styles ────────────────────────────────────────────────────── */
 @layer base {
@@ -326,6 +405,26 @@
 .stagger-2 { animation-delay: 0.1s; }
 .stagger-3 { animation-delay: 0.15s; }
 .stagger-4 { animation-delay: 0.2s; }
+
+/* ─── Compact Density Mode ───────────────────────────────────────────── */
+/* Applied when data-density="compact" is on the layout root.
+   Only Next UI pages opt into this — Classic UI is never affected. */
+[data-density="compact"][data-ui="next"] main .density-page {
+  padding: 1rem;
+}
+@media (min-width: 1024px) {
+  [data-density="compact"][data-ui="next"] main .density-page {
+    padding: 1.25rem;
+  }
+}
+[data-density="compact"][data-ui="next"] main .density-card-header {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+[data-density="compact"][data-ui="next"] main .density-row {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
 
 /* ─── Utilities ──────────────────────────────────────────────────────── */
 @layer utilities {

@@ -11,27 +11,67 @@ import {
   Flower2,
   BarChart3,
   Settings,
+  MessageCircle,
+  ShoppingBag,
+  Package,
   ChevronLeft,
   ChevronRight,
   X,
+  Activity,
+  Landmark,
+  Brain,
+  ClipboardList,
+  CalendarCheck,
+  BadgePercent,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 interface NavItem {
-  label: string;
+  key: string;
   href: string;
   icon: React.ElementType;
+  roles?: string[];
 }
 
-const navItems: NavItem[] = [
-  { label: 'Дашборд', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Записи', href: '/bookings', icon: Calendar },
-  { label: 'Клиенты', href: '/clients', icon: Users },
-  { label: 'Специалисты', href: '/specialists', icon: Sparkles },
-  { label: 'Услуги', href: '/services', icon: Flower2 },
-  { label: 'Аналитика', href: '/analytics', icon: BarChart3 },
-  { label: 'Настройки', href: '/settings', icon: Settings },
+const NAV_ITEMS: NavItem[] = [
+  { key: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { key: 'nav.operations', href: '/operations', icon: Activity, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.receptionist', href: '/receptionist', icon: ClipboardList, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.myPanel', href: '/my-panel', icon: CalendarCheck, roles: ['SPECIALIST'] },
+  { key: 'nav.bookings', href: '/bookings', icon: Calendar },
+  { key: 'nav.clients', href: '/clients', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.specialists', href: '/specialists', icon: Sparkles, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.services', href: '/services', icon: Flower2, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.analytics', href: '/analytics', icon: BarChart3, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.sales', href: '/sales', icon: ShoppingBag, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.inventory', href: '/inventory', icon: Package, roles: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] },
+  { key: 'nav.finance', href: '/finance', icon: Landmark, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { key: 'nav.promoCodes', href: '/promo-codes', icon: BadgePercent, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { key: 'nav.executive', href: '/executive', icon: Brain, roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { key: 'nav.chat', href: '/chat', icon: MessageCircle },
+  { key: 'nav.settings', href: '/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
+
+function getJwtRole(): string {
+  try {
+    if (typeof document === 'undefined') return '';
+    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+    if (!match) return '';
+    const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return (payload.role as string) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function useUserRole(): string {
+  const [role, setRole] = React.useState('');
+  React.useEffect(() => {
+    setRole(getJwtRole());
+  }, []);
+  return role;
+}
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -40,11 +80,13 @@ interface SidebarProps {
 
 export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
+  const { t } = useLanguage();
   const [collapsed, setCollapsed] = React.useState(false);
+  const role = useUserRole();
+  const visibleItems = NAV_ITEMS.filter((item) => !item.roles || !role || item.roles.includes(role));
 
   return (
     <>
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
@@ -53,52 +95,31 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
         />
       )}
 
-      {/* Sidebar panel */}
       <aside
         className={cn(
           'fixed top-0 left-0 z-50 h-full flex flex-col',
           'bg-onyx border-r border-border-luxury',
           'transition-all duration-300 ease-in-out',
-          // Desktop
           'lg:relative lg:z-auto lg:translate-x-0',
           collapsed ? 'lg:w-16' : 'lg:w-64',
-          // Mobile
           mobileOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72',
         )}
       >
-        {/* Logo area */}
-        <div
-          className={cn(
-            'flex items-center h-16 shrink-0 px-4 border-b border-border-luxury',
-            collapsed ? 'lg:justify-center' : 'justify-between',
-          )}
-        >
-          <div className={cn('flex items-center gap-3', collapsed && 'lg:justify-center')}>
-            {/* Monogram */}
+        {/* Logo */}
+        <div className="flex items-center h-16 shrink-0 px-4 border-b border-border-luxury justify-between">
+          <div className="flex items-center gap-3">
             <div
-              className={cn(
-                'flex items-center justify-center',
-                'w-9 h-9 rounded-xl shrink-0',
-                'luxury-gradient',
-              )}
+              className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 luxury-gradient"
               aria-hidden="true"
             >
-              <span className="font-serif text-sm font-bold text-obsidian tracking-tight">
-                SL
-              </span>
+              <span className="font-serif text-sm font-bold text-obsidian tracking-tight">SL</span>
             </div>
-            {/* Brand name */}
             <div className={cn('flex flex-col', collapsed && 'lg:hidden')}>
-              <span className="font-serif text-sm font-medium text-text-primary leading-tight">
-                Shante Lyur
-              </span>
-              <span className="text-[10px] uppercase tracking-widest text-text-tertiary">
-                Wellness Studio
-              </span>
+              <span className="font-serif text-sm font-medium text-text-primary leading-tight">Shante Lyur</span>
+              <span className="text-[10px] uppercase tracking-widest text-text-tertiary">Wellness Studio</span>
             </div>
           </div>
 
-          {/* Mobile close */}
           <button
             onClick={onMobileClose}
             className="lg:hidden p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
@@ -107,29 +128,24 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             <X className="w-4 h-4" />
           </button>
 
-          {/* Desktop collapse toggle */}
           <button
             onClick={() => setCollapsed(!collapsed)}
             className={cn(
               'hidden lg:flex p-1.5 rounded-md',
               'text-text-tertiary hover:text-text-primary hover:bg-charcoal',
               'transition-colors',
-              collapsed && 'hidden',
             )}
             aria-label={collapsed ? 'Развернуть' : 'Свернуть'}
           >
-            {collapsed ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
-              <ChevronLeft className="w-4 h-4" />
-            )}
+            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Основная навигация">
-          {navItems.map(({ label, href, icon: Icon }) => {
+          {visibleItems.map(({ key, href, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
+            const label = t(key);
             return (
               <Link
                 key={href}
@@ -140,7 +156,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                   'text-sm font-medium transition-all duration-150',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
                   isActive
-                    ? 'bg-champagne/8 text-champagne shadow-champagne-sm'
+                    ? 'bg-champagne/8 text-champagne'
                     : 'text-text-secondary hover:text-text-primary hover:bg-white/4',
                   collapsed && 'lg:justify-center lg:px-0',
                 )}
@@ -150,7 +166,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                 <Icon
                   className={cn(
                     'w-5 h-5 shrink-0 transition-colors',
-                    isActive ? 'text-champagne' : 'text-text-tertiary group-hover:text-text-primary',
+                    isActive ? 'text-champagne' : 'text-text-tertiary',
                   )}
                   aria-hidden="true"
                 />
@@ -163,14 +179,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           })}
         </nav>
 
-        {/* Bottom section */}
+        {/* Footer */}
         <div className="shrink-0 p-3 border-t border-border-luxury">
-          <div
-            className={cn(
-              'rounded-xl px-3 py-2.5 bg-charcoal border border-border-luxury',
-              collapsed && 'lg:px-0 lg:flex lg:justify-center',
-            )}
-          >
+          <div className={cn('rounded-xl px-3 py-2.5 bg-charcoal border border-border-luxury', collapsed && 'lg:px-0 lg:flex lg:justify-center')}>
             <div className={cn('flex items-center gap-3', collapsed && 'lg:justify-center')}>
               <div className="w-7 h-7 rounded-lg luxury-gradient flex items-center justify-center shrink-0">
                 <span className="text-[9px] font-bold text-obsidian">v3</span>

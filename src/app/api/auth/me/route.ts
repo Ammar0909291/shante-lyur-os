@@ -1,53 +1,83 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { DIRegistry } from '@/infrastructure/config/di-registry';
-import { GetMeUseCase } from '@/application/use-cases/auth';
-import { DomainError } from '@/domain/errors';
+import { z } from 'zod';
+import { getCurrentUserId } from '@/lib/auth-server';
+import { prisma } from '@/infrastructure/config/prisma-client';
 
-function ok<T>(data: T, status = 200) {
-  return NextResponse.json({ success: true, data }, { status });
+function ok<T>(data: T) {
+  return NextResponse.json({ success: true, data });
 }
-function apiError(code: string, message: string, status: number) {
-  return NextResponse.json({ success: false, error: { code, message } }, { status });
+function apiError(code: string, msg: string, status: number) {
+  return NextResponse.json({ success: false, error: { code, message: msg } }, { status });
+}
+
+const SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+  role: true,
+  status: true,
+  avatarUrl: true,
+  lastLoginAt: true,
+  createdAt: true,
+} as const;
+
+function resolveUserId(req: NextRequest): string | null {
+  // Cookie-based auth (works for all roles, not just admin)
+  const fromCookie = getCurrentUserId(req);
+  if (fromCookie) return fromCookie;
+  // Fallback: x-user-id set by middleware for protected routes
+  return req.headers.get('x-user-id');
 }
 
 export async function GET(req: NextRequest) {
+  const userId = resolveUserId(req);
+  if (!userId) return apiError('UNAUTHORIZED', 'Not authenticated', 401);
+
   try {
-    const userId = req.headers.get('x-user-id');
-    if (!userId) {
-      return apiError('UNAUTHORIZED', 'Authentication required', 401);
-    }
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: SELECT });
+    if (!user) return apiError('NOT_FOUND', 'User not found', 404);
+    return ok(user);
+  } catch {
+    return apiError('INTERNAL_ERROR', 'Server error', 500);
+  }
+}
 
-    const registry = DIRegistry.instance;
-    const useCase = new GetMeUseCase(
-      registry.userRepository,
-      registry.customerProfileRepository,
-    );
+const PatchSchema = z.object({
+  firstName: z.string().min(1).max(50).optional(),
+  lastName: z.string().min(1).max(50).optional(),
+  phone: z.string().min(7).max(30).nullable().optional(),
+});
 
-    const result = await useCase.execute(userId);
+export async function PATCH(req: NextRequest) {
+  const userId = resolveUserId(req);
+  if (!userId) return apiError('UNAUTHORIZED', 'Not authenticated', 401);
 
-    return ok({
-      user: {
-        id: result.user.id,
-        email: result.user.email.value,
-        firstName: result.user.firstName,
-        lastName: result.user.lastName,
-        role: result.user.role,
-        status: result.user.status,
-        emailVerified: result.user.emailVerified,
-        phoneVerified: result.user.phoneVerified,
-        createdAt: result.user.createdAt,
-      },
-      profile: result.profile ?? null,
+  let body: unknown;
+  try { body = await req.json(); } catch { return apiError('VALIDATION_ERROR', 'Invalid JSON', 400); }
+
+  const parsed = PatchSchema.safeParse(body);
+  if (!parsed.success) return apiError('VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid input', 400);
+
+  const { firstName, lastName, phone } = parsed.data;
+  const updateData: Record<string, unknown> = {};
+  if (firstName !== undefined) updateData.firstName = firstName;
+  if (lastName !== undefined) updateData.lastName = lastName;
+  if (phone !== undefined) updateData.phone = phone;
+
+  if (Object.keys(updateData).length === 0) return apiError('VALIDATION_ERROR', 'Nothing to update', 400);
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: SELECT,
     });
-  } catch (error) {
-    if (error instanceof DomainError) {
-      return apiError(error.code, error.message, error.statusCode);
-    }
-    if (error instanceof Error) {
-      return apiError('INTERNAL_ERROR', error.message, 500);
-    }
-    return apiError('INTERNAL_ERROR', 'An unexpected error occurred', 500);
+    return ok(updated);
+  } catch {
+    return apiError('INTERNAL_ERROR', 'Server error', 500);
   }
 }

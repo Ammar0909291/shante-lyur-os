@@ -57,4 +57,8 @@ export class Service extends BaseEntity {
     (this.props as ServiceProps).baseDuration = minutes;
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: ServiceProps): Service {
+    return new Service(props);
+  }
 }

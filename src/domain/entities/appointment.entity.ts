@@ -75,7 +75,7 @@ export class Appointment extends BaseEntity {
     return [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.RESCHEDULED].includes(this._status);
   }
 
-  private transitionTo(newStatus: AppointmentStatus, actorId: string): void {
+  private transitionTo(newStatus: AppointmentStatus, _actorId: string): void {
     if (!canTransitionStatus(this._status, newStatus)) {
       throw new ValidationError(
         `Invalid status transition: ${this._status} → ${newStatus}`,
@@ -122,7 +122,6 @@ export class Appointment extends BaseEntity {
     if (!this.isModifiable) {
       throw new ConflictError('Cannot reschedule appointment in current status', 'status');
     }
-    const oldSlot = this._timeSlot;
     this._timeSlot = newTimeSlot;
     this.transitionTo(AppointmentStatus.RESCHEDULED, rescheduledBy);
     // After rescheduling, it should be confirmed again
@@ -161,5 +160,33 @@ export class Appointment extends BaseEntity {
   overlaps(other: Appointment): boolean {
     if (this.specialistId !== other.specialistId) return false;
     return this._timeSlot.overlaps(other.timeSlot);
+  }
+
+  static reconstitute(props: {
+    id: string;
+    clientId: string;
+    specialistId: string;
+    locationId: string;
+    startAt: Date;
+    endAt: Date;
+    status: AppointmentStatus;
+    services: AppointmentServiceItem[];
+    totalPrice: Money;
+    totalDuration: number;
+    notes?: string;
+    cancellationReason?: CancellationReason;
+    cancelledAt?: Date;
+    cancelledBy?: string;
+    noShowAt?: Date;
+    checkedInAt?: Date;
+    checkedOutAt?: Date;
+    source?: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }): Appointment {
+    return new Appointment({
+      ...props,
+      timeSlot: DateRange.create(props.startAt, props.endAt),
+    });
   }
 }

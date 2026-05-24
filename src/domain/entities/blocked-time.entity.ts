@@ -10,11 +10,16 @@ export interface BlockedTimeProps {
   isRecurring: boolean;
   recurrenceRule?: string;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export class BlockedTime extends BaseEntity {
   constructor(private readonly props: BlockedTimeProps) {
-    super(props.id, props.createdAt, props.createdAt);
+    super(props.id, props.createdAt, props.updatedAt);
+  }
+
+  static reconstitute(props: BlockedTimeProps): BlockedTime {
+    return new BlockedTime(props);
   }
 
   get specialistId(): string { return this.props.specialistId; }

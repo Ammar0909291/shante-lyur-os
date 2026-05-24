@@ -1,85 +1,108 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { DIRegistry } from '@/infrastructure/config/di-registry';
-import { LoginUseCase } from '@/application/use-cases/auth';
-import { LoginSchema } from '@/application/dto';
-import { DomainError } from '@/domain/errors';
+import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { createHash } from 'crypto';
+import { prisma } from '@/infrastructure/config/prisma-client';
+import { logAudit, getRequestMeta } from '@/lib/audit-logger';
 
-function ok<T>(data: T, status = 200) {
-  return NextResponse.json({ success: true, data }, { status });
-}
-function apiError(code: string, message: string, status: number, details?: Record<string, unknown>) {
-  return NextResponse.json({ success: false, error: { code, message, ...( details ? { details } : {}) } }, { status });
-}
+const Schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  rememberMe: z.boolean().default(false),
+});
 
-function setAuthCookies(
-  response: NextResponse,
-  accessToken: string,
-  refreshToken: string,
-  rememberMe: boolean,
-): void {
-  const refreshMaxAge = rememberMe ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60;
-  response.cookies.set('access_token', accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 15 * 60,
-  });
-  response.cookies.set('refresh_token', refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: refreshMaxAge,
-  });
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? process.env.JWT_SECRET ?? 'dev-access-secret-change-me';
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET ?? 'dev-refresh-secret-change-me';
+
+function sha256(s: string) { return createHash('sha256').update(s).digest('hex'); }
+function fail(code: string, msg: string, status: number) {
+  return NextResponse.json({ success: false, error: { code, message: msg } }, { status });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body: unknown = await req.json();
-    const parsed = LoginSchema.safeParse(body);
-    if (!parsed.success) {
-      return apiError('VALIDATION_ERROR', 'Invalid request body', 400, {
-        issues: parsed.error.issues,
-      });
+    const body = await req.json().catch(() => null);
+    const parsed = Schema.safeParse(body);
+    if (!parsed.success) return fail('VALIDATION_ERROR', 'Invalid request', 400);
+
+    const { email, password, rememberMe } = parsed.data;
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return fail('UNAUTHORIZED', 'Invalid credentials', 401);
+
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      return fail('LOCKED', `Account locked until ${user.lockedUntil.toISOString()}`, 403);
     }
 
-    const registry = DIRegistry.instance;
-    const useCase = new LoginUseCase(
-      registry.userRepository,
-      registry.refreshTokenRepository,
-      registry.passwordHasher,
-      registry.tokenService,
-      registry.auditLogRepository,
-    );
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      await prisma.user.update({ where: { id: user.id }, data: { failedLogins: { increment: 1 } } });
+      const { ipAddress, userAgent } = getRequestMeta(req);
+      void logAudit({
+        userId: user.id,
+        role: user.role,
+        action: 'LOGIN_FAILED',
+        entityType: 'user',
+        entityId: user.id,
+        ipAddress,
+        userAgent,
+        metadata: { email: user.email },
+      });
+      return fail('UNAUTHORIZED', 'Invalid credentials', 401);
+    }
 
-    const ipAddress = req.headers.get('x-forwarded-for') ?? req.headers.get('x-real-ip') ?? undefined;
-    const userAgent = req.headers.get('user-agent') ?? undefined;
-    const result = await useCase.execute(parsed.data, ipAddress ?? undefined, userAgent ?? undefined);
-
-    const response = ok({
-      user: {
-        id: result.user.id,
-        email: result.user.email.value,
-        firstName: result.user.firstName,
-        lastName: result.user.lastName,
-        role: result.user.role,
-        status: result.user.status,
-      },
-      accessToken: result.accessToken,
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date() },
     });
 
-    setAuthCookies(response, result.accessToken, result.refreshToken, parsed.data.rememberMe);
-    return response;
-  } catch (error) {
-    if (error instanceof DomainError) {
-      return apiError(error.code, error.message, error.statusCode, error.details);
-    }
-    if (error instanceof Error) {
-      return apiError('INTERNAL_ERROR', error.message, 500);
-    }
-    return apiError('INTERNAL_ERROR', 'An unexpected error occurred', 500);
+    const accessToken = jwt.sign(
+      { sub: user.id, email: user.email, role: user.role, type: 'access' },
+      ACCESS_SECRET,
+      { expiresIn: '8h' },
+    );
+    const refreshStr = jwt.sign(
+      { sub: user.id, v: Date.now() },
+      REFRESH_SECRET,
+      { expiresIn: rememberMe ? '30d' : '7d' },
+    );
+
+    await prisma.refreshToken.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: user.id,
+        tokenHash: sha256(refreshStr),
+        expiresAt: new Date(Date.now() + (rememberMe ? 30 : 7) * 86400000),
+      },
+    });
+
+    const res = NextResponse.json({
+      success: true,
+      data: {
+        user: { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, role: user.role, status: user.status },
+        accessToken,
+      },
+    });
+    res.cookies.set('access_token', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 28800 });
+    res.cookies.set('refresh_token', refreshStr, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: (rememberMe ? 30 : 7) * 86400 });
+
+    const { ipAddress, userAgent } = getRequestMeta(req);
+    void logAudit({
+      userId: user.id,
+      role: user.role,
+      action: 'LOGIN',
+      entityType: 'user',
+      entityId: user.id,
+      ipAddress,
+      userAgent,
+      metadata: { email: user.email, rememberMe },
+    });
+
+    return res;
+  } catch (e) {
+    return fail('INTERNAL_ERROR', e instanceof Error ? e.message : 'Unknown error', 500);
   }
 }

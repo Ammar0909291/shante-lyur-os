@@ -11,7 +11,7 @@ export function formatCurrency(amount: number, currency = 'RUB'): string {
     currency,
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount / 100);
+  }).format(amount);
 }
 
 export function formatDate(date: Date | string, locale = 'ru-RU'): string {
@@ -43,6 +43,13 @@ export function formatDateTime(date: Date | string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(date));
+}
+
+/** Derives a stable 4-digit numeric client ID from a UUID: #4271 */
+export function formatClientRef(uuid: string): string {
+  const hex = uuid.replace(/-/g, '').substring(0, 4);
+  const num = (parseInt(hex, 16) % 9000) + 1000;
+  return '#' + num.toString();
 }
 
 export function getInitials(name: string): string {

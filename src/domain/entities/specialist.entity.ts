@@ -76,4 +76,8 @@ export class Specialist extends BaseEntity {
     this._status = SpecialistStatus.TERMINATED;
     this.updatedAt = new Date();
   }
+
+  static reconstitute(props: SpecialistProps): Specialist {
+    return new Specialist(props);
+  }
 }

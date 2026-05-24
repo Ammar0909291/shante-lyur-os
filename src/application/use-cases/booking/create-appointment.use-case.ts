@@ -1,7 +1,7 @@
 import { Appointment, AppointmentServiceItem } from '@/domain/entities';
 import { AppointmentStatus, UserRole } from '@/domain/enums';
 import { DateRange, Money } from '@/domain/value-objects';
-import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from '@/domain/errors';
+import { NotFoundError, ForbiddenError, ConflictError } from '@/domain/errors';
 import { AppointmentBookedEvent } from '@/domain/events';
 import {
   IAppointmentRepository,
@@ -27,7 +27,7 @@ export interface CreateAppointmentResult {
 export class CreateAppointmentUseCase {
   constructor(
     private readonly appointmentRepo: IAppointmentRepository,
-    private readonly userRepo: IUserRepository,
+    _userRepo: IUserRepository,
     private readonly specialistRepo: ISpecialistRepository,
     private readonly serviceRepo: IServiceRepository,
     private readonly locationRepo: ILocationRepository,
@@ -37,7 +37,7 @@ export class CreateAppointmentUseCase {
     private readonly profileRepo: ICustomerProfileRepository,
     private readonly promoCodeRepo: IPromoCodeRepository,
     private readonly eventBus: IEventBus,
-    private readonly notificationRepo: INotificationRepository,
+    _notificationRepo: INotificationRepository,
   ) {}
 
   async execute(
@@ -45,24 +45,20 @@ export class CreateAppointmentUseCase {
     clientId: string,
     actorRole: UserRole
   ): Promise<CreateAppointmentResult> {
-    // Authorization
     if (actorRole === UserRole.CLIENT && clientId !== clientId) {
       throw new ForbiddenError('Clients can only book for themselves');
     }
 
-    // Validate specialist
     const specialist = await this.specialistRepo.findById(dto.specialistId);
     if (!specialist || !specialist.isActive) {
       throw new NotFoundError('Specialist', dto.specialistId);
     }
 
-    // Validate location
     const location = await this.locationRepo.findById(dto.locationId);
     if (!location || !location.isActive) {
       throw new NotFoundError('Location', dto.locationId);
     }
 
-    // Validate services
     const serviceIds = dto.services.map(s => s.serviceId);
     const services = await this.serviceRepo.findByIds(serviceIds);
     if (services.length !== serviceIds.length) {
@@ -71,18 +67,17 @@ export class CreateAppointmentUseCase {
       throw new NotFoundError('Service', missing.join(', '));
     }
 
-    // Check all services are active
     const inactive = services.filter(s => !s.isActive);
     if (inactive.length > 0) {
       throw new ConflictError(`Services not available: ${inactive.map(s => s.name).join(', ')}`);
     }
 
-    // Calculate duration and price
     let totalDuration = 0;
     let totalPrice = Money.zero('RUB');
     const appointmentServices: AppointmentServiceItem[] = [];
 
-    for (const [idx, svcDto] of dto.services.entries()) {
+    for (let idx = 0; idx < dto.services.length; idx++) {
+      const svcDto = dto.services[idx];
       const service = services.find(s => s.id === svcDto.serviceId)!;
       const locationPrice = await this.serviceRepo.getLocationPrice(service.id, location.id);
       const price = locationPrice ? Money.create(locationPrice.price, 'RUB') : service.basePrice;
@@ -103,40 +98,54 @@ export class CreateAppointmentUseCase {
     const endAt = new Date(dto.startAt.getTime() + totalDuration * 60000);
     const timeRange = DateRange.create(dto.startAt, endAt);
 
-    // Check specialist availability
-    const overlapping = await this.appointmentRepo.findOverlapping(specialist.id, timeRange);
+    // For massage specialists, apply a 30-minute buffer after each existing appointment.
+    // We expand the search range backwards by the buffer so that existing appointments
+    // ending within the buffer window before our start are detected as conflicts.
+    const specLower = (specialist.specialization ?? '').toLowerCase();
+    const isMassage =
+      specLower.includes('массаж') ||
+      specLower.includes('massage') ||
+      specLower.includes('spa') ||
+      specLower.includes('спа');
+
+    const MASSAGE_BUFFER_MS = 30 * 60_000;
+    const checkRange = isMassage
+      ? DateRange.create(new Date(dto.startAt.getTime() - MASSAGE_BUFFER_MS), endAt)
+      : timeRange;
+
+    const overlapping = await this.appointmentRepo.findOverlapping(specialist.id, checkRange);
     if (overlapping.length > 0) {
-      throw new ConflictError('Time slot is not available', 'startAt');
+      const bufferNote = isMassage ? ` (правило: +30 мин. перерыв после массажа)` : '';
+      throw new ConflictError(`Time slot is not available${bufferNote}`, 'startAt');
     }
 
-    // Check blocked times
     const blocked = await this.blockedTimeRepo.findOverlapping(specialist.id, timeRange);
     if (blocked.length > 0) {
       throw new ConflictError('Specialist is not available at this time', 'startAt');
     }
 
-    // Check vacation
     const vacations = await this.vacationRepo.findActiveVacations(specialist.id, dto.startAt);
     if (vacations.length > 0) {
       throw new ConflictError('Specialist is on vacation', 'startAt');
     }
 
-    // Check working schedule
-    const dayOfWeek = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][dto.startAt.getDay()] as any;
-    const schedules = await this.workingScheduleRepo.findBySpecialistAndDay(specialist.id, dayOfWeek);
+    // Schedules store times in Moscow time (UTC+3). Convert startAt from UTC to Moscow
+    // before comparing so "10:00 Moscow" stored as 07:00 UTC is handled correctly.
+    const MOSCOW_OFFSET_MS = 3 * 3600_000;
+    const moscowStart = new Date(dto.startAt.getTime() + MOSCOW_OFFSET_MS);
+    const moscowEnd   = new Date(endAt.getTime()       + MOSCOW_OFFSET_MS);
+    const dayOfWeek   = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][moscowStart.getUTCDay()] as never;
+    const schedules   = await this.workingScheduleRepo.findBySpecialistAndDay(specialist.id, dayOfWeek);
     const validSchedule = schedules.find(s => {
       if (!s.isActive || !s.isValidForDate(dto.startAt)) return false;
-      const startMin = s.startMinutes;
-      const endMin = s.endMinutes;
-      const apptStartMin = dto.startAt.getHours() * 60 + dto.startAt.getMinutes();
-      const apptEndMin = endAt.getHours() * 60 + endAt.getMinutes();
-      return apptStartMin >= startMin && apptEndMin <= endMin;
+      const apptStartMin = moscowStart.getUTCHours() * 60 + moscowStart.getUTCMinutes();
+      const apptEndMin   = moscowEnd.getUTCHours()   * 60 + moscowEnd.getUTCMinutes();
+      return apptStartMin >= s.startMinutes && apptEndMin <= s.endMinutes;
     });
     if (!validSchedule) {
       throw new ConflictError('Outside working hours', 'startAt');
     }
 
-    // Apply promo code
     let discountApplied: { code: string; amount: number } | undefined;
     if (dto.promoCode) {
       const promo = await this.promoCodeRepo.findByCode(dto.promoCode.toUpperCase());
@@ -148,7 +157,6 @@ export class CreateAppointmentUseCase {
       }
     }
 
-    // Create appointment
     const appointment = new Appointment({
       id: crypto.randomUUID(),
       clientId,
@@ -167,10 +175,8 @@ export class CreateAppointmentUseCase {
 
     const saved = await this.appointmentRepo.create(appointment);
 
-    // Update customer profile
-    await this.profileRepo.recordVisit(clientId, 0); // Visit recorded, amount updated on payment
+    await this.profileRepo.recordVisit(clientId, 0).catch(() => {});
 
-    // Publish event
     await this.eventBus.publish(
       new AppointmentBookedEvent(saved.id, {
         clientId: saved.clientId,

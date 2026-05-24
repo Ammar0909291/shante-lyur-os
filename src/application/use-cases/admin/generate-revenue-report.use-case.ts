@@ -16,7 +16,7 @@ export class GenerateRevenueReportUseCase {
   ) {}
 
   async execute(dto: RevenueReportDto): Promise<RevenueReportResult> {
-    const records = await this.revenueRepo.findMany({
+    await this.revenueRepo.findMany({
       from: dto.from,
       to: dto.to,
       limit: 10000,

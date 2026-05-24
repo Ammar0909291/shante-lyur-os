@@ -10,9 +10,19 @@ const PROTECTED_API_ROUTES = [
   '/api/customers',
   '/api/admin',
   '/api/payments',
+  '/api/analytics',
+  '/api/operations',
+  '/api/finance',
+  '/api/executive',
 ];
 
-const AUTH_ROUTES = ['/api/auth/login', '/api/auth/register'];
+const AUTH_ROUTES = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/refresh',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+];
 
 const PUBLIC_API_ROUTES = [
   ...AUTH_ROUTES,
@@ -21,6 +31,15 @@ const PUBLIC_API_ROUTES = [
 ];
 
 const ADMIN_ONLY = ['/api/admin'];
+
+// Operational routes within /api/admin that OPERATOR role can also access
+const OPERATOR_ALLOWED_ADMIN_ROUTES = [
+  '/api/admin/bookings',
+  '/api/admin/clients',
+  '/api/admin/services',
+  '/api/admin/sales',
+  '/api/admin/inventory',
+];
 
 function isProtectedRoute(pathname: string): boolean {
   return PROTECTED_API_ROUTES.some((route) => pathname.startsWith(route));
@@ -32,6 +51,10 @@ function isPublicRoute(pathname: string): boolean {
 
 function isAdminRoute(pathname: string): boolean {
   return ADMIN_ONLY.some((route) => pathname.startsWith(route));
+}
+
+function isOperatorAllowedRoute(pathname: string): boolean {
+  return OPERATOR_ALLOWED_ADMIN_ROUTES.some((route) => pathname.startsWith(route));
 }
 
 function isApiRoute(pathname: string): boolean {
@@ -50,8 +73,8 @@ interface AccessPayload {
 
 function getJwtSecret(): Uint8Array {
   const secret =
-    process.env.JWT_SECRET ??
     process.env.JWT_ACCESS_SECRET ??
+    process.env.JWT_SECRET ??
     'dev-access-secret-change-me';
   return new TextEncoder().encode(secret);
 }
@@ -167,8 +190,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
     // Admin-only route check
     if (isAdminRoute(pathname)) {
-      const adminRoles = ['SUPER_ADMIN', 'ADMIN'];
-      if (!adminRoles.includes(user.role)) {
+      const allowedRoles = isOperatorAllowedRoute(pathname)
+        ? ['SUPER_ADMIN', 'ADMIN', 'OPERATOR']
+        : ['SUPER_ADMIN', 'ADMIN'];
+      if (!allowedRoles.includes(user.role)) {
         const res = jsonError('FORBIDDEN', 'Admin access required', 403);
         applyCorsHeaders(res, request);
         applySecurityHeaders(res);
