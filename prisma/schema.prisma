@@ -219,7 +219,7 @@ model Location {
   city      String   @db.VarChar(100)
   phone     String?  @db.VarChar(30)
   email     String?  @db.VarChar(255)
-  timezone  String   @default("Europe/Moscow") @db.VarChar(50)
+  timezone  String   @default("Asia/Yekaterinburg") @db.VarChar(50)
   isActive  Boolean  @default(true) @map("is_active")
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")

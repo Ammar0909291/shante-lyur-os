@@ -42,15 +42,18 @@ export async function GET(req: NextRequest) {
         select: {
           id: true, status: true, totalPrice: true, paidAmount: true,
           startAt: true, checkedOutAt: true, specialistId: true, clientId: true,
-          cancellationReason: true,
+          totalDuration: true, cancellationReason: true,
           specialist: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
           services: { select: { service: { select: { id: true, name: true, category: true } }, price: true } },
         },
       }),
-      // Previous period appointments (for trend)
+      // Previous period appointments (for trend + service growth)
       prisma.appointment.findMany({
         where: { startAt: { gte: prevFrom, lt: from }, status: 'COMPLETED' },
-        select: { id: true, totalPrice: true, clientId: true, specialistId: true },
+        select: {
+          id: true, totalPrice: true, clientId: true, specialistId: true,
+          services: { select: { service: { select: { id: true } } } },
+        },
       }),
       // Payments in period
       prisma.payment.findMany({
@@ -190,9 +193,35 @@ export async function GET(req: NextRequest) {
       revenue: r2(v.revenue), count: v.count,
       avgPrice: v.count > 0 ? r2(v.revenue / v.count) : 0,
     })).sort((a, b) => b.revenue - a.revenue);
-    const topServices     = serviceList.slice(0, 5);
-    const lowServices     = serviceList.slice().sort((a, b) => a.revenue - b.revenue).slice(0, 3);
-    const fastGrowing     = serviceList.slice(0, 3); // simplified — use count as proxy
+    const topServices = serviceList.slice(0, 5);
+    const lowServices = serviceList.slice().sort((a, b) => a.revenue - b.revenue).slice(0, 3);
+
+    // Fast growing: compare count current period vs previous period
+    const prevServiceCountMap = new Map<string, number>();
+    for (const apt of prevApts) {
+      for (const { service } of (apt as { services?: { service: { id: string } }[] }).services ?? []) {
+        prevServiceCountMap.set(service.id, (prevServiceCountMap.get(service.id) ?? 0) + 1);
+      }
+    }
+    const fastGrowing = serviceList
+      .map(svc => {
+        const prevCount = prevServiceCountMap.get(svc.id) ?? 0;
+        const growth    = prevCount > 0 ? r2((svc.count - prevCount) / prevCount * 100) : (svc.count > 0 ? 100 : 0);
+        return { ...svc, prevCount, growth };
+      })
+      .filter(s => s.count > 0)
+      .sort((a, b) => b.growth - a.growth)
+      .slice(0, 5);
+
+    // ── CEO-level financial KPIs ───────────────────────────────────────────────
+    const cancellationLoss = cancelledApts.reduce((s, a) => s + Number(a.totalPrice), 0);
+    const totalDurationHours = completedApts.reduce((s, a) => s + (a.totalDuration ?? 0), 0) / 60;
+    const revenuePerHour   = totalDurationHours > 0 ? r2(totalRevenue / totalDurationHours) : 0;
+    // Idle time: available hours minus worked hours (rough estimate: working day 10h per specialist)
+    const activeSpecialists = specialists.filter(s => s.appointments.some(a => a.status === 'COMPLETED')).length;
+    const availableHours    = activeSpecialists * 10 * days;
+    const idleHours         = Math.max(0, availableHours - totalDurationHours);
+    const idleTimeLoss      = r2(idleHours * (totalDurationHours > 0 ? totalRevenue / totalDurationHours : 0));
 
     // ── Daily revenue series (for chart) ──────────────────────────────────────
     const dayRevMap = new Map<string, number>();
@@ -287,16 +316,19 @@ export async function GET(req: NextRequest) {
         },
       },
       revenue: {
-        total:     r2(totalRevenue),
-        net:       r2(netRevenue),
-        profit:    r2(netProfit),
-        expenses:  r2(totalExpenses),
-        refunds:   r2(totalRefunds),
-        avgDaily:  avgDailyRevenue,
-        trend:     revenueTrend,
-        prev:      r2(prevRevenue),
+        total:          r2(totalRevenue),
+        net:            r2(netRevenue),
+        profit:         r2(netProfit),
+        expenses:       r2(totalExpenses),
+        refunds:        r2(totalRefunds),
+        avgDaily:       avgDailyRevenue,
+        trend:          revenueTrend,
+        prev:           r2(prevRevenue),
         projectedMonth: r2(avgDailyRevenue * 30),
         consumableCost: r2(consumptionCost),
+        cancellationLoss: r2(cancellationLoss),
+        revenuePerHour:   revenuePerHour,
+        idleTimeLoss:     idleTimeLoss,
       },
       bookings: {
         total:       totalApts,

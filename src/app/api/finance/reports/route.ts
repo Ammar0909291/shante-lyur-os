@@ -20,9 +20,7 @@ export async function GET(req: NextRequest) {
   const p    = req.nextUrl.searchParams;
   const from = p.get('from') ? new Date(p.get('from')! + 'T00:00:00Z') : new Date(Date.now() - 30 * 86_400_000);
   const to   = p.get('to')   ? new Date(p.get('to')!   + 'T23:59:59Z') : new Date();
-  const type = p.get('type') ?? 'all';
-
-  console.log('[finance/reports]', { from, to, type });
+  void (p.get('type') ?? 'all'); // type filter reserved for future fine-grained report slicing
 
   try {
     const [completedApts, payments, refunds, expenses] = await Promise.all([
@@ -65,7 +63,11 @@ export async function GET(req: NextRequest) {
     ]);
 
     // ── Revenue ────────────────────────────────────────────────────────────────
-    const totalRevenue      = payments.reduce((s, p) => s + Number(p.amount), 0);
+    // Primary: captured payment records. Fallback: paidAmount on appointments
+    // (cash-only salons that don't create Payment records still see correct revenue)
+    const paymentRevenue    = payments.reduce((s, p) => s + Number(p.amount), 0);
+    const aptPaidRevenue    = completedApts.reduce((s, a) => s + Number(a.paidAmount), 0);
+    const totalRevenue      = paymentRevenue > 0 ? paymentRevenue : aptPaidRevenue;
     const totalRefunds      = refunds.reduce((s, r) => s + Number(r.amount), 0);
     const totalDiscounts    = completedApts.reduce((s, a) => s + Number(a.discountAmount ?? 0), 0);
     const totalExpenses     = expenses.reduce((s, e) => s + Number(e.amount), 0);
@@ -191,10 +193,6 @@ export async function GET(req: NextRequest) {
     const totalOutstanding = unpaidApts.reduce((s, a) => {
       return s + Number(a.totalPrice) - Number(a.discountAmount ?? 0) - Number(a.paidAmount);
     }, 0);
-
-    console.log('[finance/reports] done', {
-      type, totalRevenue, netRevenue, netProfit: trueNetProfit,
-    });
 
     return ok({
       period: { from: from.toISOString(), to: to.toISOString() },

@@ -9,7 +9,9 @@ function ok<T>(data: T) {
 }
 
 // ─── GET /api/finance/closing ─────────────────────────────────────────────────
-// Query: ?date=YYYY-MM-DD (defaults to today in Moscow time)
+// Query: ?date=YYYY-MM-DD (defaults to today in Yekaterinburg time, UTC+5)
+
+const YEKT_OFFSET_H = 5;
 
 export async function GET(req: NextRequest) {
   const userId  = req.headers.get('x-user-id');
@@ -18,13 +20,14 @@ export async function GET(req: NextRequest) {
   if (authErr) return authErr;
 
   const dateStr = req.nextUrl.searchParams.get('date');
-  const date    = dateStr ? new Date(dateStr) : new Date();
-  const dateStart = new Date(date);
-  dateStart.setUTCHours(0, 0, 0, 0);
-  const dateEnd = new Date(date);
-  dateEnd.setUTCHours(23, 59, 59, 999);
-
-  console.log('[finance/closing]', { dateStr, dateStart, dateEnd });
+  // Derive YEKT "today" when no date supplied
+  const nowUtc    = new Date();
+  const yektToday = new Date(nowUtc.getTime() + YEKT_OFFSET_H * 3600_000).toISOString().split('T')[0];
+  const resolvedDate = dateStr ?? yektToday;
+  // Parse as UTC midnight, then shift to Yekaterinburg midnight (= UTC 19:00 prev day)
+  const utcMidnight = new Date(resolvedDate + 'T00:00:00.000Z');
+  const dateStart   = new Date(utcMidnight.getTime() - YEKT_OFFSET_H * 3600_000);
+  const dateEnd     = new Date(utcMidnight.getTime() + (24 - YEKT_OFFSET_H) * 3600_000 - 1);
 
   try {
     const [payments, refunds, completedApts, unpaidApts, expenses] = await Promise.all([
@@ -76,13 +79,17 @@ export async function GET(req: NextRequest) {
 
     // ── Revenue by method ──────────────────────────────────────────────────────
     const methodTotals: Record<string, number> = {};
-    let totalRevenue = 0;
+    let paymentRevenue = 0;
 
     for (const pmt of payments) {
       const amt = Number(pmt.amount);
-      totalRevenue += amt;
+      paymentRevenue += amt;
       methodTotals[pmt.provider] = (methodTotals[pmt.provider] ?? 0) + amt;
     }
+
+    // Fallback: when no captured Payment records exist (cash-only day), use paidAmount
+    const aptPaidRevenue = completedApts.reduce((s, a) => s + Number(a.paidAmount), 0);
+    const totalRevenue   = paymentRevenue > 0 ? paymentRevenue : aptPaidRevenue;
 
     const totalRefunded = refunds.reduce((s, r) => s + Number(r.amount), 0);
     const netRevenue    = totalRevenue - totalRefunded;
@@ -118,16 +125,8 @@ export async function GET(req: NextRequest) {
       else specMap.set(specName, { name: specName, revenue: paid, count: 1 });
     }
 
-    console.log('[finance/closing] done', {
-      date: dateStr,
-      totalRevenue,
-      netRevenue,
-      completedApts: completedApts.length,
-      totalRefunded,
-    });
-
     return ok({
-      date: dateStr ?? date.toISOString().split('T')[0],
+      date: resolvedDate,
       revenue: {
         total:       Math.round(totalRevenue * 100) / 100,
         byCash:      Math.round((methodTotals['CASH'] ?? 0) * 100) / 100,

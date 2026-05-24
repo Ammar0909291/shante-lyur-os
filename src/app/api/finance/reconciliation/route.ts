@@ -21,8 +21,6 @@ export async function GET(req: NextRequest) {
   const from = p.get('from') ? new Date(p.get('from')! + 'T00:00:00Z') : new Date(Date.now() - 30 * 86_400_000);
   const to   = p.get('to')   ? new Date(p.get('to')!   + 'T23:59:59Z') : new Date();
 
-  console.log('[finance/reconciliation]', { from, to });
-
   try {
     const [completedApts, payments, refunds] = await Promise.all([
       // Expected revenue: all COMPLETED appointments in period
@@ -52,7 +50,10 @@ export async function GET(req: NextRequest) {
     ]);
 
     const expectedRevenue  = completedApts.reduce((s, a) => s + Number(a.totalPrice) - Number(a.discountAmount ?? 0), 0);
-    const actualReceived   = payments.reduce((s, p) => s + Number(p.amount), 0);
+    // Primary: captured Payment records. Fallback: paidAmount on appointments (cash-only model)
+    const paymentReceived  = payments.reduce((s, p) => s + Number(p.amount), 0);
+    const aptPaidReceived  = completedApts.reduce((s, a) => s + Number(a.paidAmount), 0);
+    const actualReceived   = paymentReceived > 0 ? paymentReceived : aptPaidReceived;
     const totalRefunds     = refunds.reduce((s, r) => s + Number(r.amount), 0);
     const netReceived      = actualReceived - totalRefunds;
     const outstanding      = expectedRevenue - netReceived;
@@ -115,13 +116,6 @@ export async function GET(req: NextRequest) {
         net:       Math.round((v.received - v.refunded) * 100) / 100,
         gap:       Math.round((v.expected - v.received + v.refunded) * 100) / 100,
       }));
-
-    console.log('[finance/reconciliation] done', {
-      expectedRevenue,
-      actualReceived,
-      outstanding,
-      completedApts: completedApts.length,
-    });
 
     return ok({
       period: { from: from.toISOString(), to: to.toISOString() },

@@ -105,6 +105,15 @@ async function deductInventoryForAppointment(
     return { deducted: 0, warnings: [] };
   }
 
+  // Idempotency guard: skip if USAGE movements already exist for this appointment
+  const existingUsage = await prisma.stockMovement.count({
+    where: { appointmentId, type: 'USAGE' },
+  });
+  if (existingUsage > 0) {
+    console.log('[inventory/deduct] already deducted for appointment, skipping', { appointmentId, existingUsage });
+    return { deducted: 0, warnings: [] };
+  }
+
   const txOps: Parameters<typeof prisma.$transaction>[0] extends Array<infer T> ? T[] : never[] = [];
   let deductedCount = 0;
 
