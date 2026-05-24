@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { type NextRequest } from 'next/server';
 import { prisma } from '@/infrastructure/config/prisma-client';
-import { deriveSpecialistType } from '@/app/api/specialists/_shared';
+import { departmentToSpecialistType } from '@/app/api/specialists/_shared';
 import {
   SALON_TIMEZONE,
   getTodayBounds,
@@ -86,13 +86,14 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         specialization: true,
+        department: true,
         user: { select: { firstName: true, lastName: true } },
       },
     });
 
-    // Filter by type if requested
+    // Filter by type if requested — support both department-based and legacy specialistType filter
     const filtered = specialists.filter(s => {
-      const t = deriveSpecialistType(s.specialization);
+      const t = departmentToSpecialistType(s.department ?? 'COSMETOLOGY');
       return !typeFilter || t === typeFilter;
     });
 
@@ -150,7 +151,7 @@ export async function GET(request: NextRequest) {
     }
 
     const results: SpecialistPerformanceSummary[] = filtered.map(s => {
-      const specialistType = deriveSpecialistType(s.specialization);
+      const specialistType = departmentToSpecialistType(s.department ?? 'COSMETOLOGY');
       const apts = currentBySpec.get(s.id) ?? [];
 
       const totalSessions = apts.length;

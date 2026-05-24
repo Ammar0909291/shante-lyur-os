@@ -131,21 +131,35 @@ function StatusBadge({
   );
 }
 
-// ─── Type Badge ───────────────────────────────────────────────────────────────
+// ─── Department / Type Badge ──────────────────────────────────────────────────
 
-function TypeBadge({ type }: { type: 'MASSAGE' | 'COSMETOLOGY' }) {
-  const { t } = useLanguage();
+type SpecialistDepartment = 'COSMETOLOGY' | 'MASSAGE' | 'RECEPTION' | 'MANAGEMENT';
+
+const DEPT_BADGE_STYLE: Record<SpecialistDepartment, string> = {
+  COSMETOLOGY: 'bg-sage/10 text-sage border-sage/30',
+  MASSAGE:     'bg-amber-900/30 text-amber-300 border-amber-700/30',
+  RECEPTION:   'bg-sky-900/30 text-sky-300 border-sky-700/30',
+  MANAGEMENT:  'bg-rose-900/30 text-rose-300 border-rose-700/30',
+};
+
+const DEPT_LABEL: Record<SpecialistDepartment, string> = {
+  COSMETOLOGY: 'Cosmetology',
+  MASSAGE:     'Massage',
+  RECEPTION:   'Reception',
+  MANAGEMENT:  'Management',
+};
+
+function TypeBadge({ type }: { type: SpecialistDepartment }) {
+  const dept: SpecialistDepartment = (type === 'MASSAGE' || type === 'COSMETOLOGY' || type === 'RECEPTION' || type === 'MANAGEMENT') ? type : 'COSMETOLOGY';
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border',
-        type === 'MASSAGE'
-          ? 'bg-amber-900/30 text-amber-300 border-amber-700/30'
-          : 'bg-sage/10 text-sage border-sage/30',
+        DEPT_BADGE_STYLE[dept],
       )}
     >
-      {type === 'MASSAGE' ? <Bed className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-      {type === 'MASSAGE' ? t('ops.type.massage') : t('ops.type.cosmetology')}
+      {dept === 'MASSAGE' ? <Bed className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+      {DEPT_LABEL[dept]}
     </span>
   );
 }
@@ -812,10 +826,12 @@ function TimelineTab({
                 <span
                   className={cn(
                     'text-[10px]',
-                    spec.type === 'MASSAGE' ? 'text-amber-400' : 'text-sage',
+                    spec.type === 'MASSAGE' ? 'text-amber-400' :
+                    spec.type === 'RECEPTION' ? 'text-sky-400' :
+                    spec.type === 'MANAGEMENT' ? 'text-rose-400' : 'text-sage',
                   )}
                 >
-                  {spec.type === 'MASSAGE' ? t('ops.type.massage') : t('ops.type.cosmetology')}
+                  {DEPT_LABEL[spec.type as SpecialistDepartment] ?? spec.type}
                 </span>
               </div>
 

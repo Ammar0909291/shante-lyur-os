@@ -25,6 +25,7 @@ interface ModalSpecialist {
   id: string;
   name: string;
   type: SpecialistType;
+  department: string; // raw SpecialistDepartment from API
   specializations: string[];
   allowedServiceIds: string[];
   rating?: number;
@@ -94,11 +95,11 @@ const MOCK_CLIENTS: ModalClient[] = [
 ];
 
 const MOCK_SPECIALISTS: ModalSpecialist[] = [
-  { id: 's1', name: 'Наталья Владимирова', type: 'MASSAGE_THERAPIST', specializations: ['Тайский массаж', 'Ароматерапевтический'], allowedServiceIds: [], rating: 4.9 },
-  { id: 's2', name: 'Ольга Козлова',       type: 'MASSAGE_THERAPIST', specializations: ['Спортивный', 'Нейромышечный'],            allowedServiceIds: [], rating: 4.8 },
-  { id: 's3', name: 'Дарья Соколова',      type: 'MASSAGE_THERAPIST', specializations: ['Горячий камень', 'Антицеллюлитный'],      allowedServiceIds: [], rating: 4.7 },
-  { id: 's4', name: 'Мария Волкова',       type: 'COSMETOLOGIST',     specializations: ['Биоревитализация', 'Гиалуроновый лифтинг'], allowedServiceIds: [], rating: 4.6 },
-  { id: 's5', name: 'Ирина Соколова',      type: 'COSMETOLOGIST',     specializations: ['Химический пилинг', 'Аппаратная косметология'], allowedServiceIds: [], rating: 4.8 },
+  { id: 's1', name: 'Наталья Владимирова', type: 'MASSAGE_THERAPIST', department: 'MASSAGE',     specializations: ['Тайский массаж', 'Ароматерапевтический'], allowedServiceIds: [], rating: 4.9 },
+  { id: 's2', name: 'Ольга Козлова',       type: 'MASSAGE_THERAPIST', department: 'MASSAGE',     specializations: ['Спортивный', 'Нейромышечный'],            allowedServiceIds: [], rating: 4.8 },
+  { id: 's3', name: 'Дарья Соколова',      type: 'MASSAGE_THERAPIST', department: 'MASSAGE',     specializations: ['Горячий камень', 'Антицеллюлитный'],      allowedServiceIds: [], rating: 4.7 },
+  { id: 's4', name: 'Мария Волкова',       type: 'COSMETOLOGIST',     department: 'COSMETOLOGY', specializations: ['Биоревитализация', 'Гиалуроновый лифтинг'], allowedServiceIds: [], rating: 4.6 },
+  { id: 's5', name: 'Ирина Соколова',      type: 'COSMETOLOGIST',     department: 'COSMETOLOGY', specializations: ['Химический пилинг', 'Аппаратная косметология'], allowedServiceIds: [], rating: 4.8 },
 ];
 
 const MOCK_SERVICES: ModalService[] = [
@@ -344,7 +345,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(userRole);
-  const isMassageSpecialist = specialist?.type === 'MASSAGE_THERAPIST';
+  const isMassageSpecialist = specialist?.department === 'MASSAGE';
 
   // ── Reset on open ───────────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -384,27 +385,33 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
   // ── Load specialists from API ────────────────────────────────────────────────
   React.useEffect(() => {
     if (!open) return;
-    fetch('/api/specialists?limit=100', { credentials: 'include' })
+    // Only load bookable departments (COSMETOLOGY, MASSAGE) — RECEPTION and MANAGEMENT cannot be booked
+    fetch('/api/specialists?limit=100&status=ACTIVE', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(json => {
         if (!json?.data?.items?.length) return;
-        const mapped: ModalSpecialist[] = json.data.items.map((s: {
-          id: string; firstName?: string; lastName?: string; name?: string;
-          specialistType?: string; specialization?: string;
-          specializations?: string[]; allowedServiceIds?: string[]; rating?: number;
-        }) => {
-          // API returns specialistType as 'MASSAGE' or 'COSMETOLOGY'
-          const apiType = s.specialistType ?? '';
-          const type: SpecialistType = apiType === 'MASSAGE' ? 'MASSAGE_THERAPIST' : 'COSMETOLOGIST';
-          return {
-            id: s.id,
-            name: s.firstName && s.lastName ? `${s.firstName} ${s.lastName}` : (s.name ?? '—'),
-            type,
-            specializations: s.specializations ?? (s.specialization ? s.specialization.split(',').map((x: string) => x.trim()) : []),
-            allowedServiceIds: s.allowedServiceIds ?? [],
-            rating: s.rating,
-          };
-        });
+        const mapped: ModalSpecialist[] = json.data.items
+          .filter((s: { department?: string }) => {
+            const dept = s.department ?? 'COSMETOLOGY';
+            return dept !== 'RECEPTION' && dept !== 'MANAGEMENT';
+          })
+          .map((s: {
+            id: string; firstName?: string; lastName?: string; name?: string;
+            specialistType?: string; department?: string; specialization?: string;
+            specializations?: string[]; allowedServiceIds?: string[]; rating?: number;
+          }) => {
+            const dept = s.department ?? 'COSMETOLOGY';
+            const type: SpecialistType = dept === 'MASSAGE' ? 'MASSAGE_THERAPIST' : 'COSMETOLOGIST';
+            return {
+              id: s.id,
+              name: s.firstName && s.lastName ? `${s.firstName} ${s.lastName}` : (s.name ?? '—'),
+              type,
+              department: dept,
+              specializations: s.specializations ?? (s.specialization ? s.specialization.split(',').map((x: string) => x.trim()) : []),
+              allowedServiceIds: s.allowedServiceIds ?? [],
+              rating: s.rating,
+            };
+          });
         if (mapped.length > 0) setSpecialists(mapped);
       })
       .catch(() => {});
@@ -436,11 +443,11 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
   // ── Load services when specialist selected ───────────────────────────────────
   React.useEffect(() => {
     if (!specialist) { setServices([]); return; }
-    // Show category-filtered mock services while real data loads
-    const isMassage = specialist.type === 'MASSAGE_THERAPIST';
-    setServices(MOCK_SERVICES.filter(s => s.category === (isMassage ? 'MASSAGE' : 'COSMETOLOGY')));
+    // Filter mock services by department
+    const isMassageDept = specialist.department === 'MASSAGE';
+    setServices(MOCK_SERVICES.filter(s => isMassageDept ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY'));
 
-    // Fetch all services then filter by specialist's allowed service IDs
+    // Fetch all services then filter by department category mapping
     fetch('/api/services?limit=200', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(json => {
@@ -454,7 +461,9 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
           price: s.basePrice ?? 0,
           duration: s.baseDuration ?? 60,
         }));
-        // Use allowedServiceIds if available (precise per-specialist filtering)
+        // Filter by department: MASSAGE → only MASSAGE; COSMETOLOGY → all except MASSAGE
+        mapped = mapped.filter(s => isMassageDept ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY');
+        // Further narrow by allowedServiceIds if the specialist has explicit restrictions
         if (specialist.allowedServiceIds.length > 0) {
           mapped = mapped.filter(s => specialist.allowedServiceIds.includes(s.id));
         }

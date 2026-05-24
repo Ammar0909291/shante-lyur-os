@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { DIRegistry } from '@/infrastructure/config/di-registry';
 import { ListAppointmentsUseCase, CreateAppointmentUseCase } from '@/application/use-cases/booking';
+import { prisma } from '@/infrastructure/config/prisma-client';
+import { BOOKABLE_DEPARTMENTS } from '@/app/api/specialists/_shared';
 import { ListAppointmentsSchema, CreateAppointmentSchema } from '@/application/dto';
 import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
@@ -86,6 +88,18 @@ export async function POST(req: NextRequest) {
     if (!loc || !loc.isActive) {
       const { items } = await registry.locationRepository.findMany({ isActive: true, limit: 1 }).catch(() => ({ items: [] }));
       if (items[0]) resolvedLocationId = items[0].id;
+    }
+
+    // Validate specialist department — RECEPTION and MANAGEMENT cannot be booked
+    const specRecord = await prisma.specialist.findUnique({
+      where: { id: parsed.data.specialistId },
+      select: { department: true },
+    });
+    if (specRecord && !BOOKABLE_DEPARTMENTS.includes(specRecord.department as never)) {
+      return new Response(
+        JSON.stringify({ success: false, error: { code: 'INVALID_SPECIALIST', message: 'This specialist cannot be booked for appointments' } }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      );
     }
 
     const result = await useCase.execute(

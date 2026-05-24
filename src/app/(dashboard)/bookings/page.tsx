@@ -39,7 +39,8 @@ interface Booking {
   services: { serviceId: string; name: string; price: number; duration: number }[];
 }
 
-interface Specialist { id: string; firstName: string; lastName: string; specialization: string | null; allowedServiceIds: string[]; specialistType: 'MASSAGE' | 'COSMETOLOGY'; }
+type SpecialistDepartment = 'COSMETOLOGY' | 'MASSAGE' | 'RECEPTION' | 'MANAGEMENT';
+interface Specialist { id: string; firstName: string; lastName: string; specialization: string | null; department: SpecialistDepartment; allowedServiceIds: string[]; specialistType: 'MASSAGE' | 'COSMETOLOGY'; }
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; isActive?: boolean; }
 
 function getDateRange(preset: string): { from?: string; to?: string } {

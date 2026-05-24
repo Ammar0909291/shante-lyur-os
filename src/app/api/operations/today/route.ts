@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { type NextRequest } from 'next/server';
 import { prisma } from '@/infrastructure/config/prisma-client';
-import { deriveSpecialistType } from '@/app/api/specialists/_shared';
+import { type SpecialistDepartment } from '@/app/api/specialists/_shared';
 import {
   SALON_TIMEZONE,
   getTodayBounds,
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
           client: { select: { firstName: true, lastName: true } },
           specialist: {
             select: {
-              specialization: true,
+              department: true,
               user: { select: { firstName: true, lastName: true } },
             },
           },
@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
         where: { status: 'ACTIVE' },
         select: {
           id: true,
-          specialization: true,
+          department: true,
           user: { select: { firstName: true, lastName: true } },
         },
       }),
@@ -243,7 +243,7 @@ export async function GET(request: NextRequest) {
       );
       const delay = deriveDelayMinutes(apt.status as string, apt.checkedInAt, apt.startAt, now);
       const wait = calcWaitMinutes(apt.checkedInAt, apt.status as string, now);
-      const specType = deriveSpecialistType(apt.specialist.specialization);
+      const specType = (apt.specialist.department ?? 'COSMETOLOGY') as SpecialistDepartment;
 
       return {
         id: apt.id,
@@ -279,7 +279,7 @@ export async function GET(request: NextRequest) {
     }
 
     const liveSpecialists: LiveSpecialist[] = (specialists as typeof specialists).map(s => {
-      const specType = deriveSpecialistType(s.specialization);
+      const specType = (s.department ?? 'COSMETOLOGY') as SpecialistDepartment;
       const apts = aptsBySpec.get(s.id) ?? [];
 
       const activeApts = apts.filter(a => !NON_ACTIVE.includes(a.dbStatus as typeof NON_ACTIVE[number]));

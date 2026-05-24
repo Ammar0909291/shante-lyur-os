@@ -5,13 +5,10 @@ import { z } from 'zod';
 import { Prisma, SpecialistStatus } from '@prisma/client';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { DomainError } from '@/domain/errors';
-
-function deriveSpecialistType(specialization: string | null): 'MASSAGE' | 'COSMETOLOGY' {
-  if (!specialization) return 'COSMETOLOGY';
-  const lower = specialization.toLowerCase();
-  if (lower.includes('массаж') || lower.includes('spa') || lower.includes('спа')) return 'MASSAGE';
-  return 'COSMETOLOGY';
-}
+import {
+  departmentToRole, departmentToSpecialistType,
+  type SpecialistDepartment,
+} from './_shared';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -21,20 +18,22 @@ function apiError(code: string, message: string, status: number, details?: Recor
 }
 
 const ListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  status: z.string().optional(),
+  page:       z.coerce.number().int().min(1).default(1),
+  limit:      z.coerce.number().int().min(1).max(100).default(50),
+  status:     z.string().optional(),
+  department: z.enum(['COSMETOLOGY', 'MASSAGE', 'RECEPTION', 'MANAGEMENT']).optional(),
 });
 
 const CreateSpecialistSchema = z.object({
-  firstName: z.string().min(1).max(100),
-  lastName: z.string().min(1).max(100),
-  email: z.string().email(),
+  firstName:      z.string().min(1).max(100),
+  lastName:       z.string().min(1).max(100),
+  email:          z.string().email(),
+  department:     z.enum(['COSMETOLOGY', 'MASSAGE', 'RECEPTION', 'MANAGEMENT']).default('COSMETOLOGY'),
   specialization: z.string().max(255).optional(),
-  bio: z.string().optional(),
+  bio:            z.string().optional(),
   experienceYears: z.coerce.number().int().min(0).max(50).optional(),
   commissionRate: z.coerce.number().min(0).max(1).default(0.3),
-  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+  color:          z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -48,14 +47,17 @@ export async function GET(req: NextRequest) {
       return apiError('VALIDATION_ERROR', 'Invalid query parameters', 400, { issues: parsed.error.issues });
     }
 
-    const { page, limit, status } = parsed.data;
-    const where: Prisma.SpecialistWhereInput = status ? { status: status as SpecialistStatus } : {};
+    const { page, limit, status, department } = parsed.data;
+    const where: Prisma.SpecialistWhereInput = {
+      ...(status     ? { status: status as SpecialistStatus } : {}),
+      ...(department ? { department: department as never }   : {}),
+    };
 
     const [specialists, total] = await Promise.all([
       prisma.specialist.findMany({
         where,
         include: {
-          user: { select: { firstName: true, lastName: true, email: true } },
+          user:     { select: { firstName: true, lastName: true, email: true } },
           services: { where: { isActive: true }, select: { serviceId: true } },
         },
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -66,23 +68,24 @@ export async function GET(req: NextRequest) {
     ]);
 
     const items = specialists.map((s) => ({
-      id: s.id,
-      userId: s.userId,
-      firstName: s.user.firstName,
-      lastName: s.user.lastName,
-      email: s.user.email,
-      specialization: s.specialization,
-      bio: s.bio,
+      id:              s.id,
+      userId:          s.userId,
+      firstName:       s.user.firstName,
+      lastName:        s.user.lastName,
+      email:           s.user.email,
+      department:      s.department as SpecialistDepartment,
+      specialization:  s.specialization,
+      bio:             s.bio,
       experienceYears: s.experienceYears,
-      rating: s.rating !== null ? Number(s.rating) : null,
-      reviewCount: s.reviewCount,
-      commissionRate: Number(s.commissionRate),
-      status: s.status,
-      color: s.color,
-      sortOrder: s.sortOrder,
-      createdAt: s.createdAt,
+      rating:          s.rating !== null ? Number(s.rating) : null,
+      reviewCount:     s.reviewCount,
+      commissionRate:  Number(s.commissionRate),
+      status:          s.status,
+      color:           s.color,
+      sortOrder:       s.sortOrder,
+      createdAt:       s.createdAt,
       allowedServiceIds: s.services.map((ss) => ss.serviceId),
-      specialistType: deriveSpecialistType(s.specialization),
+      specialistType:  departmentToSpecialistType(s.department as SpecialistDepartment),
     }));
 
     return ok({ items, total, page, limit });
@@ -101,7 +104,7 @@ export async function POST(req: NextRequest) {
       return apiError('VALIDATION_ERROR', 'Invalid request body', 400, { issues: parsed.error.issues });
     }
 
-    const { firstName, lastName, email, specialization, bio, experienceYears, commissionRate, color } = parsed.data;
+    const { firstName, lastName, email, department, specialization, bio, experienceYears, commissionRate, color } = parsed.data;
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -109,8 +112,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { randomUUID } = await import('crypto');
-    const userId = randomUUID();
+    const userId      = randomUUID();
     const specialistId = randomUUID();
+    const userRole    = departmentToRole(department as SpecialistDepartment);
 
     const [, specialist] = await prisma.$transaction([
       prisma.user.create({
@@ -120,7 +124,7 @@ export async function POST(req: NextRequest) {
           firstName,
           lastName,
           passwordHash: 'SPECIALIST_NO_LOGIN',
-          role: deriveSpecialistType(specialization) === 'MASSAGE' ? 'MASSAGIST' : 'COSMETOLOGIST',
+          role: userRole as never,
           status: 'ACTIVE',
           emailVerified: false,
         },
@@ -129,6 +133,7 @@ export async function POST(req: NextRequest) {
         data: {
           id: specialistId,
           userId,
+          department: department as never,
           specialization,
           bio,
           experienceYears,
@@ -145,23 +150,24 @@ export async function POST(req: NextRequest) {
     ]);
 
     return ok({
-      id: specialist.id,
-      userId: specialist.userId,
-      firstName: specialist.user.firstName,
-      lastName: specialist.user.lastName,
-      email: specialist.user.email,
-      specialization: specialist.specialization,
-      bio: specialist.bio,
+      id:              specialist.id,
+      userId:          specialist.userId,
+      firstName:       specialist.user.firstName,
+      lastName:        specialist.user.lastName,
+      email:           specialist.user.email,
+      department:      specialist.department as SpecialistDepartment,
+      specialization:  specialist.specialization,
+      bio:             specialist.bio,
       experienceYears: specialist.experienceYears,
-      rating: null,
-      reviewCount: 0,
-      commissionRate: Number(specialist.commissionRate),
-      status: specialist.status,
-      color: specialist.color,
-      sortOrder: specialist.sortOrder,
-      createdAt: specialist.createdAt,
+      rating:          null,
+      reviewCount:     0,
+      commissionRate:  Number(specialist.commissionRate),
+      status:          specialist.status,
+      color:           specialist.color,
+      sortOrder:       specialist.sortOrder,
+      createdAt:       specialist.createdAt,
       allowedServiceIds: [] as string[],
-      specialistType: deriveSpecialistType(specialist.specialization),
+      specialistType:  departmentToSpecialistType(specialist.department as SpecialistDepartment),
     }, 201);
   } catch (error) {
     if (error instanceof DomainError) return apiError(error.code, error.message, error.statusCode);

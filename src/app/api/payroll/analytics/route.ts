@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       prisma.specialist.findMany({
         where: { status: 'ACTIVE' },
         select: {
-          id: true, commissionRate: true,
+          id: true, commissionRate: true, department: true,
           user: { select: { firstName: true, lastName: true } },
           compensationConfig: { select: { type: true, baseSalary: true } },
           appointments: {
@@ -85,6 +85,7 @@ export async function GET(req: NextRequest) {
       return {
         specialistId:    spec.id,
         name:            spec.user ? `${spec.user.firstName} ${spec.user.lastName}` : '',
+        department:      spec.department ?? 'COSMETOLOGY',
         compensationType: spec.compensationConfig?.type ?? 'COMMISSION_ONLY',
         revenue:         r2(revenue),
         paidRevenue:     r2(paidRev),
@@ -115,6 +116,26 @@ export async function GET(req: NextRequest) {
     const burnoutRisks    = specStats.filter(s => s.burnoutRisk === 'HIGH');
     const underutilized   = specStats.filter(s => s.utilization < 2 && s.completedApts > 0);
 
+    // ── Department breakdown ──────────────────────────────────────────────────
+    const deptMap = new Map<string, { revenue: number; laborCost: number; headcount: number; completedApts: number }>();
+    for (const sp of specStats) {
+      const dept = sp.department;
+      const cur = deptMap.get(dept) ?? { revenue: 0, laborCost: 0, headcount: 0, completedApts: 0 };
+      cur.revenue      += sp.paidRevenue;
+      cur.laborCost    += sp.laborCost;
+      cur.headcount    += 1;
+      cur.completedApts += sp.completedApts;
+      deptMap.set(dept, cur);
+    }
+    const departmentBreakdown = Array.from(deptMap.entries()).map(([dept, d]) => ({
+      department:   dept,
+      headcount:    d.headcount,
+      revenue:      r2(d.revenue),
+      laborCost:    r2(d.laborCost),
+      marginPct:    d.revenue > 0 ? r2((d.revenue - d.laborCost) / d.revenue * 100) : 0,
+      completedApts: d.completedApts,
+    })).sort((a, b) => b.revenue - a.revenue);
+
     // ── Payroll status summary ─────────────────────────────────────────────────
     const byStatus: Record<string, number> = {};
     for (const r of records) {
@@ -142,6 +163,7 @@ export async function GET(req: NextRequest) {
         underutilized:    underutilized.map(s => ({ id: s.specialistId, name: s.name, utilization: s.utilization })),
         idlePayrollCost:  r2(underutilized.reduce((s, sp) => s + sp.laborCost, 0)),
       },
+      departmentBreakdown,
       specialists: specStats,
     });
   } catch (err) {

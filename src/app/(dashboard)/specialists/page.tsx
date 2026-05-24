@@ -2,18 +2,21 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Sparkles, Plus, X, Star, MoreVertical, Power, RotateCcw } from 'lucide-react';
+import { Sparkles, Plus, X, Star, MoreVertical, Power, RotateCcw, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
 
+type SpecialistDepartment = 'COSMETOLOGY' | 'MASSAGE' | 'RECEPTION' | 'MANAGEMENT';
+
 interface Specialist {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
+  department: SpecialistDepartment;
   specialization: string | null;
   bio: string | null;
   experienceYears: number | null;
@@ -21,6 +24,30 @@ interface Specialist {
   reviewCount: number;
   status: string;
   color: string | null;
+}
+
+// ─── Department badge ──────────────────────────────────────────────────────────
+
+const DEPT_STYLE: Record<SpecialistDepartment, string> = {
+  COSMETOLOGY: 'bg-violet-500/10 text-violet-300 border-violet-500/20',
+  MASSAGE:     'bg-amber-500/10  text-amber-300  border-amber-500/20',
+  RECEPTION:   'bg-sky-500/10    text-sky-300    border-sky-500/20',
+  MANAGEMENT:  'bg-rose-500/10   text-rose-300   border-rose-500/20',
+};
+
+const DEPT_LABEL: Record<SpecialistDepartment, string> = {
+  COSMETOLOGY: 'Cosmetology',
+  MASSAGE:     'Massage',
+  RECEPTION:   'Reception',
+  MANAGEMENT:  'Management',
+};
+
+function DeptBadge({ dept }: { dept: SpecialistDepartment }) {
+  return (
+    <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-medium border', DEPT_STYLE[dept])}>
+      {DEPT_LABEL[dept]}
+    </span>
+  );
 }
 
 const inputCls = cn(
@@ -31,26 +58,58 @@ const inputCls = cn(
   'transition-all',
 );
 
+const selectCls = cn(inputCls, 'cursor-pointer');
+
+// ─── Department selector ───────────────────────────────────────────────────────
+
+const DEPARTMENTS: SpecialistDepartment[] = ['COSMETOLOGY', 'MASSAGE', 'RECEPTION', 'MANAGEMENT'];
+
+function DeptSelect({
+  value,
+  onChange,
+  className,
+}: {
+  value: SpecialistDepartment;
+  onChange: (v: SpecialistDepartment) => void;
+  className?: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as SpecialistDepartment)}
+      className={cn(selectCls, className)}
+    >
+      {DEPARTMENTS.map((d) => (
+        <option key={d} value={d}>{DEPT_LABEL[d]}</option>
+      ))}
+    </select>
+  );
+}
+
+// ─── Specialist card ───────────────────────────────────────────────────────────
+
 function SpecialistCard({
   specialist,
   statusLabel,
   t,
   onStatusChange,
+  onDeptChange,
 }: {
   specialist: Specialist;
   statusLabel: string;
   t: (key: string) => string;
   onStatusChange: (id: string, status: string) => void;
+  onDeptChange: (id: string, dept: SpecialistDepartment) => void;
 }) {
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const [updating, setUpdating] = React.useState(false);
+  const [menuOpen, setMenuOpen]   = React.useState(false);
+  const [updating, setUpdating]   = React.useState(false);
+  const [editDept, setEditDept]   = React.useState(false);
+  const [deptVal, setDeptVal]     = React.useState<SpecialistDepartment>(specialist.department);
   const menuRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
     if (menuOpen) document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -60,13 +119,31 @@ function SpecialistCard({
     setMenuOpen(false);
     setUpdating(true);
     try {
-      const res = await fetch(`/api/specialists/${specialist.id}`, {
+      const res  = await fetch(`/api/specialists/${specialist.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
-      const json = await res.json();
+      const json = await res.json() as { success: boolean };
       if (json.success) onStatusChange(specialist.id, status);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const saveDept = async () => {
+    setUpdating(true);
+    try {
+      const res  = await fetch(`/api/specialists/${specialist.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ department: deptVal }),
+      });
+      const json = await res.json() as { success: boolean };
+      if (json.success) {
+        onDeptChange(specialist.id, deptVal);
+        setEditDept(false);
+      }
     } finally {
       setUpdating(false);
     }
@@ -102,22 +179,27 @@ function SpecialistCard({
           )}
         </div>
 
-        {/* Action menu */}
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setMenuOpen((o) => !o)}
             disabled={updating}
             className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
-            aria-label={t('specialists.actions')}
           >
             {updating
               ? <div className="w-4 h-4 border-2 border-champagne/30 border-t-champagne rounded-full animate-spin" />
-              : <MoreVertical className="w-4 h-4" />
-            }
+              : <MoreVertical className="w-4 h-4" />}
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-8 z-20 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg min-w-44 py-1 animate-slide-down">
+            <div className="absolute right-0 top-8 z-20 bg-onyx border border-border-luxury rounded-xl shadow-luxury-lg min-w-48 py-1 animate-slide-down">
+              <button
+                onClick={() => { setMenuOpen(false); setEditDept(true); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-secondary hover:bg-charcoal hover:text-text-primary transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Change department
+              </button>
+              <div className="border-t border-border-luxury my-1" />
               {isActive ? (
                 <button
                   onClick={() => setStatus('INACTIVE')}
@@ -140,18 +222,42 @@ function SpecialistCard({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant={isActive ? 'success' : 'default'} dot>
-          {statusLabel}
-        </Badge>
-        {specialist.rating !== null && (
-          <span className="flex items-center gap-1 text-xs text-champagne">
-            <Star className="w-3 h-3" />
-            {specialist.rating.toFixed(1)}
-            <span className="text-text-tertiary">({specialist.reviewCount})</span>
-          </span>
-        )}
-      </div>
+      {/* Department badge / inline editor */}
+      {editDept ? (
+        <div className="flex items-center gap-2">
+          <select
+            value={deptVal}
+            onChange={(e) => setDeptVal(e.target.value as SpecialistDepartment)}
+            className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-obsidian border border-border-luxury text-text-primary focus:outline-none focus:border-champagne/40"
+          >
+            {DEPARTMENTS.map((d) => (
+              <option key={d} value={d}>{DEPT_LABEL[d]}</option>
+            ))}
+          </select>
+          <button onClick={saveDept} disabled={updating}
+            className="px-2.5 py-1.5 rounded-lg bg-champagne text-obsidian text-xs font-medium hover:bg-champagne/90 transition-colors disabled:opacity-50">
+            Save
+          </button>
+          <button onClick={() => { setEditDept(false); setDeptVal(specialist.department); }}
+            className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          <DeptBadge dept={specialist.department} />
+          <Badge variant={isActive ? 'success' : 'default'} dot>
+            {statusLabel}
+          </Badge>
+          {specialist.rating !== null && (
+            <span className="flex items-center gap-1 text-xs text-champagne">
+              <Star className="w-3 h-3" />
+              {specialist.rating.toFixed(1)}
+              <span className="text-text-tertiary">({specialist.reviewCount})</span>
+            </span>
+          )}
+        </div>
+      )}
 
       {(specialist.experienceYears !== null || specialist.bio) && (
         <div className="space-y-1">
@@ -175,34 +281,46 @@ function SpecialistCard({
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function SpecialistsPage() {
   const { t } = useLanguage();
 
   const STATUS_LABEL: Record<string, string> = {
-    ACTIVE: t('specialists.status.active'),
+    ACTIVE:      t('specialists.status.active'),
     ON_VACATION: t('specialists.status.vacation'),
-    INACTIVE: t('specialists.status.inactive'),
-    TERMINATED: t('specialists.status.dismissed'),
+    INACTIVE:    t('specialists.status.inactive'),
+    TERMINATED:  t('specialists.status.dismissed'),
   };
 
   const STATUS_FILTERS = [
-    { value: '', label: t('specialists.filter.all') },
+    { value: '',       label: t('specialists.filter.all') },
     { value: 'ACTIVE', label: t('specialists.filter.active') },
     { value: 'INACTIVE', label: t('specialists.filter.inactive') },
   ];
 
+  const DEPT_FILTERS: { value: SpecialistDepartment | ''; label: string }[] = [
+    { value: '',            label: 'All departments' },
+    { value: 'COSMETOLOGY', label: 'Cosmetology' },
+    { value: 'MASSAGE',     label: 'Massage' },
+    { value: 'RECEPTION',   label: 'Reception' },
+    { value: 'MANAGEMENT',  label: 'Management' },
+  ];
+
   const [specialists, setSpecialists] = React.useState<Specialist[]>([]);
-  const [total, setTotal] = React.useState(0);
-  const [loading, setLoading] = React.useState(true);
+  const [total,        setTotal]       = React.useState(0);
+  const [loading,      setLoading]     = React.useState(true);
   const [statusFilter, setStatusFilter] = React.useState('ACTIVE');
-  const [showModal, setShowModal] = React.useState(false);
-  const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState('');
+  const [deptFilter,   setDeptFilter]  = React.useState<SpecialistDepartment | ''>('');
+  const [showModal,    setShowModal]   = React.useState(false);
+  const [submitting,   setSubmitting]  = React.useState(false);
+  const [error,        setError]       = React.useState('');
 
   const [form, setForm] = React.useState({
     firstName: '',
     lastName: '',
     email: '',
+    department: 'COSMETOLOGY' as SpecialistDepartment,
     specialization: '',
     bio: '',
     experienceYears: '',
@@ -214,25 +332,26 @@ export default function SpecialistsPage() {
     try {
       const q = new URLSearchParams({ limit: '100' });
       if (statusFilter) q.set('status', statusFilter);
-      const res = await fetch(`/api/specialists?${q}`);
-      const json = await res.json();
+      if (deptFilter)   q.set('department', deptFilter);
+      const res  = await fetch(`/api/specialists?${q}`);
+      const json = await res.json() as { success: boolean; data: { items: Specialist[]; total: number } };
       if (json.success) {
         setSpecialists(json.data.items);
         setTotal(json.data.total);
       }
-    } catch {
-      // network error
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter]);
+    } catch { /* network error */ }
+    finally { setLoading(false); }
+  }, [statusFilter, deptFilter]);
 
   React.useEffect(() => { fetchSpecialists(); }, [fetchSpecialists]);
 
   const handleStatusChange = (id: string, status: string) => {
     setSpecialists((prev) => prev.map((s) => s.id === id ? { ...s, status } : s));
-    // If filtering by status, re-fetch to reflect filter correctly
     fetchSpecialists();
+  };
+
+  const handleDeptChange = (id: string, dept: SpecialistDepartment) => {
+    setSpecialists((prev) => prev.map((s) => s.id === id ? { ...s, department: dept } : s));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -240,23 +359,24 @@ export default function SpecialistsPage() {
     setSubmitting(true);
     setError('');
     try {
-      const res = await fetch('/api/specialists', {
+      const res  = await fetch('/api/specialists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firstName: form.firstName.trim(),
-          lastName: form.lastName.trim(),
-          email: form.email.trim(),
+          firstName:      form.firstName.trim(),
+          lastName:       form.lastName.trim(),
+          email:          form.email.trim(),
+          department:     form.department,
           specialization: form.specialization.trim() || undefined,
-          bio: form.bio.trim() || undefined,
+          bio:            form.bio.trim() || undefined,
           experienceYears: form.experienceYears ? Number(form.experienceYears) : undefined,
-          color: form.color || undefined,
+          color:          form.color || undefined,
         }),
       });
-      const json = await res.json();
+      const json = await res.json() as { success: boolean; error?: { message: string } };
       if (!json.success) { setError(json.error?.message ?? t('specialists.error.create')); return; }
       setShowModal(false);
-      setForm({ firstName: '', lastName: '', email: '', specialization: '', bio: '', experienceYears: '', color: '#C9A96E' });
+      setForm({ firstName: '', lastName: '', email: '', department: 'COSMETOLOGY', specialization: '', bio: '', experienceYears: '', color: '#C9A96E' });
       fetchSpecialists();
     } catch {
       setError(t('specialists.error.network'));
@@ -285,22 +405,42 @@ export default function SpecialistsPage() {
         </Button>
       </div>
 
-      {/* Status filter */}
-      <div className="flex gap-2 flex-wrap mb-6">
-        {STATUS_FILTERS.map((f) => (
-          <button
-            key={f.value}
-            onClick={() => setStatusFilter(f.value)}
-            className={cn(
-              'px-3.5 py-1.5 rounded-xl text-sm transition-colors',
-              statusFilter === f.value
-                ? 'bg-champagne text-obsidian font-medium'
-                : 'bg-onyx border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* Filters row */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        {/* Status filter */}
+        <div className="flex gap-2 flex-wrap">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setStatusFilter(f.value)}
+              className={cn(
+                'px-3.5 py-1.5 rounded-xl text-sm transition-colors',
+                statusFilter === f.value
+                  ? 'bg-champagne text-obsidian font-medium'
+                  : 'bg-onyx border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        {/* Department filter */}
+        <div className="flex gap-2 flex-wrap">
+          {DEPT_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setDeptFilter(f.value)}
+              className={cn(
+                'px-3.5 py-1.5 rounded-xl text-sm transition-colors',
+                deptFilter === f.value
+                  ? 'bg-zinc-700 text-zinc-100 font-medium'
+                  : 'bg-onyx border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -324,6 +464,7 @@ export default function SpecialistsPage() {
               statusLabel={STATUS_LABEL[s.status] ?? s.status}
               t={t}
               onStatusChange={handleStatusChange}
+              onDeptChange={handleDeptChange}
             />
           ))}
         </div>
@@ -336,10 +477,7 @@ export default function SpecialistsPage() {
           <div className="relative bg-onyx border border-border-luxury rounded-2xl w-full max-w-lg shadow-luxury-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
               <h3 className="font-serif text-lg font-medium text-text-primary">{t('specialists.new')}</h3>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
-              >
+              <button onClick={() => setShowModal(false)} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -359,6 +497,12 @@ export default function SpecialistsPage() {
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">{t('specialists.form.email')}</span>
                 <input required type="email" {...field('email')} placeholder={t('specialists.form.emailPlaceholder')} className={inputCls} />
+              </label>
+
+              {/* Department — required, prominent */}
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium text-text-secondary uppercase tracking-wider">Department *</span>
+                <DeptSelect value={form.department} onChange={(v) => setForm((f) => ({ ...f, department: v }))} />
               </label>
 
               <label className="block space-y-1.5">

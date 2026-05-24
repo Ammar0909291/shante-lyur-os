@@ -1,3 +1,5 @@
+export type SpecialistDepartment = 'COSMETOLOGY' | 'MASSAGE' | 'RECEPTION' | 'MANAGEMENT';
+
 export type OperationalStatus =
   | 'PENDING'
   | 'CONFIRMED'
@@ -25,7 +27,7 @@ export interface OperationalAppointment {
   clientId: string;
   specialistId: string;
   specialistName: string;
-  specialistType: 'MASSAGE' | 'COSMETOLOGY';
+  specialistType: SpecialistDepartment;
   services: string[];
   startAt: string; // ISO
   endAt: string; // ISO
@@ -44,7 +46,7 @@ export interface OperationalAppointment {
 export interface LiveSpecialist {
   id: string;
   name: string;
-  type: 'MASSAGE' | 'COSMETOLOGY';
+  type: SpecialistDepartment;
   liveStatus: SpecialistLiveStatus;
   currentAppointment: OperationalAppointment | null;
   nextAppointment: OperationalAppointment | null;
