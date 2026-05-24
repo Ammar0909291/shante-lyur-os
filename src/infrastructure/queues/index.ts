@@ -15,6 +15,7 @@ export {
   aiPredictionsQueue,
   auditLogsQueue,
   reportGenerationQueue,
+  omnichannelQueue,
   queues,
   gracefulShutdown,
 } from './queue-registry';

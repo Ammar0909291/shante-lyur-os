@@ -210,7 +210,7 @@ export class MessagingService {
       case 'whatsapp': return pref?.whatsappPhone ?? vars.phone ?? null;
       case 'telegram': return pref?.telegramChatId ?? null;
       case 'max': return pref?.maxUserId ?? null;
-      case 'email': return null; // handled by emailService
+      case 'email': return pref?.emailEnabled !== false ? (vars.email ?? null) : null;
       default: return null;
     }
   }

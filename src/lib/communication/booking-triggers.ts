@@ -3,6 +3,9 @@ import { omnichannelQueue } from '@/infrastructure/queues/queue-registry';
 import type { OmnichannelMessageJob } from '@/infrastructure/queues/job-types';
 type OmnichannelChannel = 'whatsapp' | 'telegram' | 'max' | 'email';
 
+// BullMQ priority: 1 = highest. VIP jobs jump the queue.
+const PRIORITY_VIP = 1;
+
 export interface BookingTriggerParams {
   appointmentId: string;
   clientUserId: string;
@@ -33,11 +36,14 @@ async function getUserChannels(userId: string): Promise<OmnichannelChannel[]> {
   }
 }
 
-async function enqueue(job: OmnichannelMessageJob): Promise<void> {
+async function enqueue(job: OmnichannelMessageJob, priority?: number): Promise<void> {
   try {
-    await omnichannelQueue.add(`msg-${job.channel}-${job.userId}-${Date.now()}`, job);
+    await omnichannelQueue.add(
+      `msg-${job.channel}-${job.userId}-${Date.now()}`,
+      job,
+      priority !== undefined ? { priority } : undefined,
+    );
   } catch (err) {
-    // Queue unavailable (Redis not running) — log and continue
     console.warn('[BookingTriggers] Queue unavailable, skipping enqueue:', err instanceof Error ? err.message : err);
   }
 }
@@ -50,31 +56,33 @@ function baseVars(p: BookingTriggerParams): Record<string, string> {
     date:           p.date,
     time:           p.time,
     salonName:      SALON_NAME,
-    ...(p.room       ? { room: p.room }           : {}),
+    ...(p.room       ? { room: p.room }             : {}),
     ...(p.department ? { department: p.department } : {}),
   };
 }
 
-export async function triggerBookingConfirmation(params: BookingTriggerParams): Promise<void> {
-  const { appointmentId, clientUserId, specialistUserId } = params;
+export async function triggerBookingConfirmation(params: BookingTriggerParams & { isVip?: boolean }): Promise<void> {
+  const { appointmentId, clientUserId, specialistUserId, isVip } = params;
+  const priority = isVip ? PRIORITY_VIP : undefined;
   const vars = baseVars(params);
 
   const channels = await getUserChannels(clientUserId);
   for (const channel of channels) {
     const msgId = await createPendingRecord(clientUserId, channel, appointmentId);
-    await enqueue({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'booking_confirmation', vars, appointmentId });
+    await enqueue({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'booking_confirmation', vars, appointmentId }, priority);
   }
 
-  // Staff alert to specialist
+  // Staff alert — use VIP template if client is VIP, alert specialist directly
   if (specialistUserId) {
     const staffChannels = await getUserChannels(specialistUserId);
+    const staffTemplate = isVip ? 'vip_booking' : 'staff_new_booking';
     for (const channel of staffChannels) {
       const msgId = await createPendingRecord(specialistUserId, channel, appointmentId);
-      await enqueue({ outboundMessageId: msgId, userId: specialistUserId, channel, templateKey: 'staff_new_booking', vars, appointmentId });
+      await enqueue({ outboundMessageId: msgId, userId: specialistUserId, channel, templateKey: staffTemplate, vars, appointmentId }, priority);
     }
   }
 
-  console.info(`[BookingTriggers] booking_confirmation enqueued for ${clientUserId} via ${channels.join(',') || 'no channels'}`);
+  console.info(`[BookingTriggers] booking_confirmation enqueued for ${clientUserId} via ${channels.join(',') || 'no channels'}${isVip ? ' [VIP priority]' : ''}`);
 }
 
 export async function triggerBookingCancellation(params: BookingTriggerParams): Promise<void> {
@@ -138,6 +146,48 @@ export async function triggerOperationalAlert(params: {
       const msgId = await createPendingRecord(userId, channel, undefined);
       await enqueue({ outboundMessageId: msgId, userId, channel, templateKey, vars });
     }
+  }
+}
+
+export async function triggerNoShow(params: BookingTriggerParams & { adminUserIds?: string[] }): Promise<void> {
+  const { appointmentId, specialistUserId, adminUserIds = [] } = params;
+  const vars = baseVars(params);
+
+  // Alert specialist
+  if (specialistUserId) {
+    const channels = await getUserChannels(specialistUserId);
+    for (const channel of channels) {
+      const msgId = await createPendingRecord(specialistUserId, channel, appointmentId);
+      await enqueue({ outboundMessageId: msgId, userId: specialistUserId, channel, templateKey: 'no_show', vars, appointmentId });
+    }
+  }
+
+  // Alert admins
+  for (const userId of adminUserIds) {
+    const channels = await getUserChannels(userId);
+    for (const channel of channels) {
+      const msgId = await createPendingRecord(userId, channel, appointmentId);
+      await enqueue({ outboundMessageId: msgId, userId, channel, templateKey: 'no_show', vars, appointmentId });
+    }
+  }
+}
+
+export async function triggerPaymentReceived(params: {
+  appointmentId: string;
+  clientUserId: string;
+  clientName: string;
+  serviceName: string;
+  amount: string;
+  currency?: string;
+  date: string;
+}): Promise<void> {
+  const { appointmentId, clientUserId, clientName, serviceName, amount, currency = 'руб.', date } = params;
+  const vars = { clientName, serviceName, amount, currency, date, salonName: SALON_NAME };
+
+  const channels = await getUserChannels(clientUserId);
+  for (const channel of channels) {
+    const msgId = await createPendingRecord(clientUserId, channel, appointmentId);
+    await enqueue({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'payment_received', vars, appointmentId });
   }
 }
 

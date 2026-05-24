@@ -10,9 +10,7 @@ function createProcessor() {
   return async (job: Job<AppointmentReminderJob>): Promise<void> => {
     const { appointmentId, reminderType } = job.data;
 
-    console.info(
-      `[AppointmentReminderWorker] Processing job ${job.id}: appointmentId=${appointmentId}, reminderType=${reminderType}`,
-    );
+    console.info(`[AppointmentReminderWorker] Job ${job.id}: appointment=${appointmentId} type=${reminderType}`);
 
     // Skip if appointment is no longer active
     const status = await prisma.appointment.findUnique({
@@ -52,7 +50,7 @@ export function createAppointmentReminderWorker(): Worker<AppointmentReminderJob
   const worker = new Worker<AppointmentReminderJob>(
     QUEUE_NAMES.APPOINTMENT_REMINDERS,
     createProcessor(),
-    { connection: redisConnection },
+    { connection: redisConnection, concurrency: 5 },
   );
 
   worker.on('completed', (job: Job<AppointmentReminderJob>) => {
@@ -60,10 +58,7 @@ export function createAppointmentReminderWorker(): Worker<AppointmentReminderJob
   });
 
   worker.on('failed', (job: Job<AppointmentReminderJob> | undefined, err: Error) => {
-    console.error(
-      `[AppointmentReminderWorker] Job ${job?.id ?? 'unknown'} failed:`,
-      err.message,
-    );
+    console.error(`[AppointmentReminderWorker] Job ${job?.id ?? 'unknown'} failed: ${err.message}`);
   });
 
   return worker;

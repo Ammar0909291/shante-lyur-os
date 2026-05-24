@@ -8,6 +8,9 @@ import { UserRole } from '@/domain/enums';
 import { DomainError } from '@/domain/errors';
 import type { IEventBus } from '@/application/ports';
 import type { DomainEvent } from '@/domain/events';
+import { prisma } from '@/infrastructure/config/prisma-client';
+import { triggerBookingRescheduled } from '@/lib/communication/booking-triggers';
+import { cancelReminders, scheduleReminders } from '@/lib/communication/reminder-scheduler';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -54,6 +57,44 @@ export async function POST(req: NextRequest, context: RouteContext) {
     );
 
     const result = await useCase.execute(id, parsed.data, userId, role);
+
+    // Communication + reminder rescheduling (non-blocking)
+    void (async () => {
+      try {
+        const apt = await prisma.appointment.findUnique({
+          where: { id },
+          include: {
+            client: { select: { firstName: true, lastName: true } },
+            specialist: { include: { user: { select: { id: true, firstName: true, lastName: true } } } },
+            services: { include: { service: { select: { name: true } } }, take: 1, orderBy: { sortOrder: 'asc' } },
+          },
+        });
+        if (!apt) return;
+
+        const clientName = `${apt.client.firstName} ${apt.client.lastName}`;
+        const specialistName = apt.specialist?.user
+          ? `${apt.specialist.user.firstName} ${apt.specialist.user.lastName}` : 'Специалист';
+        const specialistUserId = apt.specialist?.user?.id;
+        const serviceName = apt.services[0]?.service.name ?? 'Услуга';
+        const dateStr = apt.startAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+        const timeStr = apt.startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+        await triggerBookingRescheduled({
+          appointmentId: id, clientUserId: apt.clientId, specialistUserId,
+          clientName, specialistName, serviceName, date: dateStr, time: timeStr,
+        });
+
+        // Cancel old reminders and schedule new ones for the updated time
+        await cancelReminders(id);
+        await scheduleReminders({
+          appointmentId: id, clientUserId: apt.clientId,
+          specialistUserId, startAt: apt.startAt,
+        });
+      } catch (err) {
+        console.warn('[Reschedule] Communication trigger error:', err instanceof Error ? err.message : err);
+      }
+    })();
+
     return ok(result);
   } catch (error) {
     if (error instanceof DomainError) {

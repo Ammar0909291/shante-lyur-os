@@ -115,7 +115,12 @@ export async function POST(req: NextRequest) {
       try {
         const payload = await buildBookingNotificationPayload(result.appointment.id);
         if (payload) {
-          await triggerBookingConfirmation(payload);
+          // Check VIP status and add priority flag
+          const profile = await registry.customerProfileRepository
+            .findByUserId(effectiveClientId)
+            .catch(() => null);
+          const isVip = (profile as { loyaltyTier?: string } | null)?.loyaltyTier === 'VIP';
+          await triggerBookingConfirmation({ ...payload, isVip });
         } else {
           console.warn('[Appointments] Could not build notification payload for', result.appointment.id);
         }

@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "worker:start": "tsx src/workers/index.ts",
+    "worker:dev": "tsx watch src/workers/index.ts",
     "lint": "next lint",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

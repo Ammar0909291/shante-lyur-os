@@ -1,6 +1,7 @@
 import { WhatsAppProvider } from './providers/whatsapp.provider';
 import { TelegramProvider } from './providers/telegram.provider';
 import { MaxProvider } from './providers/max.provider';
+import { EmailProvider } from './providers/email.provider';
 import type { IMessageProvider } from './providers/base.provider';
 import type { ProviderChannel } from './types';
 
@@ -12,6 +13,7 @@ class ChannelRouter {
       ['whatsapp' as ProviderChannel, new WhatsAppProvider()],
       ['telegram' as ProviderChannel, new TelegramProvider()],
       ['max' as ProviderChannel, new MaxProvider()],
+      ['email' as ProviderChannel, new EmailProvider()],
     ]);
   }
 

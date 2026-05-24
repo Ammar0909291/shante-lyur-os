@@ -198,6 +198,57 @@ export const TEMPLATES: Record<string, Template> = {
       `Client ${v.clientName ?? '—'} hasn't visited in 30+ days.\n` +
       `Consider reaching out for retention.`,
   },
+
+  no_show: {
+    key: 'no_show',
+    nameRu: 'Неявка клиента',
+    bodyRu: (v) =>
+      `⚠️ <b>Клиент не явился</b>\n\n` +
+      `Клиент ${v.clientName ?? '—'} не пришёл на запись:\n` +
+      `📋 ${v.serviceName ?? '—'} · ${v.date ?? '—'} ${v.time ?? ''}\n` +
+      `👤 Специалист: ${v.specialistName ?? '—'}\n\n` +
+      `Статус изменён на «Неявка».`,
+    bodyEn: (v) =>
+      `⚠️ <b>Client No-Show</b>\n\n` +
+      `Client ${v.clientName ?? '—'} did not appear for:\n` +
+      `📋 ${v.serviceName ?? '—'} · ${v.date ?? '—'} ${v.time ?? ''}\n` +
+      `👤 Specialist: ${v.specialistName ?? '—'}\n\n` +
+      `Status marked as No-Show.`,
+  },
+
+  vip_booking: {
+    key: 'vip_booking',
+    nameRu: '⭐ VIP запись',
+    bodyRu: (v) =>
+      `⭐ <b>VIP клиент записан</b>\n\n` +
+      `Клиент: <b>${v.clientName ?? '—'}</b> (VIP)\n` +
+      `📋 Услуга: ${v.serviceName ?? '—'}\n` +
+      `👤 Специалист: ${v.specialistName ?? '—'}\n` +
+      `📅 ${v.date ?? '—'} в ${v.time ?? '—'}\n\n` +
+      `Обеспечьте приоритетное обслуживание. 💎`,
+    bodyEn: (v) =>
+      `⭐ <b>VIP Client Booked</b>\n\n` +
+      `Client: <b>${v.clientName ?? '—'}</b> (VIP)\n` +
+      `📋 Service: ${v.serviceName ?? '—'}\n` +
+      `👤 Specialist: ${v.specialistName ?? '—'}\n` +
+      `📅 ${v.date ?? '—'} at ${v.time ?? '—'}\n\n` +
+      `Please ensure priority service. 💎`,
+  },
+
+  payment_failed: {
+    key: 'payment_failed',
+    nameRu: 'Ошибка оплаты',
+    bodyRu: (v) =>
+      `❌ <b>Оплата не прошла</b>\n\n` +
+      `Здравствуйте, ${v.clientName ?? 'Клиент'}!\n\n` +
+      `К сожалению, оплата за услугу "${v.serviceName ?? '—'}" не была проведена.\n\n` +
+      `Пожалуйста, свяжитесь с нами для уточнения деталей. 📞`,
+    bodyEn: (v) =>
+      `❌ <b>Payment Failed</b>\n\n` +
+      `Hello, ${v.clientName ?? 'Client'}!\n\n` +
+      `Unfortunately, payment for "${v.serviceName ?? '—'}" could not be processed.\n\n` +
+      `Please contact us for assistance. 📞`,
+  },
 };
 
 export function getTemplate(key: string): Template | undefined {

@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { ok, apiError, validationError, unauthorized, notFound, forbidden, internalError } from '@/lib/api-response';
 import { logAudit, getRequestMeta } from '@/lib/audit-logger';
+import { triggerBookingCancellation, triggerNoShow } from '@/lib/communication/booking-triggers';
+import { cancelReminders } from '@/lib/communication/reminder-scheduler';
 
 const VALID_STATUSES = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'NO_SHOW'] as const;
 
@@ -239,6 +241,45 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       ]);
     }
 
+    // Communication triggers (non-blocking)
+    if (newStatus === 'CANCELLED' || newStatus === 'NO_SHOW') {
+      void (async () => {
+        try {
+          await cancelReminders(id);
+          const apt = await prisma.appointment.findUnique({
+            where: { id },
+            include: {
+              client: { select: { firstName: true, lastName: true } },
+              specialist: { include: { user: { select: { id: true, firstName: true, lastName: true } } } },
+              services: { include: { service: { select: { name: true } } }, take: 1, orderBy: { sortOrder: 'asc' } },
+            },
+          });
+          if (!apt) return;
+          const clientName = `${apt.client.firstName} ${apt.client.lastName}`;
+          const specialistName = apt.specialist?.user
+            ? `${apt.specialist.user.firstName} ${apt.specialist.user.lastName}` : 'Специалист';
+          const specialistUserId = apt.specialist?.user?.id;
+          const serviceName = apt.services[0]?.service.name ?? 'Услуга';
+          const dateStr = apt.startAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+          const timeStr = apt.startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+          if (newStatus === 'CANCELLED') {
+            await triggerBookingCancellation({
+              appointmentId: id, clientUserId: apt.clientId, specialistUserId,
+              clientName, specialistName, serviceName, date: dateStr, time: timeStr,
+            });
+          } else {
+            await triggerNoShow({
+              appointmentId: id, clientUserId: apt.clientId, specialistUserId,
+              clientName, specialistName, serviceName, date: dateStr, time: timeStr,
+            });
+          }
+        } catch (err) {
+          console.warn('[Appointments] Communication trigger error:', err instanceof Error ? err.message : err);
+        }
+      })();
+    }
+
     // Audit log
     const { ipAddress, userAgent } = getRequestMeta(req);
     void logAudit({
@@ -290,6 +331,35 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       syncClientProfile(existing.clientId),
       removeSpecialistRevenue(id),
     ]);
+
+    // Communication trigger (non-blocking)
+    void (async () => {
+      try {
+        await cancelReminders(id);
+        const apt = await prisma.appointment.findUnique({
+          where: { id },
+          include: {
+            client: { select: { firstName: true, lastName: true } },
+            specialist: { include: { user: { select: { id: true, firstName: true, lastName: true } } } },
+            services: { include: { service: { select: { name: true } } }, take: 1, orderBy: { sortOrder: 'asc' } },
+          },
+        });
+        if (!apt) return;
+        await triggerBookingCancellation({
+          appointmentId: id,
+          clientUserId: existing.clientId,
+          specialistUserId: apt.specialist?.user?.id,
+          clientName: `${apt.client.firstName} ${apt.client.lastName}`,
+          specialistName: apt.specialist?.user
+            ? `${apt.specialist.user.firstName} ${apt.specialist.user.lastName}` : 'Специалист',
+          serviceName: apt.services[0]?.service.name ?? 'Услуга',
+          date: apt.startAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }),
+          time: apt.startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        });
+      } catch (err) {
+        console.warn('[Appointments DELETE] Communication trigger error:', err instanceof Error ? err.message : err);
+      }
+    })();
 
     // Audit log
     const { ipAddress, userAgent } = getRequestMeta(req);
