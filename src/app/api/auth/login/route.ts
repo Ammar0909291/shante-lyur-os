@@ -72,6 +72,9 @@ export async function POST(req: NextRequest) {
     });
 
     setAuthCookies(response, result.accessToken, result.refreshToken, parsed.data.rememberMe);
+    const isProd = process.env.NODE_ENV === 'production';
+    response.cookies.set('user_role', result.user.role, { httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 15 * 60 });
+    response.cookies.set('user_id', result.user.id, { httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 15 * 60 });
     return response;
   } catch (error) {
     if (error instanceof DomainError) {
