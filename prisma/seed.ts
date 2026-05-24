@@ -217,7 +217,7 @@ async function main() {
     const user = await prisma.user.upsert({
       where: { email: sp.email },
       update: {},
-      create: { id: userId, email: sp.email, passwordHash: specialistPassword, firstName: sp.firstName, lastName: sp.lastName, role: UserRole.SPECIALIST, status: UserStatus.ACTIVE, emailVerified: true },
+      create: { id: userId, email: sp.email, passwordHash: specialistPassword, firstName: sp.firstName, lastName: sp.lastName, role: (sp.serviceCategories.includes(ServiceCategory.MASSAGE) && !sp.serviceCategories.includes(ServiceCategory.COSMETOLOGY) ? 'MASSAGIST' : 'COSMETOLOGIST') as typeof UserRole.COSMETOLOGIST, status: UserStatus.ACTIVE, emailVerified: true },
     });
 
     const specialist = await prisma.specialist.upsert({

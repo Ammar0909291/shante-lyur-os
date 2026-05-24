@@ -12,6 +12,7 @@ import {
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useChartTheme } from '@/lib/use-chart-theme';
 import { useLanguage } from '@/contexts/language';
 import { RecordSaleModal } from './_components/RecordSaleModal';
 
@@ -56,14 +57,6 @@ interface BookingRecord {
   services: { name: string; price: number }[];
 }
 
-const tooltipStyle = {
-  backgroundColor: '#13131A',
-  border: '1px solid #2A2A38',
-  borderRadius: '12px',
-  padding: '10px 14px',
-  color: '#F0EDE8',
-  fontSize: '12px',
-};
 
 // ─── Small components ────────────────────────────────────────────────────────
 
@@ -100,13 +93,17 @@ function KpiCard({ label, value, sub, icon, accent, delta }: {
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export default function SalesPage() {
+  const chart = useChartTheme();
   const { t, lang } = useLanguage();
 
   const ROLE_LABEL: Record<string, string> = {
-    ADMIN:       t('sales.role.admin'),
-    SPECIALIST:  t('sales.role.specialist'),
-    OPERATOR:    t('sales.role.operator'),
-    SUPER_ADMIN: t('sales.role.super'),
+    SUPER_ADMIN:   t('sales.role.super'),
+    ADMIN:         t('sales.role.admin'),
+    MANAGER:       t('sales.role.manager'),
+    RECEPTIONIST:  t('sales.role.receptionist'),
+    COSMETOLOGIST: t('sales.role.cosmetologist'),
+    MASSAGIST:     t('sales.role.massagist'),
+    CLIENT:        t('sales.role.client'),
   };
 
   const PRESETS = [
@@ -301,9 +298,9 @@ export default function SalesPage() {
                       tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}
                     />
                     <Tooltip
-                      contentStyle={tooltipStyle}
+                      contentStyle={chart.tooltipStyle}
                       formatter={(v: number) => [formatCurrency(v), t('analytics.metrics.revenue')]}
-                      labelStyle={{ color: '#9A9490', marginBottom: 4 }}
+                      labelStyle={chart.labelStyle}
                     />
                     <Area
                       type="monotone" dataKey="revenue"
@@ -340,9 +337,9 @@ export default function SalesPage() {
                       allowDecimals={false}
                     />
                     <Tooltip
-                      contentStyle={tooltipStyle}
+                      contentStyle={chart.tooltipStyle}
                       formatter={(v: number) => [v, t('analytics.bookings.title')]}
-                      labelStyle={{ color: '#9A9490', marginBottom: 4 }}
+                      labelStyle={chart.labelStyle}
                     />
                     <Bar dataKey="count" fill="#D4AF7A" radius={[3, 3, 0, 0]} opacity={0.8} />
                   </BarChart>

@@ -24,7 +24,7 @@ const noopEventBus: IEventBus = {
 const ADMIN_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
 
 const ChangeRoleBodySchema = z.object({
-  newRole: z.enum(['SUPER_ADMIN', 'ADMIN', 'OPERATOR', 'SPECIALIST', 'CLIENT']),
+  newRole: z.enum(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST', 'COSMETOLOGIST', 'MASSAGIST', 'CLIENT']),
 });
 
 interface RouteContext {

@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { userId, role } = authHeaders(req);
   if (!userId) return apiError('UNAUTHORIZED', 'Auth required', 401);
-  if (!['ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(role)) return apiError('FORBIDDEN', 'Not authorized', 403);
+  if (!['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(role)) return apiError('FORBIDDEN', 'Not authorized', 403);
 
   let body: {
     supplierId?: string;

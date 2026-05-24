@@ -39,7 +39,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     if (!record) return apiError('NOT_FOUND', 'Payroll record not found', 404);
 
     // Specialists can only view their own
-    if (role === 'SPECIALIST') {
+    if (role === 'COSMETOLOGIST' || role === 'MASSAGIST') {
       const spec = await prisma.specialist.findFirst({ where: { userId: userId ?? '' }, select: { id: true } });
       if (spec?.id !== record.specialistId) return apiError('FORBIDDEN', 'Access denied', 403);
     }

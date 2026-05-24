@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   const userId = request.headers.get('x-user-id');
   const role = request.headers.get('x-user-role') ?? '';
   if (!userId) return apiError('UNAUTHORIZED', 'Auth required', 401);
-  if (!['OPERATOR', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
+  if (!['RECEPTIONIST', 'MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
     return apiError('FORBIDDEN', 'Receptionist/admin access required', 403);
   }
 

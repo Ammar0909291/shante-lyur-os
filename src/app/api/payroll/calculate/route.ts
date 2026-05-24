@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Role restriction: specialists can only view their own payroll
-  if (role === 'SPECIALIST') {
+  if (role === 'COSMETOLOGIST' || role === 'MASSAGIST') {
     const spec = await prisma.specialist.findFirst({
       where: { id: specialistId, userId: userId ?? '' },
       select: { id: true },

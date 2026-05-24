@@ -8,7 +8,7 @@ import {
   AlertTriangle,
   Clock,
   User,
-  Scissors,
+  Sparkles,
   CheckCircle2,
   XCircle,
   PlayCircle,
@@ -144,7 +144,7 @@ function TypeBadge({ type }: { type: 'MASSAGE' | 'COSMETOLOGY' }) {
           : 'bg-sage/10 text-sage border-sage/30',
       )}
     >
-      {type === 'MASSAGE' ? <Bed className="w-3 h-3" /> : <Scissors className="w-3 h-3" />}
+      {type === 'MASSAGE' ? <Bed className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
       {type === 'MASSAGE' ? t('ops.type.massage') : t('ops.type.cosmetology')}
     </span>
   );

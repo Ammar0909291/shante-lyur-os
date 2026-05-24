@@ -73,7 +73,7 @@ export function apiError(code: string, message: string, status: number) {
   return Response.json({ success: false, error: { code, message } }, { status });
 }
 
-export const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] as const;
+export const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST'] as const;
 
 export function checkAuth(
   userId: string | null,

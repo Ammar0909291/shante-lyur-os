@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
+import { useChartTheme } from '@/lib/use-chart-theme';
 
 interface SeriesPoint { date: string; revenue: number; bookings: number; }
 interface StatusItem { status: string; label: string; count: number; }
@@ -66,14 +67,7 @@ function formatDateLabel(
   return d.toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'short' });
 }
 
-const tooltipStyle = {
-  backgroundColor: '#13131A',
-  border: '1px solid #2A2A38',
-  borderRadius: '12px',
-  padding: '10px 14px',
-  color: '#F0EDE8',
-  fontSize: '12px',
-};
+// tooltipStyle and emptyHeatCell now come from useChartTheme() inside the component
 
 function Delta({ value }: { value: number | null }) {
   if (value === null) return null;
@@ -174,7 +168,7 @@ function exportToExcel(
 
 interface SpecialistOption { id: string; firstName: string; lastName: string; }
 
-function HeatmapGrid({ data, dowLabels, t }: { data: HeatmapCell[]; dowLabels: string[]; t: (key: string) => string }) {
+function HeatmapGrid({ data, dowLabels, t, emptyHeatCell }: { data: HeatmapCell[]; dowLabels: string[]; t: (key: string) => string; emptyHeatCell: string }) {
   const maxCount = Math.max(1, ...data.map((d) => d.count));
   const map = new Map(data.map((d) => [`${d.dow}-${d.hour}`, d.count]));
   const hours = Array.from({ length: 15 }, (_, i) => i + 8);
@@ -201,7 +195,7 @@ function HeatmapGrid({ data, dowLabels, t }: { data: HeatmapCell[]; dowLabels: s
                   className="flex-1 h-6 rounded-sm"
                   style={{
                     backgroundColor: count === 0
-                      ? 'rgba(42,42,56,0.6)'
+                      ? emptyHeatCell
                       : `rgba(212,175,122,${0.12 + intensity * 0.88})`,
                   }}
                   title={`${day} ${h}:00 — ${count}`}
@@ -228,6 +222,7 @@ function HeatmapGrid({ data, dowLabels, t }: { data: HeatmapCell[]; dowLabels: s
 
 export default function AnalyticsPage() {
   const { t, lang } = useLanguage();
+  const chart = useChartTheme();
   const [range, setRange] = React.useState('30d');
   const [specialistId, setSpecialistId] = React.useState('');
   const [specialists, setSpecialists] = React.useState<SpecialistOption[]>([]);
@@ -440,7 +435,7 @@ export default function AnalyticsPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6A6560' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                     <YAxis tick={{ fontSize: 11, fill: '#6A6560' }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : v} width={40} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatCurrency(v), t('analytics.metrics.revenue')]} labelStyle={{ color: '#9A9490', marginBottom: 4 }} />
+                    <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v), t('analytics.metrics.revenue')]} labelStyle={chart.labelStyle} />
                     <Area type="monotone" dataKey="revenue" stroke="#D4AF7A" strokeWidth={2} fill="url(#revGrad)" dot={false} activeDot={{ r: 4, fill: '#D4AF7A', strokeWidth: 0 }} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -466,7 +461,7 @@ export default function AnalyticsPage() {
                       <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" vertical={false} />
                       <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#6A6560' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                       <YAxis tick={{ fontSize: 11, fill: '#6A6560' }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v, t('analytics.bookings.title')]} labelStyle={{ color: '#9A9490', marginBottom: 4 }} />
+                      <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [v, t('analytics.bookings.title')]} labelStyle={chart.labelStyle} />
                       <Bar dataKey="bookings" fill="#D4AF7A" radius={[3, 3, 0, 0]} opacity={0.85} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -494,7 +489,7 @@ export default function AnalyticsPage() {
                               <Cell key={item.status} fill={STATUS_COLORS[item.status] ?? '#6A6560'} />
                             ))}
                           </Pie>
-                          <Tooltip contentStyle={tooltipStyle} formatter={(v: number, _n: string, props: { payload?: StatusItem }) => [v, props.payload?.label ?? '']} />
+                          <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number, _n: string, props: { payload?: StatusItem }) => [v, props.payload?.label ?? '']} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -613,7 +608,7 @@ export default function AnalyticsPage() {
                 <p className="text-xs text-text-tertiary mt-0.5">{t('analytics.heatmap.subtitle')}</p>
               </div>
               <div className="p-6">
-                <HeatmapGrid data={data.heatmap} dowLabels={DOW_LABELS} t={t} />
+                <HeatmapGrid data={data.heatmap} dowLabels={DOW_LABELS} t={t} emptyHeatCell={chart.emptyHeatCell} />
               </div>
             </div>
           )}

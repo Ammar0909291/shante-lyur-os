@@ -14,7 +14,7 @@ function apiError(code: string, message: string, status: number, details?: Recor
   return NextResponse.json({ success: false, error: { code, message, ...(details ? { details } : {}) } }, { status });
 }
 
-const ADMIN_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.OPERATOR];
+const ADMIN_ROLES: string[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGER];
 
 export async function GET(req: NextRequest) {
   try {

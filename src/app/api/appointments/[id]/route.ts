@@ -22,7 +22,7 @@ const TRANSITIONS: Record<string, string[]> = {
   NO_SHOW:     [],
 };
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] as const;
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST'] as const;
 
 function computeLoyaltyTier(visits: number, spent: number): string {
   if (visits >= 50 || spent >= 100_000) return 'VIP';
@@ -167,7 +167,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     // Role-based access: client can only see their own, specialist their own
     if (role === 'CLIENT' && appointment.clientId !== userId) return forbidden();
-    if (role === 'SPECIALIST') {
+    if (role === 'COSMETOLOGIST' || role === 'MASSAGIST') {
       const spec = await prisma.specialist.findUnique({ where: { userId }, select: { id: true } });
       if (!spec || appointment.specialistId !== spec.id) return forbidden();
     }

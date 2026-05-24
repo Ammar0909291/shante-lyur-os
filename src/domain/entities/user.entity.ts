@@ -144,14 +144,28 @@ export class User extends BaseEntity {
         'payment:read', 'payment:refund',
         'promo:crud', 'report:read',
         'audit:read', 'settings:read', 'settings:update',
+        'role:change',
       ],
-      [UserRole.OPERATOR]: [
+      [UserRole.MANAGER]: [
         'user:read', 'user:create',
+        'specialist:read',
         'appointment:read', 'appointment:create', 'appointment:update', 'appointment:cancel',
         'payment:read',
         'report:read',
+        'inventory:read', 'inventory:update',
+        'promo:read',
       ],
-      [UserRole.SPECIALIST]: [
+      [UserRole.RECEPTIONIST]: [
+        'user:read',
+        'appointment:read', 'appointment:create', 'appointment:update', 'appointment:cancel',
+        'payment:read',
+      ],
+      [UserRole.COSMETOLOGIST]: [
+        'appointment:read', 'appointment:update_status',
+        'customer_profile:read', 'specialist_note:crud',
+        'procedure_history:read', 'procedure_history:create',
+      ],
+      [UserRole.MASSAGIST]: [
         'appointment:read', 'appointment:update_status',
         'customer_profile:read', 'specialist_note:crud',
         'procedure_history:read', 'procedure_history:create',

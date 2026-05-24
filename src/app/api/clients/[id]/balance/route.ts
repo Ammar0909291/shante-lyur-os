@@ -9,7 +9,7 @@ function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
 }
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'];
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST'];
 
 const AdjustSchema = z.object({
   amount:  z.number().refine((n) => n !== 0, { message: 'Amount must be nonzero' }),

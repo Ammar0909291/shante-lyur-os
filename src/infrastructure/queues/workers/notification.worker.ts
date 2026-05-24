@@ -47,10 +47,9 @@ function createProcessor() {
           data,
         );
         break;
-      default: {
-        const _exhaustive: never = channel;
-        throw new Error(`Unsupported notification channel: ${String(_exhaustive)}`);
-      }
+      default:
+        console.warn(`[NotificationWorker] Unhandled channel "${channel as string}" for job ${job.id} — use omnichannel queue for whatsapp/telegram/max`);
+        break;
     }
 
     console.info(`[NotificationWorker] Job ${job.id} completed successfully`);

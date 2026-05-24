@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const userId = req.headers.get('x-user-id');
   const role = req.headers.get('x-user-role') ?? '';
   if (!userId) return apiError('UNAUTHORIZED', 'Auth required', 401);
-  if (!['ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(role)) return apiError('FORBIDDEN', 'Not authorized', 403);
+  if (!['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(role)) return apiError('FORBIDDEN', 'Not authorized', 403);
 
   const { id } = await params;
 

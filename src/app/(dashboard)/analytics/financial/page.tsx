@@ -9,6 +9,7 @@ import {
 import { TrendingUp, TrendingDown, BarChart3, Minus, Download, Loader2 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
+import { useChartTheme } from '@/lib/use-chart-theme';
 import type {
   FinancialRevenueResponse,
   PeakHoursResponse,
@@ -17,14 +18,7 @@ import type {
 
 // ─── Shared constants ─────────────────────────────────────────────────────────
 
-const tooltipStyle = {
-  backgroundColor: '#13131A',
-  border: '1px solid #2A2A38',
-  borderRadius: '12px',
-  padding: '10px 14px',
-  color: '#F0EDE8',
-  fontSize: '12px',
-};
+// tooltipStyle comes from useChartTheme() inside the component
 
 const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
@@ -61,7 +55,7 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   );
 }
 
-function PeakHeatmap({ data }: { data: PeakHoursResponse['heatmap'] }) {
+function PeakHeatmap({ data, emptyHeatCell }: { data: PeakHoursResponse['heatmap']; emptyHeatCell: string }) {
   const maxCount = Math.max(1, ...data.map(c => c.bookingCount));
   const cellMap = new Map(data.map(c => [`${c.dayOfWeek}-${c.hour}`, c.bookingCount]));
   const hours = Array.from({ length: 15 }, (_, i) => i + 7); // 7–21
@@ -84,7 +78,7 @@ function PeakHeatmap({ data }: { data: PeakHoursResponse['heatmap'] }) {
                 <div
                   key={h}
                   className="flex-1 aspect-square rounded-sm transition-colors"
-                  style={{ backgroundColor: count === 0 ? '#1A1A24' : `rgba(212,175,122,${0.12 + intensity * 0.75})` }}
+                  style={{ backgroundColor: count === 0 ? emptyHeatCell : `rgba(212,175,122,${0.12 + intensity * 0.75})` }}
                   title={count > 0 ? `${day} ${h}:00 — ${count} записей` : undefined}
                 />
               );
@@ -115,6 +109,7 @@ const PRESETS = [
 
 export default function FinancialAnalyticsPage() {
   const { t } = useLanguage();
+  const chart = useChartTheme();
 
   const [from, setFrom] = React.useState(() => daysAgoStr(29));
   const [to, setTo] = React.useState(todayStr);
@@ -296,7 +291,7 @@ export default function FinancialAnalyticsPage() {
                       <XAxis type="number" tick={{ fontSize: 11, fill: '#6A6560' }} axisLine={false} tickLine={false}
                         tickFormatter={v => `${Math.round(v / 1000)}k`} />
                       <YAxis dataKey="category" type="category" tick={{ fontSize: 11, fill: '#9A9490' }} axisLine={false} tickLine={false} width={96} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatCurrency(v), 'Выручка']} />
+                      <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v), 'Выручка']} />
                       <Bar dataKey="revenue" fill="#D4AF7A" radius={[0, 4, 4, 0]} opacity={0.85} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -333,7 +328,7 @@ export default function FinancialAnalyticsPage() {
             <div className="flex items-center justify-center py-12 text-text-tertiary text-sm">Нет данных</div>
           ) : (
             <>
-              <PeakHeatmap data={peakHours.heatmap} />
+              <PeakHeatmap data={peakHours.heatmap} emptyHeatCell={chart.emptyHeatCell} />
               {peakHours.peakDay && (
                 <div className="px-6 pb-4 flex flex-wrap gap-4 text-sm text-text-secondary">
                   {peakHours.peakHour && (
@@ -388,7 +383,7 @@ export default function FinancialAnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6A6560' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10, fill: '#6A6560' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${Math.round(v / 1000)}k`} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: number, name: string) => [formatCurrency(v), name === 'historical' ? 'Факт' : 'Прогноз']} />
+                  <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number, name: string) => [formatCurrency(v), name === 'historical' ? 'Факт' : 'Прогноз']} />
                   <Area type="monotone" dataKey="historical" stroke="#D4AF7A" strokeWidth={2} fill="url(#histGrad)" connectNulls />
                   <Area type="monotone" dataKey="forecast" stroke="#8BA888" strokeWidth={2} strokeDasharray="5 4" fill="url(#foreGrad)" connectNulls />
                 </AreaChart>
@@ -419,7 +414,7 @@ export default function FinancialAnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6A6560' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                 <YAxis tick={{ fontSize: 10, fill: '#6A6560' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${Math.round(v / 1000)}k`} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatCurrency(v), 'Выручка']} />
+                <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v), 'Выручка']} />
                 <Area type="monotone" dataKey="revenue" stroke="#D4AF7A" strokeWidth={2} fill="url(#revGrad)" />
               </AreaChart>
             </ResponsiveContainer>

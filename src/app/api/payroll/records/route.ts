@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   // Specialists can only see their own records
   let specialistFilter: string | undefined = p.get('specialistId') ?? undefined;
-  if (role === 'SPECIALIST') {
+  if (role === 'COSMETOLOGIST' || role === 'MASSAGIST') {
     const spec = await prisma.specialist.findFirst({
       where: { userId: userId ?? '' }, select: { id: true },
     });

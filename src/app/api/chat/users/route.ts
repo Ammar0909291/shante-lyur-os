@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const users = await prisma.user.findMany({
     where: {
       id: { not: currentUserId },
-      role: { in: ['ADMIN', 'SPECIALIST', 'OPERATOR'] },
+      role: { in: ['ADMIN', 'MANAGER', 'RECEPTIONIST', 'COSMETOLOGIST', 'MASSAGIST'] as never[] },
     },
     select: {
       id: true,

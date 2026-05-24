@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
           firstName,
           lastName,
           passwordHash: 'SPECIALIST_NO_LOGIN',
-          role: 'SPECIALIST',
+          role: deriveSpecialistType(specialization) === 'MASSAGE' ? 'MASSAGIST' : 'COSMETOLOGIST',
           status: 'ACTIVE',
           emailVerified: false,
         },

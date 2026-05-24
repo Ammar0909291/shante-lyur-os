@@ -8,6 +8,7 @@ import type {
   AIPredictionJob,
   AuditLogJob,
   ReportGenerationJob,
+  OmnichannelMessageJob,
 } from './job-types';
 
 export const appointmentRemindersQueue = new Queue<AppointmentReminderJob>(
@@ -40,6 +41,18 @@ export const reportGenerationQueue = new Queue<ReportGenerationJob>(
   { connection: redisConnection, defaultJobOptions: DEFAULT_JOB_OPTIONS },
 );
 
+export const omnichannelQueue = new Queue<OmnichannelMessageJob>(
+  QUEUE_NAMES.OMNICHANNEL_MESSAGES,
+  {
+    connection: redisConnection,
+    defaultJobOptions: {
+      ...DEFAULT_JOB_OPTIONS,
+      attempts: 3,
+      backoff: { type: 'exponential' as const, delay: 5000 },
+    },
+  },
+);
+
 export const queues: Map<string, Queue> = new Map<string, Queue>([
   [QUEUE_NAMES.APPOINTMENT_REMINDERS, appointmentRemindersQueue as Queue],
   [QUEUE_NAMES.NOTIFICATIONS, notificationsQueue as Queue],
@@ -47,6 +60,7 @@ export const queues: Map<string, Queue> = new Map<string, Queue>([
   [QUEUE_NAMES.AI_PREDICTIONS, aiPredictionsQueue as Queue],
   [QUEUE_NAMES.AUDIT_LOGS, auditLogsQueue as Queue],
   [QUEUE_NAMES.REPORT_GENERATION, reportGenerationQueue as Queue],
+  [QUEUE_NAMES.OMNICHANNEL_MESSAGES, omnichannelQueue as Queue],
 ]);
 
 export async function gracefulShutdown(): Promise<void> {

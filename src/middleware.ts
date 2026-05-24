@@ -2,7 +2,16 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 
 // ---------------------------------------------------------------------------
-// Route classification
+// Role groups
+// ---------------------------------------------------------------------------
+
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'] as const;
+const FRONT_DESK_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST'] as const;
+const SPECIALIST_ROLES = ['COSMETOLOGIST', 'MASSAGIST'] as const;
+const EMPLOYEE_ROLES = [...FRONT_DESK_ROLES, ...SPECIALIST_ROLES] as const;
+
+// ---------------------------------------------------------------------------
+// Route classification — API
 // ---------------------------------------------------------------------------
 
 const PROTECTED_API_ROUTES = [
@@ -14,52 +23,81 @@ const PROTECTED_API_ROUTES = [
   '/api/operations',
   '/api/finance',
   '/api/executive',
+  '/api/payroll',
+  '/api/specialists',
+  '/api/clients',
+  '/api/services',
+  '/api/inventory',
+  '/api/sales',
+  '/api/promo-codes',
+  '/api/messaging',
+  '/api/chat',
 ];
 
-const AUTH_ROUTES = [
+const PUBLIC_API_ROUTES = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/refresh',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
-];
-
-const PUBLIC_API_ROUTES = [
-  ...AUTH_ROUTES,
   '/api/webhooks',
   '/api/health',
 ];
 
-const ADMIN_ONLY = ['/api/admin'];
+// Admin-only API routes (SUPER_ADMIN + ADMIN)
+const ADMIN_ONLY_API = ['/api/admin', '/api/finance', '/api/executive'];
 
-// Operational routes within /api/admin that OPERATOR role can also access
-const OPERATOR_ALLOWED_ADMIN_ROUTES = [
-  '/api/admin/bookings',
-  '/api/admin/clients',
-  '/api/admin/services',
-  '/api/admin/sales',
-  '/api/admin/inventory',
+// Manager+ routes (SUPER_ADMIN, ADMIN, MANAGER)
+const MANAGER_API = ['/api/analytics', '/api/payroll', '/api/sales', '/api/promo-codes', '/api/inventory'];
+
+// ---------------------------------------------------------------------------
+// Route classification — Pages
+// ---------------------------------------------------------------------------
+
+// Auth pages — redirect to dashboard if already logged in
+const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/reset-password'];
+
+// Pages that require authentication (any role)
+const AUTHENTICATED_PAGES = ['/dashboard'];
+
+// Page → allowed roles map (empty = all authenticated users)
+interface PageRule {
+  path: string;
+  roles: string[];
+  redirect: string;
+}
+
+const PAGE_RULES: PageRule[] = [
+  // Super admin + admin only
+  { path: '/finance', roles: [...ADMIN_ROLES], redirect: '/dashboard' },
+  { path: '/payroll', roles: [...ADMIN_ROLES], redirect: '/dashboard' },
+  { path: '/executive', roles: [...ADMIN_ROLES], redirect: '/dashboard' },
+  { path: '/promo-codes', roles: [...ADMIN_ROLES, 'MANAGER'], redirect: '/dashboard' },
+  { path: '/settings', roles: [...ADMIN_ROLES], redirect: '/dashboard' },
+  { path: '/permissions', roles: ['SUPER_ADMIN'], redirect: '/dashboard' },
+
+  // Manager + above
+  { path: '/analytics', roles: [...FRONT_DESK_ROLES], redirect: '/dashboard' },
+  { path: '/operations', roles: [...FRONT_DESK_ROLES], redirect: '/dashboard' },
+  { path: '/communications', roles: [...FRONT_DESK_ROLES], redirect: '/dashboard' },
+
+  // Front desk
+  { path: '/receptionist', roles: [...FRONT_DESK_ROLES], redirect: '/dashboard' },
+  { path: '/clients', roles: [...FRONT_DESK_ROLES], redirect: '/dashboard' },
+  { path: '/specialists', roles: [...FRONT_DESK_ROLES], redirect: '/dashboard' },
+  { path: '/services', roles: [...FRONT_DESK_ROLES], redirect: '/dashboard' },
+  { path: '/sales', roles: [...FRONT_DESK_ROLES], redirect: '/dashboard' },
+  { path: '/inventory', roles: [...FRONT_DESK_ROLES], redirect: '/dashboard' },
+
+  // Specialist (cosmetologist / massagist) only
+  { path: '/my-panel', roles: [...SPECIALIST_ROLES], redirect: '/dashboard' },
+
+  // All employees (no clients on internal chat, finance pages, etc.)
+  { path: '/chat', roles: [...EMPLOYEE_ROLES], redirect: '/dashboard' },
+
+  // Bookings — all authenticated users allowed (CLIENT can view own)
+  // No restriction rule → falls through to generic auth check
 ];
-
-function isProtectedRoute(pathname: string): boolean {
-  return PROTECTED_API_ROUTES.some((route) => pathname.startsWith(route));
-}
-
-function isPublicRoute(pathname: string): boolean {
-  return PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route));
-}
-
-function isAdminRoute(pathname: string): boolean {
-  return ADMIN_ONLY.some((route) => pathname.startsWith(route));
-}
-
-function isOperatorAllowedRoute(pathname: string): boolean {
-  return OPERATOR_ALLOWED_ADMIN_ROUTES.some((route) => pathname.startsWith(route));
-}
-
-function isApiRoute(pathname: string): boolean {
-  return pathname.startsWith('/api');
-}
 
 // ---------------------------------------------------------------------------
 // JWT helpers (edge-compatible)
@@ -88,7 +126,7 @@ function extractToken(request: NextRequest): string | null {
 }
 
 async function verifyToken(
-  token: string
+  token: string,
 ): Promise<{ userId: string; role: string } | null> {
   try {
     const { payload } = await jwtVerify(token, getJwtSecret());
@@ -108,8 +146,12 @@ async function verifyToken(
 function jsonError(code: string, message: string, status: number): NextResponse {
   return NextResponse.json(
     { success: false, error: { code, message } },
-    { status }
+    { status },
   );
+}
+
+function redirectTo(url: string, request: NextRequest): NextResponse {
+  return NextResponse.redirect(new URL(url, request.url));
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +165,7 @@ function applySecurityHeaders(response: NextResponse): void {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set(
     'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=()'
+    'camera=(), microphone=(), geolocation=()',
   );
 }
 
@@ -150,75 +192,130 @@ function applyCorsHeaders(response: NextResponse, request: NextRequest): void {
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
-  // Handle CORS pre-flight for API routes
-  if (isApiRoute(pathname) && request.method === 'OPTIONS') {
+  // ── CORS pre-flight ──────────────────────────────────────────────────────
+  if (pathname.startsWith('/api') && request.method === 'OPTIONS') {
     const preflight = new NextResponse(null, { status: 204 });
     applyCorsHeaders(preflight, request);
     return preflight;
   }
 
-  // Start building the response headers (forwarded to the route or returned)
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-request-id', crypto.randomUUID());
 
-  // Skip auth checks for public routes
-  if (!isApiRoute(pathname) || isPublicRoute(pathname)) {
+  // ── Auth pages (login, register…) ─────────────────────────────────────
+  if (AUTH_PAGES.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+    const token = extractToken(request);
+    if (token) {
+      const user = await verifyToken(token);
+      if (user) {
+        return redirectTo('/dashboard', request);
+      }
+    }
     const response = NextResponse.next({ request: { headers: requestHeaders } });
-    if (isApiRoute(pathname)) applyCorsHeaders(response, request);
     applySecurityHeaders(response);
     return response;
   }
 
-  // Protected route — require valid JWT
-  if (isProtectedRoute(pathname)) {
-    const token = extractToken(request);
-
-    if (!token) {
-      const res = jsonError('UNAUTHORIZED', 'Authentication required', 401);
-      applyCorsHeaders(res, request);
-      applySecurityHeaders(res);
-      return res;
+  // ── API routes ──────────────────────────────────────────────────────────
+  if (pathname.startsWith('/api')) {
+    // Skip auth for public routes
+    if (PUBLIC_API_ROUTES.some((r) => pathname.startsWith(r))) {
+      const response = NextResponse.next({ request: { headers: requestHeaders } });
+      applyCorsHeaders(response, request);
+      applySecurityHeaders(response);
+      return response;
     }
 
-    const user = await verifyToken(token);
-    if (!user) {
-      const res = jsonError('UNAUTHORIZED', 'Invalid or expired token', 401);
-      applyCorsHeaders(res, request);
-      applySecurityHeaders(res);
-      return res;
-    }
-
-    // Admin-only route check
-    if (isAdminRoute(pathname)) {
-      const allowedRoles = isOperatorAllowedRoute(pathname)
-        ? ['SUPER_ADMIN', 'ADMIN', 'OPERATOR']
-        : ['SUPER_ADMIN', 'ADMIN'];
-      if (!allowedRoles.includes(user.role)) {
-        const res = jsonError('FORBIDDEN', 'Admin access required', 403);
+    // All other /api routes require auth
+    if (PROTECTED_API_ROUTES.some((r) => pathname.startsWith(r))) {
+      const token = extractToken(request);
+      if (!token) {
+        const res = jsonError('UNAUTHORIZED', 'Authentication required', 401);
         applyCorsHeaders(res, request);
         applySecurityHeaders(res);
         return res;
       }
+
+      const user = await verifyToken(token);
+      if (!user) {
+        const res = jsonError('UNAUTHORIZED', 'Invalid or expired token', 401);
+        applyCorsHeaders(res, request);
+        applySecurityHeaders(res);
+        return res;
+      }
+
+      // Admin-only API check
+      if (ADMIN_ONLY_API.some((r) => pathname.startsWith(r))) {
+        if (!ADMIN_ROLES.includes(user.role as typeof ADMIN_ROLES[number])) {
+          const res = jsonError('FORBIDDEN', 'Admin access required', 403);
+          applyCorsHeaders(res, request);
+          applySecurityHeaders(res);
+          return res;
+        }
+      }
+
+      // Manager+ API check
+      if (MANAGER_API.some((r) => pathname.startsWith(r))) {
+        const managerRoles = [...ADMIN_ROLES, 'MANAGER'] as string[];
+        if (!managerRoles.includes(user.role)) {
+          const res = jsonError('FORBIDDEN', 'Manager access required', 403);
+          applyCorsHeaders(res, request);
+          applySecurityHeaders(res);
+          return res;
+        }
+      }
+
+      requestHeaders.set('x-user-id', user.userId);
+      requestHeaders.set('x-user-role', user.role);
+
+      const response = NextResponse.next({ request: { headers: requestHeaders } });
+      response.headers.set('X-RateLimit-Limit', '100');
+      response.headers.set('X-RateLimit-Policy', '100;w=60');
+      applyCorsHeaders(response, request);
+      applySecurityHeaders(response);
+      return response;
     }
 
-    // Forward user identity to route handlers via headers
-    requestHeaders.set('x-user-id', user.userId);
-    requestHeaders.set('x-user-role', user.role);
-
+    // Non-protected API (public listings, etc.)
     const response = NextResponse.next({ request: { headers: requestHeaders } });
-
-    // Rate limit hint headers (informational — actual enforcement uses rate-limit.ts in routes)
-    response.headers.set('X-RateLimit-Limit', '100');
-    response.headers.set('X-RateLimit-Policy', '100;w=60');
-
     applyCorsHeaders(response, request);
     applySecurityHeaders(response);
     return response;
   }
 
-  // Non-protected API route (e.g., /api/services public listing)
+  // ── Page routes ─────────────────────────────────────────────────────────
+  const isDashboardPage =
+    AUTHENTICATED_PAGES.some((p) => pathname === p || pathname.startsWith(p + '/')) ||
+    PAGE_RULES.some((r) => pathname === r.path || pathname.startsWith(r.path + '/'));
+
+  if (isDashboardPage) {
+    const token = extractToken(request);
+    if (!token) {
+      return redirectTo(`/login?next=${encodeURIComponent(pathname)}`, request);
+    }
+
+    const user = await verifyToken(token);
+    if (!user) {
+      return redirectTo(`/login?next=${encodeURIComponent(pathname)}`, request);
+    }
+
+    // Check page-level role restriction
+    const matchedRule = PAGE_RULES.find(
+      (r) => pathname === r.path || pathname.startsWith(r.path + '/'),
+    );
+    if (matchedRule && !matchedRule.roles.includes(user.role)) {
+      return redirectTo(matchedRule.redirect, request);
+    }
+
+    requestHeaders.set('x-user-id', user.userId);
+    requestHeaders.set('x-user-role', user.role);
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    applySecurityHeaders(response);
+    return response;
+  }
+
+  // ── Everything else (static, root, etc.) ────────────────────────────────
   const response = NextResponse.next({ request: { headers: requestHeaders } });
-  applyCorsHeaders(response, request);
   applySecurityHeaders(response);
   return response;
 }

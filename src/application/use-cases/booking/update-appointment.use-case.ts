@@ -31,7 +31,7 @@ export class UpdateAppointmentStatusUseCase {
     if (actorRole === UserRole.CLIENT && appointment.clientId !== actorId) {
       throw new ForbiddenError();
     }
-    if (actorRole === UserRole.SPECIALIST && appointment.specialistId !== actorId) {
+    if ((actorRole === UserRole.COSMETOLOGIST || actorRole === UserRole.MASSAGIST) && appointment.specialistId !== actorId) {
       throw new ForbiddenError();
     }
 
@@ -49,10 +49,11 @@ export class UpdateAppointmentStatusUseCase {
     if (newStatus === AppointmentStatus.CONFIRMED && actorRole === UserRole.CLIENT) {
       throw new ForbiddenError('Clients cannot confirm appointments');
     }
-    if (newStatus === AppointmentStatus.IN_PROGRESS && ![UserRole.SPECIALIST, UserRole.ADMIN, UserRole.OPERATOR].includes(actorRole)) {
+    const specialistAndStaff = [UserRole.COSMETOLOGIST, UserRole.MASSAGIST, UserRole.ADMIN, UserRole.MANAGER, UserRole.RECEPTIONIST, UserRole.SUPER_ADMIN];
+    if (newStatus === AppointmentStatus.IN_PROGRESS && !specialistAndStaff.includes(actorRole)) {
       throw new ForbiddenError('Only specialists and staff can start appointments');
     }
-    if (newStatus === AppointmentStatus.COMPLETED && ![UserRole.SPECIALIST, UserRole.ADMIN, UserRole.OPERATOR].includes(actorRole)) {
+    if (newStatus === AppointmentStatus.COMPLETED && !specialistAndStaff.includes(actorRole)) {
       throw new ForbiddenError('Only specialists and staff can complete appointments');
     }
 
