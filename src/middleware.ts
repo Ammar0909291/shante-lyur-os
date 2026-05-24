@@ -33,6 +33,7 @@ const PROTECTED_API_ROUTES = [
   '/api/messaging',
   '/api/chat',
   '/api/risk',
+  '/api/specialist',
 ];
 
 const PUBLIC_API_ROUTES = [

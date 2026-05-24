@@ -40,7 +40,7 @@ function LegacyShell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   const key = getKey(pathname);
-  const title = (key.startsWith('page.') || key.startsWith('nav.')) ? t(key) : key;
+  const title = t(key) || key;
 
   return (
     <div className="flex h-screen bg-obsidian overflow-hidden">
