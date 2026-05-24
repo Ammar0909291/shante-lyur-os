@@ -145,6 +145,9 @@ model Specialist {
   specialistNotes   SpecialistNote[]
   revenueRecords    RevenueRecord[]
   workloadOverrides WorkloadOverride[]
+  compensationConfig SpecialistCompensation?
+  payrollRecords    PayrollRecord[]
+  attendanceRecords AttendanceRecord[]
 
   @@index([userId])
   @@index([status])
@@ -1235,4 +1238,151 @@ model WorkloadOverride {
   @@index([specialistId, date])
   @@index([date])
   @@map("workload_overrides")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAYROLL & COMPENSATION SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+enum CompensationType {
+  FIXED_SALARY        // monthly flat salary, no commission
+  COMMISSION_ONLY     // percentage/fixed per procedure
+  SALARY_PLUS_COMMISSION // base + commission
+  HOURLY              // tracked hours × hourly rate
+  PROCEDURE_BASED     // fixed amount per completed procedure
+}
+
+enum PayrollStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+enum PayrollAdjustmentType {
+  BONUS_REVENUE        // top revenue bonus
+  BONUS_RETENTION      // client retention bonus
+  BONUS_PERFORMANCE    // general performance bonus
+  BONUS_PACKAGE_SALE   // package sale commission
+  BONUS_UPSELL         // upsell commission
+  BONUS_TARGET_HIT     // occupancy/target bonus
+  BONUS_MANUAL         // admin-set bonus
+  PENALTY_NO_SHOW      // penalty for client no-shows
+  PENALTY_LATENESS     // penalty for late arrivals
+  PENALTY_CANCELLATION // penalty for excessive cancellations
+  PENALTY_POLICY       // policy violation
+  DEDUCTION_ADVANCE    // salary advance deduction
+  DEDUCTION_OTHER      // other deduction
+  REFUND_REVERSAL      // commission reversed due to refund
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  HOLIDAY
+  SICK_LEAVE
+  REMOTE
+}
+
+// ─── Specialist compensation configuration ────────────────────────────────────
+model SpecialistCompensation {
+  id               String           @id @default(uuid()) @db.Uuid
+  specialistId     String           @unique @map("specialist_id") @db.Uuid
+  type             CompensationType @default(COMMISSION_ONLY)
+  baseSalary       Decimal?         @map("base_salary") @db.Decimal(12, 2)
+  hourlyRate       Decimal?         @map("hourly_rate") @db.Decimal(10, 2)
+  procedureRate    Decimal?         @map("procedure_rate") @db.Decimal(10, 2)
+  // commission rate stored on Specialist.commissionRate; serviceOverrides adds per-service tweaks
+  serviceOverrides Json?            @map("service_overrides") // { "serviceId": { "type": "pct"|"fixed", "value": number } }
+  effectiveFrom    DateTime         @default(now()) @map("effective_from")
+  notes            String?          @db.VarChar(500)
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@index([specialistId])
+  @@map("specialist_compensations")
+}
+
+// ─── Monthly payroll record ───────────────────────────────────────────────────
+model PayrollRecord {
+  id                String        @id @default(uuid()) @db.Uuid
+  specialistId      String        @map("specialist_id") @db.Uuid
+  periodStart       DateTime      @map("period_start") @db.Date
+  periodEnd         DateTime      @map("period_end") @db.Date
+  compensationType  CompensationType @map("compensation_type") @default(COMMISSION_ONLY)
+  baseSalary        Decimal       @default(0) @map("base_salary") @db.Decimal(12, 2)
+  totalCommission   Decimal       @default(0) @map("total_commission") @db.Decimal(12, 2)
+  totalBonuses      Decimal       @default(0) @map("total_bonuses") @db.Decimal(12, 2)
+  totalPenalties    Decimal       @default(0) @map("total_penalties") @db.Decimal(12, 2)
+  totalDeductions   Decimal       @default(0) @map("total_deductions") @db.Decimal(12, 2)
+  netPayable        Decimal       @default(0) @map("net_payable") @db.Decimal(12, 2)
+  status            PayrollStatus @default(DRAFT)
+  completedApts     Int           @default(0) @map("completed_apts")
+  totalRevenue      Decimal       @default(0) @map("total_revenue") @db.Decimal(12, 2)
+  totalRefunded     Decimal       @default(0) @map("total_refunded") @db.Decimal(12, 2)
+  workingDays       Int?          @map("working_days")
+  workedHours       Decimal?      @map("worked_hours") @db.Decimal(8, 2)
+  metadata          Json?
+  notes             String?       @db.Text
+  approvedBy        String?       @map("approved_by") @db.Uuid
+  approvedAt        DateTime?     @map("approved_at")
+  paidAt            DateTime?     @map("paid_at")
+  paidBy            String?       @map("paid_by") @db.Uuid
+  createdBy         String        @map("created_by") @db.Uuid
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  specialist  Specialist          @relation(fields: [specialistId], references: [id], onDelete: Restrict)
+  adjustments PayrollAdjustment[]
+
+  @@unique([specialistId, periodStart, periodEnd])
+  @@index([specialistId, periodStart])
+  @@index([status, periodStart])
+  @@map("payroll_records")
+}
+
+// ─── Payroll bonuses, penalties, manual adjustments ──────────────────────────
+model PayrollAdjustment {
+  id            String                @id @default(uuid()) @db.Uuid
+  payrollId     String                @map("payroll_id") @db.Uuid
+  type          PayrollAdjustmentType
+  amount        Decimal               @db.Decimal(12, 2) // positive=credit, negative=debit
+  reason        String?               @db.VarChar(500)
+  appointmentId String?               @map("appointment_id") @db.Uuid
+  createdBy     String                @map("created_by") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  payroll PayrollRecord @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  @@index([payrollId])
+  @@index([type])
+  @@map("payroll_adjustments")
+}
+
+// ─── Daily attendance records ─────────────────────────────────────────────────
+model AttendanceRecord {
+  id             String           @id @default(uuid()) @db.Uuid
+  specialistId   String           @map("specialist_id") @db.Uuid
+  date           DateTime         @db.Date
+  checkInAt      DateTime?        @map("check_in_at")
+  checkOutAt     DateTime?        @map("check_out_at")
+  breakMinutes   Int              @default(0) @map("break_minutes")
+  status         AttendanceStatus @default(PRESENT)
+  completedApts  Int              @default(0) @map("completed_apts")
+  notes          String?          @db.VarChar(500)
+  recordedBy     String?          @map("recorded_by") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@unique([specialistId, date])
+  @@index([specialistId, date])
+  @@index([date, status])
+  @@map("attendance_records")
 }

@@ -8,7 +8,7 @@ import {
   BarChart3, Settings, MessageCircle, ShoppingBag,
   ChevronLeft, ChevronRight, X,
   Activity, ClipboardList, CalendarDays, Package,
-  Wallet, Tag, TrendingUp, UserCircle,
+  Wallet, Tag, TrendingUp, UserCircle, Coins,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -17,7 +17,7 @@ const ICON_MAP = {
   LayoutDashboard, Calendar, Users, Sparkles, Flower2,
   BarChart3, Settings, MessageCircle, ShoppingBag,
   Activity, ClipboardList, CalendarDays, Package,
-  Wallet, Tag, TrendingUp, UserCircle,
+  Wallet, Tag, TrendingUp, UserCircle, Coins,
 } as Record<string, React.ElementType>;
 
 const STAFF   = ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] as const;
@@ -57,6 +57,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { key: 'nav.inventory',     href: '/inventory',     icon: 'Package', roles: STAFF },
       { key: 'nav.finance',       href: '/finance',       icon: 'Wallet',  roles: ADMIN },
+      { key: 'nav.payroll',       href: '/payroll',       icon: 'Coins',   roles: ADMIN },
       { key: 'nav.promoCodes',    href: '/promo-codes',   icon: 'Tag',     roles: ADMIN },
     ],
   },
