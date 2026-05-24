@@ -364,8 +364,17 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
     if (!open) return;
     fetch('/api/locations', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
-      .then(json => { const loc = json?.data?.items?.[0]; if (loc?.id) setLocationId(loc.id); })
+      .then(json => { const loc = json?.data?.items?.[0] ?? json?.data?.[0]; if (loc?.id) setLocationId(loc.id); })
       .catch(() => {});
+    // Decode role from JWT cookie directly (same approach as receptionist page)
+    // — avoids a round-trip and works even when /api/me is slow
+    try {
+      const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+      if (match) {
+        const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { role?: string };
+        if (payload.role) { setUserRole(payload.role); return; }
+      }
+    } catch { /* fall through to API */ }
     fetch('/api/me', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(json => { if (json?.data?.role) setUserRole(json.data.role); })
@@ -658,9 +667,24 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
               <p className="text-[11px] text-text-tertiary mt-0.5">Административное создание</p>
             )}
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Admin buffer override — visible from step 3 onward when massage specialist selected */}
+            {isAdmin && isMassageSpecialist && step !== 'client' && step !== 'specialist' && (
+              <button
+                onClick={() => setAdminOverride(v => !v)}
+                className={cn('flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all',
+                  adminOverride
+                    ? 'border-amber-500/40 bg-amber-500/15 text-amber-300'
+                    : 'border-border-luxury text-text-tertiary hover:border-amber-500/30 hover:text-amber-400')}
+              >
+                <ShieldAlert className="w-3 h-3" />
+                {adminOverride ? 'Буфер отключён' : 'Обойти буфер'}
+              </button>
+            )}
+            <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <StepBar current={step} />

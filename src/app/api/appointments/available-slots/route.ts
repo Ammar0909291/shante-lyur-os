@@ -157,9 +157,15 @@ export async function GET(req: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sp = specialist as any;
+    const specText = String(sp.specialization ?? '').toLowerCase();
     const isMassage =
       sp.specialistType === 'MASSAGE_THERAPIST' ||
-      String(sp.specialization ?? '').toUpperCase().includes('MASSAGE');
+      specText.includes('massage') ||
+      specText.includes('массаж') ||
+      specText.includes('spa') ||
+      specText.includes('спа') ||
+      specText.includes('тело') ||
+      specText.includes('антистресс');
 
     const applyBuffer = isMassage && !adminOverride;
 
