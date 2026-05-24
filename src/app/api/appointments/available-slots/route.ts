@@ -50,11 +50,11 @@ function utcToMoscowStr(d: Date): string {
 // Slot generation
 // -----------------------------------------------------------
 
-/** Returns UTC Date objects for every 30-min slot in the salon's working day */
+/** Returns UTC Date objects for every 15-min slot in the salon's working day */
 function buildDaySlots(date: string): Date[] {
   const slots: Date[] = [];
   for (let h = SALON_START_HOUR; h < SALON_END_HOUR; h++) {
-    for (const m of [0, 30]) {
+    for (const m of [0, 15, 30, 45]) {
       slots.push(moscowToUTC(date, h, m));
     }
   }

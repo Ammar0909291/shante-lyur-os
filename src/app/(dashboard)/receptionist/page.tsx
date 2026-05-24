@@ -259,7 +259,6 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
   const servicesArr: Service[] = Array.isArray(services) ? services : [];
   const totalDuration = servicesArr.filter((s) => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + s.baseDuration, 0);
-  const totalPrice = servicesArr.filter((s) => selectedServiceIds.includes(s.id)).reduce((sum, s) => sum + Number(s.basePrice), 0);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -268,6 +267,7 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     if (!selectedServiceIds.length) return setError(t('rec.walkin.noService'));
     if (!startAt) return setError(t('rec.walkin.noTime'));
 
+    if (!specialistId) return setError(t('rec.walkin.noSpecialist'));
     setLoading(true);
     try {
       const res = await fetch('/api/operations/walkin', {
@@ -275,7 +275,7 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({
           clientId: selectedClient.id,
-          specialistId: specialistId || undefined,
+          specialistId: specialistId,
           roomId: roomId || undefined,
           startAt: new Date(startAt).toISOString(),
           serviceIds: selectedServiceIds,
@@ -346,7 +346,7 @@ function WalkinModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           <div>
             <label className="text-xs text-text-tertiary uppercase tracking-wider block mb-1.5">
               {t('rec.walkin.service')}
-              {totalDuration > 0 && <span className="ml-2 text-champagne normal-case">{totalDuration} мин · {formatCurrency(totalPrice)}</span>}
+              {totalDuration > 0 && <span className="ml-2 text-champagne normal-case">{totalDuration} мин</span>}
             </label>
             <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
               {servicesArr.map((s) => (

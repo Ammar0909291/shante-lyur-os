@@ -419,13 +419,13 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
       setClients(MOCK_CLIENTS.filter(c =>
         c.name.toLowerCase().includes(q) || c.phone?.includes(q) || c.email?.toLowerCase().includes(q)
       ));
-      fetch(`/api/customers?search=${encodeURIComponent(clientSearch)}&limit=10`, { credentials: 'include' })
+      fetch(`/api/clients/search?q=${encodeURIComponent(clientSearch)}&limit=10`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : null)
         .then(json => {
           if (!json?.data?.items?.length) return;
           const mapped: ModalClient[] = json.data.items.map((c: {
-            id: string; user?: { name?: string; phone?: string; email?: string };
-          }) => ({ id: c.id, name: c.user?.name ?? '—', phone: c.user?.phone, email: c.user?.email }));
+            id: string; firstName?: string; lastName?: string; phone?: string | null; email?: string | null;
+          }) => ({ id: c.id, name: `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || '—', phone: c.phone ?? undefined, email: c.email ?? undefined }));
           if (mapped.length > 0) setClients(mapped);
         })
         .catch(() => {});
@@ -573,7 +573,6 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
       allowOverlap: adminOverride || undefined,
     };
 
-    console.log('[booking] POST /api/admin/bookings', body);
     try {
       const res = await fetch('/api/admin/bookings', {
         method: 'POST',
@@ -583,11 +582,9 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
       });
 
       const json = await res.json().catch(() => ({}));
-      console.log('[booking] response', res.status, json);
 
       if (res.ok) {
         const appt = json?.data ?? {};
-        console.log('[booking] created', appt.id);
         setSuccess(true);
         setTimeout(() => {
           onCreated({ ...createdBooking, id: appt.id ?? createdBooking.id });
@@ -1038,7 +1035,7 @@ function generateMockSlots(date: string, duration: number): TimeSlot[] {
     [new Date(`${date}T11:00:00.000Z`).getTime(), new Date(`${date}T12:30:00.000Z`).getTime()],
   ];
   for (let h = 10; h < 20; h++) {
-    for (const m of [0, 30]) {
+    for (const m of [0, 15, 30, 45]) {
       const timeStr   = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
       const slotMs    = new Date(`${date}T${String(h - 3).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`).getTime();
       const slotEndMs = slotMs + duration * 60000;
