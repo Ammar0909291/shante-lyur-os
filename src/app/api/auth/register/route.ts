@@ -66,8 +66,11 @@ export async function POST(req: NextRequest) {
         accessToken,
       },
     }, { status: 201 });
-    res.cookies.set('access_token', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 28800 });
-    res.cookies.set('refresh_token', refreshStr, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 7 * 86400 });
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookies.set('access_token', accessToken, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 28800 });
+    res.cookies.set('refresh_token', refreshStr, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 7 * 86400 });
+    res.cookies.set('user_role', user.role, { httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 28800 });
+    res.cookies.set('user_id', user.id, { httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 28800 });
     return res;
   } catch (e) {
     return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: e instanceof Error ? e.message : 'Unknown' } }, { status: 500 });

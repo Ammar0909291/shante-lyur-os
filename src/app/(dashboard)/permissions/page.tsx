@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
+import { getClientRole, getClientUserId } from '@/lib/client-auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -165,16 +166,10 @@ export default function PermissionsPage() {
 
   const isSuperAdmin = myRole === 'SUPER_ADMIN';
 
-  // Resolve current user's role + ID from JWT
+  // Resolve current user's role + ID from readable cookies
   React.useEffect(() => {
-    try {
-      const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-      if (match) {
-        const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { role?: string; sub?: string };
-        setMyRole(payload.role ?? '');
-        setMyUserId(payload.sub ?? '');
-      }
-    } catch {}
+    setMyRole(getClientRole());
+    setMyUserId(getClientUserId());
   }, []);
 
   const fetchUsers = React.useCallback(async () => {

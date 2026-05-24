@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
+import { authHeaders } from '@/lib/client-auth';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -144,16 +145,6 @@ function thirtyDaysAgo() {
   return new Date(Date.now() - 30 * 86_400_000).toISOString().split('T')[0];
 }
 
-function authHeaders(): Record<string, string> {
-  try {
-    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-    if (!match) return { 'x-user-id': 'system', 'x-user-role': 'ADMIN' };
-    const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string; role?: string };
-    return { 'x-user-id': payload.sub ?? 'system', 'x-user-role': payload.role ?? 'ADMIN' };
-  } catch {
-    return { 'x-user-id': 'system', 'x-user-role': 'ADMIN' };
-  }
-}
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 

@@ -86,8 +86,11 @@ export async function POST(req: NextRequest) {
         accessToken,
       },
     });
-    res.cookies.set('access_token', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 28800 });
-    res.cookies.set('refresh_token', refreshStr, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: (rememberMe ? 30 : 7) * 86400 });
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookies.set('access_token', accessToken, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 28800 });
+    res.cookies.set('refresh_token', refreshStr, { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: (rememberMe ? 30 : 7) * 86400 });
+    res.cookies.set('user_role', user.role, { httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 28800 });
+    res.cookies.set('user_id', user.id, { httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 28800 });
 
     const { ipAddress, userAgent } = getRequestMeta(req);
     void logAudit({

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TEMPLATES } from '@/lib/communication/templates/definitions';
+import { authHeaders } from '@/lib/client-auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,14 +56,6 @@ const STATUS_BADGE: Record<string, string> = {
   QUEUED:     'bg-blue-900/20 text-blue-300 border-blue-800/40',
 };
 
-function authHeaders(): Record<string, string> {
-  try {
-    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-    if (!match) return { 'x-user-id': 'system', 'x-user-role': 'ADMIN' };
-    const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string; role?: string };
-    return { 'x-user-id': payload.sub ?? 'system', 'x-user-role': payload.role ?? 'ADMIN' };
-  } catch { return { 'x-user-id': 'system', 'x-user-role': 'ADMIN' }; }
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

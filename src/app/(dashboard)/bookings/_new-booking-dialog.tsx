@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
+import { getClientRole } from '@/lib/client-auth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -367,15 +368,8 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
       .then(r => r.ok ? r.json() : null)
       .then(json => { const loc = json?.data?.items?.[0] ?? json?.data?.[0]; if (loc?.id) setLocationId(loc.id); })
       .catch(() => {});
-    // Decode role from JWT cookie directly (same approach as receptionist page)
-    // — avoids a round-trip and works even when /api/me is slow
-    try {
-      const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-      if (match) {
-        const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { role?: string };
-        if (payload.role) { setUserRole(payload.role); return; }
-      }
-    } catch { /* fall through to API */ }
+    const cookieRole = getClientRole();
+    if (cookieRole) { setUserRole(cookieRole); return; }
     fetch('/api/me', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(json => { if (json?.data?.role) setUserRole(json.data.role); })

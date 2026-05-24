@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useChartTheme } from '@/lib/use-chart-theme';
+import { authHeaders } from '@/lib/client-auth';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -108,15 +109,6 @@ const INSIGHT_LABELS: Record<string, { label: string; color: string }> = {
   NORMAL:         { label: 'Норма',                  color: 'text-text-tertiary' },
 };
 
-// ─── Auth helper ──────────────────────────────────────────────────────────────
-function authHeaders(): Record<string, string> {
-  try {
-    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-    if (!match) return { 'x-user-id': 'system', 'x-user-role': 'ADMIN' };
-    const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string; role?: string };
-    return { 'x-user-id': payload.sub ?? 'system', 'x-user-role': payload.role ?? 'ADMIN' };
-  } catch { return { 'x-user-id': 'system', 'x-user-role': 'ADMIN' }; }
-}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

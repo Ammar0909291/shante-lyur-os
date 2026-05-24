@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
+import { getClientRole } from '@/lib/client-auth';
 
 interface NavItem {
   key: string;
@@ -68,15 +69,7 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 function getJwtRole(): string {
-  try {
-    if (typeof document === 'undefined') return '';
-    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-    if (!match) return '';
-    const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return (payload.role as string) ?? '';
-  } catch {
-    return '';
-  }
+  return getClientRole();
 }
 
 function useUserRole(): string {

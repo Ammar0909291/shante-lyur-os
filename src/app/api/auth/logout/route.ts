@@ -49,7 +49,10 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({ success: true, data: { message: 'Logged out' } });
-  res.cookies.set('access_token', '', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 0 });
-  res.cookies.set('refresh_token', '', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 0 });
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookies.set('access_token', '', { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 0 });
+  res.cookies.set('refresh_token', '', { httpOnly: true, secure: isProd, sameSite: 'lax', path: '/', maxAge: 0 });
+  res.cookies.set('user_role', '', { httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 0 });
+  res.cookies.set('user_id', '', { httpOnly: false, secure: isProd, sameSite: 'lax', path: '/', maxAge: 0 });
   return res;
 }

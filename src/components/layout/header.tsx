@@ -8,6 +8,7 @@ import { cn, formatDate, formatTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import { useLanguage } from '@/contexts/language';
 import { UIVersionToggle } from '@/next-ui/components/UIVersionToggle';
+import { authHeaders as clientAuthHeaders } from '@/lib/client-auth';
 
 interface HeaderProps {
   title: string;
@@ -101,12 +102,7 @@ interface OpsNotif {
 }
 
 function getAuthHeaders(): Record<string, string> {
-  try {
-    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-    if (!match) return {};
-    const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { sub?: string; role?: string };
-    return { 'x-user-id': payload.sub ?? '', 'x-user-role': payload.role ?? '' };
-  } catch { return {}; }
+  return clientAuthHeaders();
 }
 
 function NotificationBell() {
