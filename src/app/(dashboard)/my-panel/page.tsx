@@ -5,6 +5,7 @@ import {
   Calendar, Clock, AlertTriangle, User,
   Activity, Loader2, RefreshCw, TrendingUp,
   BarChart2, FileText, UserCircle, Send, Plus, X, Check,
+  Phone, Leaf, ChevronRight,
 } from 'lucide-react';
 import { cn, formatTime, formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -19,6 +20,7 @@ interface Allergy { name: string; severity: string; }
 
 interface TodaySlot {
   id: string;
+  clientId: string;
   status: string;
   startAt: string;
   endAt: string;
@@ -78,6 +80,153 @@ interface RequestItem {
   serviceName?: string | null;
   note?: string | null;
   reviewNotes?: string | null;
+}
+
+interface ClientCardData {
+  id: string; name: string; phone: string | null;
+  allergies: { name: string; severity: string; reaction: string | null }[];
+  restrictions: { type: string; description: string | null; severity: string }[];
+  skinType: string | null; bodyType: string | null; notes: string | null;
+  recentVisits: { id: string; date: string; services: string[]; total: number; appointmentNotes: string | null }[];
+  specialistNotes: { id: string; type: string; content: string; date: string }[];
+}
+
+// ─── Client card modal ────────────────────────────────────────────────────────
+
+function ClientCardModal({ clientId, onClose }: { clientId: string; onClose: () => void }) {
+  const [data, setData] = React.useState<ClientCardData | null>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetch(`/api/specialist/portal/client/${clientId}`)
+      .then((r) => r.json())
+      .then((j: { success: boolean; data?: ClientCardData }) => { if (j.success && j.data) setData(j.data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [clientId]);
+
+  const SEVERITY_COLORS: Record<string, string> = {
+    mild: 'text-amber-400 bg-amber-400/10 border-amber-400/20',
+    moderate: 'text-orange-400 bg-orange-400/10 border-orange-400/20',
+    severe: 'text-red-400 bg-red-400/10 border-red-400/20',
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full sm:max-w-md bg-onyx border border-border-luxury rounded-t-2xl sm:rounded-2xl shadow-luxury-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border-luxury shrink-0">
+          <div className="flex items-center gap-2">
+            <UserCircle className="w-4 h-4 text-champagne" />
+            <span className="text-sm font-semibold text-text-primary">{data?.name ?? 'Клиент'}</span>
+          </div>
+          <button onClick={onClose} className="p-1 rounded text-text-tertiary hover:text-text-primary transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-40 gap-2 text-text-tertiary">
+            <Loader2 className="w-5 h-5 animate-spin" />
+          </div>
+        ) : !data ? (
+          <div className="flex items-center justify-center h-40">
+            <p className="text-sm text-text-secondary">Нет данных</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Contact */}
+            {data.phone && (
+              <div className="flex items-center gap-2 text-xs text-text-secondary">
+                <Phone className="w-3.5 h-3.5 text-text-tertiary" />
+                <span>{data.phone}</span>
+              </div>
+            )}
+
+            {/* Allergies */}
+            {data.allergies.length > 0 && (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+                  <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">Аллергии</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {data.allergies.map((a, i) => (
+                    <span key={i} className={cn('text-[10px] px-2 py-0.5 rounded border font-medium', SEVERITY_COLORS[a.severity.toLowerCase()] ?? SEVERITY_COLORS.mild)}>
+                      {a.name}{a.reaction ? ` — ${a.reaction}` : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Restrictions */}
+            {data.restrictions.length > 0 && (
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Leaf className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Ограничения</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {data.restrictions.map((r, i) => (
+                    <span key={i} className="text-[10px] text-amber-300 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded">
+                      {r.type}{r.description ? `: ${r.description}` : ''}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Profile notes */}
+            {(data.skinType || data.bodyType || data.notes) && (
+              <div className="rounded-xl border border-border-luxury bg-charcoal/20 p-3 space-y-1.5">
+                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">Профиль</span>
+                {data.skinType && <p className="text-xs text-text-secondary">Тип кожи: {data.skinType}</p>}
+                {data.bodyType && <p className="text-xs text-text-secondary">Тип тела: {data.bodyType}</p>}
+                {data.notes && <p className="text-xs text-text-secondary italic">{data.notes}</p>}
+              </div>
+            )}
+
+            {/* Recent visits */}
+            {data.recentVisits.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">Последние визиты</span>
+                {data.recentVisits.slice(0, 5).map((v) => (
+                  <div key={v.id} className="rounded-lg border border-border-luxury/50 bg-charcoal/20 px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-text-secondary">{new Date(v.date).toLocaleDateString('ru-RU')}</span>
+                      <span className="text-xs font-medium text-text-primary">{v.total.toLocaleString('ru-RU')} ₽</span>
+                    </div>
+                    <p className="text-[10px] text-text-tertiary mt-0.5">{v.services.join(', ')}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Specialist notes */}
+            {data.specialistNotes.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">Мои заметки</span>
+                {data.specialistNotes.map((n) => (
+                  <div key={n.id} className="rounded-lg border border-border-luxury/50 bg-charcoal/20 px-3 py-2 space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-champagne uppercase">{n.type}</span>
+                      <span className="text-[10px] text-text-tertiary">{new Date(n.date).toLocaleDateString('ru-RU')}</span>
+                    </div>
+                    <p className="text-xs text-text-secondary">{n.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {data.allergies.length === 0 && data.recentVisits.length === 0 && data.specialistNotes.length === 0 && (
+              <p className="text-sm text-text-tertiary text-center py-4">Нет дополнительных данных о клиенте</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── Status colors ────────────────────────────────────────────────────────────
@@ -166,11 +315,12 @@ function WorkloadBar({ workload, t }: { workload: WorkloadData; t: (k: string) =
 }
 
 function TodaySlotCard({
-  slot, onAction, actionLoading,
+  slot, onAction, actionLoading, onClientClick,
 }: {
   slot: TodaySlot;
   onAction: (id: string, action: string) => void;
   actionLoading: string | null;
+  onClientClick: (clientId: string) => void;
 }) {
   const { t } = useLanguage();
   const isActive = slot.status === 'IN_PROGRESS';
@@ -201,7 +351,13 @@ function TodaySlotCard({
         <User className="w-3.5 h-3.5 text-text-tertiary shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-text-primary">{slot.client.displayName}</span>
+            <button
+              onClick={() => onClientClick(slot.clientId)}
+              className="flex items-center gap-1 text-sm font-semibold text-text-primary hover:text-champagne transition-colors group"
+            >
+              {slot.client.displayName}
+              <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
             {slot.client.isVip && (
               <span className="text-[10px] font-bold text-purple-400 bg-purple-400/10 px-1.5 py-0.5 rounded uppercase">VIP</span>
             )}
@@ -261,6 +417,7 @@ function TodayTab() {
   const [loading, setLoading] = React.useState(true);
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     try {
@@ -326,7 +483,7 @@ function TodayTab() {
             <Activity className="w-3.5 h-3.5 text-champagne animate-pulse" />
             <h4 className="text-[10px] font-semibold text-champagne uppercase tracking-wider">{t('portal.today.inProgress')}</h4>
           </div>
-          <TodaySlotCard slot={active} onAction={doAction} actionLoading={actionLoading} />
+          <TodaySlotCard slot={active} onAction={doAction} actionLoading={actionLoading} onClientClick={setSelectedClientId} />
         </div>
       )}
 
@@ -334,7 +491,7 @@ function TodayTab() {
         <div className="space-y-2">
           <h4 className="text-[10px] font-semibold text-teal-400 uppercase tracking-wider">{t('portal.today.waitingSection')}</h4>
           {waiting.filter((s) => s.id !== active?.id).map((s) => (
-            <TodaySlotCard key={s.id} slot={s} onAction={doAction} actionLoading={actionLoading} />
+            <TodaySlotCard key={s.id} slot={s} onAction={doAction} actionLoading={actionLoading} onClientClick={setSelectedClientId} />
           ))}
         </div>
       )}
@@ -343,7 +500,7 @@ function TodayTab() {
         <div className="space-y-2">
           <h4 className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">{t('portal.today.upcoming')}</h4>
           {upcoming.map((s) => (
-            <TodaySlotCard key={s.id} slot={s} onAction={doAction} actionLoading={actionLoading} />
+            <TodaySlotCard key={s.id} slot={s} onAction={doAction} actionLoading={actionLoading} onClientClick={setSelectedClientId} />
           ))}
         </div>
       )}
@@ -353,6 +510,10 @@ function TodayTab() {
           <Calendar className="w-10 h-10 text-text-tertiary/30 mx-auto mb-3" />
           <p className="text-sm text-text-tertiary">{t('portal.today.noAppointments')}</p>
         </div>
+      )}
+
+      {selectedClientId && (
+        <ClientCardModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />
       )}
     </div>
   );

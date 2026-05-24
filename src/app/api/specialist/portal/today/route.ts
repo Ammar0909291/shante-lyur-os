@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     orderBy: { startAt: 'asc' },
     include: {
       room:     { select: { name: true, type: true } },
-      client:   { select: { firstName: true, lastName: true, customerProfile: { select: { loyaltyTier: true, notes: true } } } },
+      client:   { select: { id: true, firstName: true, lastName: true, customerProfile: { select: { loyaltyTier: true, notes: true } } } },
       services: { select: { service: { select: { name: true, baseDuration: true } }, price: true } },
     },
   });
@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
       endAt:   a.endAt.toISOString(),
       notes:   a.notes,
       room:    a.room ? { name: a.room.name, type: a.room.type } : null,
+      clientId: a.clientId,
       client: {
         displayName: `${firstName} ${lastInitial}`.trim(),
         isVip:        profile?.loyaltyTier === 'VIP',

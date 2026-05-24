@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const specialist = await prisma.specialist.findUnique({
     where: { userId },
-    select: { id: true, department: true },
+    select: { id: true, department: true, showEarningsToSpecialist: true, dailyTargetSessions: true },
   });
   if (!specialist) return err('NOT_FOUND', 'Specialist record not found', 404);
 
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   const weekCancelled  = weekApts.filter((a) => a.status === 'CANCELLED').length;
   const weekNoShows    = weekApts.filter((a) => a.status === 'NO_SHOW').length;
   const weekWorkedDays = Math.max(1, dayOfWeek + 1);
-  const dailyTarget = 8; // default until schema field added
+  const dailyTarget = specialist.dailyTargetSessions ?? 8;
   const weekWorkloadPct = specialist.department === 'MASSAGE'
     ? Math.round((weekCompleted / (dailyTarget * weekWorkedDays)) * 100)
     : null;
@@ -95,9 +95,9 @@ export async function GET(req: NextRequest) {
       completed: monthCompleted,
       topService: topService?.name ?? null,
       repeatRate,
-      earnings: Math.round(monthRevenue),
+      earnings: specialist.showEarningsToSpecialist ? Math.round(monthRevenue) : null,
     },
-    showEarnings: true,
+    showEarnings: specialist.showEarningsToSpecialist,
     isMassage: specialist.department === 'MASSAGE',
     dailyTarget,
   });
