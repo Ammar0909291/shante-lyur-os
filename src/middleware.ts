@@ -32,6 +32,7 @@ const PROTECTED_API_ROUTES = [
   '/api/promo-codes',
   '/api/messaging',
   '/api/chat',
+  '/api/specialist',
 ];
 
 const PUBLIC_API_ROUTES = [

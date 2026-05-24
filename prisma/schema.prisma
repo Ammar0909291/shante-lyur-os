@@ -128,6 +128,17 @@ enum SpecialistDepartment {
   MANAGEMENT
 }
 
+enum EmploymentType {
+  STAFF
+  CONTRACTOR
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Specialist {
   id              String           @id @default(uuid()) @db.Uuid
   userId          String           @unique @map("user_id") @db.Uuid
@@ -147,6 +158,29 @@ model Specialist {
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
+  // Extended identity & contact
+  displayName        String?      @map("display_name") @db.VarChar(100)
+  whatsapp           String?      @db.VarChar(50)
+  telegramHandle     String?      @map("telegram_handle") @db.VarChar(100)
+  languagePreference String       @default("ru") @map("language_preference") @db.VarChar(5)
+
+  // Employment
+  employmentType     EmploymentType @default(STAFF) @map("employment_type")
+  pinCode            String?      @map("pin_code") @db.VarChar(10)
+
+  // Capabilities
+  maxClientsPerDay   Int?         @map("max_clients_per_day")
+  vipPermission      Boolean      @default(false) @map("vip_permission")
+  assignedRoomIds    String[]     @map("assigned_room_ids") @db.Uuid
+
+  // Massage workload config (meaningful only when department = MASSAGE)
+  dailyTargetSessions    Int      @default(6) @map("daily_target_sessions")
+  workloadAlertThreshold Int      @default(4) @map("workload_alert_threshold")
+  autoScheduleEligible   Boolean  @default(true) @map("auto_schedule_eligible")
+
+  // Portal visibility toggle (admin controls this)
+  showEarningsToSpecialist Boolean @default(false) @map("show_earnings_to_specialist")
+
   // Relations
   user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   services          SpecialistService[]
@@ -160,6 +194,9 @@ model Specialist {
   compensationConfig SpecialistCompensation?
   payrollRecords    PayrollRecord[]
   attendanceRecords AttendanceRecord[]
+  leaveRequests     LeaveRequest[]
+  scheduleChangeRequests ScheduleChangeRequest[]
+  capabilityRequests CapabilityRequest[]
 
   @@index([userId])
   @@index([status])
@@ -217,11 +254,12 @@ model Service {
   updatedAt            DateTime        @updatedAt @map("updated_at")
 
   // Relations
-  specialists    SpecialistService[]
-  appointments   AppointmentService[]
-  locationPrices ServiceLocationPrice[]
-  revenueRecords RevenueRecord[]
-  inventoryLinks InventoryServiceLink[]
+  specialists         SpecialistService[]
+  appointments        AppointmentService[]
+  locationPrices      ServiceLocationPrice[]
+  revenueRecords      RevenueRecord[]
+  inventoryLinks      InventoryServiceLink[]
+  capabilityRequests  CapabilityRequest[]
 
   @@index([name])
   @@map("services")
@@ -1334,6 +1372,8 @@ model SpecialistCompensation {
   procedureRate    Decimal?         @map("procedure_rate") @db.Decimal(10, 2)
   // commission rate stored on Specialist.commissionRate; serviceOverrides adds per-service tweaks
   serviceOverrides Json?            @map("service_overrides") // { "serviceId": { "type": "pct"|"fixed", "value": number } }
+  paymentMethod    String?          @map("payment_method") @db.VarChar(100)
+  bonusRules       Json?            @map("bonus_rules") // [{ "condition": string, "amount": number }]
   effectiveFrom    DateTime         @default(now()) @map("effective_from")
   notes            String?          @db.VarChar(500)
   createdAt        DateTime         @default(now()) @map("created_at")
@@ -1557,4 +1597,60 @@ model CommunicationPreference {
 
   @@index([userId])
   @@map("communication_preferences")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SPECIALIST PORTAL — REQUEST MODELS
+// ═══════════════════════════════════════════════════════════════
+
+model LeaveRequest {
+  id           String        @id @default(uuid()) @db.Uuid
+  specialistId String        @map("specialist_id") @db.Uuid
+  date         DateTime      @db.Date
+  reason       String?       @db.VarChar(500)
+  status       RequestStatus @default(PENDING)
+  reviewedBy   String?       @map("reviewed_by") @db.Uuid
+  reviewNotes  String?       @map("review_notes") @db.VarChar(500)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@index([specialistId, status])
+  @@index([date])
+  @@map("leave_requests")
+}
+
+model ScheduleChangeRequest {
+  id           String        @id @default(uuid()) @db.Uuid
+  specialistId String        @map("specialist_id") @db.Uuid
+  description  String        @db.VarChar(1000)
+  status       RequestStatus @default(PENDING)
+  reviewedBy   String?       @map("reviewed_by") @db.Uuid
+  reviewNotes  String?       @map("review_notes") @db.VarChar(500)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@index([specialistId, status])
+  @@map("schedule_change_requests")
+}
+
+model CapabilityRequest {
+  id           String        @id @default(uuid()) @db.Uuid
+  specialistId String        @map("specialist_id") @db.Uuid
+  serviceId    String        @map("service_id") @db.Uuid
+  note         String?       @db.VarChar(500)
+  status       RequestStatus @default(PENDING)
+  reviewedBy   String?       @map("reviewed_by") @db.Uuid
+  reviewNotes  String?       @map("review_notes") @db.VarChar(500)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+  service    Service    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([specialistId, status])
+  @@map("capability_requests")
 }
