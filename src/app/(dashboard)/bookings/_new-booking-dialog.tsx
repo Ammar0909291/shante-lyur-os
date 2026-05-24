@@ -343,7 +343,8 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
   const [error,              setError]              = React.useState<string | null>(null);
   const [success,            setSuccess]            = React.useState(false);
 
-  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRef    = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const baseClientsRef = React.useRef<ModalClient[]>(MOCK_CLIENTS);
 
   const isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(userRole);
   const isMassageSpecialist = specialist?.department === 'MASSAGE';
@@ -356,9 +357,22 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
     setDate(''); setTime(''); setNotes('');
     setClientSearch(''); setSpecialistSearch('');
     setError(null); setSuccess(false);
-    setClients(MOCK_CLIENTS); setSpecialists(MOCK_SPECIALISTS);
+    setClients([]); setSpecialists(MOCK_SPECIALISTS);
     setServices([]); setSlots([]); setNextAvailableDate(null);
     setAdminOverride(false); setShowOverrideDlg(false);
+
+    // Load recent real clients immediately so users don't pick mock placeholder data
+    fetch('/api/clients/search?limit=20', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (!json?.data?.items?.length) { setClients(MOCK_CLIENTS); return; }
+        const mapped: ModalClient[] = json.data.items.map((c: {
+          id: string; firstName?: string; lastName?: string; phone?: string | null; email?: string | null;
+        }) => ({ id: c.id, name: `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim() || '—', phone: c.phone ?? undefined, email: c.email ?? undefined }));
+        baseClientsRef.current = mapped;
+        setClients(mapped);
+      })
+      .catch(() => { baseClientsRef.current = MOCK_CLIENTS; setClients(MOCK_CLIENTS); });
   }, [open]);
 
   // ── Resolve location + user role on open ────────────────────────────────────
@@ -414,10 +428,10 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
   // ── Debounced client search ──────────────────────────────────────────────────
   React.useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!clientSearch.trim()) { setClients(MOCK_CLIENTS); return; }
+    if (!clientSearch.trim()) { setClients(baseClientsRef.current); return; }
     debounceRef.current = setTimeout(() => {
       const q = clientSearch.toLowerCase();
-      setClients(MOCK_CLIENTS.filter(c =>
+      setClients(baseClientsRef.current.filter(c =>
         c.name.toLowerCase().includes(q) || c.phone?.includes(q) || c.email?.toLowerCase().includes(q)
       ));
       fetch(`/api/clients/search?q=${encodeURIComponent(clientSearch)}&limit=10`, { credentials: 'include' })

@@ -207,7 +207,7 @@ export default function BookingsPage() {
 
   // Filters
   const [statusFilter, setStatusFilter] = React.useState('');
-  const [datePreset, setDatePreset] = React.useState('today');
+  const [datePreset, setDatePreset] = React.useState('');
   const [specialistFilter, setSpecialistFilter] = React.useState('');
   const [serviceFilter, setServiceFilter] = React.useState('');
   const [showFilters, setShowFilters] = React.useState(false);
