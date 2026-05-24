@@ -10,6 +10,7 @@ import {
 import type { TransitionAction } from '@/types/operations';
 import { logAudit, getRequestMeta } from '@/lib/audit-logger';
 import { broadcastOpsEvent, type OpsEvent } from '@/lib/ops-sse';
+import { triggerBookingCancellation } from '@/lib/communication/booking-triggers';
 
 // ─── Valid transition map ─────────────────────────────────────────────────────
 
@@ -248,6 +249,7 @@ export async function POST(
       where: { id },
       select: {
         id: true,
+        clientId: true,
         status: true,
         checkedInAt: true,
         startAt: true,
@@ -255,11 +257,12 @@ export async function POST(
         specialist: {
           select: {
             id: true,
+            department: true,
             user: { select: { id: true, firstName: true, lastName: true } },
           },
         },
         room: { select: { name: true } },
-        services: { select: { service: { select: { name: true } } } },
+        services: { select: { sortOrder: true, service: { select: { name: true } } }, orderBy: { sortOrder: 'asc' } },
       },
     });
 
@@ -327,12 +330,12 @@ export async function POST(
     console.log('[ops/transition] done', { id, from: currentStatus, action, to: updated.status });
 
     // ── SSE broadcast + notification ───────────────────────────────────────────
-    const clientName = apt.client ? `${apt.client.firstName} ${apt.client.lastName}` : '';
+    const clientName     = apt.client ? `${apt.client.firstName} ${apt.client.lastName}` : '';
     const specialistName = apt.specialist?.user
       ? `${apt.specialist.user.firstName} ${apt.specialist.user.lastName}`
       : '';
-    const roomName = apt.room?.name ?? null;
-    const serviceNames = apt.services?.map((s) => s.service.name) ?? [];
+    const roomName    = apt.room?.name ?? null;
+    const serviceNames = (apt.services ?? []).map((s) => s.service.name).filter(Boolean);
 
     const sseEvent: OpsEvent = {
       type: ACTION_TO_EVENT[action as TransitionAction] ?? 'ops_refresh',
@@ -357,6 +360,30 @@ export async function POST(
         roomName,
         serviceNames,
       });
+    }
+
+    // ── Client cancellation notification ──────────────────────────────────────
+    if (action === 'cancel' && apt.clientId) {
+      void (async () => {
+        try {
+          const YEKATERINBURG = 'Asia/Yekaterinburg';
+          const startAt = apt.startAt ?? now;
+          await triggerBookingCancellation({
+            appointmentId: id,
+            clientUserId: apt.clientId!,
+            specialistUserId: apt.specialist?.user?.id,
+            clientName,
+            specialistName,
+            serviceName: serviceNames.join(', ') || 'Услуга',
+            department: apt.specialist?.department ?? undefined,
+            date: startAt.toLocaleDateString('ru-RU', { timeZone: YEKATERINBURG, day: 'numeric', month: 'long' }),
+            time: startAt.toLocaleTimeString('ru-RU', { timeZone: YEKATERINBURG, hour: '2-digit', minute: '2-digit' }),
+            room: roomName ?? undefined,
+          });
+        } catch (err) {
+          console.warn('[ops/transition] cancellation notification error (non-critical):', err instanceof Error ? err.message : err);
+        }
+      })();
     }
 
     // ── Audit ──────────────────────────────────────────────────────────────────

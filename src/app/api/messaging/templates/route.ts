@@ -11,12 +11,30 @@ export async function GET(request: NextRequest) {
     return apiError('FORBIDDEN', 'Admin access required', 403);
   }
 
+  // Sample variables for template preview — department-aware, no hardcoded service defaults
+  const sampleVars = {
+    clientName: 'Анна Смирнова',
+    specialistName: 'Ирина Владимирова',
+    serviceName: '{{название_услуги}}',
+    department: '{{отдел}}',
+    date: '1 июня',
+    time: '14:00',
+    room: 'Кабинет №2',
+    salonName: process.env['SALON_NAME'] ?? 'Shante Lyur',
+    amount: '3 500',
+    currency: 'руб.',
+  };
+
   const templates = Object.values(TEMPLATES).map((t) => ({
     key: t.key,
     name: t.nameRu,
     hasEnglish: Boolean(t.bodyEn),
     whatsappTemplateName: t.whatsappTemplateName ?? null,
-    preview: { ru: t.bodyRu({ clientName: 'Анна', specialistName: 'Ирина', serviceName: 'Маникюр', date: '01.06', time: '14:00' }) },
+    variables: ['clientName', 'specialistName', 'serviceName', 'date', 'time', 'room', 'salonName', 'department'],
+    preview: {
+      ru: t.bodyRu(sampleVars),
+      en: t.bodyEn ? t.bodyEn(sampleVars) : null,
+    },
   }));
 
   return ok({ templates, total: templates.length });

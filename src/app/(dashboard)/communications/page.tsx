@@ -105,7 +105,18 @@ function SendPanel({ onSent }: { onSent: () => void }) {
   const [userId, setUserId] = React.useState('');
   const [channel, setChannel] = React.useState<'whatsapp' | 'telegram' | 'max' | 'email'>('telegram');
   const [templateKey, setTemplateKey] = React.useState('booking_confirmation');
-  const [vars, setVars] = React.useState({ clientName: 'Анна', specialistName: 'Ирина', serviceName: 'Маникюр', date: '01.06.2026', time: '14:00' });
+  // Default sample vars — no hardcoded service names; user fills them with real data before sending
+  const [vars, setVars] = React.useState({
+    clientName: 'Анна Смирнова',
+    specialistName: 'Ирина Владимирова',
+    serviceName: '',
+    date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }),
+    time: '14:00',
+    room: '',
+    department: '',
+    amount: '',
+    currency: 'руб.',
+  });
   const [sending, setSending] = React.useState(false);
   const [result, setResult] = React.useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -508,15 +519,34 @@ export default function CommunicationsPage() {
                   </span>
                 )}
               </div>
-              <div className="bg-charcoal/50 rounded-xl p-3">
-                <p className="text-xs text-text-secondary whitespace-pre-line">
-                  {t.bodyRu({ clientName: 'Анна', specialistName: 'Ирина', serviceName: 'Маникюр', date: '01.06', time: '14:00' }).replace(/<[^>]+>/g, '').slice(0, 180)}
-                  {t.bodyRu({ clientName: 'Анна', specialistName: 'Ирина', serviceName: 'Маникюр', date: '01.06', time: '14:00' }).length > 180 ? '…' : ''}
-                </p>
+              <div className="bg-charcoal/50 rounded-xl p-3 space-y-2">
+                {/* RU preview */}
+                <div>
+                  <p className="text-[10px] text-text-tertiary mb-1">🇷🇺 RU</p>
+                  <p className="text-xs text-text-secondary whitespace-pre-line leading-relaxed">
+                    {(() => {
+                      const body = t.bodyRu({ clientName: 'Анна Смирнова', specialistName: 'Ирина В.', serviceName: '{{услуга}}', date: '1 июня', time: '14:00', salonName: 'Shante Lyur' }).replace(/<[^>]+>/g, '');
+                      return body.length > 200 ? body.slice(0, 200) + '…' : body;
+                    })()}
+                  </p>
+                </div>
+                {/* EN preview */}
+                {t.bodyEn && (
+                  <div className="border-t border-border-luxury/40 pt-2">
+                    <p className="text-[10px] text-blue-400 mb-1">🇬🇧 EN</p>
+                    <p className="text-xs text-text-secondary whitespace-pre-line leading-relaxed">
+                      {(() => {
+                        const body = t.bodyEn!({ clientName: 'Anna S.', specialistName: 'Irina V.', serviceName: '{{service}}', date: 'June 1', time: '2:00 PM', salonName: 'Shante Lyur' }).replace(/<[^>]+>/g, '');
+                        return body.length > 200 ? body.slice(0, 200) + '…' : body;
+                      })()}
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 text-xs text-text-tertiary">
                 {t.bodyEn && <span className="text-blue-400">🇬🇧 EN</span>}
                 <span>🇷🇺 RU</span>
+                <span className="ml-auto text-[10px] opacity-60">Переменные: serviceName, clientName, specialistName, date, time, room</span>
               </div>
             </div>
           ))}

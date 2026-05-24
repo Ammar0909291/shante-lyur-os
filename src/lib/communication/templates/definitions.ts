@@ -22,8 +22,9 @@ export const TEMPLATES: Record<string, Template> = {
       `📋 Услуга: ${v.serviceName ?? '—'}\n` +
       `👤 Специалист: ${v.specialistName ?? '—'}\n` +
       `📅 Дата: ${v.date ?? '—'}\n` +
-      `🕐 Время: ${v.time ?? '—'}\n\n` +
-      `До встречи! 💎`,
+      `🕐 Время: ${v.time ?? '—'}\n` +
+      (v.room ? `🚪 Кабинет: ${v.room}\n` : '') +
+      `\nДо встречи! 💎`,
     bodyEn: (v) =>
       `✅ <b>Booking Confirmed</b>\n\n` +
       `Hello, ${v.clientName ?? 'Client'}!\n\n` +
@@ -31,8 +32,9 @@ export const TEMPLATES: Record<string, Template> = {
       `📋 Service: ${v.serviceName ?? '—'}\n` +
       `👤 Specialist: ${v.specialistName ?? '—'}\n` +
       `📅 Date: ${v.date ?? '—'}\n` +
-      `🕐 Time: ${v.time ?? '—'}\n\n` +
-      `See you soon! 💎`,
+      `🕐 Time: ${v.time ?? '—'}\n` +
+      (v.room ? `🚪 Room: ${v.room}\n` : '') +
+      `\nSee you soon! 💎`,
   },
 
   booking_reminder_24h: {
@@ -44,16 +46,18 @@ export const TEMPLATES: Record<string, Template> = {
       `Напоминаем, что <b>завтра</b> вас ждём в <b>${salon(v)}</b>:\n` +
       `📋 Услуга: ${v.serviceName ?? '—'}\n` +
       `👤 Специалист: ${v.specialistName ?? '—'}\n` +
-      `🕐 Время: ${v.time ?? '—'}\n\n` +
-      `Если планы изменились — пожалуйста, сообщите заранее. 🙏`,
+      `🕐 Время: ${v.time ?? '—'}\n` +
+      (v.room ? `🚪 Кабинет: ${v.room}\n` : '') +
+      `\nЕсли планы изменились — пожалуйста, сообщите заранее. 🙏`,
     bodyEn: (v) =>
       `⏰ <b>Appointment Reminder</b>\n\n` +
       `Hi ${v.clientName ?? 'Client'}!\n\n` +
       `Just a reminder — <b>tomorrow</b> at <b>${salon(v)}</b>:\n` +
       `📋 Service: ${v.serviceName ?? '—'}\n` +
       `👤 Specialist: ${v.specialistName ?? '—'}\n` +
-      `🕐 Time: ${v.time ?? '—'}\n\n` +
-      `Please let us know if your plans change. 🙏`,
+      `🕐 Time: ${v.time ?? '—'}\n` +
+      (v.room ? `🚪 Room: ${v.room}\n` : '') +
+      `\nPlease let us know if your plans change. 🙏`,
   },
 
   booking_reminder_2h: {
@@ -62,13 +66,17 @@ export const TEMPLATES: Record<string, Template> = {
     bodyRu: (v) =>
       `⏰ <b>Скоро ваш визит!</b>\n\n` +
       `Ждём вас <b>через 2 часа</b> в ${salon(v)}:\n` +
-      `📋 ${v.serviceName ?? '—'} в ${v.time ?? '—'}\n\n` +
-      `Будем рады видеть вас! 💎`,
+      `📋 ${v.serviceName ?? '—'} в ${v.time ?? '—'}\n` +
+      `👤 ${v.specialistName ?? '—'}\n` +
+      (v.room ? `🚪 ${v.room}\n` : '') +
+      `\nБудем рады видеть вас! 💎`,
     bodyEn: (v) =>
       `⏰ <b>Your appointment is soon!</b>\n\n` +
       `We'll see you in <b>2 hours</b> at ${salon(v)}:\n` +
-      `📋 ${v.serviceName ?? '—'} at ${v.time ?? '—'}\n\n` +
-      `Looking forward to seeing you! 💎`,
+      `📋 ${v.serviceName ?? '—'} at ${v.time ?? '—'}\n` +
+      `👤 ${v.specialistName ?? '—'}\n` +
+      (v.room ? `🚪 ${v.room}\n` : '') +
+      `\nLooking forward to seeing you! 💎`,
   },
 
   booking_cancellation: {
@@ -92,17 +100,19 @@ export const TEMPLATES: Record<string, Template> = {
     bodyRu: (v) =>
       `🔄 <b>Запись перенесена</b>\n\n` +
       `Здравствуйте, ${v.clientName ?? 'Клиент'}!\n\n` +
-      `Ваша запись перенесена на:\n` +
+      `Ваша запись на <b>${v.serviceName ?? '—'}</b> перенесена на:\n` +
       `📅 ${v.date ?? '—'} в ${v.time ?? '—'}\n` +
-      `👤 Специалист: ${v.specialistName ?? '—'}\n\n` +
-      `До встречи! 💎`,
+      `👤 Специалист: ${v.specialistName ?? '—'}\n` +
+      (v.room ? `🚪 Кабинет: ${v.room}\n` : '') +
+      `\nДо встречи! 💎`,
     bodyEn: (v) =>
       `🔄 <b>Appointment Rescheduled</b>\n\n` +
       `Hello, ${v.clientName ?? 'Client'}!\n\n` +
-      `Your appointment has been moved to:\n` +
+      `Your <b>${v.serviceName ?? '—'}</b> appointment has been moved to:\n` +
       `📅 ${v.date ?? '—'} at ${v.time ?? '—'}\n` +
-      `👤 Specialist: ${v.specialistName ?? '—'}\n\n` +
-      `See you then! 💎`,
+      `👤 Specialist: ${v.specialistName ?? '—'}\n` +
+      (v.room ? `🚪 Room: ${v.room}\n` : '') +
+      `\nSee you then! 💎`,
   },
 
   payment_received: {
@@ -168,11 +178,11 @@ export const TEMPLATES: Record<string, Template> = {
     nameRu: 'Низкий запас',
     bodyRu: (v) =>
       `⚠️ <b>Низкий запас материалов</b>\n\n` +
-      `${v.serviceName ?? 'Позиция'}: остаток ниже минимума.\n` +
+      `${v.itemName ?? v.serviceName ?? 'Позиция'}: остаток ниже минимума.\n` +
       `Требуется пополнение запасов.`,
     bodyEn: (v) =>
       `⚠️ <b>Low Inventory Alert</b>\n\n` +
-      `${v.serviceName ?? 'Item'}: stock below minimum level.\n` +
+      `${v.itemName ?? v.serviceName ?? 'Item'}: stock below minimum level.\n` +
       `Replenishment required.`,
   },
 

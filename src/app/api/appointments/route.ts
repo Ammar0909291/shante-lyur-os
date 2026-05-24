@@ -112,23 +112,36 @@ export async function POST(req: NextRequest) {
     void (async () => {
       try {
         const apt = result.appointment;
-        const clientUser = await registry.userRepository.findById(effectiveClientId).catch(() => null);
-        const specialistUser = apt.specialistId
-          ? await registry.userRepository.findById(apt.specialistId).catch(() => null)
-          : null;
+        const [clientUser, specialistUser, specRecord] = await Promise.all([
+          registry.userRepository.findById(effectiveClientId).catch(() => null),
+          apt.specialistId ? registry.userRepository.findById(apt.specialistId).catch(() => null) : Promise.resolve(null),
+          apt.specialistId
+            ? prisma.specialist.findUnique({ where: { id: apt.specialistId }, select: { department: true } }).catch(() => null)
+            : Promise.resolve(null),
+        ]);
+
+        // Join ALL booked service names (not just the first), ordered by sortOrder
         const services = apt.services ?? [];
-        const serviceName = services[0]?.name ?? 'Услуга';
+        const serviceName = services
+          .slice()
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map(s => s.name)
+          .filter(Boolean)
+          .join(', ') || 'Услуга';
+
         const startAt = new Date(apt.startAt);
-        const dateStr = startAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-        const timeStr = startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        const YEKATERINBURG = 'Asia/Yekaterinburg';
+        const dateStr = startAt.toLocaleDateString('ru-RU', { timeZone: YEKATERINBURG, day: 'numeric', month: 'long' });
+        const timeStr = startAt.toLocaleTimeString('ru-RU', { timeZone: YEKATERINBURG, hour: '2-digit', minute: '2-digit' });
 
         await triggerBookingConfirmation({
           appointmentId: apt.id,
           clientUserId: effectiveClientId,
           specialistUserId: apt.specialistId ?? undefined,
-          clientName: clientUser ? `${clientUser.firstName} ${clientUser.lastName}` : 'Клиент',
+          clientName:     clientUser    ? `${clientUser.firstName} ${clientUser.lastName}`    : 'Клиент',
           specialistName: specialistUser ? `${specialistUser.firstName} ${specialistUser.lastName}` : 'Специалист',
           serviceName,
+          department: specRecord?.department ?? undefined,
           date: dateStr,
           time: timeStr,
         });

@@ -30,9 +30,11 @@ export interface DeliveryRecord {
 export interface TemplateVariables {
   clientName?: string;
   specialistName?: string;
-  serviceName?: string;
+  serviceName?: string;  // all booked services joined with ", "
+  department?: string;   // specialist department (MASSAGE | COSMETOLOGY | ...)
   date?: string;
   time?: string;
+  room?: string;         // assigned room/cabinet name
   salonName?: string;
   amount?: string;
   currency?: string;
@@ -40,6 +42,7 @@ export interface TemplateVariables {
   resetLink?: string;
   promoCode?: string;
   discount?: string;
+  itemName?: string;     // inventory item name (for operational alerts)
   [key: string]: string | undefined;
 }
 
