@@ -190,6 +190,7 @@ export async function GET(request: NextRequest) {
           startAt: true,
           endAt: true,
           status: true,
+          paymentStatus: true,
           totalPrice: true,
           totalDuration: true,
           checkedInAt: true,
@@ -264,6 +265,7 @@ export async function GET(request: NextRequest) {
         roomName: apt.room?.name ?? null,
         waitMinutes: wait,
         delayMinutes: delay,
+        paymentStatus: apt.paymentStatus as string,
         revenue: toNum(apt.totalPrice),
       };
     });

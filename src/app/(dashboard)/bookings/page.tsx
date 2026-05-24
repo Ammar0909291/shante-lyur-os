@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Calendar as CalendarIcon, Plus, X, Download, Filter, BarChart2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, X, Download, Filter, BarChart2, LayoutGrid } from 'lucide-react';
+import { OpsBoard } from './_ops-board';
 import { Button } from '@/components/ui/button';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
@@ -214,6 +215,7 @@ export default function BookingsPage() {
 
   const [showNewDialog, setShowNewDialog] = React.useState(false);
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const [showOpsBoard, setShowOpsBoard] = React.useState(false);
 
   const totalPages = Math.ceil(total / LIMIT);
   const activeFilterCount = [specialistFilter, serviceFilter, statusFilter].filter(Boolean).length;
@@ -326,6 +328,38 @@ export default function BookingsPage() {
       : t('bookings.filter.specialist')
     : null;
 
+  // ── Ops Board full-screen mode ────────────────────────────────────────────────
+  if (showOpsBoard) {
+    return (
+      <div className="fixed inset-0 z-30 flex flex-col bg-obsidian" style={{ top: 0 }}>
+        {/* Mini header */}
+        <div className="flex items-center justify-between px-4 py-2 border-b border-border-luxury flex-shrink-0 bg-onyx">
+          <h2 className="font-serif text-base font-medium text-text-primary">
+            Операционная панель — {t('bookings.title')}
+          </h2>
+          <div className="flex items-center gap-2">
+            <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowNewDialog(true)}>
+              {t('bookings.new')}
+            </Button>
+            <button
+              onClick={() => setShowOpsBoard(false)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border-luxury text-sm text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Закрыть панель
+            </button>
+          </div>
+        </div>
+        <OpsBoard />
+        <NewBookingDialog
+          open={showNewDialog}
+          onClose={() => setShowNewDialog(false)}
+          onCreated={() => { setShowNewDialog(false); }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 lg:p-8 animate-fade-in">
       {/* Header */}
@@ -337,6 +371,13 @@ export default function BookingsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowOpsBoard(true)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-champagne/30 bg-champagne/5 text-champagne text-sm hover:bg-champagne/10 transition-colors"
+          >
+            <LayoutGrid className="w-4 h-4" />
+            Live Панель
+          </button>
           <button
             onClick={() => setShowAnalytics((v) => !v)}
             className={cn(

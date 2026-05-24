@@ -34,6 +34,7 @@ export interface OperationalAppointment {
   duration: number; // minutes
   operationalStatus: OperationalStatus;
   dbStatus: string;
+  paymentStatus: string; // UNPAID | DEPOSIT_PAID | PAID | REFUNDED | etc.
   checkedInAt: string | null;
   checkedOutAt: string | null;
   roomId: string | null;
