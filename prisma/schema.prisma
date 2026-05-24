@@ -64,6 +64,7 @@ model User {
   inventoryMovements  StockMovement[]            @relation("InventoryMovementUser")
   expensesCreated     Expense[]                  @relation("ExpenseCreator")
   balanceTransactions ClientBalanceTransaction[] @relation("ClientBalanceTransactions")
+  promoCodeUsages     PromoCodeUsage[]
 
   @@index([email])
   @@index([role, status])
@@ -328,6 +329,7 @@ model Appointment {
   auditLogs        AuditLog[]
   procedureHistory ProcedureHistory[]
   stockMovements   StockMovement[]
+  promoCodeUsages  PromoCodeUsage[]
 
   @@index([clientId, startAt])
   @@index([specialistId, startAt])
@@ -774,6 +776,8 @@ model PromoCode {
   createdAt          DateTime     @default(now()) @map("created_at")
   updatedAt          DateTime     @updatedAt @map("updated_at")
 
+  usages PromoCodeUsage[]
+
   @@index([code])
   @@index([isActive, validFrom, validUntil])
   @@map("promo_codes")
@@ -786,6 +790,10 @@ model PromoCodeUsage {
   appointmentId  String   @map("appointment_id") @db.Uuid
   discountAmount Decimal  @map("discount_amount") @db.Decimal(10, 2)
   createdAt      DateTime @default(now()) @map("created_at")
+
+  promoCode   PromoCode   @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id])
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
 
   @@unique([promoCodeId, userId, appointmentId])
   @@index([promoCodeId])
