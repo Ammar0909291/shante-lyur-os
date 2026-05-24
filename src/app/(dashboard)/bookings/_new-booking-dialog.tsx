@@ -322,8 +322,8 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
   const [notes,      setNotes]      = React.useState('');
 
   // Data lists
-  const [clients,           setClients]           = React.useState<ModalClient[]>(MOCK_CLIENTS);
-  const [specialists,       setSpecialists]       = React.useState<ModalSpecialist[]>(MOCK_SPECIALISTS);
+  const [clients,           setClients]           = React.useState<ModalClient[]>([]);
+  const [specialists,       setSpecialists]       = React.useState<ModalSpecialist[]>([]);
   const [services,          setServices]          = React.useState<ModalService[]>([]);
   const [slots,             setSlots]             = React.useState<TimeSlot[]>([]);
   const [nextAvailableDate, setNextAvailableDate] = React.useState<string | null>(null);
@@ -357,7 +357,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
     setDate(''); setTime(''); setNotes('');
     setClientSearch(''); setSpecialistSearch('');
     setError(null); setSuccess(false);
-    setClients([]); setSpecialists(MOCK_SPECIALISTS);
+    setClients([]); setSpecialists([]);
     setServices([]); setSlots([]); setNextAvailableDate(null);
     setAdminOverride(false); setShowOverrideDlg(false);
 
@@ -421,8 +421,9 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
             };
           });
         if (mapped.length > 0) setSpecialists(mapped);
+        else setSpecialists(MOCK_SPECIALISTS);
       })
-      .catch(() => {});
+      .catch(() => { setSpecialists(MOCK_SPECIALISTS); });
   }, [open]);
 
   // ── Debounced client search ──────────────────────────────────────────────────
@@ -451,15 +452,16 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
   // ── Load services when specialist selected ───────────────────────────────────
   React.useEffect(() => {
     if (!specialist) { setServices([]); return; }
-    // Filter mock services by department
     const isMassageDept = specialist.department === 'MASSAGE';
-    setServices(MOCK_SERVICES.filter(s => isMassageDept ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY'));
+    setServices([]); // show spinner until real services load
 
-    // Fetch all services then filter by department category mapping
     fetch('/api/services?limit=200', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(json => {
-        if (!json?.data?.items?.length) return;
+        if (!json?.data?.items?.length) {
+          setServices(MOCK_SERVICES.filter(s => isMassageDept ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY'));
+          return;
+        }
         let mapped: ModalService[] = json.data.items.map((s: {
           id: string; name: string; category: string; basePrice?: number; baseDuration?: number;
         }) => ({
@@ -469,15 +471,14 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
           price: s.basePrice ?? 0,
           duration: s.baseDuration ?? 60,
         }));
-        // Filter by department: MASSAGE → only MASSAGE; COSMETOLOGY → all except MASSAGE
         mapped = mapped.filter(s => isMassageDept ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY');
-        // Further narrow by allowedServiceIds if the specialist has explicit restrictions
         if (specialist.allowedServiceIds.length > 0) {
           mapped = mapped.filter(s => specialist.allowedServiceIds.includes(s.id));
         }
         if (mapped.length > 0) setServices(mapped);
+        else setServices(MOCK_SERVICES.filter(s => isMassageDept ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY'));
       })
-      .catch(() => {});
+      .catch(() => { setServices(MOCK_SERVICES.filter(s => specialist.department === 'MASSAGE' ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY')); });
   }, [specialist]);
 
   // ── Load slots when specialist + service + date set ──────────────────────────
