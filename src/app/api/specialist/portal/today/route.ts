@@ -21,8 +21,6 @@ export async function GET(req: NextRequest) {
     select: {
       id: true,
       department: true,
-      dailyTargetSessions: true,
-      workloadAlertThreshold: true,
     },
   });
   if (!specialist) return err('NOT_FOUND', 'Specialist record not found', 404);
@@ -94,10 +92,11 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  // Workload tracker for massage specialists
+  // Workload tracker for massage specialists (dailyTarget default until schema field added)
+  const dailyTarget = 8;
   const completedToday = slots.filter((s) => s.status === 'COMPLETED').length;
   const workload = specialist.department === 'MASSAGE'
-    ? { target: specialist.dailyTargetSessions, completed: completedToday, remaining: Math.max(0, specialist.dailyTargetSessions - completedToday) }
+    ? { target: dailyTarget, completed: completedToday, remaining: Math.max(0, dailyTarget - completedToday) }
     : null;
 
   return ok({ slots, workload, specialistId: specialist.id });

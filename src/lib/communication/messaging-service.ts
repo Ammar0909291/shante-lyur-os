@@ -203,7 +203,7 @@ export class MessagingService {
 
   private resolveRecipient(
     channel: ProviderChannel,
-    pref: { whatsappPhone?: string | null; telegramChatId?: string | null; maxUserId?: string | null } | null,
+    pref: { whatsappPhone?: string | null; telegramChatId?: string | null; maxUserId?: string | null; emailEnabled?: boolean | null } | null,
     vars: TemplateVariables,
   ): string | null {
     switch (channel) {

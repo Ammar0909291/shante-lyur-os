@@ -98,6 +98,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const actorId   = req.headers.get('x-user-id');
+    const actorRole = req.headers.get('x-user-role') ?? '';
+    if (!actorId || !['SUPER_ADMIN', 'ADMIN'].includes(actorRole)) {
+      return apiError('FORBIDDEN', 'Admin access required', 403);
+    }
+
     const body: unknown = await req.json();
     const parsed = CreateSpecialistSchema.safeParse(body);
     if (!parsed.success) {

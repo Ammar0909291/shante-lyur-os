@@ -73,15 +73,21 @@ export function apiError(code: string, message: string, status: number) {
   return Response.json({ success: false, error: { code, message } }, { status });
 }
 
-export const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST'] as const;
+/** All staff roles that can access operations/analytics endpoints (front-desk and above). */
+const STAFF_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST'] as const;
 
+/**
+ * Basic staff-level auth guard used by analytics, operations, finance, and payroll routes.
+ * Allows: SUPER_ADMIN, ADMIN, MANAGER, RECEPTIONIST.
+ * Individual route handlers add stricter checks (e.g. ADMIN-only) as needed.
+ */
 export function checkAuth(
   userId: string | null,
   role: string,
 ): Response | null {
   if (!userId) return apiError('UNAUTHORIZED', 'Authentication required', 401);
-  if (!(ADMIN_ROLES as readonly string[]).includes(role)) {
-    return apiError('FORBIDDEN', 'Admin access required', 403);
+  if (!(STAFF_ROLES as readonly string[]).includes(role)) {
+    return apiError('FORBIDDEN', 'Staff access required', 403);
   }
   return null;
 }

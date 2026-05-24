@@ -32,7 +32,7 @@ const PROTECTED_API_ROUTES = [
   '/api/promo-codes',
   '/api/messaging',
   '/api/chat',
-  '/api/specialist',
+  '/api/risk',
 ];
 
 const PUBLIC_API_ROUTES = [
@@ -46,7 +46,7 @@ const PUBLIC_API_ROUTES = [
 ];
 
 // Admin-only API routes (SUPER_ADMIN + ADMIN)
-const ADMIN_ONLY_API = ['/api/admin', '/api/finance', '/api/executive'];
+const ADMIN_ONLY_API = ['/api/admin', '/api/finance', '/api/executive', '/api/risk'];
 
 // Manager+ routes (SUPER_ADMIN, ADMIN, MANAGER)
 const MANAGER_API = ['/api/analytics', '/api/payroll', '/api/sales', '/api/promo-codes', '/api/inventory'];
@@ -59,7 +59,7 @@ const MANAGER_API = ['/api/analytics', '/api/payroll', '/api/sales', '/api/promo
 const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/reset-password'];
 
 // Pages that require authentication (any role)
-const AUTHENTICATED_PAGES = ['/dashboard'];
+const AUTHENTICATED_PAGES = ['/dashboard', '/bookings', '/profile'];
 
 // Page → allowed roles map (empty = all authenticated users)
 interface PageRule {
@@ -73,6 +73,7 @@ const PAGE_RULES: PageRule[] = [
   { path: '/finance', roles: [...ADMIN_ROLES], redirect: '/dashboard' },
   { path: '/payroll', roles: [...ADMIN_ROLES], redirect: '/dashboard' },
   { path: '/executive', roles: [...ADMIN_ROLES], redirect: '/dashboard' },
+  { path: '/risk', roles: [...ADMIN_ROLES], redirect: '/dashboard' },
   { path: '/promo-codes', roles: [...ADMIN_ROLES, 'MANAGER'], redirect: '/dashboard' },
   { path: '/settings', roles: [...ADMIN_ROLES], redirect: '/dashboard' },
   { path: '/permissions', roles: ['SUPER_ADMIN'], redirect: '/dashboard' },

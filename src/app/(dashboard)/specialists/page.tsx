@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import {
   Sparkles, Plus, X, Star, MoreVertical, Power, RotateCcw, Pencil,
-  ChevronDown, Lock, User, Briefcase, Wrench, Clock, Target, StickyNote,
+  ChevronDown, Lock, User, Briefcase, Wrench, Target, StickyNote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';

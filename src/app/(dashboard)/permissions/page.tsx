@@ -161,16 +161,18 @@ export default function PermissionsPage() {
   const [search, setSearch] = React.useState('');
   const [filterRole, setFilterRole] = React.useState<UserRole | ''>('');
   const [myRole, setMyRole] = React.useState<string>('');
+  const [myUserId, setMyUserId] = React.useState<string>('');
 
   const isSuperAdmin = myRole === 'SUPER_ADMIN';
 
-  // Resolve current user's role from JWT
+  // Resolve current user's role + ID from JWT
   React.useEffect(() => {
     try {
       const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
       if (match) {
-        const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-        setMyRole((payload.role as string) ?? '');
+        const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { role?: string; sub?: string };
+        setMyRole(payload.role ?? '');
+        setMyUserId(payload.sub ?? '');
       }
     } catch {}
   }, []);
@@ -349,7 +351,9 @@ export default function PermissionsPage() {
                 </tr>
               ) : (
                 filtered.map((user) => {
-                  const canEdit = isSuperAdmin && user.role !== 'SUPER_ADMIN';
+                  // SUPER_ADMIN cannot edit other SUPER_ADMINs or their own role (self-lockout prevention)
+                  const isSelf = user.id === myUserId;
+                  const canEdit = isSuperAdmin && user.role !== 'SUPER_ADMIN' && !isSelf;
                   return (
                     <tr key={user.id} className="hover:bg-charcoal/30 transition-colors">
                       <td className="px-4 py-3">
