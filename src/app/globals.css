@@ -118,6 +118,116 @@ html.light .text-sage { color: #3A6E3A !important; }
 /* Language toggle & header buttons */
 html.light .border-border-luxury.px-2 { border-color: #C8C2BA !important; }
 
+/* ─── Light Theme: Executive / Analytics visibility ──────────────────────── */
+
+/* Tabs — inactive tabs must be clearly readable (not ghosted) */
+html.light button.text-text-tertiary { color: #5A5550 !important; }
+html.light .text-text-tertiary { color: #6A6560 !important; }
+
+/* Executive period/tab selector container */
+html.light .bg-obsidian\/60 { background-color: rgba(220, 215, 208, 0.7) !important; }
+html.light .bg-obsidian\/80 { background-color: rgba(225, 220, 212, 0.92) !important; }
+html.light .bg-charcoal\/8  { background-color: rgba(184, 146, 42, 0.08) !important; }
+html.light .bg-champagne\/8 { background-color: rgba(184, 146, 42, 0.08) !important; }
+
+/* Status / semantic color overrides for light theme readability */
+/* Emerald / green */
+html.light .text-emerald-400 { color: #1a7a3a !important; }
+html.light .text-green-400   { color: #167a30 !important; }
+html.light .text-green-300   { color: #177a30 !important; }
+html.light .bg-emerald-400\/5  { background-color: rgba(20, 120, 60, 0.08) !important; }
+html.light .bg-green-900\/40   { background-color: rgba(20, 100, 40, 0.12) !important; }
+html.light .bg-green-900\/30   { background-color: rgba(20, 100, 40, 0.10) !important; }
+html.light .border-emerald-400\/30 { border-color: rgba(20, 120, 60, 0.35) !important; }
+html.light .bg-emerald-900\/20 { background-color: rgba(20, 100, 40, 0.10) !important; }
+
+/* Amber / warning */
+html.light .text-amber-400  { color: #8a5c00 !important; }
+html.light .text-amber-300  { color: #9a6400 !important; }
+html.light .bg-amber-400\/5  { background-color: rgba(140, 90, 0, 0.08) !important; }
+html.light .bg-amber-900\/20 { background-color: rgba(140, 90, 0, 0.10) !important; }
+html.light .bg-amber-900\/30 { background-color: rgba(140, 90, 0, 0.12) !important; }
+html.light .bg-amber-500\/10 { background-color: rgba(140, 90, 0, 0.10) !important; }
+html.light .bg-amber-500\/15 { background-color: rgba(140, 90, 0, 0.12) !important; }
+html.light .border-amber-400\/30 { border-color: rgba(140, 90, 0, 0.35) !important; }
+html.light .border-amber-700\/40 { border-color: rgba(140, 90, 0, 0.35) !important; }
+html.light .border-amber-500\/20 { border-color: rgba(140, 90, 0, 0.3) !important; }
+html.light .border-amber-500\/40 { border-color: rgba(140, 90, 0, 0.4) !important; }
+html.light .text-amber-300.text-xs { color: #8a5c00 !important; }
+
+/* Red / error */
+html.light .text-red-400   { color: #9a1a1a !important; }
+html.light .text-red-300   { color: #a02020 !important; }
+html.light .bg-red-500\/10 { background-color: rgba(154, 26, 26, 0.10) !important; }
+html.light .bg-red-900\/20 { background-color: rgba(154, 26, 26, 0.10) !important; }
+html.light .bg-red-900\/30 { background-color: rgba(154, 26, 26, 0.12) !important; }
+html.light .bg-red-900\/40 { background-color: rgba(154, 26, 26, 0.12) !important; }
+html.light .border-red-700\/40  { border-color: rgba(154, 26, 26, 0.35) !important; }
+html.light .border-red-500\/20  { border-color: rgba(154, 26, 26, 0.30) !important; }
+html.light .border-red-500\/30  { border-color: rgba(154, 26, 26, 0.35) !important; }
+
+/* Blue / info */
+html.light .text-blue-400  { color: #1a4a8a !important; }
+html.light .text-blue-300  { color: #1a4a8a !important; }
+html.light .bg-blue-900\/40  { background-color: rgba(26, 74, 138, 0.10) !important; }
+html.light .bg-blue-900\/30  { background-color: rgba(26, 74, 138, 0.10) !important; }
+html.light .border-blue-700\/40 { border-color: rgba(26, 74, 138, 0.35) !important; }
+
+/* Violet / in-progress */
+html.light .text-violet-300   { color: #5a2a8a !important; }
+html.light .text-violet-400   { color: #5a2a8a !important; }
+html.light .bg-violet-900\/40 { background-color: rgba(90, 42, 138, 0.10) !important; }
+html.light .bg-violet-900\/30 { background-color: rgba(90, 42, 138, 0.10) !important; }
+html.light .border-violet-700\/50 { border-color: rgba(90, 42, 138, 0.40) !important; }
+
+/* Teal */
+html.light .text-teal-300   { color: #0a5a5a !important; }
+html.light .bg-teal-900\/40 { background-color: rgba(10, 90, 90, 0.10) !important; }
+html.light .border-teal-700\/40 { border-color: rgba(10, 90, 90, 0.35) !important; }
+
+/* ─── Light Theme: Charts ────────────────────────────────────────────────── */
+/* Recharts needs explicit class overrides for light mode readability */
+html.light .recharts-cartesian-grid-horizontal line,
+html.light .recharts-cartesian-grid-vertical line { stroke: rgba(100, 90, 80, 0.2) !important; }
+html.light .recharts-text { fill: #5A5550 !important; }
+html.light .recharts-legend-item-text { color: #4A4541 !important; }
+html.light .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #F0EBE4 !important;
+  border-color: #C8C2BA !important;
+  color: #181410 !important;
+}
+html.light .recharts-tooltip-label { color: #181410 !important; }
+html.light .recharts-tooltip-item  { color: #4A4541 !important; }
+
+/* ─── Light Theme: Sidebar section labels ────────────────────────────────── */
+html.light .tracking-\[0\.12em\] { color: #7A7570 !important; }
+
+/* Luxury gradient text stays readable on light */
+html.light .luxury-gradient .text-obsidian { color: #181410 !important; }
+
+/* ─── Light Theme: Form inputs ───────────────────────────────────────────── */
+html.light input,
+html.light textarea,
+html.light select {
+  background-color: #F0EBE4;
+  border-color: #C8C2BA;
+  color: #181410;
+}
+html.light input::placeholder,
+html.light textarea::placeholder { color: #9A9490 !important; }
+
+/* ─── Light Theme: Card shadows ──────────────────────────────────────────── */
+html.light .shadow-luxury-lg {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08) !important;
+}
+
+/* ─── Light Theme: Inactive tab text minimum contrast ────────────────────── */
+html.light nav button,
+html.light [role="tab"] {
+  --tw-text-opacity: 1;
+}
+html.light .text-text-tertiary:is(button, a) { color: #5A5550 !important; }
+
 /* ─── Base Styles ────────────────────────────────────────────────────── */
 @layer base {
   *,

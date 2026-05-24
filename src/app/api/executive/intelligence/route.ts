@@ -95,7 +95,13 @@ export async function GET(req: NextRequest) {
     // ── Revenue metrics ────────────────────────────────────────────────────────
     const completedApts  = apts.filter(a => a.status === 'COMPLETED');
     const cancelledApts  = apts.filter(a => a.status === 'CANCELLED' || a.status === 'NO_SHOW');
-    const totalRevenue   = payments.reduce((s, p) => s + Number(p.amount), 0);
+
+    // Primary revenue source: captured payments if the payment processor is active,
+    // otherwise use appointment.totalPrice (cash/in-person salon model).
+    const paymentRevenue     = payments.reduce((s, p) => s + Number(p.amount), 0);
+    const appointmentRevenue = completedApts.reduce((s, a) => s + Number(a.totalPrice), 0);
+    const totalRevenue       = paymentRevenue > 0 ? paymentRevenue : appointmentRevenue;
+
     const totalRefunds   = refunds.reduce((s, r) => s + Number(r.amount), 0);
     const totalExpenses  = expenses.reduce((s, e) => s + Number(e.amount), 0);
     const netRevenue     = totalRevenue - totalRefunds;
@@ -210,11 +216,17 @@ export async function GET(req: NextRequest) {
     const inventoryAlertCount = inventoryAlerts.length;
 
     // ── Business Health Score ─────────────────────────────────────────────────
-    const revenueScore       = Math.min(25, 12.5 + (revenueTrend > 0 ? 12.5 : revenueTrend > -10 ? 6 : 0));
+    // Revenue score: based on trend, but also give baseline credit when revenue exists
+    const hasRevenue         = totalRevenue > 0;
+    const revenueScore       = hasRevenue
+      ? Math.min(25, 12.5 + (revenueTrend > 5 ? 12.5 : revenueTrend > -5 ? 8 : revenueTrend > -15 ? 4 : 0))
+      : 0;
     const retentionScore     = r2(Math.min(20, retentionRate * 0.2));
     const occupancyScore     = r2(Math.min(20, occupancyRate * 0.2));
     const cancellationScore  = r2(Math.min(15, Math.max(0, 15 - cancelRate * 0.5)));
-    const financialScore     = netProfit > 0 ? 20 : netProfit > -totalRevenue * 0.1 ? 12 : 5;
+    // Financial health: positive margin = full 20pts, near-zero = 12pts, negative = scaled down
+    const marginRate         = totalRevenue > 0 ? netProfit / totalRevenue : 0;
+    const financialScore     = marginRate > 0.15 ? 20 : marginRate > 0 ? 14 : marginRate > -0.1 ? 8 : 3;
     const healthScore        = r2(revenueScore + retentionScore + occupancyScore + cancellationScore + financialScore);
     const healthGrade        = healthScore >= 80 ? 'EXCELLENT' : healthScore >= 60 ? 'STABLE' : healthScore >= 40 ? 'RISK_DETECTED' : 'CRITICAL';
 

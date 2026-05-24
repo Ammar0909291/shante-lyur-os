@@ -7,6 +7,8 @@ import {
   LayoutDashboard, Calendar, Users, Sparkles, Flower2,
   BarChart3, Settings, MessageCircle, ShoppingBag,
   ChevronLeft, ChevronRight, X,
+  Activity, ClipboardList, CalendarDays, Package,
+  Wallet, Tag, TrendingUp, UserCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -14,34 +16,75 @@ import { useLanguage } from '@/contexts/language';
 const ICON_MAP = {
   LayoutDashboard, Calendar, Users, Sparkles, Flower2,
   BarChart3, Settings, MessageCircle, ShoppingBag,
+  Activity, ClipboardList, CalendarDays, Package,
+  Wallet, Tag, TrendingUp, UserCircle,
 } as Record<string, React.ElementType>;
 
-const NAV_GROUPS = [
+const STAFF   = ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'] as const;
+const ADMIN   = ['SUPER_ADMIN', 'ADMIN'] as const;
+
+type NavItem = { key: string; href: string; icon: string; roles?: readonly string[] };
+
+const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
   {
-    label: 'РАБОЧАЯ ОБЛАСТЬ',
+    label: 'ОПЕРАЦИИ',
     items: [
-      { key: 'nav.dashboard',   href: '/dashboard',   icon: 'LayoutDashboard' },
-      { key: 'nav.bookings',    href: '/bookings',     icon: 'Calendar' },
-      { key: 'nav.clients',     href: '/clients',      icon: 'Users' },
-      { key: 'nav.specialists', href: '/specialists',  icon: 'Sparkles' },
-      { key: 'nav.services',    href: '/services',     icon: 'Flower2' },
+      { key: 'nav.dashboard',     href: '/dashboard',     icon: 'LayoutDashboard' },
+      { key: 'nav.operations',    href: '/operations',    icon: 'Activity',      roles: STAFF },
+      { key: 'nav.receptionist',  href: '/receptionist',  icon: 'ClipboardList', roles: STAFF },
+      { key: 'nav.mypanel',       href: '/my-panel',      icon: 'CalendarDays',  roles: ['SPECIALIST'] },
+      { key: 'nav.bookings',      href: '/bookings',      icon: 'Calendar' },
+    ],
+  },
+  {
+    label: 'КЛИЕНТЫ И КОМАНДА',
+    items: [
+      { key: 'nav.clients',       href: '/clients',       icon: 'Users',     roles: STAFF },
+      { key: 'nav.specialists',   href: '/specialists',   icon: 'Sparkles',  roles: STAFF },
+      { key: 'nav.services',      href: '/services',      icon: 'Flower2',   roles: STAFF },
     ],
   },
   {
     label: 'АНАЛИТИКА',
     items: [
-      { key: 'nav.analytics',   href: '/analytics',   icon: 'BarChart3' },
-      { key: 'nav.sales',       href: '/sales',        icon: 'ShoppingBag' },
+      { key: 'nav.analytics',     href: '/analytics',     icon: 'BarChart3',  roles: STAFF },
+      { key: 'nav.sales',         href: '/sales',         icon: 'ShoppingBag', roles: STAFF },
+      { key: 'nav.executive',     href: '/executive',     icon: 'TrendingUp',  roles: ADMIN },
+    ],
+  },
+  {
+    label: 'УПРАВЛЕНИЕ',
+    items: [
+      { key: 'nav.inventory',     href: '/inventory',     icon: 'Package', roles: STAFF },
+      { key: 'nav.finance',       href: '/finance',       icon: 'Wallet',  roles: ADMIN },
+      { key: 'nav.promoCodes',    href: '/promo-codes',   icon: 'Tag',     roles: ADMIN },
     ],
   },
   {
     label: 'СИСТЕМА',
     items: [
-      { key: 'nav.chat',        href: '/chat',         icon: 'MessageCircle' },
-      { key: 'nav.settings',    href: '/settings',     icon: 'Settings' },
+      { key: 'nav.chat',          href: '/chat',          icon: 'MessageCircle' },
+      { key: 'nav.settings',      href: '/settings',      icon: 'Settings', roles: ADMIN },
+      { key: 'nav.profile',       href: '/profile',       icon: 'UserCircle' },
     ],
   },
 ];
+
+function getJwtRole(): string {
+  try {
+    if (typeof document === 'undefined') return '';
+    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+    if (!match) return '';
+    const payload = JSON.parse(atob(match[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { role?: string };
+    return payload.role ?? '';
+  } catch { return ''; }
+}
+
+function useUserRole(): string {
+  const [role, setRole] = React.useState('');
+  React.useEffect(() => { setRole(getJwtRole()); }, []);
+  return role;
+}
 
 interface Props {
   mobileOpen?: boolean;
@@ -51,6 +94,7 @@ interface Props {
 export function NextUISidebar({ mobileOpen = false, onMobileClose }: Props) {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const role = useUserRole();
   const [collapsed, setCollapsed] = React.useState(false);
 
   return (
@@ -111,7 +155,10 @@ export function NextUISidebar({ mobileOpen = false, onMobileClose }: Props) {
 
         {/* Navigation with group labels */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-4" aria-label="Основная навигация">
-          {NAV_GROUPS.map((group) => (
+          {NAV_GROUPS.map((group) => {
+            const visibleItems = group.items.filter(item => !item.roles || !role || item.roles.includes(role));
+            if (visibleItems.length === 0) return null;
+            return (
             <div key={group.label}>
               {!collapsed && (
                 <p className="px-3 mb-1.5 text-[10px] font-semibold tracking-[0.12em] text-text-tertiary/60 uppercase">
@@ -119,7 +166,7 @@ export function NextUISidebar({ mobileOpen = false, onMobileClose }: Props) {
                 </p>
               )}
               <div className="space-y-0.5">
-                {group.items.map(({ key, href, icon }) => {
+                {visibleItems.map(({ key, href, icon }) => {
                   const Icon = ICON_MAP[icon];
                   const isActive = pathname === href || pathname.startsWith(`${href}/`);
                   const label = t(key);
@@ -158,7 +205,8 @@ export function NextUISidebar({ mobileOpen = false, onMobileClose }: Props) {
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Footer */}
