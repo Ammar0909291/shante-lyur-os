@@ -195,7 +195,10 @@ export async function POST(req: NextRequest) {
     const specialistType = isMassagist ? 'MASSAGE' : 'COSMETOLOGY';
 
     const forbidden = serviceRecords
-      .filter((svc) => (svc.category === 'MASSAGE' ? 'MASSAGE' : 'COSMETOLOGY') !== specialistType)
+      .filter((svc) => {
+        const svcType = ['MASSAGE', 'BODY_CONTOURING'].includes(svc.category) ? 'MASSAGE' : 'COSMETOLOGY';
+        return svcType !== specialistType;
+      })
       .map((svc) => svc.id);
     if (forbidden.length > 0) {
       return apiError('INVALID_SERVICE', 'Услуга не соответствует специализации специалиста', 422, { forbidden, specialistType });

@@ -212,6 +212,7 @@ export default function BookingsPage() {
   const [page, setPage] = React.useState(1);
 
   const [showNewDialog, setShowNewDialog] = React.useState(false);
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
   const totalPages = Math.ceil(total / LIMIT);
   const activeFilterCount = [specialistFilter, serviceFilter, statusFilter].filter(Boolean).length;
@@ -226,7 +227,8 @@ export default function BookingsPage() {
     if (from) q.set('from', from + 'T00:00:00.000Z');
     if (to) q.set('to', to + 'T23:59:59.999Z');
     return q;
-  }, [page, statusFilter, specialistFilter, datePreset]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, statusFilter, specialistFilter, datePreset, refreshKey]);
 
   const fetchBookings = React.useCallback(async () => {
     setLoading(true);
@@ -674,7 +676,7 @@ export default function BookingsPage() {
       <NewBookingDialog
         open={showNewDialog}
         onClose={() => setShowNewDialog(false)}
-        onCreated={() => { setShowNewDialog(false); setDatePreset(''); setPage(1); }}
+        onCreated={() => { setShowNewDialog(false); setDatePreset(''); setPage(1); setRefreshKey(k => k + 1); }}
       />
     </div>
   );

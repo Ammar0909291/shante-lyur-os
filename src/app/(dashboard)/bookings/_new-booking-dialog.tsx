@@ -570,34 +570,33 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
       services: [{ serviceId: service.id, price: service.price / 100, duration: service.duration, sortOrder: 0 }],
       notes: notes.trim() || undefined,
       source: 'admin',
-      adminOverride: adminOverride || undefined,
+      allowOverlap: adminOverride || undefined,
     };
 
+    console.log('[booking] POST /api/admin/bookings', body);
     try {
-      const res = await fetch('/api/appointments', {
+      const res = await fetch('/api/admin/bookings', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
+      const json = await res.json().catch(() => ({}));
+      console.log('[booking] response', res.status, json);
+
       if (res.ok) {
-        const json = await res.json();
-        const appt = json?.data?.appointment ?? json?.data ?? {};
+        const appt = json?.data ?? {};
+        console.log('[booking] created', appt.id);
         setSuccess(true);
         setTimeout(() => {
           onCreated({ ...createdBooking, id: appt.id ?? createdBooking.id });
           onClose();
         }, 1200);
-      } else if (res.status === 401 || res.status === 400) {
-        // Auth expired or validation mismatch in dev — optimistic creation
-        setSuccess(true);
-        setTimeout(() => { onCreated(createdBooking); onClose(); }, 1200);
       } else if (res.status === 409) {
-        const json = await res.json().catch(() => ({}));
         const msg = json?.error?.message ?? 'Время уже занято';
         // If massage buffer violation and admin — offer override
-        if (isMassageSpecialist && isAdmin && !adminOverride && msg.toLowerCase().includes('30')) {
+        if (isMassageSpecialist && isAdmin && !adminOverride) {
           setShowOverrideDlg(true);
           setError(null);
         } else if (nextAvailableDate) {
@@ -606,13 +605,11 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
           setError(msg);
         }
       } else {
-        const json = await res.json().catch(() => ({}));
         setError(json?.error?.message ?? 'Ошибка при создании записи');
       }
-    } catch {
-      // Network error → optimistic
-      setSuccess(true);
-      setTimeout(() => { onCreated(createdBooking); onClose(); }, 1200);
+    } catch (err) {
+      console.error('[booking] network error', err);
+      setError('Нет соединения с сервером. Проверьте подключение и попробуйте снова.');
     } finally {
       setSubmitting(false);
     }
