@@ -182,41 +182,30 @@ async function main() {
   }
   console.log(`   ✓ ${allServices.length} services ready`);
 
-  // ─── Placeholder specialists ──────────────────────────────────
-  // NOTE: Real staff names were not included in the uploaded price list.
-  // Add real specialists via the admin panel at /dashboard/specialists.
+  // ─── Real specialists (from Соревнования МАЙ 2026 roster) ────
   const specialistPassword = await hash('spec123', 10);
   const specialistProfiles = [
-    {
-      email: 'specialist1@shantelyur.ru', firstName: 'Елена', lastName: 'Иванова',
-      specialization: 'Косметология, инъекции', bio: 'Сертифицированный косметолог с 8-летним опытом',
-      experienceYears: 8, color: '#6366f1',
-      serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL],
-    },
-    {
-      email: 'specialist2@shantelyur.ru', firstName: 'Мария', lastName: 'Петрова',
-      specialization: 'Массаж, SPA', bio: 'Профессиональный массажист, специалист по антистрессовым техникам',
-      experienceYears: 6, color: '#D4AF7A',
-      serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING],
-    },
-    {
-      email: 'specialist3@shantelyur.ru', firstName: 'Ольга', lastName: 'Ким',
-      specialization: 'Аппаратная косметология', bio: 'Специалист по аппаратным процедурам с 5-летним опытом',
-      experienceYears: 5, color: '#8BA888',
-      serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.BODY_CONTOURING],
-    },
-    {
-      email: 'specialist4@shantelyur.ru', firstName: 'Наталья', lastName: 'Волкова',
-      specialization: 'Инъекционная косметология', bio: 'Врач-косметолог, специалист по инъекционному омоложению',
-      experienceYears: 10, color: '#E8C4B8',
-      serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL],
-    },
-    {
-      email: 'specialist5@shantelyur.ru', firstName: 'Дарья', lastName: 'Соколова',
-      specialization: 'Уходовые процедуры, SPA', bio: 'Мастер по уходовым процедурам, массажу лица и SPA',
-      experienceYears: 4, color: '#B8A8D4',
-      serviceCategories: [ServiceCategory.FACIAL, ServiceCategory.MASSAGE],
-    },
+    { email: 'specialist1@shantelyur.ru',  firstName: 'Олеся',     lastName: 'Хвесько',      specialization: 'Косметология, уходовые процедуры', experienceYears: 5,  color: '#6366f1', serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL] },
+    { email: 'specialist2@shantelyur.ru',  firstName: 'Марина',    lastName: 'Мищенко',      specialization: 'Массаж, SPA',                       experienceYears: 6,  color: '#D4AF7A', serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING] },
+    { email: 'specialist3@shantelyur.ru',  firstName: 'Анна',      lastName: 'Степанова',    specialization: 'Косметология',                      experienceYears: 7,  color: '#8BA888', serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL] },
+    { email: 'specialist4@shantelyur.ru',  firstName: 'Ирина',     lastName: 'Шипицина',     specialization: 'Массаж, антистресс',                experienceYears: 5,  color: '#E8C4B8', serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING] },
+    { email: 'specialist5@shantelyur.ru',  firstName: 'Варвара',   lastName: 'Сырачева',     specialization: 'Уходовые процедуры, SPA',           experienceYears: 4,  color: '#B8A8D4', serviceCategories: [ServiceCategory.FACIAL, ServiceCategory.MASSAGE] },
+    { email: 'specialist6@shantelyur.ru',  firstName: 'Ирина',     lastName: 'Болищук',      specialization: 'Косметология, аппаратные процедуры',experienceYears: 6,  color: '#4ECDC4', serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.BODY_CONTOURING] },
+    { email: 'specialist7@shantelyur.ru',  firstName: 'Кирилл',    lastName: 'Красильников', specialization: 'Массаж, телесные практики',         experienceYears: 5,  color: '#45B7D1', serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING] },
+    { email: 'specialist8@shantelyur.ru',  firstName: 'Кристина',  lastName: 'Тоноян',       specialization: 'Косметология',                      experienceYears: 4,  color: '#96CEB4', serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL] },
+    { email: 'specialist9@shantelyur.ru',  firstName: 'Денис',     lastName: 'Николаев',     specialization: 'Массаж, реабилитация',              experienceYears: 6,  color: '#DDA0DD', serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING] },
+    { email: 'specialist10@shantelyur.ru', firstName: 'Ирина',     lastName: 'Доронина',     specialization: 'Уходовые процедуры, SPA',           experienceYears: 5,  color: '#98D8C8', serviceCategories: [ServiceCategory.FACIAL, ServiceCategory.MASSAGE] },
+    { email: 'specialist11@shantelyur.ru', firstName: 'Петр',      lastName: 'Леминов',      specialization: 'Массаж',                            experienceYears: 4,  color: '#F0B27A', serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING] },
+    { email: 'specialist12@shantelyur.ru', firstName: 'Елена',     lastName: 'Крутикова',    specialization: 'Косметология, уходовые процедуры', experienceYears: 5,  color: '#BB8FCE', serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL] },
+    { email: 'specialist13@shantelyur.ru', firstName: 'Влад',      lastName: 'Борисов',      specialization: 'Массаж, телесные практики',         experienceYears: 4,  color: '#85C1E9', serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING] },
+    { email: 'specialist14@shantelyur.ru', firstName: 'Мохамад',   lastName: '',             specialization: 'Массаж',                            experienceYears: 3,  color: '#82E0AA', serviceCategories: [ServiceCategory.MASSAGE] },
+    { email: 'specialist15@shantelyur.ru', firstName: 'Александр', lastName: 'Сафин',        specialization: 'Массаж, SPA',                       experienceYears: 4,  color: '#F1948A', serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING] },
+    { email: 'specialist16@shantelyur.ru', firstName: 'Анастасия', lastName: 'Кочкина',      specialization: 'Косметология',                      experienceYears: 3,  color: '#AED6F1', serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL] },
+    { email: 'specialist17@shantelyur.ru', firstName: 'Алина',     lastName: 'Артемьева',    specialization: 'Уходовые процедуры, SPA',           experienceYears: 3,  color: '#A9DFBF', serviceCategories: [ServiceCategory.FACIAL, ServiceCategory.MASSAGE] },
+    { email: 'specialist18@shantelyur.ru', firstName: 'Лиана',     lastName: 'Акмалова',     specialization: 'Косметология, уходовые процедуры', experienceYears: 3,  color: '#FAD7A0', serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL] },
+    { email: 'specialist19@shantelyur.ru', firstName: 'Антон',     lastName: 'Василюк',      specialization: 'Массаж',                            experienceYears: 4,  color: '#D2B4DE', serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING] },
+    { email: 'specialist20@shantelyur.ru', firstName: 'Анастасия', lastName: 'Хворостова',   specialization: 'Косметология',                      experienceYears: 2,  color: '#FFDAB9', serviceCategories: [ServiceCategory.COSMETOLOGY, ServiceCategory.FACIAL] },
+    { email: 'specialist21@shantelyur.ru', firstName: 'Борислав',  lastName: 'Карипов',      specialization: 'Массаж, телесные практики',         experienceYears: 3,  color: '#C8E6C9', serviceCategories: [ServiceCategory.MASSAGE, ServiceCategory.BODY_CONTOURING] },
   ];
 
   const createdSpecialists = [];
@@ -235,7 +224,7 @@ async function main() {
       where: { userId: user.id },
       update: { specialization: sp.specialization },
       create: {
-        id: specId, userId: user.id, bio: sp.bio, specialization: sp.specialization,
+        id: specId, userId: user.id, specialization: sp.specialization,
         experienceYears: sp.experienceYears, commissionRate: 0.30, color: sp.color,
         status: SpecialistStatus.ACTIVE, reviewCount: 0, sortOrder: i,
       },
