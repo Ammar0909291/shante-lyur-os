@@ -306,8 +306,8 @@ export default function PayrollPage() {
   React.useEffect(() => {
     void fetch('/api/specialists?status=ACTIVE&limit=100')
       .then(r => r.json())
-      .then((j: { success: boolean; data: { specialists: { id: string; user: { firstName: string; lastName: string } }[] } }) => {
-        if (j.success) setSpecialists(j.data.specialists.map(s => ({ id: s.id, firstName: s.user?.firstName ?? '', lastName: s.user?.lastName ?? '' })));
+      .then((j: { success: boolean; data: { items: { id: string; firstName: string; lastName: string }[] } }) => {
+        if (j.success) setSpecialists((j.data.items ?? []).map(s => ({ id: s.id, firstName: s.firstName ?? '', lastName: s.lastName ?? '' })));
       });
   }, []);
 
