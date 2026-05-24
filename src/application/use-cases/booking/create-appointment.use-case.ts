@@ -129,9 +129,9 @@ export class CreateAppointmentUseCase {
       throw new ConflictError('Specialist is on vacation', 'startAt');
     }
 
-    // Schedules store times in Moscow time (UTC+3). Convert startAt from UTC to Moscow
-    // before comparing so "10:00 Moscow" stored as 07:00 UTC is handled correctly.
-    const MOSCOW_OFFSET_MS = 3 * 3600_000;
+    // Schedules store times in Yekaterinburg time (UTC+5). Convert startAt from UTC to local
+    // before comparing so "10:00 YEKT" stored as 05:00 UTC is handled correctly.
+    const MOSCOW_OFFSET_MS = 5 * 3600_000;
     const moscowStart = new Date(dto.startAt.getTime() + MOSCOW_OFFSET_MS);
     const moscowEnd   = new Date(endAt.getTime()       + MOSCOW_OFFSET_MS);
     const dayOfWeek   = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'][moscowStart.getUTCDay()] as never;

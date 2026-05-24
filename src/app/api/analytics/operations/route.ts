@@ -231,10 +231,10 @@ export async function GET(request: NextRequest) {
         utilizationRate: total > 0 ? Math.round((s.completedCount / total) * 1000) / 1000 : 0,
       }));
 
-    // ── Peak hours (Moscow time = UTC+3) ──────────────────────────────────────
+    // ── Peak hours (Yekaterinburg time = UTC+5) ───────────────────────────────
     const hourMap = new Map<number, number>();
     for (const apt of appointments) {
-      const localHour = (apt.startAt.getUTCHours() + 3) % 24; // UTC+3
+      const localHour = (apt.startAt.getUTCHours() + 5) % 24; // UTC+5
       hourMap.set(localHour, (hourMap.get(localHour) ?? 0) + 1);
     }
 

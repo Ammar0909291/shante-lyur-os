@@ -2,8 +2,7 @@
  * Shared time and math utilities for analytics dashboard endpoints.
  */
 
-// TODO: Set TIMEZONE env var for non-Moscow salons
-export const SALON_TIMEZONE = process.env.TIMEZONE ?? 'Europe/Moscow';
+export const SALON_TIMEZONE = process.env.TIMEZONE ?? 'Asia/Yekaterinburg';
 
 /**
  * Returns the UTC start and end of "today" in the given IANA timezone.

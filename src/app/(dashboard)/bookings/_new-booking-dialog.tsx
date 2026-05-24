@@ -539,8 +539,8 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
     setSubmitting(true); setError(null);
 
     const [h, m] = time.split(':').map(Number);
-    // Moscow → UTC: subtract 3 hours
-    const startAt = new Date(`${date}T${String(h - 3).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`);
+    // Yekaterinburg → UTC: subtract 5 hours
+    const startAt = new Date(`${date}T${String(h - 5).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`);
 
     const createdBooking: CreatedBooking = {
       id: crypto.randomUUID(),
@@ -1037,7 +1037,7 @@ function generateMockSlots(date: string, duration: number): TimeSlot[] {
   for (let h = 10; h < 20; h++) {
     for (const m of [0, 15, 30, 45]) {
       const timeStr   = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-      const slotMs    = new Date(`${date}T${String(h - 3).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`).getTime();
+      const slotMs    = new Date(`${date}T${String(h - 5).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`).getTime();
       const slotEndMs = slotMs + duration * 60000;
       const isPast    = slotMs < now + 30 * 60000;
       const afterHrs  = slotEndMs > dayEndMs;

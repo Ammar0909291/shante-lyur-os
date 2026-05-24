@@ -36,7 +36,7 @@ import type {
 
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('ru-RU', {
-    timeZone: 'Europe/Moscow',
+    timeZone: 'Asia/Yekaterinburg',
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -44,7 +44,7 @@ function fmtTime(iso: string): string {
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ru-RU', {
-    timeZone: 'Europe/Moscow',
+    timeZone: 'Asia/Yekaterinburg',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -714,7 +714,7 @@ const TIMELINE_TOTAL_MINUTES = (TIMELINE_END_HOUR - TIMELINE_START_HOUR) * 60;
 function timeToPercent(iso: string): number {
   const d = new Date(iso);
   const msk = new Date(
-    d.toLocaleString('en-US', { timeZone: 'Europe/Moscow' }),
+    d.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }),
   );
   const minutesFromStart =
     msk.getHours() * 60 +
@@ -1162,7 +1162,7 @@ export default function OperationsPage() {
                   {t('ops.lastUpdated')}:{' '}
                   <span className="text-text-secondary font-mono">
                     {lastUpdated.toLocaleTimeString('ru-RU', {
-                      timeZone: 'Europe/Moscow',
+                      timeZone: 'Asia/Yekaterinburg',
                       hour: '2-digit',
                       minute: '2-digit',
                     })}

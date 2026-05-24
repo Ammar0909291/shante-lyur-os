@@ -52,7 +52,7 @@ export const CreateLocationSchema = z.object({
   city: z.string().min(1).max(100),
   phone: z.string().regex(/^\+?[1-9]\d{7,14}$/).optional(),
   email: z.string().email().optional().or(z.literal('')),
-  timezone: z.string().max(50).default('Europe/Moscow'),
+  timezone: z.string().max(50).default('Asia/Yekaterinburg'),
 });
 
 export type CreateLocationDto = z.infer<typeof CreateLocationSchema>;

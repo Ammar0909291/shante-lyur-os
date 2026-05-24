@@ -14,30 +14,32 @@ function apiError(code: string, message: string, status: number) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
 }
 
-/** Convert a UTC Date to a YYYY-MM-DD string in Moscow time (UTC+3). */
-function toMoscowDateStr(date: Date): string {
-  const moscowMs = date.getTime() + 3 * 60 * 60 * 1000;
-  const d = new Date(moscowMs);
+const YEKT_OFFSET_H = 5; // Yekaterinburg = UTC+5, no DST
+
+/** Convert a UTC Date to a YYYY-MM-DD string in Yekaterinburg time (UTC+5). */
+function toLocalDateStr(date: Date): string {
+  const localMs = date.getTime() + YEKT_OFFSET_H * 60 * 60 * 1000;
+  const d = new Date(localMs);
   const y = d.getUTCFullYear();
   const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
   const dy = String(d.getUTCDate()).padStart(2, '0');
   return `${y}-${mo}-${dy}`;
 }
 
-/** Convert an HH:MM Moscow time string + YYYY-MM-DD string to a UTC Date. */
+/** Convert an HH:MM Yekaterinburg time string + YYYY-MM-DD string to a UTC Date. */
 function scheduleTimeToUtc(dateStr: string, timeHHMM: string): Date {
   const [y, m, d] = dateStr.split('-').map(Number);
   const [hh, mm] = timeHHMM.split(':').map(Number);
-  return new Date(Date.UTC(y, m - 1, d, hh - 3, mm, 0));
+  return new Date(Date.UTC(y, m - 1, d, hh - YEKT_OFFSET_H, mm, 0));
 }
 
-/** Get day-of-week in Moscow for a given UTC Date. */
-function moscowDayOfWeek(date: Date): DayOfWeek {
+/** Get day-of-week in Yekaterinburg for a given UTC Date. */
+function localDayOfWeek(date: Date): DayOfWeek {
   const DOW: DayOfWeek[] = [
     'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY',
   ];
-  const moscowMs = date.getTime() + 3 * 60 * 60 * 1000;
-  const d = new Date(moscowMs);
+  const localMs = date.getTime() + YEKT_OFFSET_H * 60 * 60 * 1000;
+  const d = new Date(localMs);
   return DOW[d.getUTCDay()];
 }
 
@@ -76,8 +78,8 @@ export async function GET(req: NextRequest) {
     });
     if (!service) return apiError('NOT_FOUND', 'Service not found', 404);
 
-    const dayOfWeek = moscowDayOfWeek(startAt);
-    const dateStr = toMoscowDateStr(startAt);
+    const dayOfWeek = localDayOfWeek(startAt);
+    const dateStr = toLocalDateStr(startAt);
 
     // 1. Get all active specialists with their qualification info
     const allSpecialists = await prisma.specialist.findMany({

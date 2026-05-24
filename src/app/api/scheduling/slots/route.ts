@@ -14,7 +14,7 @@ function apiError(code: string, message: string, status: number) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
 }
 
-/** Moscow day-of-week string for a YYYY-MM-DD date string.
+/** Yekaterinburg day-of-week string for a YYYY-MM-DD date string.
  *  We parse at noon UTC to avoid any daylight-saving edge cases. */
 function getDayOfWeek(dateStr: string): DayOfWeek {
   const DOW: DayOfWeek[] = [
@@ -24,30 +24,31 @@ function getDayOfWeek(dateStr: string): DayOfWeek {
   return DOW[d.getUTCDay()];
 }
 
-/** Convert an HH:MM Moscow time string + date string to a UTC Date. */
+const YEKT_OFFSET_H = 5; // Yekaterinburg = UTC+5, no DST
+
+/** Convert an HH:MM Yekaterinburg time string + date string to a UTC Date. */
 function scheduleTimeToUtc(dateStr: string, timeHHMM: string): Date {
   const [y, m, d] = dateStr.split('-').map(Number);
   const [hh, mm] = timeHHMM.split(':').map(Number);
-  // Moscow is UTC+3, so UTC = Moscow - 3 hours
-  return new Date(Date.UTC(y, m - 1, d, hh - 3, mm, 0));
+  // Yekaterinburg is UTC+5, so UTC = local - 5 hours
+  return new Date(Date.UTC(y, m - 1, d, hh - YEKT_OFFSET_H, mm, 0));
 }
 
-/** Returns [startOfDayUtc, endOfDayUtc] for a Moscow calendar day. */
+/** Returns [startOfDayUtc, endOfDayUtc] for a Yekaterinburg calendar day. */
 function dayBoundsUtc(dateStr: string): { startUtc: Date; endUtc: Date } {
   const [y, m, d] = dateStr.split('-').map(Number);
-  // 00:00 MSK = 21:00 UTC of the previous calendar day
-  const startUtc = new Date(Date.UTC(y, m - 1, d, -3, 0, 0));
-  // 24:00 MSK = 21:00 UTC of the same calendar day
-  const endUtc = new Date(Date.UTC(y, m - 1, d, 21, 0, 0));
+  // 00:00 YEKT = 19:00 UTC of the previous calendar day
+  const startUtc = new Date(Date.UTC(y, m - 1, d, -YEKT_OFFSET_H, 0, 0));
+  // 24:00 YEKT = 19:00 UTC of the same calendar day
+  const endUtc = new Date(Date.UTC(y, m - 1, d, 24 - YEKT_OFFSET_H, 0, 0));
   return { startUtc, endUtc };
 }
 
-/** Returns today's date in Moscow timezone as YYYY-MM-DD. */
-function moscowTodayStr(): string {
+/** Returns today's date in Yekaterinburg timezone as YYYY-MM-DD. */
+function localTodayStr(): string {
   const now = new Date();
-  // Moscow offset: UTC+3
-  const moscowMs = now.getTime() + 3 * 60 * 60 * 1000;
-  const d = new Date(moscowMs);
+  const localMs = now.getTime() + YEKT_OFFSET_H * 60 * 60 * 1000;
+  const d = new Date(localMs);
   const y = d.getUTCFullYear();
   const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
   const dy = String(d.getUTCDate()).padStart(2, '0');
@@ -96,7 +97,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Validate date format if provided
-    const dateStr = dateParam ?? moscowTodayStr();
+    const dateStr = dateParam ?? localTodayStr();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       return apiError('VALIDATION_ERROR', 'date must be YYYY-MM-DD', 400);
     }

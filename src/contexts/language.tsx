@@ -2117,7 +2117,7 @@ const EN: Record<string, string> = {
   'finance.exportSheet.pl': 'P&L — consolidated profit & loss report',
   'finance.exportNote1': 'Data is exported in .xlsx format only',
   'finance.exportNote2': 'All amounts are in rubles (RUB)',
-  'finance.exportNote3': 'Dates are in Moscow time',
+  'finance.exportNote3': 'Dates are in Yekaterinburg time (UTC+5)',
   'finance.confirmDelete': 'Delete expense?',
   'finance.refundBtn': 'Refund',
   'finance.modal.date': 'Date',

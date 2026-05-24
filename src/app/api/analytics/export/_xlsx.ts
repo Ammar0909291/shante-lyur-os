@@ -5,7 +5,7 @@ export function dateRu(d: Date): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    timeZone: 'Europe/Moscow',
+    timeZone: 'Asia/Yekaterinburg',
   });
 }
 
@@ -15,7 +15,7 @@ export function nowTimestamp(): string {
   const timePart = now.toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: 'Europe/Moscow',
+    timeZone: 'Asia/Yekaterinburg',
   });
   return `Сформировано: ${datePart} ${timePart}`;
 }

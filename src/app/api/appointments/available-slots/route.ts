@@ -15,9 +15,9 @@ const ACTIVE_STATUSES = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'RESCHEDULED'];
 
 const MASSAGE_BUFFER_MINS = 30;
 
-// Salon working hours in Moscow time (UTC+3)
-const SALON_START_HOUR = 10; // 10:00 Moscow = 07:00 UTC
-const SALON_END_HOUR   = 20; // 20:00 Moscow = 17:00 UTC
+// Salon working hours in Yekaterinburg time (UTC+5)
+const SALON_START_HOUR = 10; // 10:00 Yekaterinburg = 05:00 UTC
+const SALON_END_HOUR   = 20; // 20:00 Yekaterinburg = 15:00 UTC
 
 const QuerySchema = z.object({
   specialistId: z.string().uuid(),
@@ -28,21 +28,23 @@ const QuerySchema = z.object({
 });
 
 // -----------------------------------------------------------
-// Moscow ↔ UTC helpers
+// Yekaterinburg ↔ UTC helpers
 // All internal calculations in UTC.
-// Moscow = UTC+3 (no DST).
+// Yekaterinburg = UTC+5 (no DST).
 // -----------------------------------------------------------
 
-/** Moscow HH:MM → UTC Date on a given date string */
-function moscowToUTC(date: string, hourMoscow: number, min: number): Date {
+const YEKT_OFFSET_H = 5;
+
+/** Yekaterinburg HH:MM → UTC Date on a given date string */
+function localToUTC(date: string, hourLocal: number, min: number): Date {
   const d = new Date(`${date}T00:00:00.000Z`);
-  d.setUTCHours(hourMoscow - 3, min, 0, 0);
+  d.setUTCHours(hourLocal - YEKT_OFFSET_H, min, 0, 0);
   return d;
 }
 
-/** UTC Date → "HH:MM" in Moscow time */
-function utcToMoscowStr(d: Date): string {
-  const ms = new Date(d.getTime() + 3 * 3600_000);
+/** UTC Date → "HH:MM" in Yekaterinburg time */
+function utcToLocalStr(d: Date): string {
+  const ms = new Date(d.getTime() + YEKT_OFFSET_H * 3600_000);
   return `${String(ms.getUTCHours()).padStart(2, '0')}:${String(ms.getUTCMinutes()).padStart(2, '0')}`;
 }
 
@@ -55,7 +57,7 @@ function buildDaySlots(date: string): Date[] {
   const slots: Date[] = [];
   for (let h = SALON_START_HOUR; h < SALON_END_HOUR; h++) {
     for (const m of [0, 15, 30, 45]) {
-      slots.push(moscowToUTC(date, h, m));
+      slots.push(localToUTC(date, h, m));
     }
   }
   return slots;
@@ -70,7 +72,7 @@ function evaluateSlot(
   blockedRanges: Array<[number, number]>,
   now: number,
 ): SlotResult {
-  const time    = utcToMoscowStr(slotStart);
+  const time    = utcToLocalStr(slotStart);
   const startMs = slotStart.getTime();
   const endMs   = startMs + duration * 60_000;
 
@@ -140,8 +142,8 @@ export async function GET(req: NextRequest) {
   const adminOverride = parsed.data.adminOverride && ADMIN_ROLES.includes(userRole);
 
   // day boundaries in UTC
-  const dayStartUTC = moscowToUTC(date, SALON_START_HOUR, 0);
-  const dayEndUTC   = moscowToUTC(date, SALON_END_HOUR,   0);
+  const dayStartUTC = localToUTC(date, SALON_START_HOUR, 0);
+  const dayEndUTC   = localToUTC(date, SALON_END_HOUR,   0);
   const now         = Date.now();
 
   // ── Try real DB path ──────────────────────────────────────────────────────
@@ -218,18 +220,18 @@ export async function GET(req: NextRequest) {
 
 function getMockSlots(date: string, duration: number, adminOverride: boolean) {
   const now      = Date.now();
-  const dayEnd   = moscowToUTC(date, SALON_END_HOUR, 0);
+  const dayEnd   = localToUTC(date, SALON_END_HOUR, 0);
 
   // Simulate ~3 existing bookings distributed through the day
   const mockBlocked: Array<[number, number]> = [
-    // 11:00–12:00 Moscow booking (+ 30 min buffer if massage)
-    [moscowToUTC(date, 11, 0).getTime(), moscowToUTC(date, 12, 30).getTime()],
-    // 14:00–15:30 Moscow booking
-    [moscowToUTC(date, 14, 0).getTime(), moscowToUTC(date, 15, 30).getTime()],
+    // 11:00–12:00 Yekaterinburg booking (+ 30 min buffer if massage)
+    [localToUTC(date, 11, 0).getTime(), localToUTC(date, 12, 30).getTime()],
+    // 14:00–15:30 Yekaterinburg booking
+    [localToUTC(date, 14, 0).getTime(), localToUTC(date, 15, 30).getTime()],
   ];
 
   const slots: SlotResult[] = buildDaySlots(date).map(slotStart => {
-    const time    = utcToMoscowStr(slotStart);
+    const time    = utcToLocalStr(slotStart);
     const startMs = slotStart.getTime();
     const endMs   = startMs + duration * 60_000;
 
