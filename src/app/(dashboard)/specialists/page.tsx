@@ -40,11 +40,8 @@ export default function SpecialistsPage() {
   const t = useT();
 
   function loadSpecialists() {
-    apiGet<{ data: { items: SpecialistLike[] } }>('/api/specialists')
-      .then((res) => {
-        const items = res.data?.items;
-        if (items?.length) setSpecialists(items);
-      })
+    apiGet<{ items: SpecialistLike[]; total: number }>('/api/specialists')
+      .then((res) => { if (res.items?.length) setSpecialists(res.items); })
       .catch(() => {});
   }
 

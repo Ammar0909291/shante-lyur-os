@@ -56,8 +56,8 @@ export default function ClientsPage() {
   const t = useT();
 
   React.useEffect(() => {
-    apiGet<{ data: { items: Client[] } }>('/api/customers')
-      .then((res) => { if (res.data?.items?.length) setClients(res.data.items); })
+    apiGet<{ items: Client[]; total: number }>('/api/customers')
+      .then((res) => { if (res.items?.length) setClients(res.items); })
       .catch(() => {/* use mock */});
   }, []);
 
@@ -68,8 +68,8 @@ export default function ClientsPage() {
   );
 
   function handleCreated() {
-    apiGet<{ data: Client[] }>('/api/customers')
-      .then((res) => { if (res.data?.length) setClients(res.data); })
+    apiGet<{ items: Client[]; total: number }>('/api/customers')
+      .then((res) => { if (res.items?.length) setClients(res.items); })
       .catch(() => {});
   }
 
