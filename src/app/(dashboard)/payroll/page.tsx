@@ -291,11 +291,31 @@ function SalaryConfigModal({
     async function loadConfig() {
       try {
         const res = await fetch(`/api/v1/specialists/${specialistId}/salary-config`);
-        const json = await res.json() as { success: boolean; data: SalaryConfig; error?: { message?: string } };
-        if (json.success) {
-          setConfig(json.data);
-        } else {
+        const json = await res.json() as { success: boolean; data: SalaryConfig | null; error?: { message?: string } };
+        if (!res.ok || !json.success) {
           setError(json.error?.message ?? 'Ошибка загрузки конфигурации');
+          return;
+        }
+        if (json.data) {
+          setConfig({
+            salaryType: json.data.salaryType,
+            fixedAmount: json.data.fixedAmount,
+            hourlyRate: json.data.hourlyRate,
+            shiftRate: json.data.shiftRate,
+            commissionRate: Math.round(Number(json.data.commissionRate) * 100),
+            bonusThresholdSessions: json.data.bonusThresholdSessions,
+            notes: json.data.notes ?? '',
+          });
+        } else {
+          setConfig({
+            salaryType: 'FIXED',
+            fixedAmount: 0,
+            hourlyRate: 0,
+            shiftRate: 0,
+            commissionRate: 30,
+            bonusThresholdSessions: null,
+            notes: '',
+          });
         }
       } catch {
         setError('Ошибка сети');
@@ -319,7 +339,7 @@ function SalaryConfigModal({
       const res = await fetch(`/api/v1/specialists/${specialistId}/salary-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
+        body: JSON.stringify({ ...config, commissionRate: config.commissionRate / 100 }),
       });
       const json = await res.json() as { success: boolean; error?: { message?: string } };
       if (!res.ok || !json.success) {
