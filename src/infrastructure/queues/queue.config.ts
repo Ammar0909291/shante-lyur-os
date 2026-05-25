@@ -6,6 +6,7 @@ export const QUEUE_NAMES = {
   AI_PREDICTIONS: 'ai-predictions',
   AUDIT_LOGS: 'audit-logs',
   REPORT_GENERATION: 'report-generation',
+  SALE_NOTIFICATIONS: 'sale-notifications',
 } as const;
 
 export type QueueName = typeof QUEUE_NAMES[keyof typeof QUEUE_NAMES];

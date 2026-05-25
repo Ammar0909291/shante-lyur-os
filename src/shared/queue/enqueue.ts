@@ -6,6 +6,7 @@ import {
   aiPredictionsQueue,
   auditLogsQueue,
   reportGenerationQueue,
+  saleNotificationsQueue,
 } from '@/infrastructure/queues/queue-registry';
 import type {
   AppointmentReminderJob,
@@ -14,6 +15,7 @@ import type {
   AIPredictionJob,
   AuditLogJob,
   ReportGenerationJob,
+  SaleNotificationJob,
 } from '@/infrastructure/queues/job-types';
 
 export async function enqueueNotification(
@@ -56,4 +58,14 @@ export async function enqueueReportGeneration(
   opts?: JobsOptions,
 ): Promise<void> {
   await reportGenerationQueue.add('report-generation', job, opts);
+}
+
+export async function enqueueSaleNotification(
+  job: SaleNotificationJob,
+  opts?: JobsOptions,
+): Promise<void> {
+  await saleNotificationsQueue.add('sale-notification', job, {
+    jobId: `sale-notif:${job.bookingId}`,
+    ...opts,
+  });
 }

@@ -9,6 +9,7 @@ const translations = {
     'nav.specialists': 'Специалисты',
     'nav.services': 'Услуги',
     'nav.analytics': 'Аналитика',
+    'nav.sales': 'Продажи',
     'nav.settings': 'Настройки',
     // Page headings
     'page.dashboard': 'Дашборд',
@@ -43,6 +44,7 @@ const translations = {
     'nav.specialists': 'Specialists',
     'nav.services': 'Services',
     'nav.analytics': 'Analytics',
+    'nav.sales': 'Sales',
     'nav.settings': 'Settings',
     // Page headings
     'page.dashboard': 'Dashboard',

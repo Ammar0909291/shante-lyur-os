@@ -6,6 +6,8 @@ import { DIRegistry } from '@/infrastructure/config/di-registry';
 import { ProcessWebhookUseCase } from '@/application/use-cases/payment';
 import type { IEventBus } from '@/application/ports';
 import type { DomainEvent } from '@/domain/events';
+import { completeSaleByProviderPaymentId } from '@/modules/sales/application/sales.service';
+import { enqueueSaleNotification } from '@/shared/queue/enqueue';
 
 const noopEventBus: IEventBus = {
   async publish(_event: DomainEvent): Promise<void> {},
@@ -45,6 +47,33 @@ export async function POST(req: NextRequest) {
     );
 
     await useCase.execute({ provider: 'YOOKASSA', payload, signature });
+
+    // Dispatch sale notification if this was a captured payment
+    const body = payload as { object?: { id?: string; status?: string; paid?: boolean } };
+    const obj  = body?.object ?? {};
+    const wasCaptured = obj.paid === true || obj.status === 'succeeded';
+    const providerPaymentId = obj.id;
+
+    if (wasCaptured && providerPaymentId) {
+      try {
+        const event = await completeSaleByProviderPaymentId(providerPaymentId, 'YOOKASSA');
+        if (event) {
+          await enqueueSaleNotification({
+            bookingId:      event.bookingId,
+            transactionId:  event.transactionId,
+            clientName:     event.clientName,
+            specialistName: event.specialistName,
+            serviceNames:   event.serviceNames,
+            amount:         event.amount,
+            currency:       event.currency,
+            paidAt:         event.paidAt,
+            triggeredAt:    new Date().toISOString(),
+          });
+        }
+      } catch {
+        // Non-fatal — notification failure must not fail the webhook
+      }
+    }
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch {

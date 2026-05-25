@@ -43,3 +43,15 @@ export interface ReportGenerationJob {
   requestedBy: string;
   locationId?: string;
 }
+
+export interface SaleNotificationJob {
+  bookingId:      string;
+  transactionId:  string;
+  clientName:     string;
+  specialistName: string;
+  serviceNames:   string[];
+  amount:         number;
+  currency:       string;
+  paidAt:         string;
+  triggeredAt:    string;
+}
