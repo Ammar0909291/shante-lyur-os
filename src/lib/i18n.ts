@@ -16,6 +16,7 @@ const translations = {
     'nav.waitlist':       'Лист ожидания',
     'nav.loyalty':        'Лояльность',
     'nav.schedule':       'Расписание',
+    'nav.payroll':        'Зарплата',
     'nav.settings':       'Настройки',
     // Page headings
     'page.dashboard': 'Дашборд',
@@ -57,6 +58,7 @@ const translations = {
     'nav.waitlist':       'Waitlist',
     'nav.loyalty':        'Loyalty',
     'nav.schedule':       'Schedule',
+    'nav.payroll':        'Payroll',
     'nav.settings':       'Settings',
     // Page headings
     'page.dashboard': 'Dashboard',

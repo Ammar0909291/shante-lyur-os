@@ -16,6 +16,7 @@ import {
   ClockIcon,
   Award,
   CalendarClock,
+  Banknote,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
   { labelKey: 'nav.waitlist',       href: '/waitlist',       icon: ClockIcon     },
   { labelKey: 'nav.loyalty',        href: '/loyalty',        icon: Award         },
   { labelKey: 'nav.schedule',       href: '/schedule',       icon: CalendarClock },
+  { labelKey: 'nav.payroll',        href: '/payroll',        icon: Banknote      },
   { labelKey: 'nav.settings', href: '/settings', icon: Settings },
 ];
 
