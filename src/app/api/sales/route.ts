@@ -9,6 +9,7 @@ function ok<T>(data: T) { return NextResponse.json({ success: true, data }); }
 function err(code: string, msg: string, status: number) {
   return NextResponse.json({ success: false, error: { code, message: msg } }, { status });
 }
+function r2(n: number) { return Math.round(n * 100) / 100; }
 
 const NewClientSchema = z.object({
   firstName:          z.string().min(1).max(100),
@@ -23,29 +24,25 @@ const NewClientSchema = z.object({
 });
 
 const ServiceLineSchema = z.object({
-  serviceId:              z.string().uuid(),
+  serviceId:               z.string().uuid(),
   performedBySpecialistId: z.string().uuid().optional(),
-  quantity:               z.number().int().min(1).max(50),
-  unitPrice:              z.number().min(0),
+  quantity:                z.number().int().min(1).max(50),
+  unitPrice:               z.number().min(0),
 });
 
 const EmployeeLineSchema = z.object({
-  userId:    z.string().uuid(),
-  role:      z.enum(['SPECIALIST','MANAGER','OTHER']),
+  userId: z.string().uuid(),
+  role:   z.enum(['SPECIALIST','MANAGER','OTHER']),
 });
 
 const SaleSchema = z.object({
-  // Client: one of these required
   newClient:        NewClientSchema.optional(),
   existingClientId: z.string().uuid().optional(),
-
-  // Sale data
-  tradeManagerId: z.string().uuid(),
-  employees:      z.array(EmployeeLineSchema).min(1),
-  services:       z.array(ServiceLineSchema).min(1),
-  startAt:        z.string(),
-  locationId:     z.string().uuid().optional(),
-
+  tradeManagerId:   z.string().uuid(),
+  employees:        z.array(EmployeeLineSchema).min(1),
+  services:         z.array(ServiceLineSchema).min(1),
+  startAt:          z.string(),
+  locationId:       z.string().uuid().optional(),
   payment: z.object({
     amountCash:    z.number().min(0).default(0),
     amountCard:    z.number().min(0).default(0),
@@ -74,16 +71,13 @@ export async function POST(req: NextRequest) {
   const d = parsed.data;
 
   // ── Payment validation ─────────────────────────────────────────────────────
-  const saleTotal = d.services.reduce((sum, s) => sum + s.unitPrice * s.quantity, 0);
+  const saleTotal    = d.services.reduce((sum, s) => sum + s.unitPrice * s.quantity, 0);
   const paymentTotal = d.payment.amountCash + d.payment.amountCard +
                        d.payment.amountLoan + d.payment.amountPackage;
 
   if (Math.abs(paymentTotal - saleTotal) > 0.01) {
-    return err(
-      'PAYMENT_MISMATCH',
-      `Сумма платежей (${paymentTotal}) не совпадает с итогом продажи (${saleTotal})`,
-      422,
-    );
+    return err('PAYMENT_MISMATCH',
+      `Сумма платежей (${paymentTotal}) не совпадает с итогом продажи (${saleTotal})`, 422);
   }
 
   // ── Resolve location ────────────────────────────────────────────────────────
@@ -94,20 +88,32 @@ export async function POST(req: NextRequest) {
     locationId = loc.id;
   }
 
-  // ── Resolve primary specialist (first SPECIALIST-role employee) ─────────────
-  const primarySpecialistEntry = d.employees.find((e) => e.role === 'SPECIALIST');
-  if (!primarySpecialistEntry) {
+  // ── Resolve specialist records for ALL specialist-role employees ────────────
+  const specialistEmployeeIds = d.employees
+    .filter((e) => e.role === 'SPECIALIST')
+    .map((e) => e.userId);
+
+  if (specialistEmployeeIds.length === 0) {
     return err('VALIDATION_ERROR', 'At least one SPECIALIST employee is required', 422);
   }
 
-  const primarySpecUser = await prisma.user.findUnique({
-    where: { id: primarySpecialistEntry.userId },
-    select: { specialist: { select: { id: true } } },
+  const specialistUsers = await prisma.user.findMany({
+    where: { id: { in: specialistEmployeeIds } },
+    select: { id: true, specialist: { select: { id: true } } },
   });
-  if (!primarySpecUser?.specialist) {
+
+  // userId → specialist.id map
+  const userToSpecialistId = new Map(
+    specialistUsers
+      .filter((u) => u.specialist)
+      .map((u) => [u.id, u.specialist!.id]),
+  );
+
+  const primarySpecialistEntry = d.employees.find((e) => e.role === 'SPECIALIST')!;
+  const primarySpecialistId    = userToSpecialistId.get(primarySpecialistEntry.userId);
+  if (!primarySpecialistId) {
     return err('VALIDATION_ERROR', 'Primary specialist employee has no specialist record', 422);
   }
-  const primarySpecialistId = primarySpecUser.specialist.id;
 
   // ── Resolve services ────────────────────────────────────────────────────────
   const serviceIds  = [...new Set(d.services.map((s) => s.serviceId))];
@@ -122,14 +128,15 @@ export async function POST(req: NextRequest) {
     return sum + (svc?.baseDuration ?? 30) * line.quantity;
   }, 0);
 
-  const startAt = new Date(d.startAt);
-  const endAt   = new Date(startAt.getTime() + totalDuration * 60_000);
+  const startAt    = new Date(d.startAt);
+  const endAt      = new Date(startAt.getTime() + totalDuration * 60_000);
+  const periodMonth = startAt.toISOString().slice(0, 7);
 
   // ── Transaction ─────────────────────────────────────────────────────────────
   try {
     const result = await prisma.$transaction(async (tx) => {
 
-      // 1. Create client if new
+      // 1. Resolve or create client
       let clientId: string;
 
       if (d.newClient) {
@@ -143,13 +150,13 @@ export async function POST(req: NextRequest) {
         } else {
           const newUser = await tx.user.create({
             data: {
-              email:        `${nc.phone.replace(/\D/g, '')}@noemail.shantelyur.ru`,
-              passwordHash: 'CLIENT_NO_LOGIN',
-              firstName:    nc.firstName,
-              lastName:     nc.lastName,
-              phone:        nc.phone,
-              role:         'CLIENT',
-              status:       'ACTIVE',
+              email:         `${nc.phone.replace(/\D/g, '')}@noemail.shantelyur.ru`,
+              passwordHash:  'CLIENT_NO_LOGIN',
+              firstName:     nc.firstName,
+              lastName:      nc.lastName,
+              phone:         nc.phone,
+              role:          'CLIENT',
+              status:        'ACTIVE',
               emailVerified: false,
             },
           });
@@ -157,59 +164,58 @@ export async function POST(req: NextRequest) {
 
           await tx.customerProfile.create({
             data: {
-              userId:       clientId,
-              clientType:   'NEW',
-              sourceChannel: nc.sourceChannel as 'WALK_IN' | 'SOCIAL_MEDIA' | 'REFERRAL' | 'ONLINE_BOOKING' | 'OTHER',
-              referredBy:   nc.referredBy,
-              firstVisitAt: startAt,
-              lastVisitAt:  startAt,
-              totalVisits:  1,
+              userId:        clientId,
+              clientType:    'NEW',
+              sourceChannel: nc.sourceChannel as 'WALK_IN'|'SOCIAL_MEDIA'|'REFERRAL'|'ONLINE_BOOKING'|'OTHER',
+              referredBy:    nc.referredBy,
+              firstVisitAt:  startAt,
+              lastVisitAt:   startAt,
+              totalVisits:   1,
             },
           });
         }
       } else {
         clientId = d.existingClientId!;
-        // Update lastVisitAt + totalVisits
         await tx.customerProfile.updateMany({
           where: { userId: clientId },
-          data: { lastVisitAt: startAt, totalVisits: { increment: 1 } },
+          data:  { lastVisitAt: startAt, totalVisits: { increment: 1 } },
         });
       }
 
       // 2. Determine clientType for this sale
       const clientProfile = await tx.customerProfile.findUnique({
-        where: { userId: clientId },
+        where:  { userId: clientId },
         select: { clientType: true, prepaidBalance: true },
       });
       const clientTypeAtSale = clientProfile?.clientType ?? 'RETURNING';
 
-      // 3. Create appointment (sale)
+      // 3. Create appointment — COMPLETED because this is a recorded sale
       const appointment = await tx.appointment.create({
         data: {
           clientId,
-          specialistId:  primarySpecialistId,
+          specialistId:     primarySpecialistId,
           locationId,
           startAt,
           endAt,
-          status:        'CONFIRMED',
-          totalPrice:    saleTotal,
+          status:           'COMPLETED',
+          totalPrice:       saleTotal,
           totalDuration,
-          notes:         d.comments,
-          internalNote:  d.internalNote,
-          source:        'admin',
-          soldByUserId:  actorId,
-          tradeManagerId: d.tradeManagerId,
-          clientTypeAtSale: clientTypeAtSale as 'NEW' | 'RETURNING' | 'SUBSCRIPTION',
-          amountCash:    d.payment.amountCash,
-          amountCard:    d.payment.amountCard,
-          amountLoan:    d.payment.amountLoan,
-          amountPackage: d.payment.amountPackage,
-          paymentStatus: paymentTotal >= saleTotal ? 'PAID' : 'PARTIAL_PAID',
-          paidAmount:    paymentTotal,
+          notes:            d.comments,
+          internalNote:     d.internalNote,
+          source:           'admin',
+          soldByUserId:     actorId,
+          tradeManagerId:   d.tradeManagerId,
+          clientTypeAtSale: clientTypeAtSale as 'NEW'|'RETURNING'|'SUBSCRIPTION',
+          amountCash:       d.payment.amountCash,
+          amountCard:       d.payment.amountCard,
+          amountLoan:       d.payment.amountLoan,
+          amountPackage:    d.payment.amountPackage,
+          paymentStatus:    paymentTotal >= saleTotal ? 'PAID' : 'PARTIAL_PAID',
+          paidAmount:       paymentTotal,
         },
       });
 
-      // 4. Create appointment services (sale lines)
+      // 4. Create appointment service lines
       let sortIdx = 0;
       for (const line of d.services) {
         const svc = svcMap.get(line.serviceId);
@@ -227,8 +233,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 5. Create sale employees + payroll entries
+      // 5. Create commission entries for every employee
       for (const emp of d.employees) {
+        const commission = await calculateCommission(emp.userId, saleTotal, emp.role);
+
         const saleEmp = await tx.saleEmployee.create({
           data: {
             appointmentId: appointment.id,
@@ -237,28 +245,53 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        const commission = await calculateCommission(emp.userId, saleTotal, emp.role);
-
+        // SaleCommissionEntry — used by payroll commission-summary
         await tx.saleCommissionEntry.create({
           data: {
-            userId:          emp.userId,
-            appointmentId:   appointment.id,
-            saleEmployeeId:  saleEmp.id,
-            saleDate:        startAt,
-            roleOnSale:      emp.role,
-            commissionType:  commission.commissionType,
-            commissionBasis: commission.commissionBasis,
+            userId:           emp.userId,
+            appointmentId:    appointment.id,
+            saleEmployeeId:   saleEmp.id,
+            saleDate:         startAt,
+            roleOnSale:       emp.role,
+            commissionType:   commission.commissionType,
+            commissionBasis:  commission.commissionBasis,
             commissionAmount: commission.commissionAmount,
-            status:          'PENDING',
+            status:           'PENDING',
           },
         });
+
+        // PayrollEntry — used by payroll main page and specialist activity page
+        if (emp.role === 'SPECIALIST') {
+          const specId = userToSpecialistId.get(emp.userId);
+          if (specId && commission.commissionAmount > 0) {
+            await tx.payrollEntry.create({
+              data: {
+                specialistId:    specId,
+                type:            'COMMISSION',
+                amount:          r2(commission.commissionAmount),
+                rate:            r2(commission.commissionBasis / 100),
+                periodMonth,
+                appointmentId:   appointment.id,
+                description:     `Комиссия ${commission.commissionBasis}% с продажи ${saleTotal} ₽`,
+                entryStatus:     'pending',
+                isManuallyEdited: false,
+                createdBy:       actorId,
+              },
+            });
+
+            await tx.specialist.update({
+              where: { id: specId },
+              data:  { totalCommissionPending: { increment: r2(commission.commissionAmount) } },
+            });
+          }
+        }
       }
 
       // 6. Deduct package balance if used
       if (d.payment.amountPackage > 0 && clientProfile) {
         await tx.customerProfile.updateMany({
           where: { userId: clientId },
-          data: { prepaidBalance: { decrement: d.payment.amountPackage } },
+          data:  { prepaidBalance: { decrement: d.payment.amountPackage } },
         });
       }
 

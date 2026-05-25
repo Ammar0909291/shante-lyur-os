@@ -240,26 +240,6 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
       const json = await res.json() as { success: boolean; data?: { appointmentId?: string }; error?: { message: string } };
       if (!json.success) { setError(json.error?.message ?? 'Ошибка сохранения'); return; }
 
-      // Write commission entries (fire-and-forget; don't block onSaved)
-      const appointmentId = json.data?.appointmentId;
-      const periodMonth = startAt.slice(0, 7);
-      await Promise.allSettled(
-        commissionAllocs.map((a) =>
-          fetch(`/api/v1/specialists/${a.specialistId}/commission`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              appointmentId: appointmentId ?? undefined,
-              commissionBasis: a.percentage,
-              commissionAmount: saleTotal > 0 ? a.amount : 0,
-              periodMonth,
-              description: `Комиссия ${a.percentage}% с продажи ${fmt(saleTotal)} ₽`,
-            }),
-          }).catch(() => {})
-        )
-      );
-
       onSaved();
     } catch { setError('Ошибка соединения'); }
     finally  { setSaving(false); }
