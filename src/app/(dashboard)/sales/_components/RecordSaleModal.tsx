@@ -226,7 +226,10 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
           existingClientId: selectedClient.id,
           tradeManagerId:   managerId,
           employees,
-          services: lines,
+          services: lines.map((l) => ({
+            ...l,
+            performedBySpecialistId: l.performedBySpecialistId || undefined,
+          })),
           startAt:  new Date(startAt).toISOString(),
           locationId: locationId || undefined,
           payment: { amountCash, amountCard, amountLoan, amountPackage },
