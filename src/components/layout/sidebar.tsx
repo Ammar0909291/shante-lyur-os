@@ -10,6 +10,7 @@ import {
   Sparkles,
   Flower2,
   BarChart3,
+  FileText,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -31,7 +32,8 @@ const navItems: NavItem[] = [
   { labelKey: 'nav.specialists', href: '/specialists', icon: Sparkles },
   { labelKey: 'nav.services', href: '/services', icon: Flower2 },
   { labelKey: 'nav.analytics', href: '/analytics', icon: BarChart3 },
-  { labelKey: 'nav.sales', href: '/sales', icon: BarChart3 },
+  { labelKey: 'nav.sales',    href: '/sales',    icon: BarChart3  },
+  { labelKey: 'nav.reports',  href: '/reports',  icon: FileText   },
   { labelKey: 'nav.settings', href: '/settings', icon: Settings },
 ];
 

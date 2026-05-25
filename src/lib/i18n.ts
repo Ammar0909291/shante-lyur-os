@@ -10,6 +10,7 @@ const translations = {
     'nav.services': 'Услуги',
     'nav.analytics': 'Аналитика',
     'nav.sales': 'Продажи',
+    'nav.reports': 'Отчёты',
     'nav.settings': 'Настройки',
     // Page headings
     'page.dashboard': 'Дашборд',
@@ -45,6 +46,7 @@ const translations = {
     'nav.services': 'Services',
     'nav.analytics': 'Analytics',
     'nav.sales': 'Sales',
+    'nav.reports': 'Reports',
     'nav.settings': 'Settings',
     // Page headings
     'page.dashboard': 'Dashboard',
