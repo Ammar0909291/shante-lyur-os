@@ -311,7 +311,7 @@ function Step3({
     { key: 'firstName', label: 'Имя', type: 'text', required: true, placeholder: 'Введите имя' },
     { key: 'lastName', label: 'Фамилия', type: 'text', required: true, placeholder: 'Введите фамилию' },
     { key: 'phone', label: 'Телефон', type: 'tel', required: true, placeholder: '+7 (999) 000-00-00' },
-    { key: 'email', label: 'E-mail (необязательно)', type: 'email', required: false, placeholder: 'your@email.com' },
+    { key: 'email', label: 'E-mail (необязательно)', type: 'email', required: false, placeholder: 'example@mail.ru' },
   ];
 
   return (
@@ -617,7 +617,7 @@ export default function BookPage() {
         <div className="w-full max-w-2xl">
           <div className="text-center mb-8">
             <h1 className="font-serif text-3xl text-text-primary">Shante Lyur</h1>
-            <p className="text-text-tertiary text-sm mt-1">Premium Wellness Studio</p>
+            <p className="text-text-tertiary text-sm mt-1">Премиум велнес-студия</p>
           </div>
           <div className="rounded-2xl border border-border-luxury bg-onyx p-6 sm:p-8 shadow-luxury-lg">
             <SuccessScreen result={bookingResult} />
@@ -633,7 +633,7 @@ export default function BookPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="font-serif text-3xl text-text-primary">Shante Lyur</h1>
-          <p className="text-text-tertiary text-sm mt-1">Premium Wellness Studio</p>
+          <p className="text-text-tertiary text-sm mt-1">Премиум велнес-студия</p>
         </div>
 
         {/* Card */}
