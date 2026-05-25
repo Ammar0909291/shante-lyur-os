@@ -147,6 +147,7 @@ export function ClientSelector({
   function clear() {
     onChange(null);
     setQuery('');
+    setResults([]);
     setShowNew(false);
   }
 
