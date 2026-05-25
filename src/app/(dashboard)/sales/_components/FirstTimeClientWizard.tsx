@@ -1,12 +1,22 @@
 'use client';
 
 import * as React from 'react';
-import { X, ChevronRight, ChevronLeft, Check, Plus, Trash2 } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Check, Plus, Trash2, Percent } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface Specialist {
   id: string; userId: string; name: string; department: string; specialization: string | null;
+  commissionRate?: number;
+}
+
+interface CommissionAlloc {
+  specialistId: string; userId: string; name: string; roleBadge: string;
+  percentage: number; amount: number;
+}
+
+function floorKopek(pct: number, total: number): number {
+  return Math.floor((pct / 100) * total * 100) / 100;
 }
 interface Service {
   id: string; name: string; basePrice: number; baseDuration: number; category: string;
@@ -56,7 +66,7 @@ const SOURCE_OPTIONS: { value: string; label: string }[] = [
   { value: 'OTHER',          label: 'Другое' },
 ];
 
-const STEPS = ['Клиент', 'Менеджер', 'Специалисты', 'Услуги', 'Оплата', 'Комментарии'];
+const STEPS = ['Клиент', 'Менеджер', 'Специалисты', 'Услуги', 'Оплата', 'Комментарии', 'Комиссия'];
 
 // ── Wizard Component ─────────────────────────────────────────────────────────
 
@@ -101,9 +111,41 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
   const [comments, setComments]         = React.useState('');
   const [internalNote, setInternalNote] = React.useState('');
 
+  // Step 7 — Commission allocation (derived from selected specialists)
+  const [commissionAllocs, setCommissionAllocs] = React.useState<CommissionAlloc[]>([]);
+
   const saleTotal    = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
   const paymentTotal = amountCash + amountCard + amountLoan + amountPackage;
   const paymentDiff  = Math.round((paymentTotal - saleTotal) * 100) / 100;
+
+  // Rebuild allocs when specialists or saleTotal changes (triggered on entering step 6)
+  React.useEffect(() => {
+    setCommissionAllocs(
+      selectedSpecialists.map((uid) => {
+        const sp = specialists.find((s) => s.userId === uid);
+        const pct = Math.round((sp?.commissionRate ?? 0.30) * 100);
+        return {
+          specialistId: sp?.id ?? uid,
+          userId: uid,
+          name: sp?.name ?? uid,
+          roleBadge: sp?.specialization ?? 'Специалист',
+          percentage: pct,
+          amount: floorKopek(pct, saleTotal),
+        };
+      })
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSpecialists, saleTotal]);
+
+  function updateAllocPct(idx: number, raw: string) {
+    const pct = Math.min(100, Math.max(0, parseFloat(raw) || 0));
+    setCommissionAllocs((prev) =>
+      prev.map((a, i) => i === idx ? { ...a, percentage: pct, amount: floorKopek(pct, saleTotal) } : a)
+    );
+  }
+
+  const allocTotalPct = commissionAllocs.reduce((s, a) => s + a.percentage, 0);
+  const allocTotalAmt = commissionAllocs.reduce((s, a) => s + a.amount, 0);
 
   function validateStep(): string {
     switch (step) {
@@ -198,8 +240,26 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
 
     try {
       const res  = await fetch('/api/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
-      const json = await res.json() as { success: boolean; error?: { message: string } };
+      const json = await res.json() as { success: boolean; data?: { appointmentId?: string }; error?: { message: string } };
       if (!json.success) { setError(json.error?.message ?? 'Ошибка сохранения'); return; }
+      const appointmentId = json.data?.appointmentId;
+      const periodMonth = new Date(startAt).toISOString().slice(0, 7);
+      await Promise.allSettled(
+        commissionAllocs.map((a) =>
+          fetch(`/api/v1/specialists/${a.specialistId}/commission`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              appointmentId,
+              commissionBasis: a.percentage,
+              commissionAmount: saleTotal > 0 ? a.amount : 0,
+              periodMonth,
+              description: `Комиссия ${a.percentage}% с продажи ${fmt(saleTotal)} ₽`,
+            }),
+          }).catch(() => {}),
+        ),
+      );
       onSaved();
     } catch { setError('Ошибка соединения'); }
     finally  { setSaving(false); }
@@ -483,6 +543,73 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
                   className={`${inputCls} resize-none`}
                 />
               </div>
+            </>
+          )}
+
+          {/* STEP 6 — Commission allocation */}
+          {step === 6 && (
+            <>
+              {commissionAllocs.length === 0 ? (
+                <p className="text-sm text-text-tertiary text-center py-8">Специалисты не выбраны — комиссия не распределяется</p>
+              ) : (
+                <div className="rounded-xl border border-border-luxury bg-charcoal/40 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-border-luxury/60">
+                    <Percent className="w-3.5 h-3.5 text-champagne shrink-0" />
+                    <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Распределение комиссии</span>
+                    <span className="ml-auto text-xs text-text-tertiary tabular-nums">
+                      Сумма: <span className="text-text-secondary">{fmt(saleTotal)} ₽</span>
+                    </span>
+                  </div>
+                  {saleTotal === 0 && (
+                    <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-400">
+                      Сумма продажи ₽0 — комиссия будет ₽0
+                    </div>
+                  )}
+                  <div className="divide-y divide-border-luxury/40">
+                    {commissionAllocs.map((alloc, idx) => (
+                      <div key={alloc.specialistId} className="flex items-center gap-3 px-4 py-3">
+                        <div className="w-8 h-8 rounded-full bg-champagne/10 border border-champagne/20 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-medium text-champagne">{alloc.name.charAt(0)}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-text-primary truncate">{alloc.name}</p>
+                          <p className="text-xs text-text-tertiary">{alloc.roleBadge}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.5"
+                              value={alloc.percentage}
+                              onChange={(e) => updateAllocPct(idx, e.target.value)}
+                              className="w-20 px-2 py-1.5 pr-6 rounded-lg bg-onyx border border-border-luxury text-text-primary text-sm text-right focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all tabular-nums"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-text-tertiary pointer-events-none">%</span>
+                          </div>
+                          <span className="text-xs text-text-tertiary">=</span>
+                          <span className="text-sm font-medium text-champagne tabular-nums w-24 text-right">{fmt(alloc.amount)} ₽</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={`flex items-center justify-between px-4 py-2.5 border-t text-xs tabular-nums ${
+                    allocTotalPct > 100
+                      ? 'border-amber-500/30 bg-amber-500/5 text-amber-400'
+                      : allocTotalPct === 100
+                        ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-400'
+                        : 'border-border-luxury/60 text-text-muted'
+                  }`}>
+                    <span>
+                      {allocTotalPct > 100 && '⚠ '}
+                      {allocTotalPct === 100 && '✓ '}
+                      Итого: <span className="font-medium">{allocTotalPct.toFixed(1)}%</span>
+                    </span>
+                    <span className="font-medium">{fmt(allocTotalAmt)} ₽</span>
+                  </div>
+                </div>
+              )}
             </>
           )}
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   Download,
   Loader2,
@@ -1032,7 +1033,12 @@ export default function PayrollPage() {
                     >
                       {/* Сотрудник */}
                       <div className="space-y-1">
-                        <p className="text-sm font-medium text-text-primary leading-tight">{row.name}</p>
+                        <Link
+                          href={`/specialists/${row.specialistId}/activity?from=payroll`}
+                          className="text-sm font-medium text-text-primary leading-tight hover:text-champagne transition-colors"
+                        >
+                          {row.name}
+                        </Link>
                         <RoleBadge role={row.role} />
                       </div>
 
@@ -1121,7 +1127,12 @@ export default function PayrollPage() {
                     <div className="lg:hidden px-5 py-4 space-y-3">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
-                          <p className="text-sm font-medium text-text-primary">{row.name}</p>
+                          <Link
+                            href={`/specialists/${row.specialistId}/activity?from=payroll`}
+                            className="text-sm font-medium text-text-primary hover:text-champagne transition-colors"
+                          >
+                            {row.name}
+                          </Link>
                           <RoleBadge role={row.role} />
                         </div>
                         <div className="flex items-center gap-2">
