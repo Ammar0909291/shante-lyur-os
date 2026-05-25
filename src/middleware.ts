@@ -15,6 +15,7 @@ const EMPLOYEE_ROLES = [...FRONT_DESK_ROLES, ...SPECIALIST_ROLES] as const;
 // ---------------------------------------------------------------------------
 
 const PROTECTED_API_ROUTES = [
+  '/api/v1',
   '/api/appointments',
   '/api/customers',
   '/api/admin',

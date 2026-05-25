@@ -4,10 +4,6 @@ import React from 'react';
 import { Clock, TrendingUp, Users, Download, Loader2, ChevronDown, ChevronUp, DollarSign } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const HOURLY_RATE = 250;
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface BonusBucket { count: number; amount: number }
@@ -193,7 +189,7 @@ export default function PayrollPage() {
         if (!prev) return prev;
         const rows = prev.rows.map((r) => {
           if (r.specialistId !== specialistId) return r;
-          const baseSalary = Math.round(hoursWorked * HOURLY_RATE * 100) / 100;
+          const baseSalary = Math.round(hoursWorked * (data?.hourlyRate ?? 0) * 100) / 100;
           return { ...r, hoursWorked, baseSalary, totalPay: Math.round((baseSalary + r.totalBonus) * 100) / 100 };
         });
         const totals = rows.reduce(
@@ -231,7 +227,7 @@ export default function PayrollPage() {
           <div>
             <h1 className="text-2xl font-semibold text-text-primary">Зарплатная ведомость</h1>
             <p className="text-sm text-text-muted mt-0.5">
-              {HOURLY_RATE} ₽/час · новые клиенты 2%, постоянные (ещё есть записи) 3%, прошли все процедуры 4%
+              Комиссии и выплаты по сотрудникам
             </p>
           </div>
           {data && (
