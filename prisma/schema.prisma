@@ -198,6 +198,9 @@ model Specialist {
   scheduleChangeRequests ScheduleChangeRequest[]
   capabilityRequests     CapabilityRequest[]
   payrollHoursEntries    PayrollHoursEntry[]
+  salaryConfig           SpecialistSalaryConfig?
+  payrollEntries         PayrollEntry[]
+  payrollPeriods         PayrollPeriod[]
 
   @@index([userId])
   @@index([status])
@@ -385,6 +388,7 @@ model Appointment {
   stockMovements   StockMovement[]
   promoCodeUsages  PromoCodeUsage[]
   outboundMessages OutboundMessage[]
+  payrollEntries   PayrollEntry[]
 
   @@index([clientId, startAt])
   @@index([specialistId, startAt])
@@ -709,6 +713,8 @@ model Payment {
   processedByUserId    String?         @map("processed_by_user_id") @db.Uuid
   commissionAmount     Decimal?        @map("commission_amount") @db.Decimal(10, 2)
   specialistCommission Decimal?        @map("specialist_commission") @db.Decimal(10, 2)
+  commissionRate       Decimal?        @map("commission_rate") @db.Decimal(5, 4)
+  commissionOverridden Boolean         @default(false) @map("commission_overridden")
   createdAt            DateTime        @default(now()) @map("created_at")
   updatedAt            DateTime        @updatedAt @map("updated_at")
 
@@ -716,6 +722,7 @@ model Payment {
   appointment    Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
   refunds        Refund[]
   revenueRecords RevenueRecord[]
+  payrollEntries PayrollEntry[]
 
   @@index([appointmentId])
   @@index([providerPaymentId])
@@ -1670,4 +1677,99 @@ model PayrollHoursEntry {
   @@unique([specialistId, periodFrom, periodTo])
   @@index([specialistId])
   @@map("payroll_hours_entries")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAYROLL SYSTEM v2
+// ═══════════════════════════════════════════════════════════════
+
+enum SalaryType {
+  FIXED
+  HOURLY
+  SHIFT
+  HYBRID
+}
+
+enum PayrollEntryType {
+  BASE_SALARY
+  COMMISSION
+  BONUS
+  DEDUCTION
+  ADJUSTMENT
+}
+
+enum PayrollPeriodStatus {
+  PENDING
+  APPROVED
+  PAID
+}
+
+model SpecialistSalaryConfig {
+  id                     String     @id @default(uuid()) @db.Uuid
+  specialistId           String     @unique @map("specialist_id") @db.Uuid
+  salaryType             SalaryType @default(FIXED) @map("salary_type")
+  fixedAmount            Decimal    @default(0) @map("fixed_amount") @db.Decimal(12, 2)
+  hourlyRate             Decimal    @default(0) @map("hourly_rate") @db.Decimal(10, 2)
+  shiftRate              Decimal    @default(0) @map("shift_rate") @db.Decimal(10, 2)
+  commissionRate         Decimal    @default(0) @map("commission_rate") @db.Decimal(5, 4)
+  bonusThresholdSessions Int?       @map("bonus_threshold_sessions")
+  effectiveFrom          DateTime   @default(now()) @map("effective_from")
+  notes                  String?    @db.VarChar(500)
+  createdAt              DateTime   @default(now()) @map("created_at")
+  updatedAt              DateTime   @updatedAt @map("updated_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@index([specialistId])
+  @@map("specialist_salary_configs")
+}
+
+model PayrollEntry {
+  id            String           @id @default(uuid()) @db.Uuid
+  specialistId  String           @map("specialist_id") @db.Uuid
+  paymentId     String?          @map("payment_id") @db.Uuid
+  appointmentId String?          @map("appointment_id") @db.Uuid
+  type          PayrollEntryType
+  amount        Decimal          @db.Decimal(12, 2)
+  rate          Decimal?         @db.Decimal(5, 4)
+  periodMonth   String           @map("period_month") @db.VarChar(7)
+  description   String?          @db.VarChar(500)
+  isLocked      Boolean          @default(false) @map("is_locked")
+  createdBy     String?          @map("created_by") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  specialist  Specialist   @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+  payment     Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([specialistId, periodMonth])
+  @@index([paymentId])
+  @@index([type, periodMonth])
+  @@map("payroll_entries")
+}
+
+model PayrollPeriod {
+  id              String              @id @default(uuid()) @db.Uuid
+  specialistId    String              @map("specialist_id") @db.Uuid
+  periodStart     DateTime            @map("period_start") @db.Date
+  periodEnd       DateTime            @map("period_end") @db.Date
+  baseSalary      Decimal             @default(0) @map("base_salary") @db.Decimal(12, 2)
+  totalCommission Decimal             @default(0) @map("total_commission") @db.Decimal(12, 2)
+  totalBonus      Decimal             @default(0) @map("total_bonus") @db.Decimal(12, 2)
+  totalDeduction  Decimal             @default(0) @map("total_deduction") @db.Decimal(12, 2)
+  totalAdjustment Decimal             @default(0) @map("total_adjustment") @db.Decimal(12, 2)
+  totalPayable    Decimal             @default(0) @map("total_payable") @db.Decimal(12, 2)
+  status          PayrollPeriodStatus @default(PENDING) @map("status")
+  approvedAt      DateTime?           @map("approved_at")
+  approvedBy      String?             @map("approved_by") @db.Uuid
+  paidAt          DateTime?           @map("paid_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@unique([specialistId, periodStart, periodEnd])
+  @@index([specialistId, status])
+  @@index([periodStart, periodEnd])
+  @@map("payroll_periods")
 }

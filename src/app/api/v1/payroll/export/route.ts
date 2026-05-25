@@ -1,20 +1,33 @@
 export const dynamic = 'force-dynamic';
 
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import * as R from '@/shared/api/response';
 import { prisma } from '@/infrastructure/config/prisma-client';
 
-const ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
 
 function r2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Ожидает',
+  APPROVED: 'Одобрено',
+  PAID: 'Выплачено',
+};
+
+const SALARY_TYPE_LABELS: Record<string, string> = {
+  FIXED: 'Фиксированная',
+  HOURLY: 'Почасовая',
+  SHIFT: 'Посменная',
+  HYBRID: 'Гибридная',
+};
+
 export async function GET(req: NextRequest) {
   const userId = req.headers.get('x-user-id');
   const role = req.headers.get('x-user-role');
   if (!userId || !role) return R.unauthorized();
-  if (!ALLOWED_ROLES.includes(role)) return R.forbidden('Requires Manager role or above');
+  if (!ADMIN_ROLES.includes(role)) return R.forbidden('Requires Admin role or above');
 
   const { searchParams } = new URL(req.url);
   const from = searchParams.get('from');
@@ -22,9 +35,9 @@ export async function GET(req: NextRequest) {
 
   const dateFrom = from ? new Date(from) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const dateTo = to ? new Date(to + 'T23:59:59') : new Date();
-  const periodMonthStr = from
-    ? from.substring(0, 7)
-    : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const fromStr = from ?? dateFrom.toISOString().substring(0, 10);
+  const toStr = to ?? dateTo.toISOString().substring(0, 10);
+  const periodMonthStr = fromStr.substring(0, 7);
 
   const specialists = await prisma.specialist.findMany({
     where: { status: 'ACTIVE' },
@@ -74,35 +87,20 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  // Aggregate appointments per specialist
-  type ApptAgg = {
-    sessions: number;
-    salesVolume: number;
-    daySet: Set<string>;
-    daySessions: Map<string, number>;
-  };
+  type ApptAgg = { sessions: number; salesVolume: number; daySet: Set<string> };
   const apptMap = new Map<string, ApptAgg>();
   for (const sp of specialists) {
-    apptMap.set(sp.id, { sessions: 0, salesVolume: 0, daySet: new Set(), daySessions: new Map() });
+    apptMap.set(sp.id, { sessions: 0, salesVolume: 0, daySet: new Set() });
   }
   for (const a of appointments) {
     const agg = apptMap.get(a.specialistId);
     if (!agg) continue;
     agg.sessions += 1;
     agg.salesVolume += Number(a.totalPrice);
-    const dayKey = a.startAt.toISOString().substring(0, 10);
-    agg.daySet.add(dayKey);
-    agg.daySessions.set(dayKey, (agg.daySessions.get(dayKey) ?? 0) + 1);
+    agg.daySet.add(a.startAt.toISOString().substring(0, 10));
   }
 
-  // Aggregate payroll entries per specialist
-  type EntryAgg = {
-    commission: number;
-    bonus: number;
-    deduction: number;
-    adjustment: number;
-    baseSalary: number;
-  };
+  type EntryAgg = { commission: number; bonus: number; deduction: number; adjustment: number; baseSalary: number };
   const entryMap = new Map<string, EntryAgg>();
   for (const sp of specialists) {
     entryMap.set(sp.id, { commission: 0, bonus: 0, deduction: 0, adjustment: 0, baseSalary: 0 });
@@ -112,21 +110,11 @@ export async function GET(req: NextRequest) {
     if (!agg) continue;
     const amt = Number(e.amount);
     switch (e.type) {
-      case 'BASE_SALARY':
-        agg.baseSalary += amt;
-        break;
-      case 'COMMISSION':
-        agg.commission += amt;
-        break;
-      case 'BONUS':
-        agg.bonus += amt;
-        break;
-      case 'DEDUCTION':
-        agg.deduction += Math.abs(amt);
-        break;
-      case 'ADJUSTMENT':
-        agg.adjustment += amt;
-        break;
+      case 'BASE_SALARY': agg.baseSalary   += amt; break;
+      case 'COMMISSION':  agg.commission   += amt; break;
+      case 'BONUS':       agg.bonus        += amt; break;
+      case 'DEDUCTION':   agg.deduction    += Math.abs(amt); break;
+      case 'ADJUSTMENT':  agg.adjustment   += amt; break;
     }
   }
 
@@ -140,57 +128,87 @@ export async function GET(req: NextRequest) {
     const workingDays = apptAgg.daySet.size;
     const completedSessions = apptAgg.sessions;
     const salesVolume = r2(apptAgg.salesVolume);
-    const bonusThresholdSessions = cfg?.bonusThresholdSessions ?? null;
 
-    let maxDailySessions = 0;
-    let daysOverThreshold = 0;
-    for (const [, cnt] of apptAgg.daySessions) {
-      if (cnt > maxDailySessions) maxDailySessions = cnt;
-      if (bonusThresholdSessions !== null && cnt >= bonusThresholdSessions) daysOverThreshold += 1;
-    }
-
-    const baseSalary = period ? r2(Number(period.baseSalary)) : r2(entAgg.baseSalary);
-    const totalCommission = period ? r2(Number(period.totalCommission)) : r2(entAgg.commission);
-    const totalBonus = period ? r2(Number(period.totalBonus)) : r2(entAgg.bonus);
-    const totalDeduction = period ? r2(Number(period.totalDeduction)) : r2(entAgg.deduction);
-    const totalAdjustment = period ? r2(Number(period.totalAdjustment)) : r2(entAgg.adjustment);
-    const totalPayable = period
+    const baseSalary      = period ? r2(Number(period.baseSalary))      : r2(entAgg.baseSalary);
+    const totalCommission = period ? r2(Number(period.totalCommission))  : r2(entAgg.commission);
+    const totalBonus      = period ? r2(Number(period.totalBonus))       : r2(entAgg.bonus);
+    const totalDeduction  = period ? r2(Number(period.totalDeduction))   : r2(entAgg.deduction);
+    const totalAdjustment = period ? r2(Number(period.totalAdjustment))  : r2(entAgg.adjustment);
+    const totalPayable    = period
       ? r2(Number(period.totalPayable))
       : r2(baseSalary + totalCommission + totalBonus - totalDeduction + totalAdjustment);
 
     return {
-      specialistId: sp.id,
       name: `${sp.user.firstName} ${sp.user.lastName}`.trim(),
-      role: 'SPECIALIST',
-      department: sp.department,
       salaryType,
       workingDays,
       completedSessions,
       baseSalary,
+      salesVolume,
       totalCommission,
       totalBonus,
       totalDeduction,
       totalAdjustment,
       totalPayable,
       status: period ? period.status : 'PENDING',
-      bonusThresholdSessions,
-      maxDailySessions,
-      daysOverThreshold,
-      salesVolume,
-      periodId: period?.id ?? null,
     };
   });
 
-  const totals = rows.reduce(
-    (acc, r) => ({
-      totalPayrollCost: r2(acc.totalPayrollCost + r.totalPayable),
-      totalCommission: r2(acc.totalCommission + r.totalCommission),
-      totalBaseSalaries: r2(acc.totalBaseSalaries + r.baseSalary),
-      employeesProcessed: acc.employeesProcessed + 1,
-      pendingApproval: acc.pendingApproval + (r.status === 'PENDING' ? 1 : 0),
-    }),
-    { totalPayrollCost: 0, totalCommission: 0, totalBaseSalaries: 0, employeesProcessed: 0, pendingApproval: 0 },
-  );
+  // Build CSV with BOM + semicolon-separated
+  const BOM = '﻿';
+  const headers = [
+    'Сотрудник',
+    'Тип зарплаты',
+    'Рабочих дней',
+    'Сессий',
+    'База',
+    'Продажи',
+    'Комиссия',
+    'Бонусы',
+    'Удержания',
+    'Корректировки',
+    'К выплате',
+    'Статус',
+  ];
 
-  return R.success({ from: dateFrom.toISOString(), to: dateTo.toISOString(), rows, totals });
+  const escape = (val: string | number): string => {
+    const s = String(val);
+    if (s.includes(';') || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const lines: string[] = [headers.map(escape).join(';')];
+  for (const row of rows) {
+    lines.push(
+      [
+        row.name,
+        SALARY_TYPE_LABELS[row.salaryType] ?? row.salaryType,
+        row.workingDays,
+        row.completedSessions,
+        row.baseSalary,
+        row.salesVolume,
+        row.totalCommission,
+        row.totalBonus,
+        row.totalDeduction,
+        row.totalAdjustment,
+        row.totalPayable,
+        STATUS_LABELS[row.status] ?? row.status,
+      ]
+        .map(escape)
+        .join(';'),
+    );
+  }
+
+  const csvContent = BOM + lines.join('\r\n');
+  const filename = `payroll_${fromStr}_${toStr}.csv`;
+
+  return new NextResponse(csvContent, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    },
+  });
 }

@@ -242,6 +242,43 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // Auto-write commission PayrollEntry for specialist (idempotent)
+      if (apt.specialistId) {
+        const existingCommission = await tx.payrollEntry.findFirst({
+          where: { paymentId: payment.id, type: 'COMMISSION' },
+          select: { id: true },
+        });
+        if (!existingCommission) {
+          const salaryConfig = await tx.specialistSalaryConfig.findUnique({
+            where: { specialistId: apt.specialistId },
+            select: { commissionRate: true },
+          });
+          const specialist = await tx.specialist.findUnique({
+            where: { id: apt.specialistId },
+            select: { commissionRate: true },
+          });
+          const rate =
+            (salaryConfig?.commissionRate != null ? Number(salaryConfig.commissionRate) : null) ??
+            (specialist?.commissionRate != null ? Number(specialist.commissionRate) : 0);
+          const commissionAmount = Math.round(amount * rate * 100) / 100;
+          const periodMonth = new Date().toISOString().substring(0, 7);
+
+          await tx.payrollEntry.create({
+            data: {
+              specialistId:  apt.specialistId,
+              paymentId:     payment.id,
+              appointmentId,
+              type:          'COMMISSION',
+              amount:        commissionAmount,
+              rate,
+              periodMonth,
+              description:   'Комиссия с продажи',
+              isLocked:      false,
+            },
+          });
+        }
+      }
+
       // Audit log
       await tx.auditLog.create({
         data: {

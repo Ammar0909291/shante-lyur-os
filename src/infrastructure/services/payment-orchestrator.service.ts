@@ -7,6 +7,7 @@ import { PaymentProvider } from '@/domain/enums/payment-provider.enum';
 import { Money } from '@/domain/value-objects/money.vo';
 import { NotFoundError } from '@/domain/errors/not-found-error';
 import { ConflictError } from '@/domain/errors/conflict-error';
+import { prisma } from '@/infrastructure/config/prisma-client';
 
 export class PaymentOrchestrator implements PaymentOrchestratorPort {
   constructor(
@@ -62,13 +63,78 @@ export class PaymentOrchestrator implements PaymentOrchestratorPort {
     const payment = await this.paymentRepo.findByProviderPaymentId(webhook.providerPaymentId, provider);
     if (!payment) throw new NotFoundError('Payment', webhook.providerPaymentId);
 
-    if (webhook.success && payment.status !== PaymentStatus.CAPTURED) {
+    const wasAlreadyCaptured = payment.status === PaymentStatus.CAPTURED;
+
+    if (webhook.success && !wasAlreadyCaptured) {
       payment.markCaptured();
     } else if (!webhook.success && payment.status === PaymentStatus.PROCESSING) {
       payment.markFailed('Webhook reported failure');
     }
 
-    return this.paymentRepo.update(payment);
+    const updated = await this.paymentRepo.update(payment);
+
+    // Auto-write commission PayrollEntry when payment transitions to CAPTURED (idempotent)
+    if (webhook.success && !wasAlreadyCaptured) {
+      try {
+        const appointment = await prisma.appointment.findUnique({
+          where: { id: payment.appointmentId },
+          select: { specialistId: true },
+        });
+
+        if (appointment?.specialistId) {
+          const existing = await prisma.payrollEntry.findFirst({
+            where: { paymentId: payment.id, type: 'COMMISSION' },
+            select: { id: true },
+          });
+
+          if (!existing) {
+            const [paymentRow, salaryConfig, specialist] = await Promise.all([
+              prisma.payment.findUnique({
+                where: { id: payment.id },
+                select: { commissionRate: true },
+              }),
+              prisma.specialistSalaryConfig.findUnique({
+                where: { specialistId: appointment.specialistId },
+                select: { commissionRate: true },
+              }),
+              prisma.specialist.findUnique({
+                where: { id: appointment.specialistId },
+                select: { commissionRate: true },
+              }),
+            ]);
+
+            // Priority: payment.commissionRate override → salaryConfig.commissionRate → specialist.commissionRate
+            const rate =
+              (paymentRow?.commissionRate != null ? Number(paymentRow.commissionRate) : null) ??
+              (salaryConfig?.commissionRate != null ? Number(salaryConfig.commissionRate) : null) ??
+              (specialist?.commissionRate != null ? Number(specialist.commissionRate) : 0);
+
+            const commissionAmount = Math.round(payment.amount.amount * rate * 100) / 100;
+            const paidAt = payment.paidAt ?? new Date();
+            const periodMonth = paidAt.toISOString().substring(0, 7);
+
+            await prisma.payrollEntry.create({
+              data: {
+                specialistId: appointment.specialistId,
+                paymentId: payment.id,
+                appointmentId: payment.appointmentId,
+                type: 'COMMISSION',
+                amount: commissionAmount,
+                rate,
+                periodMonth,
+                description: 'Комиссия с продажи',
+                isLocked: false,
+              },
+            });
+          }
+        }
+      } catch (err) {
+        // Commission write failure must not break the webhook response
+        console.error('[PaymentOrchestrator] Failed to write commission PayrollEntry:', err);
+      }
+    }
+
+    return updated;
   }
 
   async processRefund(paymentId: string, amount: number, _reason?: string): Promise<Payment> {

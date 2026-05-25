@@ -13,6 +13,7 @@ import {
 import { ProcessWebhookDto } from '@/application/dto';
 import { AuditLog, RevenueRecord } from '@/domain/entities';
 import { AuditAction, RevenueType, PaymentProvider } from '@/domain/enums';
+import { prisma } from '@/infrastructure/config/prisma-client';
 
 export class ProcessWebhookUseCase {
   private readonly gateways: Record<string, IPaymentGateway>;
@@ -88,6 +89,47 @@ export class ProcessWebhookUseCase {
         await this.revenueRepo.create(revenue);
 
         await this.profileRepo.recordVisit(appointment.clientId, payment.amount.amount);
+
+        // Auto-write commission PayrollEntry (idempotent: skip if already exists)
+        const existingCommission = await prisma.payrollEntry.findFirst({
+          where: { paymentId: payment.id, type: 'COMMISSION' },
+          select: { id: true },
+        });
+        if (!existingCommission) {
+          const [paymentRow, salaryConfig] = await Promise.all([
+            prisma.payment.findUnique({
+              where: { id: payment.id },
+              select: { commissionRate: true },
+            }),
+            prisma.specialistSalaryConfig.findUnique({
+              where: { specialistId: appointment.specialistId },
+              select: { commissionRate: true },
+            }),
+          ]);
+          // Priority: payment.commissionRate override → salaryConfig.commissionRate → specialist.commissionRate
+          const rate =
+            (paymentRow?.commissionRate != null ? Number(paymentRow.commissionRate) : null) ??
+            (salaryConfig?.commissionRate != null ? Number(salaryConfig.commissionRate) : null) ??
+            specialist.commissionRate;
+          const rateNum = Number(rate);
+          const commissionAmount = Math.round(Number(payment.amount.amount) * rateNum * 100) / 100;
+          const paidAt = payment.paidAt ?? new Date();
+          const periodMonth = paidAt.toISOString().substring(0, 7);
+
+          await prisma.payrollEntry.create({
+            data: {
+              specialistId: appointment.specialistId,
+              paymentId: payment.id,
+              appointmentId: payment.appointmentId,
+              type: 'COMMISSION',
+              amount: commissionAmount,
+              rate: rateNum,
+              periodMonth,
+              description: 'Комиссия с продажи',
+              isLocked: false,
+            },
+          });
+        }
       }
     }
 
