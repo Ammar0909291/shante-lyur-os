@@ -620,7 +620,6 @@ export default function BookingsPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.created')}</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.duration')}</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.status')}</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.amount')}</th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('bookings.col.action')}</th>
                 </tr>
               </thead>
@@ -656,9 +655,6 @@ export default function BookingsPage() {
                       <Badge variant={getAppointmentStatusBadgeVariant(b.status)} dot>
                         {getAppointmentStatusLabel(b.status)}
                       </Badge>
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-medium text-text-primary tabular-nums whitespace-nowrap">
-                      {formatCurrency(b.totalPrice)}
                     </td>
                     <td className="px-4 py-3.5">
                       {(canComplete || canCancel || canProgress) && (
