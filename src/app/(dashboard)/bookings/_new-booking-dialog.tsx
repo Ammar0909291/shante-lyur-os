@@ -48,10 +48,6 @@ interface TimeSlot {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function isUUID(id: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-}
-
 function formatDuration(m: number) {
   if (m < 60) return `${m} мин`;
   const h = Math.floor(m / 60);
@@ -103,28 +99,6 @@ const MOCK_SPECIALISTS: ModalSpecialist[] = [
   { id: 's5', name: 'Ирина Соколова',      type: 'COSMETOLOGIST',     department: 'COSMETOLOGY', specializations: ['Химический пилинг', 'Аппаратная косметология'], allowedServiceIds: [], rating: 4.8 },
 ];
 
-const MOCK_SERVICES: ModalService[] = [
-  { id: 'sv1',  name: 'Классический расслабляющий', category: 'MASSAGE',     price: 350000, duration: 60 },
-  { id: 'sv2',  name: 'Тайский массаж',             category: 'MASSAGE',     price: 750000, duration: 90 },
-  { id: 'sv3',  name: 'Спортивный массаж',           category: 'MASSAGE',     price: 550000, duration: 60 },
-  { id: 'sv4',  name: 'Глубокотканный массаж',       category: 'MASSAGE',     price: 850000, duration: 90 },
-  { id: 'sv5',  name: 'Ароматерапевтический массаж', category: 'MASSAGE',     price: 600000, duration: 60 },
-  { id: 'sv6',  name: 'Горячий камень (стоун)',       category: 'MASSAGE',     price: 950000, duration: 90 },
-  { id: 'sv7',  name: 'Антицеллюлитный массаж',      category: 'MASSAGE',     price: 400000, duration: 45 },
-  { id: 'sv8',  name: 'Нейромышечный массаж',        category: 'MASSAGE',     price: 700000, duration: 75 },
-  { id: 'sv9',  name: 'SPA-ритуал «Шанте Люр»',     category: 'MASSAGE',     price: 1200000, duration: 120 },
-  { id: 'sv10', name: 'Лимфодренажный массаж',       category: 'MASSAGE',     price: 650000, duration: 60 },
-  { id: 'sv11', name: 'Гиалуроновый лифтинг',        category: 'COSMETOLOGY', price: 1400000, duration: 60 },
-  { id: 'sv12', name: 'Биоревитализация',             category: 'COSMETOLOGY', price: 1800000, duration: 60 },
-  { id: 'sv13', name: 'Мезотерапия',                  category: 'COSMETOLOGY', price: 1500000, duration: 45 },
-  { id: 'sv14', name: 'Химический пилинг',             category: 'COSMETOLOGY', price: 800000,  duration: 45 },
-  { id: 'sv15', name: 'RF-лифтинг',                   category: 'COSMETOLOGY', price: 1000000, duration: 60 },
-  { id: 'sv16', name: 'Ботокс / Диспорт',             category: 'COSMETOLOGY', price: 2000000, duration: 45 },
-  { id: 'sv17', name: 'Контурная пластика',            category: 'COSMETOLOGY', price: 2500000, duration: 60 },
-  { id: 'sv18', name: 'PRP-терапия',                  category: 'COSMETOLOGY', price: 2200000, duration: 60 },
-  { id: 'sv19', name: 'Микронидлинг',                 category: 'COSMETOLOGY', price: 1200000, duration: 60 },
-  { id: 'sv20', name: 'Антивозрастной уход VIP',      category: 'COSMETOLOGY', price: 3500000, duration: 120 },
-];
 
 // ─── Step bar ─────────────────────────────────────────────────────────────────
 
@@ -459,7 +433,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
       .then(r => r.ok ? r.json() : null)
       .then(json => {
         if (!json?.data?.items?.length) {
-          setServices(MOCK_SERVICES.filter(s => isMassageDept ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY'));
+          setServices([]);
           return;
         }
         let mapped: ModalService[] = json.data.items.map((s: {
@@ -472,13 +446,14 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
           duration: s.baseDuration ?? 60,
         }));
         mapped = mapped.filter(s => isMassageDept ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY');
+        // Only filter by allowedServiceIds when it produces results — don't narrow to zero
         if (specialist.allowedServiceIds.length > 0) {
-          mapped = mapped.filter(s => specialist.allowedServiceIds.includes(s.id));
+          const restricted = mapped.filter(s => specialist.allowedServiceIds.includes(s.id));
+          if (restricted.length > 0) mapped = restricted;
         }
-        if (mapped.length > 0) setServices(mapped);
-        else setServices(MOCK_SERVICES.filter(s => isMassageDept ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY'));
+        setServices(mapped);
       })
-      .catch(() => { setServices(MOCK_SERVICES.filter(s => specialist.department === 'MASSAGE' ? s.category === 'MASSAGE' : s.category === 'COSMETOLOGY')); });
+      .catch(() => { setServices([]); });
   }, [specialist]);
 
   // ── Load slots when specialist + service + date set ──────────────────────────
@@ -571,14 +546,6 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
       status: 'PENDING',
       amount: service.price,
     };
-
-    // Mock IDs (not real UUIDs) → optimistic creation without hitting the API
-    if (!isUUID(specialist.id) || !isUUID(service.id) || !isUUID(client.id)) {
-      setSuccess(true);
-      setTimeout(() => { onCreated(createdBooking); onClose(); }, 1200);
-      setSubmitting(false);
-      return;
-    }
 
     const body = {
       clientId: client.id,
@@ -830,7 +797,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
               {services.length === 0
                 ? <div className="py-8 text-center text-sm text-text-tertiary">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-champagne" />
-                    Загрузка услуг…
+                    Загрузка услуг… (если список пуст — обновите страницу)
                   </div>
                 : services.map(svc => (
                   <button key={svc.id} onClick={() => { setService(svc); setTime(''); }}
