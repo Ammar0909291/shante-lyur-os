@@ -1,13 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Calendar, Plus, Filter, Search } from 'lucide-react';
+import { Calendar, List, Plus, Filter, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { formatTime, formatDate, formatCurrency, cn } from '@/lib/utils';
 import { CreateAppointmentDialog } from '@/components/dialogs/create-appointment-dialog';
 import { AppointmentDetailDialog, type AppointmentLike } from '@/components/dialogs/appointment-detail-dialog';
+import { CalendarView } from '@/components/bookings/CalendarView';
 import { apiGet } from '@/lib/api-client';
 import { useT } from '@/lib/i18n-context';
 
@@ -83,6 +84,7 @@ function normalize(raw: unknown): Booking[] | null {
 }
 
 export default function BookingsPage() {
+  const [viewMode, setViewMode] = React.useState<'list' | 'calendar'>('list');
   const [bookings, setBookings] = React.useState<Booking[]>(mockBookings);
   const [filter, setFilter] = React.useState<StatusFilter>('ALL');
   const [categoryFilter, setCategoryFilter] = React.useState('');
@@ -138,9 +140,41 @@ export default function BookingsPage() {
           <p className="text-text-secondary mt-1 text-sm">Управление записями клиентов</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="secondary" size="sm" leftIcon={<Filter className="w-4 h-4" />} onClick={() => setShowFilters((v) => !v)}>
-            {t('btn.filters')}
-          </Button>
+          {/* List / Calendar toggle */}
+          <div className="flex gap-1 bg-onyx border border-border-luxury rounded-lg p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all',
+                viewMode === 'list'
+                  ? 'bg-charcoal text-text-primary shadow-sm'
+                  : 'text-text-muted hover:text-text-secondary',
+              )}
+            >
+              <List className="w-3.5 h-3.5" />
+              Список
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('calendar')}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all',
+                viewMode === 'calendar'
+                  ? 'bg-charcoal text-text-primary shadow-sm'
+                  : 'text-text-muted hover:text-text-secondary',
+              )}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              Календарь
+            </button>
+          </div>
+
+          {viewMode === 'list' && (
+            <Button variant="secondary" size="sm" leftIcon={<Filter className="w-4 h-4" />} onClick={() => setShowFilters((v) => !v)}>
+              {t('btn.filters')}
+            </Button>
+          )}
           <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
             {t('btn.newBooking')}
           </Button>
@@ -161,7 +195,11 @@ export default function BookingsPage() {
         ))}
       </div>
 
-      {showFilters && (
+      {viewMode === 'calendar' && (
+        <CalendarView onBookingCreated={load} />
+      )}
+
+      {viewMode === 'list' && showFilters && (
         <div className="bg-onyx border border-border-luxury rounded-2xl p-4 space-y-4">
           {/* Status filter */}
           <div>
@@ -265,7 +303,7 @@ export default function BookingsPage() {
         </div>
       )}
 
-      <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
+      {viewMode === 'list' && <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-champagne" />
@@ -347,7 +385,7 @@ export default function BookingsPage() {
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       <CreateAppointmentDialog open={showCreate} onOpenChange={setShowCreate} onCreated={load} />
       <AppointmentDetailDialog
