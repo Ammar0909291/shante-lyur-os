@@ -529,7 +529,7 @@ function StatusBadge({ status }: { status: PayrollStatus }) {
     <span
       className={cn(
         'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium',
-        status === 'PENDING'  && 'bg-amber-400/10 text-amber-400 border border-amber-400/20',
+        status === 'PENDING'  && 'bg-white/5 text-text-muted border border-border-luxury',
         status === 'APPROVED' && 'bg-sky-400/10 text-sky-400 border border-sky-400/20',
         status === 'PAID'     && 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20',
       )}
@@ -967,7 +967,9 @@ export default function PayrollPage() {
                       </div>
 
                       {/* Дни */}
-                      <p className="text-sm text-center text-text-secondary tabular-nums">{row.workingDays}</p>
+                      <p className="text-sm text-center text-text-secondary tabular-nums">
+                        {row.workingDays === 0 ? '—' : row.workingDays}
+                      </p>
 
                       {/* Сессии */}
                       <div
@@ -993,13 +995,23 @@ export default function PayrollPage() {
                       <p className="text-xs text-center text-text-muted">{SALARY_TYPE_LABELS[row.salaryType]}</p>
 
                       {/* База */}
-                      <p className="text-sm text-right text-text-secondary tabular-nums">{formatCurrency(row.baseSalary)}</p>
+                      <p
+                        className="text-sm text-right text-text-secondary tabular-nums"
+                        title={row.periodId === null ? 'Нажмите «Рассчитать»' : undefined}
+                      >
+                        {row.periodId === null ? '—' : formatCurrency(row.baseSalary)}
+                      </p>
 
                       {/* Продажи */}
                       <p className="text-sm text-right text-text-muted tabular-nums">{formatCurrency(row.salesVolume)}</p>
 
                       {/* Комиссия */}
-                      <p className="text-sm text-right text-emerald-400 tabular-nums">{formatCurrency(row.totalCommission)}</p>
+                      <p
+                        className="text-sm text-right text-emerald-400 tabular-nums"
+                        title={row.periodId === null ? 'Нажмите «Рассчитать»' : undefined}
+                      >
+                        {row.periodId === null ? '—' : formatCurrency(row.totalCommission)}
+                      </p>
 
                       {/* Бонусы */}
                       <p className={cn('text-sm text-right tabular-nums', row.totalBonus > 0 ? 'text-champagne' : 'text-text-muted')}>
@@ -1012,7 +1024,12 @@ export default function PayrollPage() {
                       </p>
 
                       {/* Итого */}
-                      <p className="text-sm text-right font-semibold text-sky-400 tabular-nums">{formatCurrency(row.totalPayable)}</p>
+                      <p
+                        className="text-sm text-right font-semibold text-sky-400 tabular-nums"
+                        title={row.periodId === null ? 'Нажмите «Рассчитать»' : undefined}
+                      >
+                        {row.periodId === null ? '—' : formatCurrency(row.totalPayable)}
+                      </p>
 
                       {/* Статус */}
                       <div className="flex justify-center">
@@ -1050,16 +1067,16 @@ export default function PayrollPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div><span className="text-text-muted">Сессии: </span><span className="text-text-secondary">{row.completedSessions}</span></div>
-                        <div><span className="text-text-muted">Дни: </span><span className="text-text-secondary">{row.workingDays}</span></div>
-                        <div><span className="text-text-muted">База: </span><span className="text-text-secondary">{formatCurrency(row.baseSalary)}</span></div>
-                        <div><span className="text-text-muted">Комиссия: </span><span className="text-emerald-400">{formatCurrency(row.totalCommission)}</span></div>
+                        <div><span className="text-text-muted">Дни: </span><span className="text-text-secondary">{row.workingDays === 0 ? '—' : row.workingDays}</span></div>
+                        <div><span className="text-text-muted">База: </span><span className="text-text-secondary">{row.periodId === null ? '—' : formatCurrency(row.baseSalary)}</span></div>
+                        <div><span className="text-text-muted">Комиссия: </span><span className="text-emerald-400">{row.periodId === null ? '—' : formatCurrency(row.totalCommission)}</span></div>
                         {row.totalBonus > 0 && (
                           <div><span className="text-text-muted">Бонусы: </span><span className="text-champagne">{formatCurrency(row.totalBonus)}</span></div>
                         )}
                         {row.totalDeduction > 0 && (
                           <div><span className="text-text-muted">Удержания: </span><span className="text-red-400">{formatCurrency(row.totalDeduction)}</span></div>
                         )}
-                        <div className="col-span-2"><span className="text-text-muted">Итого: </span><span className="font-semibold text-sky-400">{formatCurrency(row.totalPayable)}</span></div>
+                        <div className="col-span-2"><span className="text-text-muted">Итого: </span><span className="font-semibold text-sky-400">{row.periodId === null ? '—' : formatCurrency(row.totalPayable)}</span></div>
                       </div>
                     </div>
 

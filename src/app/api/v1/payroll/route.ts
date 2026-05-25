@@ -6,6 +6,13 @@ import { prisma } from '@/infrastructure/config/prisma-client';
 
 const ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
+const DEPARTMENT_LABELS: Record<string, string> = {
+  COSMETOLOGY: 'Косметолог',
+  MASSAGE: 'Массажист',
+  RECEPTION: 'Администратор',
+  MANAGEMENT: 'Менеджер',
+};
+
 function r2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -31,6 +38,7 @@ export async function GET(req: NextRequest) {
     select: {
       id: true,
       department: true,
+      specialization: true,
       commissionRate: true,
       user: { select: { firstName: true, lastName: true } },
       salaryConfig: true,
@@ -161,7 +169,7 @@ export async function GET(req: NextRequest) {
     return {
       specialistId: sp.id,
       name: `${sp.user.firstName} ${sp.user.lastName}`.trim(),
-      role: 'SPECIALIST',
+      role: sp.specialization ?? DEPARTMENT_LABELS[sp.department] ?? 'Специалист',
       department: sp.department,
       salaryType,
       workingDays,
