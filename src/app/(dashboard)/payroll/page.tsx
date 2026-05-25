@@ -16,8 +16,12 @@ import {
   CheckCircle,
   BadgeCheck,
   X,
+  Award,
+  RefreshCw,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
+import { EmployeePayrollPanel } from './_components/EmployeePayrollPanel';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -674,6 +678,10 @@ interface ModalState {
 }
 
 export default function PayrollPage() {
+  const { t } = useLanguage();
+  void t;
+
+  const [tab, setTab] = React.useState<'records' | 'commissions'>('records');
   const [from, setFrom] = React.useState(firstOfMonth());
   const [to, setTo] = React.useState(todayStr());
   const [rows, setRows] = React.useState<PayrollRow[]>([]);
@@ -686,6 +694,15 @@ export default function PayrollPage() {
   const [statusChanging, setStatusChanging] = React.useState<Set<string>>(new Set());
   const [exporting, setExporting] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
+
+  // Commissions tab state
+  const [commEmployees, setCommEmployees] = React.useState<{
+    userId: string; name: string; role: string; department: string | null;
+    specialization: string | null; avatarUrl: string | null;
+    totalApproved: number; pendingCount: number; procedureCount: number;
+  }[]>([]);
+  const [commLoading, setCommLoading] = React.useState(false);
+  const [openPanel, setOpenPanel] = React.useState<{ userId: string; name: string; role: string; department: string | null } | null>(null);
 
   React.useEffect(() => {
     const role = getUserRole();
@@ -784,6 +801,20 @@ export default function PayrollPage() {
     }
   }
 
+  const loadCommissions = React.useCallback(async () => {
+    setCommLoading(true);
+    try {
+      const res = await fetch(`/api/payroll/commission-summary?from=${from}&to=${to}`);
+      const j = await res.json() as { success: boolean; data: { employees: typeof commEmployees } };
+      if (j.success) setCommEmployees(j.data.employees);
+    } finally { setCommLoading(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to]);
+
+  React.useEffect(() => {
+    if (tab === 'commissions') void loadCommissions();
+  }, [tab, loadCommissions]);
+
   function toggleExpand(id: string) {
     setExpanded((s) => {
       const n = new Set(s);
@@ -803,6 +834,11 @@ export default function PayrollPage() {
     { label: '3 месяца', from: threeMonthsAgo(), to: todayStr() },
   ];
 
+  const TABS = [
+    { key: 'records' as const,     label: 'Ведомости' },
+    { key: 'commissions' as const, label: 'Комиссии' },
+  ];
+
   return (
     <div className="min-h-screen bg-obsidian">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
@@ -813,16 +849,50 @@ export default function PayrollPage() {
             <h1 className="text-2xl font-semibold text-text-primary">Зарплатная ведомость</h1>
             <p className="text-sm text-text-muted mt-0.5">Комиссии и выплаты по сотрудникам</p>
           </div>
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            disabled={exporting || rows.length === 0}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border-luxury text-sm text-text-secondary hover:text-text-primary hover:border-border-light disabled:opacity-40 transition-all self-start"
-          >
-            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Экспорт CSV
+          <div className="flex items-center gap-2">
+            {tab === 'commissions' && (
+              <button
+                type="button"
+                onClick={() => void loadCommissions()}
+                className="p-2 rounded-xl border border-border-luxury text-text-muted hover:text-text-primary transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              disabled={exporting || (tab === 'records' && rows.length === 0)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border-luxury text-sm text-text-secondary hover:text-text-primary hover:border-border-light disabled:opacity-40 transition-all self-start"
+            >
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Экспорт CSV
           </button>
+          </div>
         </div>
+
+        {/* Tab nav */}
+        <div className="flex gap-1 bg-charcoal/40 border border-border-luxury/40 rounded-xl p-1 w-fit">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={cn(
+                'px-4 py-1.5 rounded-lg text-sm font-medium transition-all',
+                tab === t.key
+                  ? 'bg-champagne text-obsidian'
+                  : 'text-text-muted hover:text-text-primary',
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Records tab content ── */}
+        {tab === 'records' && (<>
+        <div className="hidden">{/* records-only content below */}</div>
 
         {/* Period bar */}
         <div className="bg-charcoal border border-border-luxury rounded-2xl px-5 py-4">
@@ -1123,7 +1193,58 @@ export default function PayrollPage() {
             </div>
           )}
         </div>
-      </div>
+      </>)}
+
+      {/* ── TAB: Commissions ── */}
+      {tab === 'commissions' && (
+        <div className="space-y-3">
+          {commLoading && <p className="text-sm text-text-tertiary py-4 text-center">Загрузка...</p>}
+          {!commLoading && commEmployees.length === 0 && (
+            <div className="rounded-2xl bg-charcoal/30 border border-border-luxury p-12 text-center">
+              <Award className="w-10 h-10 text-text-tertiary mx-auto mb-3" />
+              <p className="text-text-tertiary">Нет данных о комиссиях за выбранный период.</p>
+              <p className="text-xs text-text-tertiary/60 mt-1">Комиссии появляются автоматически при записи продаж.</p>
+            </div>
+          )}
+          {commEmployees.map((emp) => (
+            <button
+              key={emp.userId}
+              type="button"
+              onClick={() => setOpenPanel({ userId: emp.userId, name: emp.name, role: emp.role, department: emp.department })}
+              className="w-full rounded-2xl bg-charcoal/30 border border-border-luxury p-5 text-left hover:bg-charcoal/50 transition-colors"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-champagne/15 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-semibold text-champagne">
+                      {emp.name.split(' ').map((p) => p[0]).slice(0, 2).join('')}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-text-primary">{emp.name}</p>
+                    <p className="text-xs text-text-tertiary">{emp.role}{emp.department ? ` · ${emp.department}` : ''}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-6 text-right">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Утверждено</p>
+                    <p className="text-sm font-semibold text-champagne">{formatCurrency(emp.totalApproved)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Ожидает</p>
+                    <p className={cn('text-sm font-medium', emp.pendingCount > 0 ? 'text-amber-400' : 'text-text-tertiary')}>{emp.pendingCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Процедур</p>
+                    <p className="text-sm text-text-secondary">{emp.procedureCount}</p>
+                  </div>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
 
       {/* Modals */}
       {modal?.type === 'add-entry' && (
@@ -1150,6 +1271,16 @@ export default function PayrollPage() {
             setModal(null);
             void loadData();
           }}
+        />
+      )}
+
+      {openPanel && (
+        <EmployeePayrollPanel
+          userId={openPanel.userId}
+          name={openPanel.name}
+          role={openPanel.role}
+          department={openPanel.department}
+          onClose={() => setOpenPanel(null)}
         />
       )}
     </div>

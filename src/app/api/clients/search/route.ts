@@ -14,70 +14,79 @@ function formatClientRef(uuid: string): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const q = (req.nextUrl.searchParams.get('q') ?? req.nextUrl.searchParams.get('search') ?? '').trim();
+    const q     = (req.nextUrl.searchParams.get('q') ?? req.nextUrl.searchParams.get('search') ?? '').trim();
     const limit = Math.min(20, Math.max(1, Number(req.nextUrl.searchParams.get('limit') ?? '10')));
+
+    const userSelect = {
+      id: true, firstName: true, lastName: true, email: true, phone: true,
+      customerProfile: { select: { clientType: true, lastVisitAt: true } },
+    } as const;
 
     if (!q) {
       const recent = await prisma.user.findMany({
-        where: { role: 'CLIENT', status: { not: 'SUSPENDED' } },
-        select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+        where:   { role: 'CLIENT', status: { not: 'SUSPENDED' } },
+        select:  userSelect,
         orderBy: { createdAt: 'desc' },
-        take: limit,
+        take:    limit,
       });
-      return ok({ items: recent.map((u) => ({ id: u.id, firstName: u.firstName, lastName: u.lastName, email: u.email, phone: u.phone, clientRef: formatClientRef(u.id) })) });
+      return ok({ items: recent.map(mapUser) });
     }
 
-    // Check if query looks like a client reference (CL-XXXXXXXX or just hex chars)
-    const refMatch = q.match(/^(?:CL-)?([0-9A-Fa-f]{4,8})$/);
+    const refMatch  = q.match(/^(?:CL-)?([0-9A-Fa-f]{4,8})$/);
     const uuidPrefix = refMatch ? refMatch[1].toLowerCase() : null;
 
     const users = await prisma.user.findMany({
       where: {
-        role: 'CLIENT',
+        role:   'CLIENT',
         status: { not: 'SUSPENDED' },
         OR: [
           { firstName: { contains: q, mode: 'insensitive' } },
-          { lastName: { contains: q, mode: 'insensitive' } },
-          { email: { contains: q, mode: 'insensitive' } },
-          { phone: { contains: q, mode: 'insensitive' } },
-          // Support "Иванов Иван" combined search via lastName+firstName concatenation
+          { lastName:  { contains: q, mode: 'insensitive' } },
+          { email:     { contains: q, mode: 'insensitive' } },
+          { phone:     { contains: q, mode: 'insensitive' } },
           ...(q.includes(' ')
             ? [
                 {
                   AND: [
                     { firstName: { contains: q.split(' ')[1] ?? '', mode: 'insensitive' as const } },
-                    { lastName: { contains: q.split(' ')[0] ?? '', mode: 'insensitive' as const } },
+                    { lastName:  { contains: q.split(' ')[0] ?? '', mode: 'insensitive' as const } },
                   ],
                 },
                 {
                   AND: [
                     { firstName: { contains: q.split(' ')[0] ?? '', mode: 'insensitive' as const } },
-                    { lastName: { contains: q.split(' ')[1] ?? '', mode: 'insensitive' as const } },
+                    { lastName:  { contains: q.split(' ')[1] ?? '', mode: 'insensitive' as const } },
                   ],
                 },
               ]
             : []),
-          // UUID prefix search (for CL- reference lookup)
           ...(uuidPrefix ? [{ email: { contains: uuidPrefix, mode: 'insensitive' as const } }] : []),
         ],
       },
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+      select:  userSelect,
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-      take: limit,
+      take:    limit,
     });
 
-    const items = users.map((u) => ({
-      id: u.id,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      email: u.email,
-      phone: u.phone,
-      clientRef: formatClientRef(u.id),
-    }));
-
-    return ok({ items });
+    return ok({ items: users.map(mapUser) });
   } catch (error) {
     if (error instanceof Error) return apiError('INTERNAL_ERROR', error.message, 500);
     return apiError('INTERNAL_ERROR', 'An unexpected error occurred', 500);
   }
+}
+
+function mapUser(u: {
+  id: string; firstName: string; lastName: string; email: string; phone: string | null;
+  customerProfile: { clientType: string; lastVisitAt: Date | null } | null;
+}) {
+  return {
+    id:          u.id,
+    firstName:   u.firstName,
+    lastName:    u.lastName,
+    email:       u.email,
+    phone:       u.phone,
+    clientRef:   'CL-' + u.id.replace(/-/g, '').substring(0, 8).toUpperCase(),
+    clientType:  u.customerProfile?.clientType ?? 'RETURNING',
+    lastVisitAt: u.customerProfile?.lastVisitAt?.toISOString() ?? null,
+  };
 }
