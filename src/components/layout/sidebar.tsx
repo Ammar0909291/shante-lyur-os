@@ -12,6 +12,7 @@ import {
   BarChart3,
   FileText,
   Bell,
+  MessageSquare,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
   { labelKey: 'nav.sales',    href: '/sales',    icon: BarChart3  },
   { labelKey: 'nav.reports',        href: '/reports',        icon: FileText },
   { labelKey: 'nav.notifications',  href: '/notifications',  icon: Bell     },
+  { labelKey: 'nav.communication',  href: '/communication',  icon: MessageSquare },
   { labelKey: 'nav.settings', href: '/settings', icon: Settings },
 ];
 

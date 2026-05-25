@@ -12,6 +12,7 @@ const translations = {
     'nav.sales': 'Продажи',
     'nav.reports':        'Отчёты',
     'nav.notifications':  'Уведомления',
+    'nav.communication':  'Рассылка',
     'nav.settings':       'Настройки',
     // Page headings
     'page.dashboard': 'Дашборд',
@@ -49,6 +50,7 @@ const translations = {
     'nav.sales': 'Sales',
     'nav.reports':        'Reports',
     'nav.notifications':  'Notifications',
+    'nav.communication':  'Broadcast',
     'nav.settings':       'Settings',
     // Page headings
     'page.dashboard': 'Dashboard',

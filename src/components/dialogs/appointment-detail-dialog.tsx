@@ -16,6 +16,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { apiPatch, apiPost, ApiError } from '@/lib/api-client';
 import { toast } from '@/hooks/use-toast';
 import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
+import { RefundDialog } from '@/components/dialogs/refund-dialog';
 
 export interface AppointmentLike {
   id: string;
@@ -38,6 +39,7 @@ export function AppointmentDetailDialog({ appointment, open, onOpenChange, onCha
   const [busy, setBusy] = React.useState(false);
   const [showReschedule, setShowReschedule] = React.useState(false);
   const [newDatetime, setNewDatetime] = React.useState('');
+  const [showRefund, setShowRefund] = React.useState(false);
 
   if (!appointment) return null;
 
@@ -165,9 +167,20 @@ export function AppointmentDetailDialog({ appointment, open, onOpenChange, onCha
                 Завершить
               </Button>
             )}
+            {appointment.status === 'COMPLETED' && (
+              <Button variant="secondary" size="sm" onClick={() => setShowRefund(true)} disabled={busy}>
+                Возврат
+              </Button>
+            )}
           </DialogFooter>
         )}
       </DialogContent>
+      <RefundDialog
+        appointmentId={showRefund ? appointment.id : null}
+        open={showRefund}
+        onOpenChange={setShowRefund}
+        onRefunded={() => { onChanged?.(); }}
+      />
     </Dialog>
   );
 }
