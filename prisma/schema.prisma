@@ -436,6 +436,7 @@ model Appointment {
   outboundMessages OutboundMessage[]
   saleEmployees         SaleEmployee[]
   saleCommissionEntries SaleCommissionEntry[]
+  payrollEntries        PayrollEntry[]
 
   @@index([clientId, startAt])
   @@index([specialistId, startAt])
