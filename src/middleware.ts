@@ -6,6 +6,7 @@ import { jwtVerify } from 'jose';
 // ---------------------------------------------------------------------------
 
 const PROTECTED_API_ROUTES = [
+  '/api/v1',
   '/api/appointments',
   '/api/customers',
   '/api/admin',
