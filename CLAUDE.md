@@ -1,13 +1,13 @@
 # Shante Lyur OS — Claude Instructions
 
-## After Every Change
+## After Every Response
 
-After every task that modifies files, ALWAYS end the response with run instructions in this exact format:
+ALWAYS end EVERY response with the phrase **"done with it"** followed by run instructions in this exact format:
 
 ```
 ## Run Instructions
 
-git pull origin claude/salon-booking-system-ErCHR
+git pull origin work/salon-booking-system-ErCHR
 Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue   ← only if .next cache needs clearing
 npm install                                                         ← only if package.json changed
 npx prisma db push                                                  ← only if schema.prisma changed
@@ -24,7 +24,7 @@ The user is on **Windows PowerShell** — all commands must be PowerShell-compat
 ## Project Context
 
 - **Stack**: Next.js 14 App Router, TypeScript, Prisma 5, PostgreSQL
-- **Branch**: `claude/salon-booking-system-ErCHR`
+- **Branch**: `work/salon-booking-system-ErCHR`
 - **User OS**: Windows, PowerShell
 - **Theme**: Luxury dark CRM with champagne/gold branding
 - **PostCSS config**: `postcss.config.js` must exist at project root — it was previously missing and caused a full CSS regression
