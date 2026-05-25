@@ -15,6 +15,7 @@ import {
   MessageSquare,
   ClockIcon,
   Award,
+  CalendarClock,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -42,6 +43,7 @@ const navItems: NavItem[] = [
   { labelKey: 'nav.communication',  href: '/communication',  icon: MessageSquare },
   { labelKey: 'nav.waitlist',       href: '/waitlist',       icon: ClockIcon     },
   { labelKey: 'nav.loyalty',        href: '/loyalty',        icon: Award         },
+  { labelKey: 'nav.schedule',       href: '/schedule',       icon: CalendarClock },
   { labelKey: 'nav.settings', href: '/settings', icon: Settings },
 ];
 
