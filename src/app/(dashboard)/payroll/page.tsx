@@ -19,6 +19,7 @@ import {
   X,
   Award,
   RefreshCw,
+  Search,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -205,7 +206,7 @@ function AddEntryModal({
             <select
               value={type}
               onChange={(e) => setType(e.target.value as EntryType)}
-              className="w-full rounded-lg border border-border-luxury bg-obsidian px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-champagne/40"
+              className="w-full rounded-lg border border-border-luxury bg-obsidian px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-champagne/40 [&>option]:bg-obsidian [&>option]:text-text-primary"
             >
               <option value="BONUS">Бонус</option>
               <option value="DEDUCTION">Удержание</option>
@@ -654,17 +655,42 @@ function ExpandedRow({
 
 function SkeletonRow() {
   return (
-    <div className="px-5 py-4 grid lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-3 items-center animate-pulse">
-      <div className="space-y-2">
-        <div className="h-3.5 w-28 rounded bg-white/5" />
-        <div className="h-3 w-16 rounded bg-white/5" />
-      </div>
-      {Array.from({ length: 9 }).map((_, i) => (
-        <div key={i} className="hidden lg:block h-3.5 rounded bg-white/5" />
+    <tr className="border-b border-border-luxury/30 animate-pulse">
+      <td className="px-4 py-3.5">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-white/5 shrink-0" />
+          <div className="space-y-1.5">
+            <div className="h-3.5 w-28 rounded bg-white/5" />
+            <div className="h-3 w-16 rounded bg-white/5" />
+          </div>
+        </div>
+      </td>
+      {Array.from({ length: 10 }).map((_, i) => (
+        <td key={i} className="px-4 py-3.5">
+          <div className="h-3.5 rounded bg-white/5" />
+        </td>
       ))}
-      <div className="hidden lg:block h-5 w-16 rounded-full bg-white/5" />
-      <div className="hidden lg:block h-5 w-5 rounded bg-white/5" />
-    </div>
+      <td className="px-4 py-3.5">
+        <div className="h-5 w-20 rounded-full bg-white/5 mx-auto" />
+      </td>
+      <td className="px-4 py-3.5">
+        <div className="h-5 w-5 rounded bg-white/5 ml-auto" />
+      </td>
+    </tr>
+  );
+}
+
+// ─── Attendance pct badge ──────────────────────────────────────────────────────
+
+function AttendancePct({ pct }: { pct: number }) {
+  const cls =
+    pct >= 90 ? 'text-emerald-400 bg-emerald-400/10' :
+    pct >= 70 ? 'text-amber-400 bg-amber-400/10' :
+                'text-red-400 bg-red-400/10';
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold tabular-nums ${cls}`}>
+      {pct.toFixed(0)}%
+    </span>
   );
 }
 
@@ -695,6 +721,9 @@ export default function PayrollPage() {
   const [statusChanging, setStatusChanging] = React.useState<Set<string>>(new Set());
   const [exporting, setExporting] = React.useState(false);
   const [isAdmin, setIsAdmin] = React.useState(false);
+  const [search, setSearch] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState<PayrollStatus | 'ALL'>('ALL');
+  const [positionFilter, setPositionFilter] = React.useState('ALL');
 
   // Commissions tab state
   const [commEmployees, setCommEmployees] = React.useState<{
@@ -828,6 +857,15 @@ export default function PayrollPage() {
     setFrom(presetFrom);
     setTo(presetTo);
   }
+
+  const filteredRows = rows.filter((r) => {
+    if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (statusFilter !== 'ALL' && r.status !== statusFilter) return false;
+    if (positionFilter !== 'ALL' && r.role !== positionFilter) return false;
+    return true;
+  });
+
+  const allPositions = [...new Set(rows.map((r) => r.role))].sort();
 
   const presets = [
     { label: 'Этот месяц', from: firstOfMonth(), to: todayStr() },
@@ -986,223 +1024,338 @@ export default function PayrollPage() {
           </div>
         )}
 
-        {/* Table */}
-        <div className="bg-charcoal border border-border-luxury rounded-2xl overflow-hidden">
-          {/* Column headers — desktop */}
-          <div className="hidden lg:grid gap-3 px-5 py-3 border-b border-border-luxury/60 text-xs font-medium text-text-muted uppercase tracking-wider"
-            style={{ gridTemplateColumns: '2fr 0.6fr 0.8fr 0.7fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr 1fr 0.9fr auto' }}
-          >
-            <span>Сотрудник</span>
-            <span className="text-center">Дни</span>
-            <span className="text-center">Сессии</span>
-            <span className="text-center">Тип</span>
-            <span className="text-right">База</span>
-            <span className="text-right">Продажи</span>
-            <span className="text-right">Комиссия</span>
-            <span className="text-right">Бонусы</span>
-            <span className="text-right">Удержания</span>
-            <span className="text-right">Итого</span>
-            <span className="text-center">Статус</span>
-            <span className="w-6" />
+        {/* Toolbar: search + filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Поиск сотрудника..."
+              className="w-full pl-9 pr-3 py-2 rounded-xl bg-charcoal border border-border-luxury text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-champagne/40"
+            />
           </div>
-
-          {loading ? (
-            <div className="divide-y divide-border-luxury/40">
-              {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <DollarSign className="w-10 h-10 text-text-muted mb-4" />
-              <p className="text-sm font-medium text-text-primary">Нет данных за период</p>
-              <p className="text-xs text-text-muted mt-1">Нажмите «Рассчитать» для расчёта зарплат</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border-luxury/40">
-              {rows.map((row) => {
-                const isExpanded = expanded.has(row.specialistId);
-                const isStatusChanging = statusChanging.has(row.specialistId);
-                const showThresholdBadge =
-                  row.daysOverThreshold > 0 && row.bonusThresholdSessions !== null;
-
-                return (
-                  <div key={row.specialistId}>
-                    {/* Main row */}
-                    <div
-                      className="hidden lg:grid gap-3 px-5 py-4 hover:bg-white/[0.015] transition-colors items-center"
-                      style={{ gridTemplateColumns: '2fr 0.6fr 0.8fr 0.7fr 1fr 0.9fr 0.9fr 0.9fr 0.9fr 1fr 0.9fr auto' }}
-                    >
-                      {/* Сотрудник */}
-                      <div className="space-y-1">
-                        <Link
-                          href={`/specialists/${row.specialistId}/activity?from=payroll`}
-                          className="text-sm font-medium text-text-primary leading-tight hover:text-champagne transition-colors"
-                        >
-                          {row.name}
-                        </Link>
-                        <RoleBadge role={row.role} />
-                      </div>
-
-                      {/* Дни */}
-                      <p className="text-sm text-center text-text-secondary tabular-nums">
-                        {row.workingDays === 0 ? '—' : row.workingDays}
-                      </p>
-
-                      {/* Сессии */}
-                      <div
-                        className={cn(
-                          'text-center',
-                          showThresholdBadge && 'bg-amber-400/10 rounded-lg py-0.5',
-                        )}
-                      >
-                        <p className={cn('text-sm tabular-nums', showThresholdBadge ? 'text-amber-400' : 'text-text-secondary')}>
-                          {row.completedSessions}
-                        </p>
-                        {showThresholdBadge && (
-                          <span
-                            className="text-[10px] text-amber-400/80"
-                            title={`${row.daysOverThreshold} дней с ≥ ${row.bonusThresholdSessions ?? ''} сессиями`}
-                          >
-                            {row.daysOverThreshold} дн ≥ {row.bonusThresholdSessions}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Тип */}
-                      <p className="text-xs text-center text-text-muted">{SALARY_TYPE_LABELS[row.salaryType]}</p>
-
-                      {/* База */}
-                      <p
-                        className="text-sm text-right text-text-secondary tabular-nums"
-                        title={row.periodId === null ? 'Нажмите «Рассчитать»' : undefined}
-                      >
-                        {row.periodId === null ? '—' : formatCurrency(row.baseSalary)}
-                      </p>
-
-                      {/* Продажи */}
-                      <p className="text-sm text-right text-text-muted tabular-nums">{formatCurrency(row.salesVolume)}</p>
-
-                      {/* Комиссия */}
-                      <p
-                        className="text-sm text-right text-emerald-400 tabular-nums"
-                        title={row.periodId === null ? 'Нажмите «Рассчитать»' : undefined}
-                      >
-                        {row.periodId === null ? '—' : formatCurrency(row.totalCommission)}
-                      </p>
-
-                      {/* Бонусы */}
-                      <p className={cn('text-sm text-right tabular-nums', row.totalBonus > 0 ? 'text-champagne' : 'text-text-muted')}>
-                        {row.totalBonus > 0 ? formatCurrency(row.totalBonus) : '—'}
-                      </p>
-
-                      {/* Удержания */}
-                      <p className={cn('text-sm text-right tabular-nums', row.totalDeduction > 0 ? 'text-red-400' : 'text-text-muted')}>
-                        {row.totalDeduction > 0 ? formatCurrency(row.totalDeduction) : '—'}
-                      </p>
-
-                      {/* Итого */}
-                      <p
-                        className="text-sm text-right font-semibold text-sky-400 tabular-nums"
-                        title={row.periodId === null ? 'Нажмите «Рассчитать»' : undefined}
-                      >
-                        {row.periodId === null ? '—' : formatCurrency(row.totalPayable)}
-                      </p>
-
-                      {/* Статус */}
-                      <div className="flex justify-center">
-                        <StatusBadge status={row.status} />
-                      </div>
-
-                      {/* Expand */}
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(row.specialistId)}
-                        className="flex items-center justify-center w-6 h-6 rounded-md text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
-                        aria-label={isExpanded ? 'Свернуть' : 'Развернуть'}
-                      >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </button>
-                    </div>
-
-                    {/* Mobile card */}
-                    <div className="lg:hidden px-5 py-4 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <Link
-                            href={`/specialists/${row.specialistId}/activity?from=payroll`}
-                            className="text-sm font-medium text-text-primary hover:text-champagne transition-colors"
-                          >
-                            {row.name}
-                          </Link>
-                          <RoleBadge role={row.role} />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={row.status} />
-                          <button
-                            type="button"
-                            onClick={() => toggleExpand(row.specialistId)}
-                            className="p-1 rounded-md text-text-muted hover:text-text-primary transition-colors"
-                          >
-                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div><span className="text-text-muted">Сессии: </span><span className="text-text-secondary">{row.completedSessions}</span></div>
-                        <div><span className="text-text-muted">Дни: </span><span className="text-text-secondary">{row.workingDays === 0 ? '—' : row.workingDays}</span></div>
-                        <div><span className="text-text-muted">База: </span><span className="text-text-secondary">{row.periodId === null ? '—' : formatCurrency(row.baseSalary)}</span></div>
-                        <div><span className="text-text-muted">Комиссия: </span><span className="text-emerald-400">{row.periodId === null ? '—' : formatCurrency(row.totalCommission)}</span></div>
-                        {row.totalBonus > 0 && (
-                          <div><span className="text-text-muted">Бонусы: </span><span className="text-champagne">{formatCurrency(row.totalBonus)}</span></div>
-                        )}
-                        {row.totalDeduction > 0 && (
-                          <div><span className="text-text-muted">Удержания: </span><span className="text-red-400">{formatCurrency(row.totalDeduction)}</span></div>
-                        )}
-                        <div className="col-span-2"><span className="text-text-muted">Итого: </span><span className="font-semibold text-sky-400">{row.periodId === null ? '—' : formatCurrency(row.totalPayable)}</span></div>
-                      </div>
-                    </div>
-
-                    {/* Expanded details */}
-                    {isExpanded && (
-                      <ExpandedRow
-                        row={row}
-                        isAdmin={isAdmin}
-                        from={from}
-                        to={to}
-                        onAddBonus={() =>
-                          setModal({
-                            type: 'add-entry',
-                            specialistId: row.specialistId,
-                            specialistName: row.name,
-                            department: row.department,
-                            entryType: 'BONUS',
-                          })
-                        }
-                        onAddDeduction={() =>
-                          setModal({
-                            type: 'add-entry',
-                            specialistId: row.specialistId,
-                            specialistName: row.name,
-                            department: row.department,
-                            entryType: 'DEDUCTION',
-                          })
-                        }
-                        onConfigSalary={() =>
-                          setModal({
-                            type: 'salary-config',
-                            specialistId: row.specialistId,
-                            specialistName: row.name,
-                            department: row.department,
-                          })
-                        }
-                        onStatusChange={(status) => handleStatusChange(row.specialistId, status)}
-                        statusChanging={isStatusChanging}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as PayrollStatus | 'ALL')}
+            className="rounded-xl border border-border-luxury bg-charcoal px-3 py-2 text-sm text-text-secondary focus:outline-none focus:ring-1 focus:ring-champagne/40 [&>option]:bg-obsidian [&>option]:text-text-primary"
+          >
+            <option value="ALL">Все статусы</option>
+            <option value="PENDING">Черновик</option>
+            <option value="APPROVED">Согласован</option>
+            <option value="PAID">Выплачен</option>
+          </select>
+          {allPositions.length > 1 && (
+            <select
+              value={positionFilter}
+              onChange={(e) => setPositionFilter(e.target.value)}
+              className="rounded-xl border border-border-luxury bg-charcoal px-3 py-2 text-sm text-text-secondary focus:outline-none focus:ring-1 focus:ring-champagne/40 [&>option]:bg-obsidian [&>option]:text-text-primary"
+            >
+              <option value="ALL">Все должности</option>
+              {allPositions.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
           )}
+          {(search || statusFilter !== 'ALL' || positionFilter !== 'ALL') && (
+            <button
+              type="button"
+              onClick={() => { setSearch(''); setStatusFilter('ALL'); setPositionFilter('ALL'); }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border-luxury text-text-muted text-xs hover:text-text-primary transition-colors"
+            >
+              <X className="w-3.5 h-3.5" /> Сбросить
+            </button>
+          )}
+          {filteredRows.length !== rows.length && (
+            <span className="text-xs text-text-muted ml-auto">
+              Показано {filteredRows.length} из {rows.length}
+            </span>
+          )}
+        </div>
+
+        {/* Premium table */}
+        <div className="bg-charcoal border border-border-luxury rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] border-collapse">
+
+              {/* Grouped column header */}
+              <thead>
+                <tr className="border-b border-border-luxury/60 bg-obsidian/40">
+                  {/* EMPLOYEE */}
+                  <th colSpan={1} className="px-4 py-2 text-left text-[10px] font-semibold text-text-muted uppercase tracking-widest border-r border-border-luxury/30">
+                    Сотрудник
+                  </th>
+                  {/* ATTENDANCE */}
+                  <th colSpan={3} className="px-4 py-2 text-center text-[10px] font-semibold text-text-muted uppercase tracking-widest border-r border-border-luxury/30">
+                    Посещаемость
+                  </th>
+                  {/* PERFORMANCE */}
+                  <th colSpan={2} className="px-4 py-2 text-center text-[10px] font-semibold text-text-muted uppercase tracking-widest border-r border-border-luxury/30">
+                    Показатели
+                  </th>
+                  {/* EARNINGS */}
+                  <th colSpan={3} className="px-4 py-2 text-center text-[10px] font-semibold text-emerald-400/70 uppercase tracking-widest border-r border-border-luxury/30">
+                    Начисления
+                  </th>
+                  {/* DEDUCTIONS */}
+                  <th colSpan={2} className="px-4 py-2 text-center text-[10px] font-semibold text-red-400/70 uppercase tracking-widest border-r border-border-luxury/30">
+                    Удержания
+                  </th>
+                  {/* TOTAL + STATUS + ACTIONS */}
+                  <th colSpan={3} className="px-4 py-2 text-center text-[10px] font-semibold text-champagne/70 uppercase tracking-widest">
+                    Итог
+                  </th>
+                </tr>
+                <tr className="border-b border-border-luxury/40 bg-obsidian/20">
+                  {/* Employee */}
+                  <th className="px-4 py-2.5 text-left text-[11px] font-medium text-text-muted border-r border-border-luxury/20 min-w-[200px]">Имя / должность</th>
+                  {/* Attendance */}
+                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted whitespace-nowrap">Раб. дней</th>
+                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted whitespace-nowrap">Отсутств.</th>
+                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted border-r border-border-luxury/20 whitespace-nowrap">Явка %</th>
+                  {/* Performance */}
+                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted whitespace-nowrap">Сессии</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-text-muted border-r border-border-luxury/20 whitespace-nowrap">Продажи</th>
+                  {/* Earnings */}
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-text-muted whitespace-nowrap">База</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-emerald-400/80 whitespace-nowrap">Комиссия</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-champagne/80 border-r border-border-luxury/20 whitespace-nowrap">Бонусы</th>
+                  {/* Deductions */}
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-red-400/80 whitespace-nowrap">Удержания</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-text-muted border-r border-border-luxury/20 whitespace-nowrap">Корр.</th>
+                  {/* Total + Status + Actions */}
+                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-sky-400/90 whitespace-nowrap">Итого ₽</th>
+                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted whitespace-nowrap">Статус</th>
+                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted w-8" />
+                </tr>
+              </thead>
+
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
+                ) : filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={14} className="py-20 text-center">
+                      <DollarSign className="w-10 h-10 text-text-muted mb-4 mx-auto" />
+                      <p className="text-sm font-medium text-text-primary">
+                        {rows.length === 0 ? 'Нет данных за период' : 'Нет результатов по фильтру'}
+                      </p>
+                      <p className="text-xs text-text-muted mt-1">
+                        {rows.length === 0 ? 'Нажмите «Рассчитать» для расчёта зарплат' : 'Попробуйте изменить параметры поиска'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRows.map((row, rowIdx) => {
+                    const isExpanded = expanded.has(row.specialistId);
+                    const isStatusChanging = statusChanging.has(row.specialistId);
+                    const showThresholdBadge = row.daysOverThreshold > 0 && row.bonusThresholdSessions !== null;
+                    const totalWorking = row.workingDays;
+                    // Estimate working days in period for attendance %
+                    const periodDays = (() => {
+                      try {
+                        const msPerDay = 86_400_000;
+                        const diff = Math.round((new Date(to).getTime() - new Date(from).getTime()) / msPerDay) + 1;
+                        const weeks = Math.floor(diff / 7);
+                        const rem   = diff % 7;
+                        return weeks * 5 + Math.min(rem, 5);
+                      } catch { return 22; }
+                    })();
+                    const attendancePct = periodDays > 0 ? (totalWorking / periodDays) * 100 : 0;
+                    const absentDays    = Math.max(0, periodDays - totalWorking);
+
+                    // Avatar color from name hash
+                    const colors = ['bg-champagne/20 text-champagne', 'bg-sky-400/20 text-sky-400', 'bg-emerald-400/20 text-emerald-400', 'bg-violet-400/20 text-violet-400', 'bg-orange-400/20 text-orange-400'];
+                    const colorCls = colors[row.name.charCodeAt(0) % colors.length] ?? colors[0];
+                    const initials = row.name.split(' ').map((n) => n[0] ?? '').slice(0, 2).join('').toUpperCase();
+
+                    return (
+                      <React.Fragment key={row.specialistId}>
+                        <tr
+                          className={cn(
+                            'border-b border-border-luxury/30 transition-colors cursor-pointer',
+                            rowIdx % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.012]',
+                            'hover:bg-white/[0.025]',
+                          )}
+                          onClick={() => toggleExpand(row.specialistId)}
+                        >
+                          {/* Employee */}
+                          <td className="px-4 py-3.5 border-r border-border-luxury/20">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${colorCls}`}>
+                                {initials}
+                              </div>
+                              <div className="min-w-0">
+                                <Link
+                                  href={`/specialists/${row.specialistId}/activity?from=payroll`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-sm font-medium text-text-primary hover:text-champagne transition-colors leading-tight block truncate"
+                                >
+                                  {row.name}
+                                </Link>
+                                <RoleBadge role={row.role} />
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Attendance: Working days */}
+                          <td className="px-3 py-3.5 text-center text-sm text-text-secondary tabular-nums">
+                            {row.workingDays === 0 ? <span className="text-text-muted">—</span> : row.workingDays}
+                          </td>
+                          {/* Absent days */}
+                          <td className="px-3 py-3.5 text-center text-sm tabular-nums">
+                            {absentDays > 0
+                              ? <span className="text-amber-400">{absentDays}</span>
+                              : <span className="text-text-muted">—</span>}
+                          </td>
+                          {/* Attendance % */}
+                          <td className="px-3 py-3.5 text-center border-r border-border-luxury/20">
+                            {row.workingDays > 0
+                              ? <AttendancePct pct={Math.min(100, attendancePct)} />
+                              : <span className="text-text-muted text-xs">—</span>}
+                          </td>
+
+                          {/* Performance: Sessions */}
+                          <td className="px-3 py-3.5 text-center tabular-nums">
+                            {showThresholdBadge ? (
+                              <div>
+                                <span className="text-sm text-amber-400 font-medium">{row.completedSessions}</span>
+                                <div className="text-[10px] text-amber-400/70 mt-0.5" title={`${row.daysOverThreshold} дней с ≥${row.bonusThresholdSessions ?? ''} сессиями`}>
+                                  {row.daysOverThreshold} дн ≥{row.bonusThresholdSessions}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-text-secondary">{row.completedSessions}</span>
+                            )}
+                          </td>
+                          {/* Sales volume */}
+                          <td className="px-3 py-3.5 text-right text-sm text-text-muted tabular-nums border-r border-border-luxury/20">
+                            {formatCurrency(row.salesVolume)}
+                          </td>
+
+                          {/* Earnings: Base */}
+                          <td className="px-3 py-3.5 text-right tabular-nums">
+                            {row.periodId === null
+                              ? <span className="text-text-muted text-sm" title="Нажмите «Рассчитать»">—</span>
+                              : <span className="text-sm text-text-secondary">{formatCurrency(row.baseSalary)}</span>}
+                          </td>
+                          {/* Commission */}
+                          <td className="px-3 py-3.5 text-right tabular-nums">
+                            {row.periodId === null
+                              ? <span className="text-text-muted text-sm">—</span>
+                              : <span className={cn('text-sm font-medium', row.totalCommission > 0 ? 'text-emerald-400' : 'text-text-muted')}>{formatCurrency(row.totalCommission)}</span>}
+                          </td>
+                          {/* Bonuses */}
+                          <td className="px-3 py-3.5 text-right tabular-nums border-r border-border-luxury/20">
+                            {row.totalBonus > 0
+                              ? <span className="text-sm text-champagne">{formatCurrency(row.totalBonus)}</span>
+                              : <span className="text-text-muted text-sm">—</span>}
+                          </td>
+
+                          {/* Deductions */}
+                          <td className="px-3 py-3.5 text-right tabular-nums">
+                            {row.totalDeduction > 0
+                              ? <span className="text-sm text-red-400">{formatCurrency(row.totalDeduction)}</span>
+                              : <span className="text-text-muted text-sm">—</span>}
+                          </td>
+                          {/* Adjustment */}
+                          <td className="px-3 py-3.5 text-right tabular-nums border-r border-border-luxury/20">
+                            {row.totalAdjustment !== 0
+                              ? <span className={cn('text-sm', row.totalAdjustment > 0 ? 'text-emerald-400' : 'text-red-400')}>{row.totalAdjustment > 0 ? '+' : ''}{formatCurrency(row.totalAdjustment)}</span>
+                              : <span className="text-text-muted text-sm">—</span>}
+                          </td>
+
+                          {/* Total payable */}
+                          <td className="px-3 py-3.5 text-right tabular-nums">
+                            {row.periodId === null
+                              ? <span className="text-text-muted text-sm" title="Нажмите «Рассчитать»">—</span>
+                              : <span className="text-base font-bold text-sky-400">{formatCurrency(row.totalPayable)}</span>}
+                          </td>
+                          {/* Status */}
+                          <td className="px-3 py-3.5 text-center">
+                            <StatusBadge status={row.status} />
+                          </td>
+                          {/* Expand toggle */}
+                          <td className="px-3 py-3.5 text-center">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); toggleExpand(row.specialistId); }}
+                              className="p-1 rounded text-text-muted hover:text-text-primary transition-colors"
+                            >
+                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+                          </td>
+                        </tr>
+
+                        {/* Expanded inline detail */}
+                        {isExpanded && (
+                          <tr className="border-b border-border-luxury/30">
+                            <td colSpan={14} className="p-0">
+                              <ExpandedRow
+                                row={row}
+                                isAdmin={isAdmin}
+                                from={from}
+                                to={to}
+                                onAddBonus={() => setModal({ type: 'add-entry', specialistId: row.specialistId, specialistName: row.name, department: row.department, entryType: 'BONUS' })}
+                                onAddDeduction={() => setModal({ type: 'add-entry', specialistId: row.specialistId, specialistName: row.name, department: row.department, entryType: 'DEDUCTION' })}
+                                onConfigSalary={() => setModal({ type: 'salary-config', specialistId: row.specialistId, specialistName: row.name, department: row.department })}
+                                onStatusChange={(status) => handleStatusChange(row.specialistId, status)}
+                                statusChanging={isStatusChanging}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+
+              {/* Sticky totals footer */}
+              {totals && filteredRows.length > 0 && !loading && (
+                <tfoot>
+                  <tr className="bg-obsidian/60 border-t-2 border-champagne/20">
+                    <td className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wide border-r border-border-luxury/20">
+                      Итого ({filteredRows.length})
+                    </td>
+                    {/* Attendance: total working days */}
+                    <td className="px-3 py-3 text-center text-sm font-semibold text-text-primary tabular-nums">
+                      {filteredRows.reduce((s, r) => s + r.workingDays, 0)}
+                    </td>
+                    <td className="px-3 py-3" />
+                    <td className="px-3 py-3 border-r border-border-luxury/20" />
+                    {/* Performance: total sessions */}
+                    <td className="px-3 py-3 text-center text-sm font-semibold text-text-primary tabular-nums">
+                      {filteredRows.reduce((s, r) => s + r.completedSessions, 0)}
+                    </td>
+                    <td className="px-3 py-3 text-right text-sm text-text-muted tabular-nums border-r border-border-luxury/20">
+                      {formatCurrency(filteredRows.reduce((s, r) => s + r.salesVolume, 0))}
+                    </td>
+                    {/* Earnings */}
+                    <td className="px-3 py-3 text-right text-sm font-semibold text-text-secondary tabular-nums">
+                      {formatCurrency(filteredRows.reduce((s, r) => s + r.baseSalary, 0))}
+                    </td>
+                    <td className="px-3 py-3 text-right text-sm font-semibold text-emerald-400 tabular-nums">
+                      {formatCurrency(filteredRows.reduce((s, r) => s + r.totalCommission, 0))}
+                    </td>
+                    <td className="px-3 py-3 text-right text-sm font-semibold text-champagne tabular-nums border-r border-border-luxury/20">
+                      {formatCurrency(filteredRows.reduce((s, r) => s + r.totalBonus, 0))}
+                    </td>
+                    {/* Deductions */}
+                    <td className="px-3 py-3 text-right text-sm font-semibold text-red-400 tabular-nums">
+                      {formatCurrency(filteredRows.reduce((s, r) => s + r.totalDeduction, 0))}
+                    </td>
+                    <td className="px-3 py-3 border-r border-border-luxury/20" />
+                    {/* Grand total */}
+                    <td className="px-3 py-3 text-right text-base font-bold text-sky-400 tabular-nums">
+                      {formatCurrency(totals.totalPayrollCost)}
+                    </td>
+                    <td className="px-3 py-3" />
+                    <td className="px-3 py-3" />
+                  </tr>
+                </tfoot>
+              )}
+
+            </table>
+          </div>
         </div>
       </>)}
 

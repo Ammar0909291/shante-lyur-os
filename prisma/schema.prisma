@@ -78,6 +78,7 @@ model User {
   @@index([email])
   @@index([role, status])
   @@index([phone])
+  @@index([firstName, lastName])
   @@map("users")
 }
 
@@ -217,6 +218,11 @@ model Specialist {
 
   // Portal visibility toggle (admin controls this)
   showEarningsToSpecialist Boolean @default(false) @map("show_earnings_to_specialist")
+
+  // Commission aggregate counters (denormalised for fast display)
+  totalCommissionPending  Decimal @default(0) @map("total_commission_pending") @db.Decimal(12, 2)
+  totalCommissionApproved Decimal @default(0) @map("total_commission_approved") @db.Decimal(12, 2)
+  totalCommissionPaid     Decimal @default(0) @map("total_commission_paid") @db.Decimal(12, 2)
 
   // Relations
   user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1787,9 +1793,12 @@ model PayrollEntry {
   rate          Decimal?         @db.Decimal(5, 4)
   periodMonth   String           @map("period_month") @db.VarChar(7)
   description   String?          @db.VarChar(500)
-  isLocked      Boolean          @default(false) @map("is_locked")
-  createdBy     String?          @map("created_by") @db.Uuid
-  createdAt     DateTime         @default(now()) @map("created_at")
+  isLocked         Boolean  @default(false) @map("is_locked")
+  isManuallyEdited Boolean  @default(false) @map("is_manually_edited")
+  entryStatus      String   @default("pending") @map("entry_status") @db.VarChar(20)
+  entryNotes       String?  @map("entry_notes") @db.VarChar(500)
+  createdBy        String?  @map("created_by") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
 
   specialist  Specialist   @relation(fields: [specialistId], references: [id], onDelete: Cascade)
   payment     Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)

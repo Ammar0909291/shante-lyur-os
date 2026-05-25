@@ -129,11 +129,10 @@ export async function GET(
     prisma.leaveRequest.findMany({
       where: {
         specialistId,
-        startDate: { gte: dateFrom },
-        endDate: { lte: new Date(dateTo.getFullYear(), dateTo.getMonth() + 1, 0) },
+        date: { gte: dateFrom, lte: dateTo },
       },
-      select: { id: true, startDate: true, endDate: true, reason: true, status: true, createdAt: true },
-      orderBy: { startDate: 'desc' },
+      select: { id: true, date: true, reason: true, status: true, createdAt: true },
+      orderBy: { date: 'desc' },
     }),
   ]);
 
@@ -300,8 +299,8 @@ export async function GET(
     const hasAppts = appointmentDaysSet.has(ds);
     let dayStatus = 'absent';
     if (attStatus === 'PRESENT' || hasAppts) dayStatus = 'worked';
-    else if (attStatus === 'DAY_OFF') dayStatus = 'day-off';
-    else if (attStatus === 'LEAVE') dayStatus = 'leave';
+    else if (attStatus === 'HOLIDAY') dayStatus = 'day-off';
+    else if (attStatus === 'SICK_LEAVE' || attStatus === 'HALF_DAY') dayStatus = 'leave';
     days.push({ date: ds, status: dayStatus });
     cur.setDate(cur.getDate() + 1);
   }
@@ -340,8 +339,8 @@ export async function GET(
       workingDays,
       leaveRequests: leaveRequests.map((lr) => ({
         id: lr.id,
-        startDate: toDateStr(lr.startDate),
-        endDate: toDateStr(lr.endDate),
+        startDate: toDateStr(lr.date),
+        endDate: toDateStr(lr.date),
         reason: lr.reason ?? '',
         status: lr.status,
         submittedOn: toDateStr(lr.createdAt),

@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { X, Search, Plus, Trash2, UserPlus, Percent } from 'lucide-react';
+import { X, Plus, Trash2, Percent } from 'lucide-react';
 import { FirstTimeClientWizard } from './FirstTimeClientWizard';
+import { ClientSelector, type ClientSearchResult } from './ClientSelector';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,12 +24,9 @@ interface CommissionAlloc {
 function floorKopek(pct: number, total: number): number {
   return Math.floor((pct / 100) * total * 100) / 100;
 }
+interface Specialist { id: string; userId: string; name: string; department: string; specialization: string | null; commissionRate?: number; }
 interface Service { id: string; name: string; basePrice: number; baseDuration: number; category: string; }
 interface Manager { id: string; name: string; role: string; }
-interface ClientResult {
-  id: string; firstName: string; lastName: string; email: string; phone: string | null;
-  clientType: string; lastVisitAt: string | null;
-}
 interface ServiceLine { serviceId: string; performedBySpecialistId: string; quantity: number; unitPrice: number; }
 
 export interface RecordSaleModalProps {
@@ -38,12 +36,6 @@ export interface RecordSaleModalProps {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function useDebounce<T>(value: T, delay: number): T {
-  const [dv, setDv] = React.useState(value);
-  React.useEffect(() => { const t = setTimeout(() => setDv(value), delay); return () => clearTimeout(t); }, [value, delay]);
-  return dv;
-}
-
 const inputCls  = 'w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all';
 const selectCls = inputCls;
 const labelCls  = 'block text-xs font-medium text-text-secondary mb-1.5';
@@ -51,15 +43,6 @@ const labelCls  = 'block text-xs font-medium text-text-secondary mb-1.5';
 function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 }
-
-const CLIENT_TYPE_BADGE: Record<string, string> = {
-  NEW:          'text-green-400 bg-green-400/10',
-  RETURNING:    'text-blue-400 bg-blue-400/10',
-  SUBSCRIPTION: 'text-champagne bg-champagne/10',
-};
-const CLIENT_TYPE_LABEL: Record<string, string> = {
-  NEW: 'Новый', RETURNING: 'Постоянный', SUBSCRIPTION: 'Абонемент',
-};
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -69,13 +52,10 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
   const [managers,    setManagers]    = React.useState<Manager[]>([]);
   const [locationId,  setLocationId]  = React.useState('');
 
-  // Client autocomplete
-  const [clientQuery,   setClientQuery]   = React.useState('');
-  const [clientResults, setClientResults] = React.useState<ClientResult[]>([]);
-  const [clientDropdown, setClientDropdown] = React.useState(false);
-  const [selectedClient, setSelectedClient] = React.useState<ClientResult | null>(null);
+  // Client selector
+  const [selectedClient, setSelectedClient] = React.useState<ClientSearchResult | null>(null);
 
-  // Wizard
+  // Wizard (fallback for first-time clients from ClientSelector)
   const [showWizard, setShowWizard] = React.useState(false);
 
   // Sale form
@@ -99,8 +79,6 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
   const [saving, setSaving] = React.useState(false);
   const [error,  setError]  = React.useState('');
-
-  const debouncedQuery = useDebounce(clientQuery, 300);
 
   const saleTotal = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
 
@@ -185,30 +163,6 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
       }
     }).catch(() => {});
   }, []);
-
-  // Client search
-  React.useEffect(() => {
-    if (debouncedQuery.trim().length < 2) { setClientResults([]); return; }
-    fetch(`/api/clients/search?q=${encodeURIComponent(debouncedQuery)}&limit=8`, { credentials: 'include' })
-      .then((r) => r.json())
-      .then((json: { success: boolean; data?: { items: ClientResult[] } }) => {
-        if (json.success) setClientResults(json.data?.items ?? []);
-      })
-      .catch(() => {});
-  }, [debouncedQuery]);
-
-  function selectClient(c: ClientResult) {
-    setSelectedClient(c);
-    setClientQuery(`${c.firstName} ${c.lastName}`);
-    setClientDropdown(false);
-    setClientResults([]);
-  }
-
-  function clearClient() {
-    setSelectedClient(null);
-    setClientQuery('');
-    setClientResults([]);
-  }
 
   function toggleSpecialist(userId: string) {
     setSelectedSpecialists((prev) =>
@@ -325,74 +279,24 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
           <form onSubmit={(e) => void handleSubmit(e)} className="flex-1 overflow-y-auto p-6 space-y-5">
 
-            {/* ── Client autocomplete ── */}
-            <div className="relative">
+            {/* ── Client selector ── */}
+            <div>
               <label className={labelCls}>Клиент *</label>
-              {selectedClient ? (
-                <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-champagne/30 bg-champagne/5">
-                  <div>
-                    <p className="text-sm font-medium text-text-primary">{selectedClient.firstName} {selectedClient.lastName}</p>
-                    <p className="text-xs text-text-tertiary">{selectedClient.phone ?? selectedClient.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${CLIENT_TYPE_BADGE[selectedClient.clientType] ?? CLIENT_TYPE_BADGE.RETURNING}`}>
-                      {CLIENT_TYPE_LABEL[selectedClient.clientType] ?? selectedClient.clientType}
-                    </span>
-                    <button type="button" onClick={clearClient} className="p-1 text-text-tertiary hover:text-text-primary transition-colors">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
-                    <input
-                      value={clientQuery}
-                      onChange={(e) => { setClientQuery(e.target.value); setClientDropdown(true); }}
-                      onFocus={() => setClientDropdown(true)}
-                      onBlur={() => setTimeout(() => setClientDropdown(false), 150)}
-                      placeholder="Поиск по имени, телефону..."
-                      disabled={saving}
-                      className={`${inputCls} pl-9`}
-                    />
-                  </div>
-                  {clientDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-obsidian border border-border-luxury rounded-xl shadow-xl z-20 overflow-hidden">
-                      {/* First-time client option */}
-                      <button
-                        type="button"
-                        onMouseDown={() => { setClientDropdown(false); setShowWizard(true); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-champagne/10 transition-colors border-b border-border-luxury"
-                      >
-                        <UserPlus className="w-4 h-4 text-champagne shrink-0" />
-                        <div className="text-left">
-                          <p className="text-sm font-medium text-champagne">Первый визит клиента</p>
-                          <p className="text-xs text-text-tertiary">Создать нового клиента и оформить продажу</p>
-                        </div>
-                      </button>
-                      {clientResults.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onMouseDown={() => selectClient(c)}
-                          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-charcoal transition-colors"
-                        >
-                          <div className="text-left">
-                            <p className="text-sm font-medium text-text-primary">{c.firstName} {c.lastName}</p>
-                            <p className="text-xs text-text-tertiary">{c.phone ?? c.email}{c.lastVisitAt ? ` · ${new Date(c.lastVisitAt).toLocaleDateString('ru-RU')}` : ''}</p>
-                          </div>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ml-2 ${CLIENT_TYPE_BADGE[c.clientType] ?? CLIENT_TYPE_BADGE.RETURNING}`}>
-                            {CLIENT_TYPE_LABEL[c.clientType] ?? c.clientType}
-                          </span>
-                        </button>
-                      ))}
-                      {clientResults.length === 0 && clientQuery.length >= 2 && (
-                        <p className="text-sm text-text-tertiary px-4 py-3">Клиент не найден</p>
-                      )}
-                    </div>
-                  )}
-                </>
+              <ClientSelector
+                value={selectedClient}
+                onChange={setSelectedClient}
+                disabled={saving}
+                allowCreate={true}
+                placeholder="Поиск клиента по имени, телефону..."
+              />
+              {!selectedClient && (
+                <button
+                  type="button"
+                  onClick={() => setShowWizard(true)}
+                  className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-dashed border-champagne/30 text-xs text-champagne/70 hover:bg-champagne/5 hover:text-champagne transition-colors"
+                >
+                  Или оформить первый визит через мастер →
+                </button>
               )}
             </div>
 

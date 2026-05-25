@@ -58,7 +58,7 @@ const inputCls = cn(
   'focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40',
   'transition-all',
 );
-const selectCls = cn(inputCls, 'cursor-pointer');
+const selectCls = cn(inputCls, 'cursor-pointer [&>option]:bg-obsidian [&>option]:text-text-primary');
 const labelCls  = 'block space-y-1.5';
 const labelText = 'text-xs font-medium text-text-secondary uppercase tracking-wider';
 
@@ -182,7 +182,7 @@ function SpecialistCard({
 
       {editDept ? (
         <div className="flex items-center gap-2">
-          <select value={deptVal} onChange={(e) => setDeptVal(e.target.value as SpecialistDepartment)} className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-obsidian border border-border-luxury text-text-primary focus:outline-none focus:border-champagne/40">
+          <select value={deptVal} onChange={(e) => setDeptVal(e.target.value as SpecialistDepartment)} className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-obsidian border border-border-luxury text-text-primary focus:outline-none focus:border-champagne/40 [&>option]:bg-obsidian [&>option]:text-text-primary">
             {DEPARTMENTS.map((d) => <option key={d} value={d}>{DEPT_LABEL[d]}</option>)}
           </select>
           <button onClick={saveDept} disabled={updating} className="px-2.5 py-1.5 rounded-lg bg-champagne text-obsidian text-xs font-medium hover:bg-champagne/90 transition-colors disabled:opacity-50">Сохранить</button>
