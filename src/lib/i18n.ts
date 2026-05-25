@@ -13,6 +13,7 @@ const translations = {
     'nav.reports':        'Отчёты',
     'nav.notifications':  'Уведомления',
     'nav.communication':  'Рассылка',
+    'nav.waitlist':       'Лист ожидания',
     'nav.settings':       'Настройки',
     // Page headings
     'page.dashboard': 'Дашборд',
@@ -51,6 +52,7 @@ const translations = {
     'nav.reports':        'Reports',
     'nav.notifications':  'Notifications',
     'nav.communication':  'Broadcast',
+    'nav.waitlist':       'Waitlist',
     'nav.settings':       'Settings',
     // Page headings
     'page.dashboard': 'Dashboard',

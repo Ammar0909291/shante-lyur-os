@@ -13,6 +13,7 @@ import {
   FileText,
   Bell,
   MessageSquare,
+  ClockIcon,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -38,6 +39,7 @@ const navItems: NavItem[] = [
   { labelKey: 'nav.reports',        href: '/reports',        icon: FileText },
   { labelKey: 'nav.notifications',  href: '/notifications',  icon: Bell     },
   { labelKey: 'nav.communication',  href: '/communication',  icon: MessageSquare },
+  { labelKey: 'nav.waitlist',       href: '/waitlist',       icon: ClockIcon     },
   { labelKey: 'nav.settings', href: '/settings', icon: Settings },
 ];
 
