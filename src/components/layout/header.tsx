@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Menu, LogOut, User, ChevronDown, Sun, Moon } from 'lucide-react';
+import { Bell, Menu, LogOut, User, ChevronDown, Sun, Moon, CheckCheck } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn, formatDate, formatTime } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
@@ -26,19 +26,62 @@ function useClock() {
   return now;
 }
 
-const mockNotifications = [
-  { id: '1', title: 'Новая запись', body: 'Анна Соколова записалась на 09:00', time: '5 мин назад', unread: true },
-  { id: '2', title: 'Подтверждение', body: 'Елена Морозова подтвердила визит', time: '15 мин назад', unread: true },
-  { id: '3', title: 'Платёж получен', body: '12 000 ₽ от Светлана Ким', time: '45 мин назад', unread: true },
-  { id: '4', title: 'Отмена записи', body: 'Ольга Новикова отменила запись', time: '2 ч назад', unread: false },
-  { id: '5', title: 'Новый отзыв', body: '5★ от Татьяна Лебедева', time: '3 ч назад', unread: false },
-  { id: '6', title: 'Напоминание', body: 'Завтра — 8 записей', time: 'Вчера', unread: false },
-  { id: '7', title: 'Обновление системы', body: 'Версия 3.0.0 установлена', time: '2 дня назад', unread: false },
-];
+interface ApiNotification {
+  id:        string;
+  type:      string;
+  status:    string;
+  title:     string;
+  body:      string;
+  createdAt: string;
+  readAt:    string | null;
+}
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60_000);
+  if (m < 1)   return 'только что';
+  if (m < 60)  return `${m} мин назад`;
+  const h = Math.floor(m / 60);
+  if (h < 24)  return `${h} ч назад`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return 'вчера';
+  return `${d} дн назад`;
+}
 
 function NotificationBell() {
-  const [open, setOpen] = React.useState(false);
-  const unread = mockNotifications.filter((n) => n.unread).length;
+  const router = useRouter();
+  const [open, setOpen]           = React.useState(false);
+  const [items, setItems]         = React.useState<ApiNotification[]>([]);
+  const [unreadCount, setUnread]  = React.useState(0);
+  const [marking, setMarking]     = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    try {
+      const res  = await fetch('/api/v1/notifications?limit=10');
+      const json = await res.json();
+      if (json.success) {
+        setItems(json.data.items as ApiNotification[]);
+        setUnread(json.data.unreadCount as number);
+      }
+    } catch { /* non-fatal */ }
+  }, []);
+
+  // Load on mount and when dropdown opens
+  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { if (open) void load(); }, [open, load]);
+
+  async function markAllRead() {
+    setMarking(true);
+    try {
+      await fetch('/api/v1/notifications/read-all', { method: 'POST' });
+      setItems((prev) => prev.map((n) => ({ ...n, status: 'READ' })));
+      setUnread(0);
+    } catch { /* non-fatal */ } finally {
+      setMarking(false);
+    }
+  }
+
+  const isUnread = (n: ApiNotification) => !['READ', 'FAILED'].includes(n.status);
 
   return (
     <DropdownMenu.Root open={open} onOpenChange={setOpen}>
@@ -53,11 +96,10 @@ function NotificationBell() {
           aria-label="Уведомления"
         >
           <Bell className="w-5 h-5" />
-          {unread > 0 && (
-            <span
-              className="absolute top-2 right-2 w-2 h-2 rounded-full bg-champagne"
-              aria-label={`${unread} новых уведомлений`}
-            />
+          {unreadCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-champagne text-obsidian text-[9px] font-bold flex items-center justify-center">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
           )}
         </button>
       </DropdownMenu.Trigger>
@@ -72,39 +114,67 @@ function NotificationBell() {
           align="end"
           sideOffset={8}
         >
-          <div className="px-4 py-3 border-b border-border-luxury flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-border-luxury flex items-center justify-between shrink-0">
             <p className="text-sm font-medium text-text-primary">Уведомления</p>
-            <span className="text-[10px] text-text-tertiary uppercase tracking-wider">{unread} новых</span>
+            {unreadCount > 0 && (
+              <span className="text-[10px] text-champagne font-medium">{unreadCount} новых</span>
+            )}
           </div>
+
           <div className="flex-1 overflow-y-auto divide-y divide-border-luxury">
-            {mockNotifications.slice(0, 10).map((n) => (
+            {items.length === 0 && (
+              <div className="px-4 py-8 text-center text-xs text-text-muted">
+                Нет уведомлений
+              </div>
+            )}
+            {items.map((n) => (
               <DropdownMenu.Item
                 key={n.id}
                 onSelect={(e) => {
                   e.preventDefault();
-                  toast(n.body);
+                  if (isUnread(n)) {
+                    void fetch(`/api/v1/notifications/${n.id}/read`, { method: 'PATCH' })
+                      .then(() => {
+                        setItems((prev) => prev.map((x) => x.id === n.id ? { ...x, status: 'READ' } : x));
+                        setUnread((c) => Math.max(0, c - 1));
+                      });
+                  }
                 }}
                 className={cn(
-                  'flex flex-col gap-0.5 px-4 py-3 cursor-pointer',
-                  'focus:outline-none focus:bg-charcoal',
-                  n.unread && 'bg-champagne/[0.03]',
+                  'flex flex-col gap-0.5 px-4 py-3 cursor-pointer outline-none',
+                  'hover:bg-charcoal focus:bg-charcoal transition-colors',
+                  isUnread(n) && 'bg-champagne/[0.03]',
                 )}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-text-primary">{n.title}</p>
-                  <span className="text-[10px] text-text-tertiary shrink-0">{n.time}</span>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs font-medium text-text-primary leading-snug">{n.title}</p>
+                  <span className="text-[10px] text-text-tertiary shrink-0 mt-0.5">{relativeTime(n.createdAt)}</span>
                 </div>
                 <p className="text-xs text-text-secondary line-clamp-2">{n.body}</p>
+                {isUnread(n) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-champagne absolute left-2 top-1/2 -translate-y-1/2" />
+                )}
               </DropdownMenu.Item>
             ))}
           </div>
-          <div className="px-4 py-2 border-t border-border-luxury">
+
+          <div className="px-4 py-2.5 border-t border-border-luxury flex items-center justify-between shrink-0">
             <button
-              onClick={() => { toast('Все уведомления прочитаны'); setOpen(false); }}
-              className="text-xs text-champagne hover:text-champagne-light transition-colors"
+              onClick={() => { setOpen(false); router.push('/notifications'); }}
+              className="text-xs text-text-secondary hover:text-text-primary transition-colors"
             >
-              Отметить все прочитанными
+              Все уведомления →
             </button>
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllRead}
+                disabled={marking}
+                className="flex items-center gap-1 text-xs text-champagne hover:text-champagne/80 transition-colors disabled:opacity-50"
+              >
+                <CheckCheck className="w-3 h-3" />
+                Прочитать все
+              </button>
+            )}
           </div>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
