@@ -7,21 +7,22 @@ import { prisma } from '@/infrastructure/config/prisma-client';
 const ALLOWED_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 const HOURLY_RATE = 250; // ₽ per hour
 const BONUS_RATES = { FIRST_TIME: 0.02, EXISTING: 0.03, RETURNING: 0.04 } as const;
-const RETURNING_THRESHOLD_DAYS = 60;
 
 type ClientType = keyof typeof BONUS_RATES;
 
+// FIRST_TIME  — no prior completed appointments
+// EXISTING    — has prior completed appointments AND has future booked procedures remaining
+// RETURNING   — has prior completed appointments AND no future procedures left
 function classifyClient(
   clientId: string,
-  apptStartAt: Date,
-  historyMap: Map<string, Date[]>,
+  _apptStartAt: Date,
+  priorCountMap: Map<string, number>,
+  futurePendingMap: Map<string, number>,
 ): ClientType {
-  const history = historyMap.get(clientId) ?? [];
-  const prior = history.filter((d) => d < apptStartAt);
-  if (prior.length === 0) return 'FIRST_TIME';
-  const lastVisit = prior[prior.length - 1];
-  const days = (apptStartAt.getTime() - lastVisit.getTime()) / 86_400_000;
-  return days > RETURNING_THRESHOLD_DAYS ? 'RETURNING' : 'EXISTING';
+  const priorCount = priorCountMap.get(clientId) ?? 0;
+  if (priorCount === 0) return 'FIRST_TIME';
+  const hasFuture = (futurePendingMap.get(clientId) ?? 0) > 0;
+  return hasFuture ? 'EXISTING' : 'RETURNING';
 }
 
 export async function GET(req: NextRequest) {
@@ -53,22 +54,32 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  // Batch-fetch client appointment history for bonus classification
+  // Batch-fetch client data for bonus classification
   const clientIds = Array.from(new Set(appts.map((a) => a.clientId)));
-  const clientHistory =
-    clientIds.length > 0
-      ? await prisma.appointment.findMany({
-          where:   { clientId: { in: clientIds }, status: 'COMPLETED', startAt: { lt: dateTo } },
-          select:  { clientId: true, startAt: true },
-          orderBy: { startAt: 'asc' },
-        })
-      : [];
 
-  const historyMap = new Map<string, Date[]>();
-  for (const h of clientHistory) {
-    if (!historyMap.has(h.clientId)) historyMap.set(h.clientId, []);
-    historyMap.get(h.clientId)!.push(h.startAt);
-  }
+  const [priorCompleted, futurePending] = clientIds.length > 0
+    ? await Promise.all([
+        // Count of completed appointments per client before the period start
+        prisma.appointment.groupBy({
+          by:     ['clientId'],
+          where:  { clientId: { in: clientIds }, status: 'COMPLETED', startAt: { lt: dateFrom } },
+          _count: { id: true },
+        }),
+        // Count of future pending/confirmed appointments per client (from now)
+        prisma.appointment.groupBy({
+          by:     ['clientId'],
+          where:  {
+            clientId: { in: clientIds },
+            status:   { in: ['PENDING', 'CONFIRMED'] },
+            startAt:  { gt: new Date() },
+          },
+          _count: { id: true },
+        }),
+      ])
+    : [[], []];
+
+  const priorCountMap   = new Map(priorCompleted.map((r) => [r.clientId, r._count.id]));
+  const futurePendingMap = new Map(futurePending.map((r) => [r.clientId, r._count.id]));
 
   const hoursMap = new Map(hoursEntries.map((e) => [e.specialistId, Number(e.hoursWorked)]));
 
@@ -95,7 +106,7 @@ export async function GET(req: NextRequest) {
     }
     const entry = aggMap.get(a.specialistId)!;
     const price = Number(a.totalPrice);
-    const type  = classifyClient(a.clientId, a.startAt, historyMap);
+    const type  = classifyClient(a.clientId, a.startAt, priorCountMap, futurePendingMap);
     entry.completedBookings += 1;
     entry.grossRevenue      += price;
     entry.bonuses[type].count  += 1;

@@ -95,9 +95,9 @@ function downloadCsv(data: PayrollData, from: string, to: string) {
 
 function BonusBreakdown({ bonuses }: { bonuses: PayrollRow['bonuses'] }) {
   const items = [
-    { label: 'Новые клиенты',    rate: '2%',  ...bonuses.firstTime, color: 'text-emerald-400' },
-    { label: 'Постоянные',       rate: '3%',  ...bonuses.existing,  color: 'text-sky-400'     },
-    { label: 'Вернувшиеся',      rate: '4%',  ...bonuses.returning, color: 'text-violet-400'  },
+    { label: 'Новые клиенты',          rate: '2%',  ...bonuses.firstTime, color: 'text-emerald-400' },
+    { label: 'Постоянные (есть записи)', rate: '3%', ...bonuses.existing,  color: 'text-sky-400'     },
+    { label: 'Прошли все процедуры',   rate: '4%',  ...bonuses.returning, color: 'text-violet-400'  },
   ];
   return (
     <div className="flex flex-wrap gap-4 py-2">
@@ -231,7 +231,7 @@ export default function PayrollPage() {
           <div>
             <h1 className="text-2xl font-semibold text-text-primary">Зарплатная ведомость</h1>
             <p className="text-sm text-text-muted mt-0.5">
-              {HOURLY_RATE} ₽/час · бонусы: новые 2%, постоянные 3%, вернувшиеся 4%
+              {HOURLY_RATE} ₽/час · новые клиенты 2%, постоянные (ещё есть записи) 3%, прошли все процедуры 4%
             </p>
           </div>
           {data && (
