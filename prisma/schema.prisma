@@ -137,7 +137,8 @@ model Specialist {
   vacations        Vacation[]
   specialistNotes  SpecialistNote[]
   revenueRecords   RevenueRecord[]
-  waitlistEntries  WaitlistEntry[]
+  waitlistEntries     WaitlistEntry[]
+  payrollHoursEntries PayrollHoursEntry[]
 
   @@index([userId])
   @@index([status])
@@ -921,4 +922,20 @@ model WaitlistEntry {
   @@index([serviceId, status])
   @@index([specialistId, status])
   @@map("waitlist_entries")
+}
+
+model PayrollHoursEntry {
+  id           String   @id @default(uuid()) @db.Uuid
+  specialistId String   @map("specialist_id") @db.Uuid
+  periodFrom   DateTime @map("period_from") @db.Date
+  periodTo     DateTime @map("period_to") @db.Date
+  hoursWorked  Decimal  @default(0) @map("hours_worked") @db.Decimal(6, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@unique([specialistId, periodFrom, periodTo])
+  @@index([specialistId])
+  @@map("payroll_hours_entries")
 }
