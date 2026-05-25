@@ -117,11 +117,24 @@ export function ClientSelector({
     fetch(`/api/v1/clients/search?q=${encodeURIComponent(debounced)}&limit=10`, {
       credentials: 'include',
     })
-      .then((r) => r.json())
-      .then((json: { success: boolean; data?: { items: ClientSearchResult[] } }) => {
-        if (json.success) setResults(json.data?.items ?? []);
+      .then(async (r) => {
+        const text = await r.text();
+        let json: { success: boolean; data?: { items: ClientSearchResult[] } };
+        try {
+          json = JSON.parse(text) as typeof json;
+        } catch {
+          console.error('[ClientSelector] Non-JSON response from search API:', r.status, text.slice(0, 300));
+          return;
+        }
+        if (!json.success) {
+          console.error('[ClientSelector] Search API returned error:', json);
+          return;
+        }
+        setResults(json.data?.items ?? []);
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        console.error('[ClientSelector] Search fetch failed:', err);
+      })
       .finally(() => setSearching(false));
   }, [debounced]);
 
