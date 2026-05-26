@@ -7,17 +7,20 @@ import * as React from 'react';
 interface BackgroundStar {
   x: number; y: number; size: number; baseOpacity: number;
   twinkleSpeed: number; twinklePhase: number;
+  shineStart: number; shineDur: number;
 }
 
 interface MidStar {
   x: number; y: number; size: number; baseOpacity: number;
   twinkleSpeed: number; twinklePhase: number;
   driftX: number; driftY: number;
+  shineStart: number; shineDur: number;
 }
 
 interface ForegroundStar {
   x: number; y: number; size: number; baseOpacity: number;
   twinkleSpeed: number; twinklePhase: number;
+  shineStart: number; shineDur: number;
 }
 
 interface Nebula {
@@ -96,6 +99,7 @@ export function UniverseCanvas() {
         baseOpacity: rnd(0.15, 0.35),
         twinkleSpeed: rnd(0.0003, 0.0008),
         twinklePhase: rnd(0, Math.PI * 2),
+        shineStart: 0, shineDur: 0,
       }));
 
       midStars = Array.from({ length: 120 }, () => ({
@@ -106,6 +110,7 @@ export function UniverseCanvas() {
         twinklePhase: rnd(0, Math.PI * 2),
         driftX: rnd(-0.008, 0.008),
         driftY: rnd(-0.008, 0.008),
+        shineStart: 0, shineDur: 0,
       }));
 
       fgStars = Array.from({ length: 35 }, () => ({
@@ -114,6 +119,7 @@ export function UniverseCanvas() {
         baseOpacity: rnd(0.5, 0.9),
         twinkleSpeed: rnd(0.001, 0.003),
         twinklePhase: rnd(0, Math.PI * 2),
+        shineStart: 0, shineDur: 0,
       }));
     }
 
@@ -144,9 +150,21 @@ export function UniverseCanvas() {
       }
     }
 
+    function shineBoost(s: { shineStart: number; shineDur: number }, t: number, prob: number, maxBoost: number): number {
+      if (s.shineStart === 0 && Math.random() < prob) {
+        s.shineStart = t;
+        s.shineDur   = rnd(500, 1400);
+      }
+      if (s.shineStart === 0) return 0;
+      const progress = (t - s.shineStart) / s.shineDur;
+      if (progress >= 1) { s.shineStart = 0; return 0; }
+      return Math.sin(progress * Math.PI) * maxBoost;
+    }
+
     function drawBackgroundStars(t: number) {
       for (const s of bgStars) {
-        const op = Math.max(0, s.baseOpacity + Math.sin(t * s.twinkleSpeed + s.twinklePhase) * 0.1);
+        const boost = shineBoost(s, t, 0.00005, 0.5);
+        const op = Math.max(0, Math.min(1, s.baseOpacity + Math.sin(t * s.twinkleSpeed + s.twinklePhase) * 0.1 + boost));
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255,255,255,${op})`;
@@ -164,7 +182,8 @@ export function UniverseCanvas() {
         else if (s.x > w) s.x = 0;
         if (s.y < 0) s.y = h;
         else if (s.y > h) s.y = 0;
-        const op = Math.max(0, s.baseOpacity + Math.sin(t * s.twinkleSpeed + s.twinklePhase) * 0.12);
+        const boost = shineBoost(s, t, 0.0001, 0.55);
+        const op = Math.max(0, Math.min(1, s.baseOpacity + Math.sin(t * s.twinkleSpeed + s.twinklePhase) * 0.12 + boost));
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255,255,255,${op})`;
@@ -174,11 +193,12 @@ export function UniverseCanvas() {
 
     function drawForegroundStars(t: number) {
       for (const s of fgStars) {
-        const op = Math.max(0, Math.min(1, s.baseOpacity + Math.sin(t * s.twinkleSpeed + s.twinklePhase) * 0.15));
-        // Outer glow
-        const gr = s.size * 4;
+        const boost = shineBoost(s, t, 0.0003, 0.6);
+        const op = Math.max(0, Math.min(1, s.baseOpacity + Math.sin(t * s.twinkleSpeed + s.twinklePhase) * 0.15 + boost));
+        // Glow expands slightly when shining
+        const gr = s.size * (4 + boost * 4);
         const glow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, gr);
-        glow.addColorStop(0, `rgba(255,255,255,${op * 0.3})`);
+        glow.addColorStop(0, `rgba(255,255,255,${op * 0.35})`);
         glow.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.beginPath();
         ctx.arc(s.x, s.y, gr, 0, Math.PI * 2);
