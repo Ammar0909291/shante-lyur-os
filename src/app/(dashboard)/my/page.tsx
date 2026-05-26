@@ -568,7 +568,7 @@ function ScheduleTab() {
       .then((data) => {
         setRequest(data?.request ?? null);
         if (!data?.request) {
-          // Init days — default Mon-Fri work 09:00-18:00
+          // Init days — default Mon-Fri work, fixed 10:00-20:00
           const initial: ScheduleDay[] = [];
           for (let d = 1; d <= daysInMonth; d++) {
             const date = new Date(nextYear, nextMonthIdx, d);
@@ -577,8 +577,8 @@ function ScheduleTab() {
             initial.push({
               date:      date.toISOString().slice(0, 10),
               isWorkDay: isWork,
-              startTime: isWork ? '09:00' : null,
-              endTime:   isWork ? '18:00' : null,
+              startTime: isWork ? '10:00' : null,
+              endTime:   isWork ? '20:00' : null,
             });
           }
           setDays(initial);
@@ -592,12 +592,8 @@ function ScheduleTab() {
     setDays(prev => prev.map(d => {
       if (d.date !== date) return d;
       const isWork = !d.isWorkDay;
-      return { ...d, isWorkDay: isWork, startTime: isWork ? '09:00' : null, endTime: isWork ? '18:00' : null };
+      return { ...d, isWorkDay: isWork, startTime: isWork ? '10:00' : null, endTime: isWork ? '20:00' : null };
     }));
-  }
-
-  function setTime(date: string, field: 'startTime' | 'endTime', val: string) {
-    setDays(prev => prev.map(d => d.date !== date ? d : { ...d, [field]: val }));
   }
 
   async function submit() {
@@ -664,14 +660,11 @@ function ScheduleTab() {
             const dt = new Date(d.date + 'T00:00:00');
             return (
               <div key={d.date}
-                className={`h-14 rounded-lg flex flex-col items-center justify-center text-xs ${
+                className={`h-12 rounded-lg flex items-center justify-center text-sm font-medium ${
                   d.isWorkDay ? 'bg-emerald-900/40 border border-emerald-700/30 text-emerald-300' : 'bg-zinc-800/40 text-zinc-600'
                 }`}
               >
-                <span className="font-medium text-sm">{dt.getDate()}</span>
-                {d.isWorkDay && d.startTime && (
-                  <span className="text-[10px] opacity-70">{d.startTime}</span>
-                )}
+                {dt.getDate()}
               </div>
             );
           })}
@@ -699,7 +692,7 @@ function ScheduleTab() {
           <h2 className="text-base font-semibold text-champagne">
             График на {MONTH_RU[nextMonthIdx]} {nextYear}
           </h2>
-          <p className="text-xs text-zinc-500 mt-0.5">Рабочих дней: {workDays}. После подачи изменение невозможно.</p>
+          <p className="text-xs text-zinc-500 mt-0.5">Рабочих дней: {workDays} · часы работы 10:00–20:00. После подачи изменение невозможно.</p>
         </div>
       </div>
 
@@ -741,29 +734,6 @@ function ScheduleTab() {
               <span className="font-medium text-sm">{dt.getDate()}</span>
               <span className="text-[9px] opacity-60">{DOW_SHORT[dt.getDay()]}</span>
             </button>
-          );
-        })}
-      </div>
-
-      {/* Time overrides for work days */}
-      <div className="space-y-2 mb-4 max-h-52 overflow-y-auto pr-1">
-        {days.filter(d => d.isWorkDay).map(d => {
-          const dt = new Date(d.date + 'T00:00:00');
-          return (
-            <div key={d.date} className="flex items-center gap-3 bg-obsidian rounded-lg px-3 py-2 border border-white/5">
-              <span className="text-sm text-zinc-300 w-20 flex-shrink-0">
-                {String(dt.getDate()).padStart(2,'0')}.{String(dt.getMonth()+1).padStart(2,'0')} {DOW_SHORT[dt.getDay()]}
-              </span>
-              <input type="time" value={d.startTime ?? '09:00'}
-                onChange={e => setTime(d.date, 'startTime', e.target.value)}
-                className="bg-zinc-800 border border-white/10 rounded px-2 py-1 text-sm text-zinc-200 w-24"
-              />
-              <span className="text-zinc-600 text-xs">—</span>
-              <input type="time" value={d.endTime ?? '18:00'}
-                onChange={e => setTime(d.date, 'endTime', e.target.value)}
-                className="bg-zinc-800 border border-white/10 rounded px-2 py-1 text-sm text-zinc-200 w-24"
-              />
-            </div>
           );
         })}
       </div>
