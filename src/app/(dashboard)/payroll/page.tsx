@@ -1078,53 +1078,53 @@ export default function PayrollPage() {
 
               {/* Grouped column header */}
               <thead>
-                <tr className="border-b border-border-luxury/60 bg-obsidian/40">
+                <tr className="border-b border-border-luxury bg-charcoal/80">
                   {/* EMPLOYEE */}
-                  <th colSpan={1} className="px-4 py-2 text-left text-[10px] font-semibold text-text-muted uppercase tracking-widest border-r border-border-luxury/30">
+                  <th colSpan={1} className="px-4 py-2.5 text-left text-[11px] font-bold text-text-secondary uppercase tracking-widest border-r border-border-luxury/50">
                     Сотрудник
                   </th>
                   {/* ATTENDANCE */}
-                  <th colSpan={3} className="px-4 py-2 text-center text-[10px] font-semibold text-text-muted uppercase tracking-widest border-r border-border-luxury/30">
+                  <th colSpan={3} className="px-4 py-2.5 text-center text-[11px] font-bold text-text-secondary uppercase tracking-widest border-r border-border-luxury/50">
                     Посещаемость
                   </th>
                   {/* PERFORMANCE */}
-                  <th colSpan={2} className="px-4 py-2 text-center text-[10px] font-semibold text-text-muted uppercase tracking-widest border-r border-border-luxury/30">
+                  <th colSpan={2} className="px-4 py-2.5 text-center text-[11px] font-bold text-text-secondary uppercase tracking-widest border-r border-border-luxury/50">
                     Показатели
                   </th>
                   {/* EARNINGS */}
-                  <th colSpan={3} className="px-4 py-2 text-center text-[10px] font-semibold text-emerald-400/70 uppercase tracking-widest border-r border-border-luxury/30">
+                  <th colSpan={3} className="px-4 py-2.5 text-center text-[11px] font-bold text-emerald-400 uppercase tracking-widest border-r border-border-luxury/50">
                     Начисления
                   </th>
                   {/* DEDUCTIONS */}
-                  <th colSpan={2} className="px-4 py-2 text-center text-[10px] font-semibold text-red-400/70 uppercase tracking-widest border-r border-border-luxury/30">
+                  <th colSpan={2} className="px-4 py-2.5 text-center text-[11px] font-bold text-red-400 uppercase tracking-widest border-r border-border-luxury/50">
                     Удержания
                   </th>
                   {/* TOTAL + STATUS + ACTIONS */}
-                  <th colSpan={3} className="px-4 py-2 text-center text-[10px] font-semibold text-champagne/70 uppercase tracking-widest">
+                  <th colSpan={3} className="px-4 py-2.5 text-center text-[11px] font-bold text-champagne uppercase tracking-widest">
                     Итог
                   </th>
                 </tr>
-                <tr className="border-b border-border-luxury/40 bg-obsidian/20">
+                <tr className="border-b border-border-luxury/60 bg-charcoal/50">
                   {/* Employee */}
-                  <th className="px-4 py-2.5 text-left text-[11px] font-medium text-text-muted border-r border-border-luxury/20 min-w-[200px]">Имя / должность</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-text-secondary border-r border-border-luxury/30 min-w-[200px]">Имя / должность</th>
                   {/* Attendance */}
-                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted whitespace-nowrap">Раб. дней</th>
-                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted whitespace-nowrap">Отсутств.</th>
-                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted border-r border-border-luxury/20 whitespace-nowrap">Явка %</th>
+                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-text-secondary whitespace-nowrap">Раб. дней</th>
+                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-text-secondary whitespace-nowrap">Отсутств.</th>
+                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-text-secondary border-r border-border-luxury/30 whitespace-nowrap">Явка %</th>
                   {/* Performance */}
-                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted whitespace-nowrap">Сессии</th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-text-muted border-r border-border-luxury/20 whitespace-nowrap">Продажи</th>
+                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-text-secondary whitespace-nowrap">Сессии</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-text-secondary border-r border-border-luxury/30 whitespace-nowrap">Продажи</th>
                   {/* Earnings */}
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-text-muted whitespace-nowrap">База</th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-emerald-400/80 whitespace-nowrap">Комиссия</th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-champagne/80 border-r border-border-luxury/20 whitespace-nowrap">Бонусы</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-text-secondary whitespace-nowrap">База</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-emerald-400 whitespace-nowrap">Комиссия</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-champagne border-r border-border-luxury/30 whitespace-nowrap">Бонусы</th>
                   {/* Deductions */}
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-red-400/80 whitespace-nowrap">Удержания</th>
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-text-muted border-r border-border-luxury/20 whitespace-nowrap">Корр.</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-red-400 whitespace-nowrap">Удержания</th>
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-text-secondary border-r border-border-luxury/30 whitespace-nowrap">Корр.</th>
                   {/* Total + Status + Actions */}
-                  <th className="px-3 py-2.5 text-right text-[11px] font-medium text-sky-400/90 whitespace-nowrap">Итого ₽</th>
-                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted whitespace-nowrap">Статус</th>
-                  <th className="px-3 py-2.5 text-center text-[11px] font-medium text-text-muted w-8" />
+                  <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-sky-400 whitespace-nowrap">Итого ₽</th>
+                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-text-secondary whitespace-nowrap">Статус</th>
+                  <th className="px-3 py-2.5 text-center text-[11px] font-semibold text-text-secondary w-8" />
                 </tr>
               </thead>
 
