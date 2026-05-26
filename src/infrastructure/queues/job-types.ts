@@ -3,7 +3,7 @@ export interface AppointmentReminderJob {
   customerId: string;
   specialistId: string;
   scheduledAt: string;
-  reminderType: '24h' | '2h' | '30m';
+  reminderType: '48h' | '24h' | 'morning' | '2h' | '30m';
 }
 
 export interface NotificationJob {

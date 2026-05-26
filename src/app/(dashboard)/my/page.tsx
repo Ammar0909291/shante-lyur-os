@@ -250,13 +250,6 @@ function WorkingDaysTab({ specialistId: _sid }: { specialistId: string }) {
         </button>
       </div>
 
-      {/* DOW headers */}
-      <div className="grid grid-cols-7 mb-1">
-        {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
-          <div key={d} className="text-center text-xs text-zinc-500 py-1">{d}</div>
-        ))}
-      </div>
-
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>
       ) : (
@@ -275,7 +268,7 @@ function WorkingDaysTab({ specialistId: _sid }: { specialistId: string }) {
             if (isToday)            cellCls += ' ring-2 ring-amber-400';
 
             return (
-              <div key={d.date} className={cellCls} title={d.isWorkDay ? `${d.startTime}–${d.endTime}` : undefined}>
+              <div key={d.date} className={cellCls}>
                 <span className="font-medium">{date.getDate()}</span>
                 {d.isWorkDay && d.appointmentCount > 0 && (
                   <span className="text-xs opacity-70">{d.appointmentCount}</span>
@@ -659,11 +652,6 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 mb-1">
-          {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
-            <div key={d} className="text-center text-xs text-zinc-500 py-1">{d}</div>
-          ))}
-        </div>
         <div className="grid grid-cols-7 gap-1">
           {Array.from({ length: blanks }, (_, i) => <div key={`b${i}`} />)}
           {request.days.map((d) => {
@@ -723,12 +711,6 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
           <p className="text-sm text-rose-300">{error}</p>
         </div>
       )}
-
-      <div className="grid grid-cols-7 gap-1 mb-1">
-        {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
-          <div key={d} className="text-center text-xs text-zinc-500 py-1">{d}</div>
-        ))}
-      </div>
 
       <div className="grid grid-cols-7 gap-1 mb-4">
         {Array.from({ length: blanks }, (_, i) => <div key={`b${i}`} />)}

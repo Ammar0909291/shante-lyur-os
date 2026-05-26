@@ -5,7 +5,7 @@ import {
   Send, MessageSquare, Phone, Bot, Mail,
   CheckCircle2, XCircle, Clock, AlertTriangle,
   RefreshCw, BarChart2, Settings, Zap,
-  TrendingUp,
+  TrendingUp, Download, Save, Eye, EyeOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TEMPLATES } from '@/lib/communication/templates/definitions';
@@ -226,10 +226,257 @@ function SendPanel({ onSent }: { onSent: () => void }) {
   );
 }
 
+// ─── Channel Settings Panel ───────────────────────────────────────────────────
+
+const CONFIG_FIELDS: Array<{ key: string; label: string; placeholder: string; secret?: boolean }> = [
+  { key: 'telegram_bot_token', label: 'Telegram Bot Token', placeholder: '1234567890:ABC...', secret: true },
+  { key: 'whatsapp_access_token', label: 'WhatsApp Access Token', placeholder: 'EAAxxxxxxxx...', secret: true },
+  { key: 'whatsapp_phone_id', label: 'WhatsApp Phone ID', placeholder: '123456789' },
+  { key: 'max_bot_token', label: 'MAX Bot Token', placeholder: 'max-bot-token...', secret: true },
+  { key: 'smtp_host', label: 'SMTP Хост', placeholder: 'smtp.gmail.com' },
+  { key: 'smtp_port', label: 'SMTP Порт', placeholder: '587' },
+  { key: 'smtp_user', label: 'SMTP Пользователь', placeholder: 'noreply@salon.ru' },
+  { key: 'smtp_pass', label: 'SMTP Пароль', placeholder: '••••••••', secret: true },
+  { key: 'smtp_from', label: 'Email отправителя', placeholder: '"Shante Lyur" <noreply@salon.ru>' },
+];
+
+function SettingsPanel() {
+  const [values, setValues] = React.useState<Record<string, string>>({});
+  const [visible, setVisible] = React.useState<Record<string, boolean>>({});
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  React.useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch('/api/v1/config', { headers: authHeaders() });
+        const json = await res.json() as { success: boolean; data?: Record<string, string> };
+        if (json.success && json.data) setValues(json.data);
+      } finally { setLoading(false); }
+    })();
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await fetch('/api/v1/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(values),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally { setSaving(false); }
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-champagne" /></div>;
+
+  const groups = [
+    { title: 'Telegram', keys: ['telegram_bot_token'] },
+    { title: 'WhatsApp', keys: ['whatsapp_access_token', 'whatsapp_phone_id'] },
+    { title: 'MAX', keys: ['max_bot_token'] },
+    { title: 'Email (SMTP)', keys: ['smtp_host', 'smtp_port', 'smtp_user', 'smtp_pass', 'smtp_from'] },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-text-tertiary">Настройки применяются мгновенно. Существующие токены скрыты — введите новое значение чтобы обновить.</p>
+      {groups.map(({ title, keys }) => (
+        <div key={title} className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-border-luxury">
+            <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">{title}</h3>
+          </div>
+          <div className="p-5 space-y-4">
+            {keys.map((key) => {
+              const field = CONFIG_FIELDS.find((f) => f.key === key)!;
+              const isVisible = visible[key];
+              return (
+                <div key={key}>
+                  <label className="text-xs text-text-tertiary mb-1.5 block">{field.label}</label>
+                  <div className="relative">
+                    <input
+                      type={field.secret && !isVisible ? 'password' : 'text'}
+                      value={values[key] ?? ''}
+                      onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                      placeholder={field.placeholder}
+                      className="w-full bg-charcoal border border-border-luxury rounded-xl px-3 py-2 text-sm text-text-primary pr-9 placeholder-text-tertiary/40"
+                    />
+                    {field.secret && (
+                      <button
+                        type="button"
+                        onClick={() => setVisible((v) => ({ ...v, [key]: !v[key] }))}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
+                      >
+                        {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => void save()}
+          disabled={saving}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl luxury-gradient text-obsidian font-semibold text-sm disabled:opacity-50"
+        >
+          {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {saving ? 'Сохранение...' : 'Сохранить настройки'}
+        </button>
+        {saved && (
+          <span className="flex items-center gap-1.5 text-emerald-400 text-sm">
+            <CheckCircle2 className="w-4 h-4" />
+            Сохранено
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Auto Reminders Panel ─────────────────────────────────────────────────────
+
+interface UpcomingBooking {
+  id: string;
+  startAt: string;
+  clientName: string;
+  specialistName: string;
+  services: string;
+  room: string;
+  status: string;
+  hoursUntil: number;
+  window: string;
+}
+
+function AutoRemindersPanel() {
+  const [bookings, setBookings] = React.useState<UpcomingBooking[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [downloading, setDownloading] = React.useState(false);
+
+  React.useEffect(() => {
+    void (async () => {
+      try {
+        const now = new Date();
+        const in48h = new Date(now.getTime() + 48 * 3600 * 1000);
+        const res = await fetch(
+          `/api/v1/appointments?from=${now.toISOString()}&to=${in48h.toISOString()}&status=PENDING,CONFIRMED&limit=100`,
+          { headers: authHeaders() },
+        );
+        const json = await res.json() as { success: boolean; data?: { appointments: UpcomingBooking[] } };
+        if (json.success && json.data?.appointments) setBookings(json.data.appointments);
+      } catch {}
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  async function downloadExcel() {
+    setDownloading(true);
+    try {
+      const res = await fetch('/api/v1/reminders/export', { headers: authHeaders() });
+      if (!res.ok) { setDownloading(false); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reminders-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally { setDownloading(false); }
+  }
+
+  const windowColor = (w: string) =>
+    w === '2ч' ? 'bg-red-500/10 text-red-400 border-red-500/20'
+    : w === '24ч' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+    : 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-onyx border border-border-luxury rounded-2xl p-5">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-text-primary mb-1">Автоматические напоминания клиентам</h3>
+            <p className="text-xs text-text-tertiary">Система автоматически отправляет запрос на подтверждение записи за 48ч, 24ч и утром в день визита. Ниже показаны ближайшие записи.</p>
+          </div>
+          <button
+            onClick={() => void downloadExcel()}
+            disabled={downloading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-champagne/30 bg-champagne/10 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50 shrink-0"
+          >
+            {downloading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            Скачать Excel
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          {[
+            { label: '48 ч до визита', desc: 'Первое напоминание', color: 'text-blue-400' },
+            { label: '24 ч до визита', desc: 'Второе напоминание', color: 'text-amber-400' },
+            { label: 'Утро дня визита', desc: '09:00 — финальное', color: 'text-red-400' },
+          ].map(({ label, desc, color }) => (
+            <div key={label} className="bg-charcoal rounded-xl p-3 border border-border-luxury text-center">
+              <p className={cn('text-sm font-semibold', color)}>{label}</p>
+              <p className="text-xs text-text-tertiary mt-0.5">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-border-luxury">
+          <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">Записи ближайших 48 часов</h3>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-champagne" /></div>
+        ) : bookings.length === 0 ? (
+          <div className="px-5 py-12 text-center text-text-tertiary text-sm">Нет предстоящих записей</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border-luxury">
+                  <th className="text-left px-5 py-3 text-xs text-text-tertiary font-medium">Время</th>
+                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">Клиент</th>
+                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">Специалист</th>
+                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">Процедура</th>
+                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">Кабинет</th>
+                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">Окно</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-luxury">
+                {bookings.map((b) => (
+                  <tr key={b.id} className="hover:bg-charcoal/50 transition-colors">
+                    <td className="px-5 py-3 text-text-primary whitespace-nowrap font-mono text-xs">
+                      {new Date(b.startAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="px-4 py-3 text-text-primary">{b.clientName}</td>
+                    <td className="px-4 py-3 text-text-secondary text-xs">{b.specialistName}</td>
+                    <td className="px-4 py-3 text-text-tertiary text-xs max-w-[200px] truncate">{b.services}</td>
+                    <td className="px-4 py-3 text-text-tertiary text-xs">{b.room || '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border', windowColor(b.window ?? '48ч'))}>
+                        {b.window ?? '48ч'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CommunicationsPage() {
-  const [tab, setTab] = React.useState<'overview' | 'history' | 'templates' | 'queue'>('overview');
+  const [tab, setTab] = React.useState<'overview' | 'history' | 'templates' | 'queue' | 'settings' | 'reminders'>('overview');
   const [analytics, setAnalytics] = React.useState<DeliveryStats | null>(null);
   const [queue, setQueue] = React.useState<QueueStatus | null>(null);
   const [history, setHistory] = React.useState<HistoryMessage[]>([]);
@@ -279,10 +526,12 @@ export default function CommunicationsPage() {
   );
 
   const TABS = [
-    { id: 'overview', label: 'Обзор', icon: BarChart2 },
-    { id: 'history', label: 'История', icon: MessageSquare },
-    { id: 'templates', label: 'Шаблоны', icon: Settings },
-    { id: 'queue', label: 'Очередь', icon: Clock },
+    { id: 'overview',   label: 'Обзор',        icon: BarChart2 },
+    { id: 'history',    label: 'История',       icon: MessageSquare },
+    { id: 'templates',  label: 'Шаблоны',       icon: Zap },
+    { id: 'queue',      label: 'Очередь',       icon: Clock },
+    { id: 'reminders',  label: 'Напоминания',   icon: Send },
+    { id: 'settings',   label: 'Настройки',     icon: Settings },
   ] as const;
 
   return (
@@ -313,16 +562,17 @@ export default function CommunicationsPage() {
       {/* Channel status pills */}
       <div className="flex flex-wrap gap-3">
         {[
-          { label: 'WhatsApp', env: 'WHATSAPP_ACCESS_TOKEN', icon: Phone, color: 'border-green-500/30 bg-green-500/5 text-green-400' },
-          { label: 'Telegram', env: 'TELEGRAM_BOT_TOKEN', icon: Bot, color: 'border-blue-500/30 bg-blue-500/5 text-blue-400' },
-          { label: 'MAX', env: 'MAX_BOT_TOKEN', icon: MessageSquare, color: 'border-violet-500/30 bg-violet-500/5 text-violet-400' },
-          { label: 'Email', env: 'SMTP_HOST', icon: Mail, color: 'border-champagne/30 bg-champagne/5 text-champagne' },
+          { label: 'WhatsApp', icon: Phone, color: 'border-green-500/30 bg-green-500/5 text-green-400' },
+          { label: 'Telegram', icon: Bot, color: 'border-blue-500/30 bg-blue-500/5 text-blue-400' },
+          { label: 'MAX', icon: MessageSquare, color: 'border-violet-500/30 bg-violet-500/5 text-violet-400' },
+          { label: 'Email', icon: Mail, color: 'border-champagne/30 bg-champagne/5 text-champagne' },
         ].map(({ label, icon: Icon, color }) => (
-          <div key={label} className={cn('flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium', color)}>
+          <button key={label} onClick={() => setTab('settings')}
+            className={cn('flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition-opacity hover:opacity-80', color)}>
             <Icon className="w-3 h-3" />
             {label}
-            <span className="text-[10px] opacity-70">настройте через env</span>
-          </div>
+            <Settings className="w-2.5 h-2.5 opacity-60" />
+          </button>
         ))}
       </div>
 
@@ -544,6 +794,12 @@ export default function CommunicationsPage() {
           ))}
         </div>
       )}
+
+      {/* ── REMINDERS ──────────────────────────────────────────────────────── */}
+      {tab === 'reminders' && <AutoRemindersPanel />}
+
+      {/* ── SETTINGS ───────────────────────────────────────────────────────── */}
+      {tab === 'settings' && <SettingsPanel />}
 
       {/* ── QUEUE ──────────────────────────────────────────────────────────── */}
       {tab === 'queue' && (

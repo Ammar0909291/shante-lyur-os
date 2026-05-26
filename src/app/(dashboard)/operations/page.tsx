@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   XCircle,
   PlayCircle,
-  UserCheck,
   Pause,
   TrendingUp,
   Loader2,
@@ -164,198 +163,17 @@ function TypeBadge({ type }: { type: SpecialistDepartment }) {
   );
 }
 
-// ─── Appointment Card ─────────────────────────────────────────────────────────
+// ─── Queue Row (lean card for Очередь tab) ────────────────────────────────────
 
-function AppointmentCard({
-  appt,
-  transitioning,
-  onTransition,
-}: {
-  appt: OperationalAppointment;
-  transitioning: string | null;
-  onTransition: (id: string, action: string) => void;
-}) {
-  const { t } = useLanguage();
-  const isBusy = transitioning === appt.id;
-
+function QueueRow({ appt }: { appt: OperationalAppointment }) {
   return (
-    <div
-      className={cn(
-        'bg-onyx border border-border-luxury rounded-2xl p-4 transition-all duration-200 hover:border-border-light',
-        appt.operationalStatus === 'IN_PROGRESS' &&
-          'border-violet-700/40 shadow-[0_0_16px_rgba(139,92,246,0.06)]',
-        appt.operationalStatus === 'WAITING' && 'border-amber-700/30',
-      )}
-    >
-      <div className="flex items-start gap-3">
-        {/* Left: time + status */}
-        <div className="flex flex-col items-center gap-1.5 min-w-[56px]">
-          <span className="text-base font-semibold text-text-primary font-mono tabular-nums">
-            {fmtTime(appt.startAt)}
-          </span>
-          <StatusBadge status={appt.operationalStatus} />
-        </div>
-
-        {/* Center: details */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="font-semibold text-text-primary text-sm truncate">
-              {appt.clientName}
-            </span>
-            {appt.delayMinutes > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-900/30 border border-red-700/30 text-red-300 text-xs">
-                <Clock className="w-3 h-3" />+{appt.delayMinutes}{t('common.min')} {t('ops.late')}
-              </span>
-            )}
-            {appt.waitMinutes !== null && appt.waitMinutes > 15 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-900/30 border border-amber-700/30 text-amber-300 text-xs">
-                <Pause className="w-3 h-3" />{t('ops.waiting')} {appt.waitMinutes}{t('common.min')}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap mb-1.5 text-xs text-text-secondary">
-            <span className="flex items-center gap-1">
-              <User className="w-3 h-3" />
-              {appt.specialistName}
-            </span>
-            <TypeBadge type={appt.specialistType} />
-            {appt.roomName && (
-              <span className="flex items-center gap-1">
-                <Bed className="w-3 h-3" />
-                {appt.roomName}
-              </span>
-            )}
-          </div>
-
-          <p className="text-xs text-text-tertiary mb-2 line-clamp-1">
-            {appt.services.join(', ')}
-          </p>
-
-          <div className="flex items-center gap-3 text-xs text-text-tertiary">
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {appt.duration}{t('common.min')}
-            </span>
-            <span className="text-champagne font-medium">
-              {formatCurrency(appt.revenue)}
-            </span>
-            <span className="text-text-tertiary">
-              {fmtTime(appt.startAt)} – {fmtTime(appt.endAt)}
-            </span>
-          </div>
-        </div>
-
-        {/* Right: action buttons */}
-        <div className="flex flex-col gap-1.5 shrink-0">
-          {appt.operationalStatus === 'PENDING' && (
-            <>
-              <ActionBtn
-                label={t('ops.action.confirm')}
-                icon={<CheckCircle2 className="w-3 h-3" />}
-                color="champagne"
-                loading={isBusy}
-                onClick={() => onTransition(appt.id, 'confirm')}
-              />
-              <ActionBtn
-                label={t('ops.action.checkin')}
-                icon={<UserCheck className="w-3 h-3" />}
-                color="teal"
-                loading={isBusy}
-                onClick={() => onTransition(appt.id, 'checkin')}
-              />
-              <ActionBtn
-                label={t('ops.action.noshow')}
-                icon={<XCircle className="w-3 h-3" />}
-                color="red"
-                loading={isBusy}
-                onClick={() => onTransition(appt.id, 'noshow')}
-              />
-              <ActionBtn
-                label={t('ops.action.cancel')}
-                icon={<XCircle className="w-3 h-3" />}
-                color="gray"
-                loading={isBusy}
-                onClick={() => onTransition(appt.id, 'cancel')}
-              />
-            </>
-          )}
-          {(appt.operationalStatus === 'CONFIRMED' ||
-            appt.operationalStatus === 'ARRIVED' ||
-            appt.operationalStatus === 'WAITING') && (
-            <>
-              <ActionBtn
-                label={t('ops.action.start')}
-                icon={<PlayCircle className="w-3 h-3" />}
-                color="violet"
-                loading={isBusy}
-                onClick={() => onTransition(appt.id, 'start')}
-              />
-              <ActionBtn
-                label={t('ops.action.cancel')}
-                icon={<XCircle className="w-3 h-3" />}
-                color="gray"
-                loading={isBusy}
-                onClick={() => onTransition(appt.id, 'cancel')}
-              />
-            </>
-          )}
-          {appt.operationalStatus === 'IN_PROGRESS' && (
-            <ActionBtn
-              label={t('ops.action.complete')}
-              icon={<CheckCircle2 className="w-3 h-3" />}
-              color="green"
-              loading={isBusy}
-              onClick={() => onTransition(appt.id, 'complete')}
-            />
-          )}
-        </div>
-      </div>
+    <div className="bg-onyx border border-border-luxury rounded-xl px-4 py-3 grid grid-cols-[1fr_1fr_2fr_80px_100px] items-center gap-4">
+      <span className="text-sm font-semibold text-text-primary truncate">{appt.specialistName}</span>
+      <span className="text-sm text-text-secondary truncate">{appt.clientName}</span>
+      <span className="text-xs text-text-tertiary truncate">{appt.services.join(', ')}</span>
+      <span className="text-xs text-text-tertiary whitespace-nowrap text-center">{appt.duration} мин</span>
+      <span className="text-xs text-champagne truncate text-right">{appt.roomName ?? '—'}</span>
     </div>
-  );
-}
-
-// ─── Action Button ─────────────────────────────────────────────────────────────
-
-type ActionColor = 'champagne' | 'teal' | 'red' | 'gray' | 'violet' | 'green';
-
-const ACTION_COLOR_CLASSES: Record<ActionColor, string> = {
-  champagne:
-    'bg-champagne/10 border-champagne/30 text-champagne hover:bg-champagne/20',
-  teal: 'bg-teal-900/30 border-teal-700/30 text-teal-300 hover:bg-teal-900/50',
-  red: 'bg-red-900/30 border-red-700/30 text-red-300 hover:bg-red-900/50',
-  gray: 'bg-charcoal border-border-luxury text-text-tertiary hover:text-text-secondary hover:bg-charcoal/80',
-  violet:
-    'bg-violet-900/30 border-violet-700/30 text-violet-300 hover:bg-violet-900/50',
-  green:
-    'bg-green-900/30 border-green-700/30 text-green-300 hover:bg-green-900/50',
-};
-
-function ActionBtn({
-  label,
-  icon,
-  color,
-  loading,
-  onClick,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  color: ActionColor;
-  loading: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      className={cn(
-        'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors disabled:opacity-50',
-        ACTION_COLOR_CLASSES[color],
-      )}
-    >
-      {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : icon}
-      {label}
-    </button>
   );
 }
 
@@ -391,15 +209,11 @@ function QueueTab({
   alerts,
   filter,
   onFilterChange,
-  transitioning,
-  onTransition,
 }: {
   queue: OperationalAppointment[];
   alerts: OperationalAlert[];
   filter: OperationalStatus | 'ALL';
   onFilterChange: (f: OperationalStatus | 'ALL') => void;
-  transitioning: string | null;
-  onTransition: (id: string, action: string) => void;
 }) {
   const { t } = useLanguage();
   const QUEUE_FILTERS: { value: OperationalStatus | 'ALL'; label: string }[] = [
@@ -460,21 +274,27 @@ function QueueTab({
         })}
       </div>
 
-      {/* Cards */}
+      {/* Queue header row */}
+      {sorted.length > 0 && (
+        <div className="px-4 pb-1 grid grid-cols-[1fr_1fr_2fr_80px_100px] gap-4 text-[10px] uppercase tracking-wider text-text-tertiary">
+          <span>Специалист</span>
+          <span>Клиент</span>
+          <span>Процедура</span>
+          <span className="text-center">Длит.</span>
+          <span className="text-right">Кабинет</span>
+        </div>
+      )}
+
+      {/* Rows */}
       {sorted.length === 0 ? (
         <div className="bg-onyx border border-border-luxury rounded-2xl flex flex-col items-center justify-center py-20 gap-3">
           <Activity className="w-10 h-10 text-text-tertiary" />
           <p className="text-text-secondary text-sm">{t('ops.queue.empty')}</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {sorted.map((appt) => (
-            <AppointmentCard
-              key={appt.id}
-              appt={appt}
-              transitioning={transitioning}
-              onTransition={onTransition}
-            />
+            <QueueRow key={appt.id} appt={appt} />
           ))}
         </div>
       )}
@@ -721,8 +541,8 @@ function RoomsTab({ rooms }: { rooms: RoomStatus[] }) {
 
 // ─── Timeline Tab ─────────────────────────────────────────────────────────────
 
-const TIMELINE_START_HOUR = 8;
-const TIMELINE_END_HOUR = 22;
+const TIMELINE_START_HOUR = 10;
+const TIMELINE_END_HOUR = 20;
 const TIMELINE_TOTAL_MINUTES = (TIMELINE_END_HOUR - TIMELINE_START_HOUR) * 60;
 
 function timeToPercent(iso: string): number {
@@ -1067,7 +887,6 @@ export default function OperationsPage() {
   const [queueFilter, setQueueFilter] = React.useState<OperationalStatus | 'ALL'>('ALL');
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
   const [refreshing, setRefreshing] = React.useState(false);
-  const [transitioning, setTransitioning] = React.useState<string | null>(null);
   const [countdown, setCountdown] = React.useState(30);
 
   const load = React.useCallback(async (silent = false) => {
@@ -1111,23 +930,6 @@ export default function OperationsPage() {
     }, 1_000);
     return () => clearInterval(timer);
   }, []);
-
-  async function transition(appointmentId: string, action: string) {
-    setTransitioning(appointmentId);
-    try {
-      const res = await fetch(
-        `/api/operations/appointments/${appointmentId}/transition`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action }),
-        },
-      );
-      if (res.ok) await load(true);
-    } finally {
-      setTransitioning(null);
-    }
-  }
 
   const criticalAlertCount =
     data?.alerts.filter((a) => a.severity === 'critical').length ?? 0;
@@ -1267,8 +1069,6 @@ export default function OperationsPage() {
                   alerts={data?.alerts ?? []}
                   filter={queueFilter}
                   onFilterChange={setQueueFilter}
-                  transitioning={transitioning}
-                  onTransition={transition}
                 />
               )}
               {activeTab === 'specialists' && (

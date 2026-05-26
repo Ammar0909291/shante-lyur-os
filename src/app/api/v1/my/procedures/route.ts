@@ -24,8 +24,12 @@ export async function GET(req: NextRequest) {
 
   if (!from || !to) return err('from and to are required');
 
-  const specialist = await prisma.specialist.findUnique({ where: { userId }, select: { id: true } });
+  const specialist = await prisma.specialist.findUnique({ where: { userId }, select: { id: true, department: true } });
   if (!specialist) return err('Specialist not found', 404);
+
+  // Categories excluded for each department (so cosmetologists don't see massage, vice versa)
+  const EXCLUDED_CATEGORY: Record<string, string> = { COSMETOLOGY: 'MASSAGE', MASSAGE: 'COSMETOLOGY' };
+  const excludedCategory = EXCLUDED_CATEGORY[specialist.department] ?? null;
 
   const statusFilter = statusRaw && ALLOWED_STATUSES.includes(statusRaw)
     ? { status: statusRaw as 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' | 'RESCHEDULED' }
@@ -64,7 +68,10 @@ export async function GET(req: NextRequest) {
       endAt:       a.endAt,
       status:      a.status,
       clientName,
-      services:    a.services.map((s) => s.service.name).join(', '),
+      services:    a.services
+        .filter((s) => !excludedCategory || s.service.category !== excludedCategory)
+        .map((s) => s.service.name)
+        .join(', '),
       totalPrice:  Number(a.totalPrice),
       duration:    a.totalDuration,
     };
