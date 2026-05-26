@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
 const CreateSchema = z.object({
   type: z.enum(['DIRECT', 'GROUP']),
   name: z.string().min(1).max(200).optional(),
-  memberIds: z.array(z.string().uuid()).min(1).max(19),
+  memberIds: z.array(z.string().uuid()).min(1).max(99),
 }).refine(
   (d) => d.type !== 'GROUP' || !!d.name,
   { message: 'Group name is required' },

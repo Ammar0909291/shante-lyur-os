@@ -795,7 +795,7 @@ export default function ChatPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">
-                  Участники * <span className="text-text-tertiary">({groupMembers.length} выбрано, мин. 1)</span>
+                  Участники * <span className={cn('text-text-tertiary', groupMembers.length >= 99 && 'text-red-400')}>({groupMembers.length} выбрано, макс. 99)</span>
                 </label>
                 <div className="relative mb-2">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary" />
@@ -812,6 +812,7 @@ export default function ChatPage() {
                     return (
                       <button
                         key={s.id}
+                        disabled={!sel && groupMembers.length >= 99}
                         onClick={() => setGroupMembers((prev) => sel ? prev.filter((id) => id !== s.id) : [...prev, s.id])}
                         className={cn(
                           'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left',
