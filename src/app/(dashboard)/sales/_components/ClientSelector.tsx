@@ -364,8 +364,8 @@ export function ClientSelector({
             <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+7 999 000-00-00" className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-text-muted mb-1">Email</label>
-            <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="email@example.com" type="email" className={inputCls} />
+            <label className="block text-xs text-text-muted mb-1">Эл. почта</label>
+            <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="почта@пример.ru" type="email" className={inputCls} />
           </div>
           <div>
             <label className="block text-xs text-text-muted mb-1">Источник</label>

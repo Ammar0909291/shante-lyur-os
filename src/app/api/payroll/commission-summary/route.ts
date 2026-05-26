@@ -38,9 +38,17 @@ export async function GET(req: NextRequest) {
     },
   });
 
+  // Fetch specialistId for all users
+  const userIds = [...new Set(entries.map((e) => e.userId))];
+  const specialists = await prisma.specialist.findMany({
+    where: { userId: { in: userIds } },
+    select: { id: true, userId: true },
+  });
+  const userToSpecialistId = new Map(specialists.map((s) => [s.userId, s.id]));
+
   // Group by userId
   const userMap = new Map<string, {
-    userId: string; name: string; role: string; department: string | null;
+    userId: string; specialistId: string | null; name: string; role: string; department: string | null;
     specialization: string | null; avatarUrl: string | null;
     totalApproved: number; pendingCount: number; procedureCount: number;
   }>();
@@ -50,6 +58,7 @@ export async function GET(req: NextRequest) {
     if (!userMap.has(key)) {
       userMap.set(key, {
         userId:        e.user.id,
+        specialistId:  userToSpecialistId.get(e.user.id) ?? null,
         name:          `${e.user.firstName} ${e.user.lastName}`,
         role:          e.user.role,
         department:    e.user.specialist?.department ?? null,

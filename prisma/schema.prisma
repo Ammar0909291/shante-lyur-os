@@ -165,6 +165,17 @@ enum SaleCommissionType {
   BONUS
 }
 
+enum CommissionType {
+  STANDARD_SALE
+  NEW_CLIENT
+  RETURNING_CLIENT
+  UPSELL
+  REFERRAL
+  TARGET_BONUS
+  QUALITY_BONUS
+  CUSTOM
+}
+
 enum SaleEmployeeRole {
   SPECIALIST
   MANAGER
@@ -1793,10 +1804,14 @@ model PayrollEntry {
   rate          Decimal?         @db.Decimal(5, 4)
   periodMonth   String           @map("period_month") @db.VarChar(7)
   description   String?          @db.VarChar(500)
+  commissionType   CommissionType? @map("commission_type")
   isLocked         Boolean  @default(false) @map("is_locked")
   isManuallyEdited Boolean  @default(false) @map("is_manually_edited")
   entryStatus      String   @default("pending") @map("entry_status") @db.VarChar(20)
   entryNotes       String?  @map("entry_notes") @db.VarChar(500)
+  approved         Boolean  @default(false) @map("approved")
+  approvedAt       DateTime? @map("approved_at")
+  approvedBy       String?  @map("approved_by") @db.Uuid
   createdBy        String?  @map("created_by") @db.Uuid
   createdAt        DateTime @default(now()) @map("created_at")
 

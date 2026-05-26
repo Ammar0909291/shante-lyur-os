@@ -320,7 +320,7 @@ export default function PermissionsPage() {
             <thead>
               <tr className="border-b border-border-luxury bg-charcoal/50">
                 <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">Пользователь</th>
-                <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">Email</th>
+                <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">Эл. почта</th>
                 <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">Роль</th>
                 <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">Статус</th>
                 <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">Последний вход</th>

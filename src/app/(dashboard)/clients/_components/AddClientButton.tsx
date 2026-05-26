@@ -114,13 +114,13 @@ export function AddClientButton() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">Email *</label>
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">Эл. почта *</label>
                 <input
                   name="email"
                   type="email"
                   value={form.email}
                   onChange={handleChange}
-                  placeholder="client@example.com"
+                  placeholder="почта@пример.ru"
                   disabled={saving}
                   className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
                 />

@@ -167,7 +167,7 @@ function SendPanel({ onSent }: { onSent: () => void }) {
               <option value="whatsapp">WhatsApp</option>
               <option value="telegram">Telegram</option>
               <option value="max">MAX</option>
-              <option value="email">Email</option>
+              <option value="email">Эл. почта</option>
             </select>
           </div>
         </div>

@@ -1,24 +1,16 @@
 'use client';
 
 import * as React from 'react';
-import { X, Plus, Trash2, Percent } from 'lucide-react';
+import { X, Plus, Trash2 } from 'lucide-react';
 import { FirstTimeClientWizard } from './FirstTimeClientWizard';
 import { ClientSelector, type ClientSearchResult } from './ClientSelector';
+import { CommissionRows, type CommissionRowData, type CommissionCategory } from './CommissionRows';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface Specialist {
   id: string; userId: string; name: string; department: string; specialization: string | null;
   commissionRate?: number; // 0–1 from DB; optional so existing callers still work
-}
-
-interface CommissionAlloc {
-  specialistId: string;
-  userId: string;
-  name: string;
-  roleBadge: string;
-  percentage: number; // 0–100
-  amount: number; // ₽ calculated
 }
 
 function floorKopek(pct: number, total: number): number {
@@ -75,7 +67,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
   const [amountPackage, setAmountPackage] = React.useState(0);
   const [comments,     setComments]      = React.useState('');
   const [internalNote, setInternalNote]  = React.useState('');
-  const [commissionAllocs, setCommissionAllocs] = React.useState<CommissionAlloc[]>([]);
+  const [commissionAllocs, setCommissionAllocs] = React.useState<CommissionRowData[]>([]);
 
   const [saving, setSaving] = React.useState(false);
   const [error,  setError]  = React.useState('');
@@ -92,7 +84,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
           specialistId: sp?.id ?? uid,
           userId: uid,
           name: sp?.name ?? uid,
-          roleBadge: sp?.specialization ?? 'Специалист',
+          commissionCategory: 'STANDARD_SALE' as CommissionCategory,
           percentage: pct,
           amount: floorKopek(pct, saleTotal),
         };
@@ -108,16 +100,6 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleTotal]);
-
-  function updateAllocPct(idx: number, raw: string) {
-    const pct = Math.min(100, Math.max(0, parseFloat(raw) || 0));
-    setCommissionAllocs((prev) =>
-      prev.map((a, i) => i === idx ? { ...a, percentage: pct, amount: floorKopek(pct, saleTotal) } : a)
-    );
-  }
-
-  const allocTotalPct = commissionAllocs.reduce((s, a) => s + a.percentage, 0);
-  const allocTotalAmt = commissionAllocs.reduce((s, a) => s + a.amount, 0);
 
   // Load reference data
   React.useEffect(() => {
@@ -485,63 +467,12 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
             {/* ── Commission allocation ── */}
             {commissionAllocs.length > 0 && (
-              <div className="rounded-xl border border-border-luxury bg-charcoal/40 overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-border-luxury/60">
-                  <Percent className="w-3.5 h-3.5 text-champagne shrink-0" />
-                  <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Распределение комиссии</span>
-                  <span className="ml-auto text-xs text-text-tertiary tabular-nums">
-                    Сумма: <span className="text-text-secondary">{fmt(saleTotal)} ₽</span>
-                  </span>
-                </div>
-                {saleTotal === 0 && (
-                  <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-400">
-                    Сумма продажи ₽0 — комиссия будет ₽0
-                  </div>
-                )}
-                <div className="divide-y divide-border-luxury/40">
-                  {commissionAllocs.map((alloc, idx) => (
-                    <div key={alloc.specialistId} className="flex items-center gap-3 px-4 py-3">
-                      <div className="w-7 h-7 rounded-full bg-champagne/15 border border-champagne/30 flex items-center justify-center shrink-0">
-                        <span className="text-[10px] font-semibold text-champagne">
-                          {alloc.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-text-primary truncate">{alloc.name}</p>
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-white/5 border border-border-luxury text-text-muted">
-                          {alloc.roleBadge}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <div className="relative w-20">
-                          <input
-                            type="number" min="0" max="100" step="0.1"
-                            value={alloc.percentage}
-                            onChange={(e) => updateAllocPct(idx, e.target.value)}
-                            onKeyDown={(e) => { if (['-','+','e','E'].includes(e.key)) e.preventDefault(); }}
-                            disabled={saving}
-                            className="w-full px-2 py-1.5 pr-5 rounded-lg bg-onyx border border-border-luxury text-text-primary text-xs text-right focus:outline-none focus:ring-1 focus:ring-champagne/30 disabled:opacity-50"
-                          />
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-text-muted pointer-events-none">%</span>
-                        </div>
-                        <span className="text-xs text-text-muted">=</span>
-                        <span className="text-xs font-medium text-text-secondary tabular-nums w-20 text-right">{fmt(alloc.amount)} ₽</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className={`flex items-center justify-between px-4 py-2.5 border-t text-xs tabular-nums ${
-                  allocTotalPct > 100 ? 'border-amber-500/30 bg-amber-500/5 text-amber-400'
-                  : allocTotalPct === 100 ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-400'
-                  : 'border-border-luxury/60 text-text-muted'
-                }`}>
-                  <span>
-                    {allocTotalPct > 100 && '⚠ '}{allocTotalPct === 100 && '✓ '}
-                    Итого: <span className="font-medium">{allocTotalPct.toFixed(1)}%</span>
-                  </span>
-                  <span className="font-medium">{fmt(allocTotalAmt)} ₽</span>
-                </div>
-              </div>
+              <CommissionRows
+                rows={commissionAllocs}
+                saleTotal={saleTotal}
+                onChange={setCommissionAllocs}
+                disabled={saving}
+              />
             )}
 
             {error && (

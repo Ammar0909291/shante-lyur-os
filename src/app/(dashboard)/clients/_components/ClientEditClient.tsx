@@ -114,8 +114,8 @@ export function ClientEditClient({ client }: Props) {
               </div>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Email</span>
-                <input type="email" value={form.email} onChange={set('email')} className={inputCls} placeholder="email@example.com" />
+                <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Эл. почта</span>
+                <input type="email" value={form.email} onChange={set('email')} className={inputCls} placeholder="почта@пример.ru" />
               </label>
 
               <label className="block space-y-1.5">

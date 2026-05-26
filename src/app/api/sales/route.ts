@@ -235,7 +235,10 @@ export async function POST(req: NextRequest) {
 
       // 5. Create commission entries for every employee
       for (const emp of d.employees) {
-        const commission = await calculateCommission(emp.userId, saleTotal, emp.role);
+        const commission = await calculateCommission(
+          emp.userId, saleTotal, emp.role,
+          clientTypeAtSale as 'NEW' | 'RETURNING' | 'SUBSCRIPTION',
+        );
 
         const saleEmp = await tx.saleEmployee.create({
           data: {
@@ -264,7 +267,8 @@ export async function POST(req: NextRequest) {
         if (emp.role === 'SPECIALIST') {
           const specId = userToSpecialistId.get(emp.userId);
           if (specId && commission.commissionAmount > 0) {
-            await tx.payrollEntry.create({
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (tx.payrollEntry.create as any)({
               data: {
                 specialistId:    specId,
                 type:            'COMMISSION',
@@ -274,6 +278,7 @@ export async function POST(req: NextRequest) {
                 appointmentId:   appointment.id,
                 description:     `Комиссия ${commission.commissionBasis}% с продажи ${saleTotal} ₽`,
                 entryStatus:     'pending',
+                commissionType:  commission.commissionCategory,
                 isManuallyEdited: false,
                 createdBy:       actorId,
               },

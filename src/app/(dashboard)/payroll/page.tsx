@@ -727,12 +727,12 @@ export default function PayrollPage() {
 
   // Commissions tab state
   const [commEmployees, setCommEmployees] = React.useState<{
-    userId: string; name: string; role: string; department: string | null;
+    userId: string; specialistId: string | null; name: string; role: string; department: string | null;
     specialization: string | null; avatarUrl: string | null;
     totalApproved: number; pendingCount: number; procedureCount: number;
   }[]>([]);
   const [commLoading, setCommLoading] = React.useState(false);
-  const [openPanel, setOpenPanel] = React.useState<{ userId: string; name: string; role: string; department: string | null } | null>(null);
+  const [openPanel, setOpenPanel] = React.useState<{ userId: string; specialistId: string | null; name: string; role: string; department: string | null } | null>(null);
 
   React.useEffect(() => {
     const role = getUserRole();
@@ -1371,7 +1371,7 @@ export default function PayrollPage() {
             <button
               key={emp.userId}
               type="button"
-              onClick={() => setOpenPanel({ userId: emp.userId, name: emp.name, role: emp.role, department: emp.department })}
+              onClick={() => setOpenPanel({ userId: emp.userId, specialistId: emp.specialistId, name: emp.name, role: emp.role, department: emp.department })}
               className="w-full rounded-2xl bg-charcoal/30 border border-border-luxury p-5 text-left hover:bg-charcoal/50 transition-colors"
             >
               <div className="flex items-center justify-between gap-4">
@@ -1435,8 +1435,9 @@ export default function PayrollPage() {
         />
       )}
 
-      {openPanel && (
+      {openPanel && openPanel.specialistId && (
         <EmployeePayrollPanel
+          specialistId={openPanel.specialistId}
           userId={openPanel.userId}
           name={openPanel.name}
           role={openPanel.role}

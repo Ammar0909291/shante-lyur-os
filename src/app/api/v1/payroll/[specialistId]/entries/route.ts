@@ -11,11 +11,14 @@ function r2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+const VALID_COMMISSION_TYPES = ['STANDARD_SALE','NEW_CLIENT','RETURNING_CLIENT','UPSELL','REFERRAL','TARGET_BONUS','QUALITY_BONUS','CUSTOM'] as const;
+
 const bodySchema = z.object({
   type: z.enum(['BONUS', 'DEDUCTION', 'ADJUSTMENT']),
   amount: z.number().positive(),
   description: z.string().min(1).max(500),
-  periodMonth: z.string().regex(/^\d{4}-\d{2}$/, 'periodMonth must be YYYY-MM'),
+  periodMonth: z.string().regex(/^\d{4}-\d{2}-\d{2}$|^\d{4}-\d{2}$/, 'periodMonth must be YYYY-MM or YYYY-MM-DD'),
+  commissionType: z.enum(VALID_COMMISSION_TYPES).optional(),
 });
 
 export async function POST(
@@ -39,7 +42,9 @@ export async function POST(
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return R.badRequest('Validation failed', parsed.error.flatten());
 
-  const { type, amount, description, periodMonth } = parsed.data;
+  const { type, amount, description, commissionType } = parsed.data;
+  // Normalize periodMonth to YYYY-MM
+  const periodMonth = parsed.data.periodMonth.slice(0, 7);
 
   const specialist = await prisma.specialist.findUnique({
     where: { id: specialistId },
@@ -50,16 +55,18 @@ export async function POST(
   // Store deductions as negative amounts
   const storedAmount = type === 'DEDUCTION' ? -Math.abs(amount) : amount;
 
-  const entry = await prisma.payrollEntry.create({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const entry = await (prisma.payrollEntry.create as any)({
     data: {
       specialistId,
       type,
       amount: storedAmount,
       periodMonth,
       description,
+      commissionType: commissionType ?? null,
       createdBy: userId,
     },
-  });
+  }) as Awaited<ReturnType<typeof prisma.payrollEntry.create>>;
 
   // Recompute and upsert PayrollPeriod totals for the affected period
   const allEntries = await prisma.payrollEntry.findMany({
