@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useChatUnread } from '@/contexts/chatUnread';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,8 @@ export default function ChatPage() {
   const [groupError, setGroupError]         = React.useState<string | null>(null);
   const [notifPerm, setNotifPerm]           = React.useState<NotificationPermission | 'unsupported'>('granted');
 
+  const { increment: incrementUnread, clear: clearUnread } = useChatUnread();
+
   const bottomRef   = React.useRef<HTMLDivElement>(null);
   const inputRef    = React.useRef<HTMLTextAreaElement>(null);
   const typingTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -148,6 +151,7 @@ export default function ChatPage() {
     setMyMuted(conversations.find((c) => c.id === convId)?.muted ?? false);
     // Track active conversation for desktop notification suppression
     sessionStorage.setItem('activeConversationId', convId);
+    clearUnread(convId);
     await loadMessages(convId);
     // Mark as read
     fetch(`/api/v1/chat/conversations/${convId}/read`, {
@@ -163,7 +167,7 @@ export default function ChatPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ activePage: `/chat/${convId}` }),
     }).catch(() => {});
-  }, [conversations, loadMessages]);
+  }, [conversations, loadMessages, clearUnread]);
 
   // Restore from URL param
   React.useEffect(() => {
@@ -206,6 +210,7 @@ export default function ChatPage() {
                 ? { ...c, unreadCount: c.unreadCount + 1, lastMessagePreview: msg.content }
                 : c,
             ));
+            if (!msg.isOwn) incrementUnread(msg.conversationId);
           }
           // Refresh conversation list
           loadConversations();
@@ -248,7 +253,7 @@ export default function ChatPage() {
       } catch {}
     };
     return () => es.close();
-  }, [activeConvId, loadConversations]);
+  }, [activeConvId, loadConversations, incrementUnread]);
 
   // ── Presence heartbeat ────────────────────────────────────────────────────
 

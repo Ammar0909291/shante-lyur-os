@@ -31,7 +31,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
-import { getClientRole, authHeaders as clientAuthHeaders } from '@/lib/client-auth';
+import { useChatUnread } from '@/contexts/chatUnread';
+import { getClientRole } from '@/lib/client-auth';
 
 interface NavItem {
   key: string;
@@ -74,24 +75,6 @@ function getJwtRole(): string {
   return getClientRole();
 }
 
-function useChatUnread(): number {
-  const [count, setCount] = React.useState(0);
-  React.useEffect(() => {
-    const poll = () => {
-      const headers = clientAuthHeaders();
-      if (!headers['x-user-id']) return;
-      fetch('/api/v1/chat/unread', { headers })
-        .then((r) => r.json())
-        .then((json) => { if (json.success) setCount(json.data.total as number); })
-        .catch(() => {});
-    };
-    poll();
-    const id = setInterval(poll, 30_000);
-    return () => clearInterval(id);
-  }, []);
-  return count;
-}
-
 function useUserRole(): string {
   const [role, setRole] = React.useState('');
   React.useEffect(() => {
@@ -110,7 +93,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const { t } = useLanguage();
   const [collapsed, setCollapsed] = React.useState(false);
   const role = useUserRole();
-  const chatUnread = useChatUnread();
+  const { total: chatUnread } = useChatUnread();
   const visibleItems = NAV_ITEMS.filter((item) => !item.roles || (!!role && item.roles.includes(role)));
 
   return (

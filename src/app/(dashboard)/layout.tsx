@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { LanguageProvider, useLanguage } from '@/contexts/language';
 import { UIVersionProvider, useUIVersion } from '@/contexts/ui-version';
+import { ChatUnreadProvider } from '@/contexts/chatUnread';
 import { NextUIShell } from '@/next-ui/layouts/NextUIShell';
 import { cn } from '@/lib/utils';
 
@@ -96,7 +97,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <LanguageProvider>
       <UIVersionProvider>
-        <ShellRouter>{children}</ShellRouter>
+        <ChatUnreadProvider>
+          <ShellRouter>{children}</ShellRouter>
+        </ChatUnreadProvider>
       </UIVersionProvider>
     </LanguageProvider>
   );
