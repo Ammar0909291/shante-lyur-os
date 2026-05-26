@@ -274,9 +274,18 @@ export function UniverseCanvas() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       drawNebulae(timestamp);
+
+      // Rotate entire star field around canvas centre — one revolution per 10 minutes
+      const starAngle = (timestamp / 600000) * Math.PI * 2;
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(starAngle);
+      ctx.translate(-canvas.width / 2, -canvas.height / 2);
       drawBackgroundStars(timestamp);
       drawMidStars(timestamp);
       drawForegroundStars(timestamp);
+      ctx.restore();
+
       drawShootingStar(timestamp);
       drawGalaxyCore(timestamp);
 
