@@ -65,7 +65,7 @@ interface ProfileData {
   vipPermission: boolean;
   user: { firstName: string; lastName: string; email: string; phone: string | null };
   services: { id: string; name: string; baseDuration: number }[];
-  workingSchedules: { dayOfWeek: number; startTime: string; endTime: string }[];
+  workingSchedules: { dayOfWeek: string; startTime: string; endTime: string }[];
   rooms: { id: string; name: string; type: string }[];
 }
 
@@ -248,9 +248,70 @@ const REQ_STATUS_COLORS: Record<string, string> = {
   REJECTED: 'text-red-400 bg-red-400/10',
 };
 
-const DAY_LABELS: Record<number, string> = {
-  0: 'Пн', 1: 'Вт', 2: 'Ср', 3: 'Чт', 4: 'Пт', 5: 'Сб', 6: 'Вс',
+
+const DOW_TO_NUM: Record<string, number> = {
+  MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3, THURSDAY: 4,
+  FRIDAY: 5, SATURDAY: 6, SUNDAY: 0,
 };
+
+const MONTH_RU_PANEL = [
+  'Январь','Февраль','Март','Апрель','Май','Июнь',
+  'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь',
+];
+
+function ScheduleCalendar({ schedules }: { schedules: { dayOfWeek: string }[] }) {
+  const now = new Date();
+  const [year,  setYear]  = React.useState(now.getFullYear());
+  const [month, setMonth] = React.useState(now.getMonth());
+
+  const workDowSet = new Set(schedules.map((s) => DOW_TO_NUM[s.dayOfWeek] ?? -1));
+
+  const daysInMonth  = new Date(year, month + 1, 0).getDate();
+  const firstDow     = new Date(year, month, 1).getDay();
+  const blanks       = firstDow === 0 ? 6 : firstDow - 1; // Mon-first
+
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+  const prevMonth = () => { if (month === 0) { setYear(y => y-1); setMonth(11); } else setMonth(m => m-1); };
+  const nextMonth = () => { if (month === 11) { setYear(y => y+1); setMonth(0); } else setMonth(m => m+1); };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-white/10 text-text-tertiary hover:text-text-primary transition-colors">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <span className="text-sm font-semibold text-champagne">{MONTH_RU_PANEL[month]} {year}</span>
+        <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-white/10 text-text-tertiary hover:text-text-primary transition-colors">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1">
+        {Array.from({ length: blanks }, (_, i) => <div key={`b${i}`} />)}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const d    = i + 1;
+          const dow  = new Date(year, month, d).getDay();
+          const isWork  = workDowSet.has(dow);
+          const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const isToday = dateStr === todayStr;
+          const cls = [
+            'h-9 rounded-lg flex items-center justify-center text-xs font-medium transition-colors',
+            isWork  ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/30'
+                    : 'bg-charcoal/40 text-text-tertiary',
+            isToday ? 'ring-2 ring-amber-400' : '',
+          ].join(' ');
+          return <div key={d} className={cls}>{d}</div>;
+        })}
+      </div>
+
+      <div className="mt-3 flex gap-4 text-[11px] text-text-tertiary">
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-900/40 border border-emerald-700/30 inline-block" />Рабочий</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-charcoal/40 inline-block" />Выходной</span>
+      </div>
+    </div>
+  );
+}
 
 // ─── Shared components ────────────────────────────────────────────────────────
 
@@ -1005,23 +1066,19 @@ function ProfileTab() {
         </div>
       )}
 
-      {/* My schedule */}
-      {profile.workingSchedules.length > 0 && (
-        <div className="rounded-2xl border border-border-luxury bg-onyx/50">
-          <div className="px-4 py-3 border-b border-border-luxury flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-champagne" />
-            <h3 className="text-sm font-semibold text-text-primary">{t('portal.profile.schedule')}</h3>
-          </div>
-          <div className="p-4 space-y-1.5">
-            {profile.workingSchedules.map((s) => (
-              <div key={s.dayOfWeek} className="flex items-center gap-3 text-xs">
-                <span className="w-8 text-text-tertiary font-medium">{DAY_LABELS[s.dayOfWeek] ?? String(s.dayOfWeek)}</span>
-                <span className="text-text-primary">{s.startTime} – {s.endTime}</span>
-              </div>
-            ))}
-          </div>
+      {/* My schedule — monthly calendar */}
+      <div className="rounded-2xl border border-border-luxury bg-onyx/50">
+        <div className="px-4 py-3 border-b border-border-luxury flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-champagne" />
+          <h3 className="text-sm font-semibold text-text-primary">{t('portal.profile.schedule')}</h3>
         </div>
-      )}
+        <div className="p-4">
+          {profile.workingSchedules.length > 0
+            ? <ScheduleCalendar schedules={profile.workingSchedules} />
+            : <p className="text-sm text-text-tertiary text-center py-4">График не настроен</p>
+          }
+        </div>
+      </div>
 
       {/* Requests */}
       <div className="rounded-2xl border border-border-luxury bg-onyx/50">
