@@ -89,7 +89,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
   const [bonusSaving,   setBonusSaving]   = React.useState(false);
 
   // Inline commission edit
-  const [editingId,  setEditingId]  = React.useState<string | null>(null);  // payrollEntryId
+  const [editingId,  setEditingId]  = React.useState<string | null>(null);
   const [editRate,   setEditRate]   = React.useState('');
   const [editAmount, setEditAmount] = React.useState('');
   const [editSaving, setEditSaving] = React.useState(false);
@@ -157,8 +157,8 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
   }
 
   function startEdit(commission: SaleCommission) {
-    if (!commission.payrollEntryId || commission.isLocked) return;
-    setEditingId(commission.payrollEntryId);
+    if (commission.isLocked) return;
+    setEditingId(commission.id);
     setEditRate(String(commission.commissionBasis));
     setEditAmount(String(commission.commissionAmount));
   }
@@ -170,17 +170,26 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
   }
 
   async function saveEdit(commission: SaleCommission) {
-    if (!commission.payrollEntryId) return;
     const rate = parseFloat(editRate);
     if (isNaN(rate) || rate < 0 || rate > 100) return;
     setEditSaving(true);
     try {
-      const res = await fetch(`/api/v1/payroll/${specialistId}/entries/${commission.payrollEntryId}`, {
-        method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ rate, amount: parseFloat(editAmount) || undefined }),
-      });
+      let res: Response;
+      if (commission.payrollEntryId) {
+        res = await fetch(`/api/v1/payroll/${specialistId}/entries/${commission.payrollEntryId}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ rate, amount: parseFloat(editAmount) || undefined }),
+        });
+      } else {
+        res = await fetch(`/api/payroll/entries/${commission.id}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ commissionBasis: rate, commissionAmount: parseFloat(editAmount) || undefined }),
+        });
+      }
       const json = await res.json() as { success: boolean };
       if (json.success) {
         cancelEdit();
@@ -310,7 +319,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                         </thead>
                         <tbody className="divide-y divide-border-luxury/30">
                           {saleCommissions.map((e) => {
-                            const isEditing = editingId === e.payrollEntryId && e.payrollEntryId !== null;
+                            const isEditing = editingId === e.id;
                             return (
                               <tr key={e.id} className={cn('transition-colors', isEditing ? 'bg-charcoal/40' : 'hover:bg-white/[0.02]')}>
                                 <td className="px-3 py-2.5 text-text-tertiary whitespace-nowrap">
@@ -398,7 +407,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                                     </div>
                                   ) : e.isLocked ? (
                                     <span title="Период закрыт"><Lock className="w-3.5 h-3.5 text-text-muted/40" /></span>
-                                  ) : e.payrollEntryId ? (
+                                  ) : (
                                     <button
                                       type="button"
                                       onClick={() => startEdit(e)}
@@ -407,7 +416,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                                     >
                                       <Pencil className="w-3.5 h-3.5" />
                                     </button>
-                                  ) : null}
+                                  )}
                                 </td>
                               </tr>
                             );
