@@ -120,7 +120,7 @@ function fmtTime(iso: string) {
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 function fmtCurrency(n: number) {
-  return new Intl.NumberFormat('ru-RU', { style:'currency', currency:'KZT', maximumFractionDigits:0 }).format(n);
+  return new Intl.NumberFormat('ru-RU', { style:'currency', currency:'RUB', maximumFractionDigits:0 }).format(n);
 }
 
 function monthBounds(year: number, month: number) {
