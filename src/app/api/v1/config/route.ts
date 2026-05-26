@@ -13,6 +13,7 @@ const ALLOWED_KEYS = [
   'smtp_user',
   'smtp_pass',
   'smtp_from',
+  'online_booking_enabled',
 ];
 
 function ok<T>(data: T) { return NextResponse.json({ success: true, data }); }

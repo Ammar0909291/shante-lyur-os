@@ -167,6 +167,15 @@ function Row({ label, value, highlight }: { label: string; value: string; highli
 // ─────────────────────────────────────────────
 
 export default function BookPage() {
+  const [portalEnabled, setPortalEnabled] = useState<boolean | null>(null); // null = loading
+
+  useEffect(() => {
+    fetch('/api/public/booking/status')
+      .then((r) => r.json())
+      .then((j) => setPortalEnabled(j.data?.enabled !== false))
+      .catch(() => setPortalEnabled(true));
+  }, []);
+
   const [step, setStep]       = useState<Step>('verify');
   const [phoneInput, setPhoneInput] = useState('');
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -310,8 +319,34 @@ export default function BookPage() {
         </div>
       </div>
 
+      {/* Loading / disabled state */}
+      {portalEnabled === null && (
+        <div className="flex justify-center py-16">
+          <Loader2 size={28} className="animate-spin text-champagne/50" />
+        </div>
+      )}
+
+      {portalEnabled === false && (
+        <div
+          className="w-full max-w-md rounded-2xl p-10 text-center"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(212,175,55,0.15)', backdropFilter: 'blur(20px)' }}
+        >
+          <div
+            className="w-14 h-14 rounded-2xl mx-auto mb-5 flex items-center justify-center"
+            style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.25)' }}
+          >
+            <Phone size={22} className="text-champagne/60" />
+          </div>
+          <h2 className="font-serif text-xl text-white mb-3">Онлайн-запись временно недоступна</h2>
+          <p className="text-sm text-white/50 leading-relaxed">
+            Запись через сайт приостановлена администратором.<br />
+            Пожалуйста, свяжитесь с нами по телефону.
+          </p>
+        </div>
+      )}
+
       {/* Card */}
-      <div
+      {portalEnabled === true && <div
         className="w-full max-w-md rounded-2xl p-7"
         style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(212,175,55,0.15)', backdropFilter: 'blur(20px)' }}
       >
@@ -607,7 +642,7 @@ export default function BookPage() {
             </button>
           </div>
         )}
-      </div>
+      </div>}
 
       <p className="mt-8 text-xs text-white/25">© {new Date().getFullYear()} Shante Lyur. Все права защищены.</p>
     </div>

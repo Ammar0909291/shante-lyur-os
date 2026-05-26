@@ -89,6 +89,20 @@ export default function SettingsPage() {
   const [onlinePaymentsEnabled, setOnlinePaymentsEnabled] = React.useState(false);
   const [autoConfirm, setAutoConfirm] = React.useState(false);
   const [showRevenue, setShowRevenue] = React.useState(true);
+  const [onlineBookingEnabled, setOnlineBookingEnabled] = React.useState(true);
+  const [bookingToggleSaving, setBookingToggleSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    // Load online booking toggle from DB
+    fetch('/api/v1/config')
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success && j.data?.online_booking_enabled !== undefined) {
+          setOnlineBookingEnabled(j.data.online_booking_enabled !== 'false');
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   React.useEffect(() => {
     setIsDark(!document.documentElement.classList.contains('light'));
@@ -133,6 +147,21 @@ export default function SettingsPage() {
 
   const tog = (setter: (v: boolean) => void, key: string, val: boolean) => {
     setter(val); save({ [key]: val });
+  };
+
+  const toggleOnlineBooking = async (val: boolean) => {
+    setOnlineBookingEnabled(val);
+    setBookingToggleSaving(true);
+    try {
+      await fetch('/api/v1/config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ online_booking_enabled: String(val) }),
+      });
+      flash();
+    } finally {
+      setBookingToggleSaving(false);
+    }
   };
 
   return (
@@ -331,6 +360,30 @@ export default function SettingsPage() {
         <SectionCard title="Операционные настройки" description="Поведение системы записи">
           <ToggleRow icon={<Store className="w-4 h-4" />} label="Автоподтверждение записей" description="Автоматически подтверждать новые записи без ручной проверки" checked={autoConfirm} onChange={(v) => tog(setAutoConfirm, 'autoConfirm', v)} />
           <ToggleRow icon={<Users className="w-4 h-4" />} label="Выручка видна специалистам" description="Разрешить специалистам видеть свою выручку в профиле" checked={showRevenue} onChange={(v) => tog(setShowRevenue, 'showRevenue', v)} />
+          <div className="flex items-center justify-between gap-4 px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-charcoal text-text-secondary shrink-0">
+                <Globe className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-text-primary">Онлайн-запись для клиентов</p>
+                <p className="text-xs text-text-tertiary mt-0.5">
+                  Публичная страница&nbsp;
+                  <a href="/book" target="_blank" className="text-champagne hover:underline">/book</a>
+                  {onlineBookingEnabled ? ' — доступна клиентам' : ' — закрыта для клиентов'}
+                  {bookingToggleSaving && <span className="ml-2 opacity-60">сохранение…</span>}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => toggleOnlineBooking(!onlineBookingEnabled)}
+              disabled={bookingToggleSaving}
+              className={cn('relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-50', onlineBookingEnabled ? 'bg-champagne' : 'bg-charcoal border border-border-luxury')}
+              aria-pressed={onlineBookingEnabled}
+            >
+              <span className={cn('absolute top-1 w-4 h-4 rounded-full transition-transform bg-white shadow-sm', onlineBookingEnabled ? 'translate-x-6' : 'translate-x-1')} />
+            </button>
+          </div>
         </SectionCard>
 
         {/* Studio info */}
