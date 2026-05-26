@@ -89,6 +89,7 @@ export default function ChatPage() {
   const [sendError, setSendError]           = React.useState<string | null>(null);
   const [dmError, setDmError]               = React.useState<string | null>(null);
   const [groupError, setGroupError]         = React.useState<string | null>(null);
+  const [notifPerm, setNotifPerm]           = React.useState<NotificationPermission | 'unsupported'>('granted');
 
   const bottomRef   = React.useRef<HTMLDivElement>(null);
   const inputRef    = React.useRef<HTMLTextAreaElement>(null);
@@ -264,6 +265,22 @@ export default function ChatPage() {
     return () => clearInterval(id);
   }, [activeConvId]);
 
+  // ── Desktop notification permission ──────────────────────────────────────
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setNotifPerm('unsupported');
+      return;
+    }
+    setNotifPerm(Notification.permission);
+  }, []);
+
+  const handleEnableNotifications = React.useCallback(async () => {
+    const { initDesktopNotifications } = await import('@/lib/desktopNotifications');
+    await initDesktopNotifications();
+    if ('Notification' in window) setNotifPerm(Notification.permission);
+  }, []);
+
   // ── Send message ──────────────────────────────────────────────────────────
 
   const handleSend = React.useCallback(async () => {
@@ -418,8 +435,35 @@ export default function ChatPage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full animate-fade-in overflow-hidden">
+    <div className="flex flex-col h-full animate-fade-in overflow-hidden">
 
+      {/* ── Desktop notification permission banner ───────────────────── */}
+      {notifPerm === 'default' && (
+        <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-2 bg-champagne/8 border-b border-champagne/20">
+          <div className="flex items-center gap-2 min-w-0">
+            <Bell className="w-3.5 h-3.5 text-champagne shrink-0" />
+            <p className="text-xs text-text-secondary truncate">
+              Включите уведомления, чтобы получать сообщения в фоне
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleEnableNotifications}
+              className="text-xs font-medium text-champagne hover:text-champagne/80 transition-colors whitespace-nowrap"
+            >
+              Включить
+            </button>
+            <button
+              onClick={() => setNotifPerm('denied')}
+              className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* ── Left panel ─────────────────────────────────────────────────── */}
       <div className={cn(
         'shrink-0 border-r border-border-luxury flex flex-col',
@@ -721,6 +765,7 @@ export default function ChatPage() {
           </div>
         )}
       </div>
+      </div>{/* end flex panels wrapper */}
 
       {/* ── New chat modal ──────────────────────────────────────────────── */}
       {showNewChat && (

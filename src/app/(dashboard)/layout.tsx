@@ -66,13 +66,6 @@ function ShellRouter({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = React.useState(true);
   const prevVersion = React.useRef(version);
 
-  // Initialise desktop notifications once per session (SW register + permission prompt)
-  React.useEffect(() => {
-    import('@/lib/desktopNotifications').then(({ initDesktopNotifications }) => {
-      initDesktopNotifications();
-    });
-  }, []);
-
   // Fade out → swap shell → fade in on version change
   React.useEffect(() => {
     if (prevVersion.current === version) return;
