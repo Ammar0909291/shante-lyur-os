@@ -4,7 +4,9 @@ import * as React from 'react';
 import {
   CheckCircle2, XCircle, Loader2, RefreshCw, Inbox,
   AlertTriangle, Calendar, ShieldAlert, Users, LayoutGrid, Table2,
+  Download, Printer,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { authHeaders } from '@/lib/client-auth';
 
@@ -342,6 +344,84 @@ interface ScheduleTableProps {
   onReview: (r: ScheduleRequest) => void;
 }
 
+function exportScheduleXlsx(data: ScheduleTabData, month: string) {
+  const [y, m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+
+  const cols = Array.from({ length: daysInMonth }, (_, i) => {
+    const d = i + 1;
+    const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    return { d, dateStr };
+  });
+
+  const DEPT_LABEL: Record<string, string> = { MASSAGE: 'Массаж', COSMETOLOGY: 'Косметология' };
+  const STATUS_LABEL: Record<string, string> = { PENDING: 'Ожидает', APPROVED: 'Одобрено', REJECTED: 'Отклонено' };
+
+  const header = ['Сотрудник', 'Отдел', 'Статус', ...cols.map((c) => String(c.d)), '∑'];
+  const rows: (string | number)[][] = [header];
+
+  for (const r of data.requests) {
+    const dayMap: Record<string, boolean> = {};
+    for (const d of r.days) dayMap[d.date] = d.isWorkDay;
+    rows.push([
+      r.specialistName,
+      DEPT_LABEL[r.department] ?? r.department,
+      STATUS_LABEL[r.status] ?? r.status,
+      ...cols.map((c) => (dayMap[c.dateStr] ? 'Р' : '')),
+      r.workDayCount,
+    ]);
+  }
+
+  // Coverage footer rows
+  for (const dept of ['MASSAGE', 'COSMETOLOGY'] as const) {
+    rows.push([
+      dept === 'MASSAGE' ? 'Массажисты' : 'Косметологи', '', '',
+      ...cols.map((c) => data.coverage[c.dateStr]?.[dept] ?? 0),
+      '',
+    ]);
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 22 }, { wch: 14 }, { wch: 12 }, ...cols.map(() => ({ wch: 4 })), { wch: 4 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, `График ${month}`);
+  XLSX.writeFile(wb, `schedule-${month}.xlsx`);
+}
+
+function printScheduleTable(month: string) {
+  const el = document.getElementById('schedule-print-area');
+  if (!el) return;
+  const win = window.open('', '_blank', 'width=1200,height=800');
+  if (!win) return;
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="utf-8"/>
+    <title>График ${month}</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Arial, sans-serif; font-size: 10px; background: #fff; color: #000; padding: 12px; }
+      h2 { font-size: 13px; margin-bottom: 8px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #bbb; padding: 3px 4px; text-align: center; white-space: nowrap; }
+      th { background: #f0f0f0; font-weight: 600; }
+      td:first-child, th:first-child { text-align: left; min-width: 130px; }
+      .work-approved { background: #bbf7d0; }
+      .work-pending  { background: #fde68a; }
+      .work-alert    { background: #fca5a5; }
+      .cover-short   { background: #fecaca; font-weight: bold; }
+      .cover-ok      { background: #d1fae5; }
+      .cover-zero    { color: #ccc; }
+      tfoot tr td    { background: #f8f8f8; font-weight: bold; }
+      @media print { body { padding: 0; } }
+    </style>
+  </head><body>`);
+  win.document.write(`<h2>График на ${month}</h2>`);
+  win.document.write(el.innerHTML);
+  win.document.write(`</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 300);
+}
+
 function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
   const [y, m] = month.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
@@ -356,7 +436,23 @@ function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
 
   return (
     <div className="space-y-2">
-      <div className="overflow-x-auto rounded-xl border border-border-luxury">
+      {/* Toolbar */}
+      <div className="flex items-center justify-end gap-2">
+        <button
+          onClick={() => exportScheduleXlsx(data, month)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
+        >
+          <Download className="w-3.5 h-3.5" /> Excel
+        </button>
+        <button
+          onClick={() => printScheduleTable(month)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-medium hover:bg-blue-500/20 transition-colors"
+        >
+          <Printer className="w-3.5 h-3.5" /> Печать
+        </button>
+      </div>
+
+      <div id="schedule-print-area" className="overflow-x-auto rounded-xl border border-border-luxury">
         <table className="text-xs border-collapse" style={{ minWidth: 'max-content' }}>
           {/* Header row */}
           <thead>
@@ -418,21 +514,23 @@ function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
                     const isWork = dayMap[dateStr];
                     const isAlert = !!isWork && alertSet.has(dateStr);
                     let cellCls = '';
+                    let printCls = '';
                     if (isWork === undefined) {
                       cellCls = 'bg-charcoal/20';
                     } else if (!isWork) {
                       cellCls = 'bg-charcoal/40';
                     } else if (r.status === 'APPROVED') {
                       cellCls = isAlert ? 'bg-red-700/60' : 'bg-emerald-800/60';
+                      printCls = isAlert ? 'work-alert' : 'work-approved';
                     } else if (r.status === 'REJECTED') {
                       cellCls = 'bg-red-900/25';
                     } else {
-                      // PENDING
                       cellCls = isAlert ? 'bg-red-700/40' : 'bg-amber-700/50';
+                      printCls = isAlert ? 'work-alert' : 'work-pending';
                     }
                     return (
                       <td key={dateStr}
-                        className={cn('border-r border-border-luxury/10', cellCls)}
+                        className={cn('border-r border-border-luxury/10', cellCls, printCls)}
                         style={{ width: 28, height: 32 }}
                       />
                     );
@@ -460,10 +558,10 @@ function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
                       className={cn(
                         'text-center text-[10px] font-bold border-r border-border-luxury/20',
                         count === 0
-                          ? 'bg-charcoal text-text-tertiary/25'
+                          ? 'bg-charcoal text-text-tertiary/25 cover-zero'
                           : isShort
-                          ? 'bg-red-900/30 text-red-300'
-                          : 'bg-charcoal text-emerald-400'
+                          ? 'bg-red-900/30 text-red-300 cover-short'
+                          : 'bg-charcoal text-emerald-400 cover-ok'
                       )}
                       style={{ width: 28 }}>
                       {count > 0 ? count : ''}
