@@ -638,8 +638,8 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
   const firstDow = new Date(y, monthIdx, 1).getDay();
   const blanks   = firstDow === 0 ? 6 : firstDow - 1;
 
-  // ── Read-only view (already submitted) ──
-  if (request) {
+  // ── Read-only view (PENDING or APPROVED — locked) ──
+  if (request && request.status !== 'REJECTED') {
     return (
       <div>
         <div className={`mb-4 rounded-xl p-4 border flex items-start gap-3 ${
@@ -697,6 +697,16 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
 
   return (
     <div>
+      {/* Rejection banner — shown when resubmitting after a rejection */}
+      {request?.status === 'REJECTED' && !success && (
+        <div className="mb-4 bg-rose-900/30 border border-rose-700/40 rounded-xl p-4">
+          <p className="text-sm font-semibold text-rose-300 mb-0.5">График отклонён — скорректируйте и подайте повторно</p>
+          {request.reviewNotes && (
+            <p className="text-xs text-rose-400/80 mt-1">Причина: {request.reviewNotes}</p>
+          )}
+        </div>
+      )}
+
       <p className="text-xs text-zinc-500 mb-3">
         Нажмите на день чтобы отметить рабочим · часы работы 10:00–20:00 · {workDays} {workDays === 1 ? 'день' : workDays < 5 ? 'дня' : 'дней'} выбрано
       </p>
@@ -704,7 +714,7 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
       {success && (
         <div className="mb-3 bg-emerald-900/30 border border-emerald-700/40 rounded-xl p-3 flex items-center gap-3">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-          <p className="text-sm text-emerald-300">График подан! Ожидайте подтверждения администратора.</p>
+          <p className="text-sm text-emerald-300">{request?.status === 'REJECTED' ? 'График повторно подан!' : 'График подан!'} Ожидайте подтверждения администратора.</p>
         </div>
       )}
       {error && (

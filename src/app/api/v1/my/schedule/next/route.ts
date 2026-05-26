@@ -103,27 +103,42 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Once submitted, employee CANNOT resubmit — only admin can modify
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const existing = await (prisma as any).scheduleRequest.findUnique({
     where: { specialistId_month: { specialistId: specialist.id, month: monthStr } },
-    select: { id: true },
+    select: { id: true, status: true },
   });
-  if (existing) {
+
+  // PENDING / APPROVED → locked, only admin can change
+  if (existing && existing.status !== 'REJECTED') {
     return err('Заявка уже подана и не может быть изменена. Обратитесь к администратору.', 409);
   }
 
+  // Create or re-submit (REJECTED → reset to PENDING with new days)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const request = await (prisma as any).scheduleRequest.create({
-    data: {
-      specialistId: specialist.id,
-      month:        monthStr,
-      days:         days as object[],
-      note:         note ?? null,
-      status:       'PENDING',
-      submittedAt:  new Date(),
-    },
-  });
+  const request = existing
+    ? await (prisma as any).scheduleRequest.update({
+        where: { id: existing.id },
+        data: {
+          days:        days as object[],
+          note:        note ?? null,
+          status:      'PENDING',
+          submittedAt: new Date(),
+          reviewedBy:  null,
+          reviewNotes: null,
+          reviewedAt:  null,
+        },
+      })
+    : await (prisma as any).scheduleRequest.create({
+        data: {
+          specialistId: specialist.id,
+          month:        monthStr,
+          days:         days as object[],
+          note:         note ?? null,
+          status:       'PENDING',
+          submittedAt:  new Date(),
+        },
+      });
 
   // Notify all ADMIN / SUPER_ADMIN users about the new schedule request
   try {
@@ -146,8 +161,10 @@ export async function POST(req: NextRequest) {
           type:    'STAFF_ALERT' as const,
           channel: 'IN_APP' as const,
           status:  'SENT' as const,
-          title:   'Новая заявка на график',
-          body:    `${name} подал(а) заявку на график на ${monthStr}`,
+          title:   existing ? 'Повторная заявка на график' : 'Новая заявка на график',
+          body:    existing
+            ? `${name} повторно подал(а) заявку на график на ${monthStr}`
+            : `${name} подал(а) заявку на график на ${monthStr}`,
           data:    { scheduleRequestId: request.id, specialistId: specialist.id, month: monthStr },
           sentAt:  new Date(),
         })),
