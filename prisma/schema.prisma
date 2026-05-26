@@ -1807,6 +1807,10 @@ model PayrollEntry {
   commissionType   CommissionType? @map("commission_type")
   isLocked         Boolean  @default(false) @map("is_locked")
   isManuallyEdited Boolean  @default(false) @map("is_manually_edited")
+  edited           Boolean  @default(false) @map("edited")
+  editedBy         String?  @map("edited_by") @db.Uuid
+  editedAt         DateTime? @map("edited_at")
+  originalData     Json?    @map("original_data")
   entryStatus      String   @default("pending") @map("entry_status") @db.VarChar(20)
   entryNotes       String?  @map("entry_notes") @db.VarChar(500)
   approved         Boolean  @default(false) @map("approved")

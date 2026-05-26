@@ -1,15 +1,26 @@
 'use client';
 
 import * as React from 'react';
-import { X, Download, Plus, Trash2, CheckSquare, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Download, Plus, Trash2, CheckSquare, RefreshCw, ChevronDown, ChevronUp, Pencil, Lock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getCommissionTypeLabel, getUserRoleLabel, getDepartmentLabel } from '@/lib/labels';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface SaleCommission {
-  id: string; date: string; clientName: string; services: string;
-  saleTotal: number; commissionType: string; commissionBasis: number;
-  commissionAmount: number; status: string;
+  id:               string;
+  payrollEntryId:   string | null;
+  date:             string;
+  clientName:       string;
+  services:         string;
+  saleTotal:        number;
+  commissionType:   string;
+  commissionBasis:  number;
+  commissionAmount: number;
+  status:           string;
+  isLocked:         boolean;
+  edited:           boolean;
+  editedAt:         string | null;
 }
 interface BonusEntry {
   id: string; commissionType: string; label: string;
@@ -19,11 +30,11 @@ interface Summary { totalSaleCommissions: number; totalBonuses: number; grandTot
 
 interface Props {
   specialistId: string;
-  userId: string;
-  name: string;
-  role: string;
-  department: string | null;
-  onClose: () => void;
+  userId:       string;
+  name:         string;
+  role:         string;
+  department:   string | null;
+  onClose:      () => void;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -39,10 +50,10 @@ function today() { return new Date().toLocaleDateString('en-CA'); }
 
 const STATUS_COLOR: Record<string, string> = {
   PENDING:  'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  APPROVED: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+  APPROVED: 'text-sky-400 bg-sky-400/10 border-sky-400/20',
   PAID:     'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
   pending:  'text-amber-400 bg-amber-400/10 border-amber-400/20',
-  approved: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
+  approved: 'text-sky-400 bg-sky-400/10 border-sky-400/20',
   paid:     'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
 };
 const STATUS_LABEL: Record<string, string> = {
@@ -50,16 +61,14 @@ const STATUS_LABEL: Record<string, string> = {
   pending: 'Ожидает', approved: 'Утверждено', paid: 'Выплачено',
 };
 
-const COMMISSION_TYPE_LABELS: Record<string, string> = {
-  STANDARD_SALE:    'Стандартная комиссия',
-  NEW_CLIENT:       'Новый клиент',
-  RETURNING_CLIENT: 'Возврат клиента',
-  UPSELL:           'Допродажа',
-  REFERRAL:         'Реферал',
-  TARGET_BONUS:     'Бонус за план',
-  QUALITY_BONUS:    'Бонус за качество',
-  CUSTOM:           'Особый бонус',
-};
+const BONUS_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'STANDARD_SALE',    label: 'Стандартная' },
+  { value: 'NEW_CLIENT',       label: 'Новый клиент' },
+  { value: 'RETURNING_CLIENT', label: 'Возврат клиента' },
+  { value: 'TARGET_BONUS',     label: 'За план' },
+  { value: 'QUALITY_BONUS',    label: 'За качество' },
+  { value: 'CUSTOM',           label: 'Особый' },
+];
 
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
@@ -72,12 +81,18 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
   const [summary,         setSummary]         = React.useState<Summary | null>(null);
   const [loading,         setLoading]         = React.useState(false);
 
-  // New bonus form
+  // Bonus form
   const [showBonusForm, setShowBonusForm] = React.useState(false);
   const [bonusType,     setBonusType]     = React.useState('CUSTOM');
   const [bonusDesc,     setBonusDesc]     = React.useState('');
   const [bonusAmt,      setBonusAmt]      = React.useState('');
   const [bonusSaving,   setBonusSaving]   = React.useState(false);
+
+  // Inline commission edit
+  const [editingId,  setEditingId]  = React.useState<string | null>(null);  // payrollEntryId
+  const [editRate,   setEditRate]   = React.useState('');
+  const [editAmount, setEditAmount] = React.useState('');
+  const [editSaving, setEditSaving] = React.useState(false);
 
   // Collapse sections
   const [saleOpen,  setSaleOpen]  = React.useState(true);
@@ -101,7 +116,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
   async function approveAll() {
     const pending = saleCommissions.filter((e) => e.status === 'PENDING' || e.status === 'pending');
     for (const e of pending) {
-      await fetch(`/api/payroll/entries/${e.id}`, {  // existing entries PATCH endpoint
+      await fetch(`/api/payroll/entries/${e.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -121,10 +136,10 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          type:         'BONUS',
-          amount:       parseFloat(bonusAmt),
-          description:  bonusDesc,
-          periodMonth:  periodMonth + '-01',
+          type:           'BONUS',
+          amount:         parseFloat(bonusAmt),
+          description:    bonusDesc,
+          periodMonth:    periodMonth + '-01',
           commissionType: bonusType,
         }),
       });
@@ -141,12 +156,57 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
     void load();
   }
 
+  function startEdit(commission: SaleCommission) {
+    if (!commission.payrollEntryId || commission.isLocked) return;
+    setEditingId(commission.payrollEntryId);
+    setEditRate(String(commission.commissionBasis));
+    setEditAmount(String(commission.commissionAmount));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditRate('');
+    setEditAmount('');
+  }
+
+  async function saveEdit(commission: SaleCommission) {
+    if (!commission.payrollEntryId) return;
+    const rate = parseFloat(editRate);
+    if (isNaN(rate) || rate < 0 || rate > 100) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/v1/payroll/${specialistId}/entries/${commission.payrollEntryId}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ rate, amount: parseFloat(editAmount) || undefined }),
+      });
+      const json = await res.json() as { success: boolean };
+      if (json.success) {
+        cancelEdit();
+        void load();
+      }
+    } finally { setEditSaving(false); }
+  }
+
+  // Auto-recalculate amount when rate changes
+  function handleEditRateChange(rateStr: string, saleTotal: number) {
+    setEditRate(rateStr);
+    const r = parseFloat(rateStr);
+    if (!isNaN(r) && r >= 0) {
+      setEditAmount(String(Math.round(saleTotal * (r / 100) * 100) / 100));
+    }
+  }
+
   function exportXlsx() {
     window.open(`/api/payroll/entries/export?userId=${userId}&from=${from}&to=${to}`, '_blank');
   }
 
   const inputCls = 'px-2 py-1.5 rounded-lg bg-charcoal border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-champagne/40';
   const pendingCount = saleCommissions.filter((e) => e.status === 'PENDING' || e.status === 'pending').length;
+
+  const roleLabel = getUserRoleLabel(role);
+  const deptLabel = getDepartmentLabel(department);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -156,7 +216,9 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
         <div className="flex items-start justify-between px-6 py-5 border-b border-border-luxury shrink-0">
           <div>
             <h2 className="font-serif text-xl text-text-primary">{name}</h2>
-            <p className="text-sm text-text-tertiary mt-0.5">{role}{department ? ` · ${department}` : ''}</p>
+            <p className="text-sm text-text-tertiary mt-0.5">
+              {roleLabel}{deptLabel ? ` · ${deptLabel}` : ''}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={exportXlsx} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-charcoal border border-border-luxury text-text-secondary text-xs hover:text-text-primary transition-colors">
@@ -179,7 +241,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
           {summary && (
             <div className="ml-auto flex items-center gap-6">
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Комиссии за продажи</p>
+                <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Комиссии</p>
                 <p className="text-sm font-medium text-emerald-400">{fmt(summary.totalSaleCommissions)}</p>
               </div>
               <div className="text-right">
@@ -187,7 +249,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                 <p className="text-sm font-medium text-champagne">{fmt(summary.totalBonuses)}</p>
               </div>
               <div className="text-right border-l border-border-luxury pl-6">
-                <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Итого комиссий</p>
+                <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Итого</p>
                 <p className="text-base font-semibold text-champagne">{fmt(summary.grandTotal)}</p>
               </div>
             </div>
@@ -221,7 +283,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); void approveAll(); }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-400/10 border border-blue-400/20 text-blue-400 text-xs hover:bg-blue-400/20 transition-colors"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-400/10 border border-sky-400/20 text-sky-400 text-xs hover:bg-sky-400/20 transition-colors"
                       >
                         <CheckSquare className="w-3 h-3" /> Утвердить все
                       </button>
@@ -241,34 +303,115 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-border-luxury bg-charcoal/10">
-                            {['Дата', 'Клиент', 'Услуги', 'Тип', 'Сумма продажи', 'Ставка', 'Комиссия ₽', 'Статус'].map((h) => (
+                            {['Дата', 'Клиент', 'Услуги', 'Тип', 'Сумма', 'Ставка', 'Комиссия ₽', 'Статус', ''].map((h) => (
                               <th key={h} className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border-luxury/30">
-                          {saleCommissions.map((e) => (
-                            <tr key={e.id} className="hover:bg-white/[0.02] transition-colors">
-                              <td className="px-3 py-2.5 text-text-tertiary whitespace-nowrap">
-                                {new Date(e.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
-                              </td>
-                              <td className="px-3 py-2.5 text-text-primary whitespace-nowrap">{e.clientName}</td>
-                              <td className="px-3 py-2.5 text-text-secondary max-w-[150px] truncate" title={e.services}>{e.services || '—'}</td>
-                              <td className="px-3 py-2.5 whitespace-nowrap">
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-champagne/10 border border-champagne/20 text-champagne/80">
-                                  {COMMISSION_TYPE_LABELS[e.commissionType] ?? e.commissionType}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2.5 text-text-primary tabular-nums whitespace-nowrap">{fmt(e.saleTotal)}</td>
-                              <td className="px-3 py-2.5 text-text-muted tabular-nums">{e.commissionBasis}%</td>
-                              <td className="px-3 py-2.5 font-medium text-emerald-400 tabular-nums whitespace-nowrap">{fmt(e.commissionAmount)}</td>
-                              <td className="px-3 py-2.5">
-                                <span className={cn('text-[10px] rounded px-1.5 py-0.5 border font-medium', STATUS_COLOR[e.status] ?? 'text-text-tertiary bg-charcoal border-border-luxury')}>
-                                  {STATUS_LABEL[e.status] ?? e.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
+                          {saleCommissions.map((e) => {
+                            const isEditing = editingId === e.payrollEntryId && e.payrollEntryId !== null;
+                            return (
+                              <tr key={e.id} className={cn('transition-colors', isEditing ? 'bg-charcoal/40' : 'hover:bg-white/[0.02]')}>
+                                <td className="px-3 py-2.5 text-text-tertiary whitespace-nowrap">
+                                  {new Date(e.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
+                                </td>
+                                <td className="px-3 py-2.5 text-text-primary whitespace-nowrap">{e.clientName}</td>
+                                <td className="px-3 py-2.5 text-text-secondary max-w-[140px] truncate" title={e.services}>{e.services || '—'}</td>
+                                <td className="px-3 py-2.5 whitespace-nowrap">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-champagne/10 border border-champagne/20 text-champagne/80">
+                                    {getCommissionTypeLabel(e.commissionType)}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 text-text-primary tabular-nums whitespace-nowrap">{fmt(e.saleTotal)}</td>
+
+                                {/* Ставка — editable when in edit mode */}
+                                <td className="px-3 py-2.5 tabular-nums">
+                                  {isEditing ? (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number" min="0" max="100" step="0.5"
+                                        value={editRate}
+                                        onChange={(ev) => handleEditRateChange(ev.target.value, e.saleTotal)}
+                                        className="w-16 px-1.5 py-0.5 rounded bg-obsidian border border-champagne/40 text-text-primary text-xs focus:outline-none focus:ring-1 focus:ring-champagne/40"
+                                        autoFocus
+                                      />
+                                      <span className="text-text-muted">%</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-text-muted">{e.commissionBasis}%</span>
+                                  )}
+                                </td>
+
+                                {/* Комиссия ₽ — editable when in edit mode */}
+                                <td className="px-3 py-2.5 tabular-nums whitespace-nowrap">
+                                  {isEditing ? (
+                                    <input
+                                      type="number" min="0" step="0.01"
+                                      value={editAmount}
+                                      onChange={(ev) => setEditAmount(ev.target.value)}
+                                      className="w-24 px-1.5 py-0.5 rounded bg-obsidian border border-champagne/40 text-emerald-400 font-medium text-xs focus:outline-none focus:ring-1 focus:ring-champagne/40"
+                                    />
+                                  ) : (
+                                    <span className="font-medium text-emerald-400">{fmt(e.commissionAmount)}</span>
+                                  )}
+                                </td>
+
+                                {/* Status + edited badge */}
+                                <td className="px-3 py-2.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={cn('text-[10px] rounded px-1.5 py-0.5 border font-medium', STATUS_COLOR[e.status] ?? 'text-text-tertiary bg-charcoal border-border-luxury')}>
+                                      {STATUS_LABEL[e.status] ?? e.status}
+                                    </span>
+                                    {e.edited && (
+                                      <span
+                                        title={e.editedAt ? `Изменено ${new Date(e.editedAt).toLocaleDateString('ru-RU')}` : 'Изменено'}
+                                        className="text-[10px] px-1.5 py-0.5 rounded bg-violet-400/10 border border-violet-400/20 text-violet-400 font-medium cursor-help"
+                                      >
+                                        Изменено
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+
+                                {/* Edit / Lock / Save / Cancel actions */}
+                                <td className="px-3 py-2.5">
+                                  {isEditing ? (
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => void saveEdit(e)}
+                                        disabled={editSaving}
+                                        className="p-1 rounded text-emerald-400 hover:bg-emerald-400/10 transition-colors disabled:opacity-50"
+                                        title="Сохранить"
+                                      >
+                                        <Check className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={cancelEdit}
+                                        className="p-1 rounded text-text-muted hover:text-text-primary transition-colors"
+                                        title="Отмена"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ) : e.isLocked ? (
+                                    <span title="Период закрыт"><Lock className="w-3.5 h-3.5 text-text-muted/40" /></span>
+                                  ) : e.payrollEntryId ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => startEdit(e)}
+                                      className="p-1 rounded text-text-muted/40 hover:text-text-muted transition-colors"
+                                      title="Редактировать комиссию"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : null}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -308,8 +451,8 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                           onChange={(e) => setBonusType(e.target.value)}
                           className="w-full px-2.5 py-2 rounded-lg bg-obsidian border border-border-luxury text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-champagne/40 [&>option]:bg-obsidian"
                         >
-                          {Object.entries(COMMISSION_TYPE_LABELS).map(([k, v]) => (
-                            <option key={k} value={k}>{v}</option>
+                          {BONUS_TYPE_OPTIONS.map(({ value, label }) => (
+                            <option key={value} value={value}>{label}</option>
                           ))}
                         </select>
                       </div>

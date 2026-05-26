@@ -24,6 +24,7 @@ import {
 import { cn, formatCurrency } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
 import { EmployeePayrollPanel } from './_components/EmployeePayrollPanel';
+import { getUserRoleLabel, getDepartmentLabel } from '@/lib/labels';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -550,7 +551,7 @@ function StatusBadge({ status }: { status: PayrollStatus }) {
 function RoleBadge({ role }: { role: string }) {
   return (
     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/5 border border-border-luxury text-text-muted">
-      {role}
+      {getUserRoleLabel(role)}
     </span>
   );
 }
@@ -1051,7 +1052,7 @@ export default function PayrollPage() {
               className="rounded-xl border border-border-luxury bg-charcoal px-3 py-2 text-sm text-text-secondary focus:outline-none focus:ring-1 focus:ring-champagne/40 [&>option]:bg-obsidian [&>option]:text-text-primary"
             >
               <option value="ALL">Все должности</option>
-              {allPositions.map((p) => <option key={p} value={p}>{p}</option>)}
+              {allPositions.map((p) => <option key={p} value={p}>{getUserRoleLabel(p)}</option>)}
             </select>
           )}
           {(search || statusFilter !== 'ALL' || positionFilter !== 'ALL') && (
@@ -1383,7 +1384,7 @@ export default function PayrollPage() {
                   </div>
                   <div>
                     <p className="font-medium text-text-primary">{emp.name}</p>
-                    <p className="text-xs text-text-tertiary">{emp.role}{emp.department ? ` · ${emp.department}` : ''}</p>
+                    <p className="text-xs text-text-tertiary">{getUserRoleLabel(emp.role)}{emp.department ? ` · ${getDepartmentLabel(emp.department) ?? emp.department}` : ''}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6 text-right">

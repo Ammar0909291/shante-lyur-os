@@ -2,22 +2,12 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/infrastructure/config/prisma-client';
+import { getCommissionTypeLabel } from '@/lib/labels';
 
 function ok<T>(data: T) { return NextResponse.json({ success: true, data }); }
 function err(msg: string, status = 400) {
   return NextResponse.json({ success: false, error: { message: msg } }, { status });
 }
-
-const COMMISSION_TYPE_LABELS: Record<string, string> = {
-  STANDARD_SALE:    'Стандартная комиссия',
-  NEW_CLIENT:       'Новый клиент',
-  RETURNING_CLIENT: 'Возврат клиента',
-  UPSELL:           'Допродажа',
-  REFERRAL:         'Реферал',
-  TARGET_BONUS:     'Бонус за план',
-  QUALITY_BONUS:    'Бонус за качество',
-  CUSTOM:           'Особый бонус',
-};
 
 export async function GET(
   req: NextRequest,
@@ -39,7 +29,7 @@ export async function GET(
   });
   if (!specialist) return err('Specialist not found', 404);
 
-  // Sale commissions (auto-generated from SaleCommissionEntry)
+  // Sale commissions from SaleCommissionEntry
   const saleEntries = await prisma.saleCommissionEntry.findMany({
     where: {
       userId:   specialist.userId,
@@ -57,17 +47,61 @@ export async function GET(
     orderBy: { saleDate: 'desc' },
   });
 
-  const saleCommissions = saleEntries.map((e) => ({
-    id:               e.id,
-    date:             e.saleDate,
-    clientName:       `${e.appointment.client.firstName} ${e.appointment.client.lastName}`.trim(),
-    services:         e.appointment.services.map((s) => s.service.name).join(', '),
-    saleTotal:        Number(e.appointment.totalPrice),
-    commissionType:   'PERCENTAGE',
-    commissionBasis:  Number(e.commissionBasis),
-    commissionAmount: Number(e.commissionAmount),
-    status:           e.status,
-  }));
+  // Fetch linked PayrollEntries for commission type (category) and edit status
+  const appointmentIds = saleEntries.map((e) => e.appointmentId).filter(Boolean);
+
+  type PayrollEntryRaw = {
+    id: string;
+    appointmentId: string | null;
+    commissionType: string | null;
+    isLocked: boolean;
+    isManuallyEdited: boolean;
+    // post-migration fields — cast via any until prisma db push
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payrollEntries = await (prisma.payrollEntry.findMany as any)({
+    where: {
+      appointmentId: { in: appointmentIds },
+      specialistId,
+      type: 'COMMISSION',
+    },
+    select: {
+      id: true,
+      appointmentId: true,
+      commissionType: true,
+      isLocked: true,
+      isManuallyEdited: true,
+      edited: true,
+      editedAt: true,
+    },
+  });
+
+  const apptToPayroll = new Map<string, PayrollEntryRaw>(
+    (payrollEntries as PayrollEntryRaw[])
+      .filter((p: PayrollEntryRaw) => p.appointmentId)
+      .map((p: PayrollEntryRaw) => [p.appointmentId!, p]),
+  );
+
+  const saleCommissions = saleEntries.map((e) => {
+    const pe = apptToPayroll.get(e.appointmentId);
+    const raw = pe as (PayrollEntryRaw & { edited?: boolean; editedAt?: string | null }) | undefined;
+    return {
+      id:               e.id,
+      payrollEntryId:   pe?.id ?? null,
+      date:             e.saleDate,
+      clientName:       `${e.appointment.client.firstName} ${e.appointment.client.lastName}`.trim(),
+      services:         e.appointment.services.map((s) => s.service.name).join(', '),
+      saleTotal:        Number(e.appointment.totalPrice),
+      commissionType:   pe?.commissionType ?? 'STANDARD_SALE',
+      commissionBasis:  Number(e.commissionBasis),
+      commissionAmount: Number(e.commissionAmount),
+      status:           e.status,
+      isLocked:         pe?.isLocked ?? false,
+      edited:           raw?.edited ?? pe?.isManuallyEdited ?? false,
+      editedAt:         raw?.editedAt ?? null,
+    };
+  });
 
   // Manual bonus entries (BONUS type PayrollEntry)
   type BonusRaw = { id: string; description: string | null; amount: object; entryStatus: string; createdAt: Date; commissionType?: string | null };
@@ -81,13 +115,13 @@ export async function GET(
   }) as unknown as BonusRaw[];
 
   const bonuses = bonusEntries.map((b) => ({
-    id:              b.id,
-    commissionType:  b.commissionType ?? 'CUSTOM',
-    label:           COMMISSION_TYPE_LABELS[b.commissionType ?? 'CUSTOM'] ?? 'Особый бонус',
-    description:     b.description ?? '',
-    amount:          Number(b.amount),
-    entryStatus:     b.entryStatus,
-    createdAt:       b.createdAt,
+    id:             b.id,
+    commissionType: b.commissionType ?? 'CUSTOM',
+    label:          getCommissionTypeLabel(b.commissionType ?? 'CUSTOM'),
+    description:    b.description ?? '',
+    amount:         Number(b.amount),
+    entryStatus:    b.entryStatus,
+    createdAt:      b.createdAt,
   }));
 
   const totalSaleCommissions = saleCommissions.reduce((s, c) => s + c.commissionAmount, 0);
