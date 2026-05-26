@@ -21,6 +21,7 @@ const config: Config = {
         lavender: '#B8A8D4',
         'text-primary': '#F0EDE8',
         'text-secondary': '#9A9490',
+        'text-muted': '#6A6560',
         'text-tertiary': '#6A6560',
         'border-luxury': '#2A2A38',
         'border-light': '#3A3A4A',

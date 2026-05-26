@@ -931,7 +931,6 @@ export default function PayrollPage() {
 
         {/* ── Records tab content ── */}
         {tab === 'records' && (<>
-        <div className="hidden">{/* records-only content below */}</div>
 
         {/* Period bar */}
         <div className="bg-charcoal border border-border-luxury rounded-2xl px-5 py-4">
@@ -1129,9 +1128,8 @@ export default function PayrollPage() {
               </thead>
 
               <tbody>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
-                ) : filteredRows.length === 0 ? (
+                {loading && Array.from({ length: 5 }, (_, i) => <SkeletonRow key={i} />)}
+                {!loading && filteredRows.length === 0 && (
                   <tr>
                     <td colSpan={14} className="py-20 text-center">
                       <DollarSign className="w-10 h-10 text-text-muted mb-4 mx-auto" />
@@ -1143,8 +1141,8 @@ export default function PayrollPage() {
                       </p>
                     </td>
                   </tr>
-                ) : (
-                  filteredRows.map((row, rowIdx) => {
+                )}
+                {!loading && filteredRows.length > 0 && filteredRows.map((row, rowIdx) => {
                     const isExpanded = expanded.has(row.specialistId);
                     const isStatusChanging = statusChanging.has(row.specialistId);
                     const showThresholdBadge = row.daysOverThreshold > 0 && row.bonusThresholdSessions !== null;
@@ -1305,13 +1303,12 @@ export default function PayrollPage() {
                         )}
                       </React.Fragment>
                     );
-                  })
-                )}
+                })}
               </tbody>
 
               {/* Sticky totals footer */}
-              {totals && filteredRows.length > 0 && !loading && (
-                <tfoot>
+              <tfoot>
+                {totals && filteredRows.length > 0 && !loading && (
                   <tr className="bg-obsidian/60 border-t-2 border-champagne/20">
                     <td className="px-4 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wide border-r border-border-luxury/20">
                       Итого ({filteredRows.length})
@@ -1351,8 +1348,8 @@ export default function PayrollPage() {
                     <td className="px-3 py-3" />
                     <td className="px-3 py-3" />
                   </tr>
-                </tfoot>
-              )}
+                )}
+              </tfoot>
 
             </table>
           </div>
