@@ -109,7 +109,6 @@ interface ScheduleRequest {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const MONTH_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-const DOW_SHORT = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -548,45 +547,54 @@ function SalesTab() {
 
 // ─── Tab 5: Schedule Builder ──────────────────────────────────────────────────
 
-function ScheduleTab() {
+// Returns the next N upcoming months as YYYY-MM strings (starting from next month)
+function upcomingMonths(count = 4): string[] {
+  const result: string[] = [];
   const now = new Date();
-  const nextYear  = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
-  const nextMonthIdx = now.getMonth() === 11 ? 0 : now.getMonth() + 1;
+  let y = now.getFullYear();
+  let m = now.getMonth() + 1; // next month (1-indexed)
+  if (m > 12) { m = 1; y++; }
+  for (let i = 0; i < count; i++) {
+    result.push(`${y}-${String(m).padStart(2, '0')}`);
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return result;
+}
 
-  const [request,   setRequest]   = useState<ScheduleRequest | null | undefined>(undefined); // undefined=loading
-  const [days,      setDays]      = useState<ScheduleDay[]>([]);
-  const [note,      setNote]      = useState('');
+function buildEmptyDays(monthStr: string): ScheduleDay[] {
+  const [y, m] = monthStr.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const days: ScheduleDay[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(y, m - 1, d).toISOString().slice(0, 10);
+    days.push({ date, isWorkDay: false, startTime: null, endTime: null });
+  }
+  return days;
+}
+
+function MonthSchedule({ monthStr }: { monthStr: string }) {
+  const [y, m] = monthStr.split('-').map(Number);
+  const monthIdx = m - 1; // 0-indexed for MONTH_RU
+
+  const [request,    setRequest]    = useState<ScheduleRequest | null | undefined>(undefined);
+  const [days,       setDays]       = useState<ScheduleDay[]>([]);
+  const [note,       setNote]       = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error,     setError]     = useState('');
-  const [success,   setSuccess]   = useState(false);
-
-  // Build day grid for next month
-  const daysInMonth = new Date(nextYear, nextMonthIdx + 1, 0).getDate();
+  const [error,      setError]      = useState('');
+  const [success,    setSuccess]    = useState(false);
 
   useEffect(() => {
-    apiFetch<{ month: string; request: ScheduleRequest | null }>('/api/v1/my/schedule/next')
-      .then((data) => {
-        setRequest(data?.request ?? null);
-        if (!data?.request) {
-          // Init days — default Mon-Fri work, fixed 10:00-20:00
-          const initial: ScheduleDay[] = [];
-          for (let d = 1; d <= daysInMonth; d++) {
-            const date = new Date(nextYear, nextMonthIdx, d);
-            const dow  = date.getDay(); // 0=Sun, 6=Sat
-            const isWork = dow > 0 && dow < 6;
-            initial.push({
-              date:      date.toISOString().slice(0, 10),
-              isWorkDay: isWork,
-              startTime: isWork ? '10:00' : null,
-              endTime:   isWork ? '20:00' : null,
-            });
-          }
-          setDays(initial);
-        } else {
-          setDays(data.request.days ?? []);
-        }
-      });
-  }, []);
+    setRequest(undefined);
+    setError('');
+    setSuccess(false);
+    apiFetch<{ month: string; request: ScheduleRequest | null }>(
+      `/api/v1/my/schedule/next?month=${monthStr}`
+    ).then((data) => {
+      setRequest(data?.request ?? null);
+      setDays(data?.request ? (data.request.days ?? []) : buildEmptyDays(monthStr));
+    });
+  }, [monthStr]);
 
   function toggleDay(date: string) {
     setDays(prev => prev.map(d => {
@@ -601,13 +609,17 @@ function ScheduleTab() {
     setSubmitting(true);
     try {
       const res = await fetch('/api/v1/my/schedule/next', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days, note }),
+        body:    JSON.stringify({ month: monthStr, days, note }),
       });
       const json = await res.json();
       if (json.success) {
-        setRequest(json.data);
+        // Reload the request state
+        const refreshed = await apiFetch<{ month: string; request: ScheduleRequest | null }>(
+          `/api/v1/my/schedule/next?month=${monthStr}`
+        );
+        setRequest(refreshed?.request ?? null);
         setSuccess(true);
       } else {
         setError(json.error?.message ?? 'Ошибка при отправке');
@@ -619,49 +631,48 @@ function ScheduleTab() {
   }
 
   if (request === undefined) {
-    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>;
+    return <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-amber-400" /></div>;
   }
 
-  // Already submitted — read-only view
+  const firstDow = new Date(y, monthIdx, 1).getDay();
+  const blanks   = firstDow === 0 ? 6 : firstDow - 1;
+
+  // ── Read-only view (already submitted) ──
   if (request) {
     return (
       <div>
-        <div className={`mb-5 rounded-xl p-4 border flex items-start gap-3 ${
+        <div className={`mb-4 rounded-xl p-4 border flex items-start gap-3 ${
           request.status === 'APPROVED' ? 'bg-emerald-900/30 border-emerald-700/40' :
           request.status === 'REJECTED' ? 'bg-rose-900/30 border-rose-700/40' :
           'bg-amber-900/30 border-amber-700/40'
         }`}>
-          <Lock className="w-5 h-5 mt-0.5 flex-shrink-0 text-zinc-400" />
+          <Lock className="w-4 h-4 mt-0.5 flex-shrink-0 text-zinc-400" />
           <div>
             <p className="text-sm font-semibold text-white mb-0.5">
-              График на {MONTH_RU[nextMonthIdx]} {nextYear} — <StatusBadge status={request.status} />
+              <StatusBadge status={request.status} /> · Подан {fmtDate(request.submittedAt)}
             </p>
-            <p className="text-xs text-zinc-400">
-              Подан {fmtDate(request.submittedAt)}. Изменения возможны только администратором.
-            </p>
+            <p className="text-xs text-zinc-500">Изменения возможны только через администратора.</p>
             {request.reviewNotes && (
               <p className="mt-2 text-sm text-zinc-300 bg-black/20 rounded p-2">{request.reviewNotes}</p>
             )}
           </div>
         </div>
 
-        {/* Read-only day grid */}
-        <div className="grid grid-cols-7 gap-1 mb-2">
+        <div className="grid grid-cols-7 gap-1 mb-1">
           {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
             <div key={d} className="text-center text-xs text-zinc-500 py-1">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
-          {/* blanks */}
-          {Array.from({ length: new Date(nextYear, nextMonthIdx, 1).getDay() === 0 ? 6 : new Date(nextYear, nextMonthIdx, 1).getDay() - 1 }, (_, i) => (
-            <div key={`b${i}`} />
-          ))}
+          {Array.from({ length: blanks }, (_, i) => <div key={`b${i}`} />)}
           {request.days.map((d) => {
             const dt = new Date(d.date + 'T00:00:00');
             return (
               <div key={d.date}
-                className={`h-12 rounded-lg flex items-center justify-center text-sm font-medium ${
-                  d.isWorkDay ? 'bg-emerald-900/40 border border-emerald-700/30 text-emerald-300' : 'bg-zinc-800/40 text-zinc-600'
+                className={`h-10 rounded-lg flex items-center justify-center text-sm font-medium ${
+                  d.isWorkDay
+                    ? 'bg-emerald-900/40 border border-emerald-700/30 text-emerald-300'
+                    : 'bg-zinc-800/40 text-zinc-600'
                 }`}
               >
                 {dt.getDate()}
@@ -671,7 +682,7 @@ function ScheduleTab() {
         </div>
 
         {request.note && (
-          <div className="mt-4 bg-obsidian rounded-xl p-3 border border-white/10">
+          <div className="mt-3 bg-obsidian rounded-xl p-3 border border-white/10">
             <p className="text-xs text-zinc-500 mb-1">Примечание</p>
             <p className="text-sm text-zinc-300">{request.note}</p>
           </div>
@@ -680,43 +691,34 @@ function ScheduleTab() {
     );
   }
 
-  // Employee submission form
-  const firstDow = new Date(nextYear, nextMonthIdx, 1).getDay();
-  const blanks = firstDow === 0 ? 6 : firstDow - 1;
+  // ── Submission form ──
   const workDays = days.filter(d => d.isWorkDay).length;
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-champagne">
-            График на {MONTH_RU[nextMonthIdx]} {nextYear}
-          </h2>
-          <p className="text-xs text-zinc-500 mt-0.5">Рабочих дней: {workDays} · часы работы 10:00–20:00. После подачи изменение невозможно.</p>
-        </div>
-      </div>
+      <p className="text-xs text-zinc-500 mb-3">
+        Нажмите на день чтобы отметить рабочим · часы работы 10:00–20:00 · {workDays} {workDays === 1 ? 'день' : workDays < 5 ? 'дня' : 'дней'} выбрано
+      </p>
 
       {success && (
-        <div className="mb-4 bg-emerald-900/30 border border-emerald-700/40 rounded-xl p-4 flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-          <p className="text-sm text-emerald-300">График успешно подан! Ожидайте подтверждения администратора.</p>
+        <div className="mb-3 bg-emerald-900/30 border border-emerald-700/40 rounded-xl p-3 flex items-center gap-3">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <p className="text-sm text-emerald-300">График подан! Ожидайте подтверждения администратора.</p>
         </div>
       )}
       {error && (
-        <div className="mb-4 bg-rose-900/30 border border-rose-700/40 rounded-xl p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+        <div className="mb-3 bg-rose-900/30 border border-rose-700/40 rounded-xl p-3 flex items-center gap-3">
+          <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
           <p className="text-sm text-rose-300">{error}</p>
         </div>
       )}
 
-      {/* DOW headers */}
       <div className="grid grid-cols-7 gap-1 mb-1">
         {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
           <div key={d} className="text-center text-xs text-zinc-500 py-1">{d}</div>
         ))}
       </div>
 
-      {/* Calendar grid — click to toggle */}
       <div className="grid grid-cols-7 gap-1 mb-4">
         {Array.from({ length: blanks }, (_, i) => <div key={`b${i}`} />)}
         {days.map((d) => {
@@ -725,20 +727,18 @@ function ScheduleTab() {
             <button
               key={d.date}
               onClick={() => toggleDay(d.date)}
-              className={`h-12 rounded-lg flex flex-col items-center justify-center text-xs transition-all ${
+              className={`h-10 rounded-lg flex items-center justify-center text-sm font-medium transition-all ${
                 d.isWorkDay
-                  ? 'bg-emerald-900/50 border border-emerald-600/60 text-emerald-300 hover:bg-emerald-800/60'
-                  : 'bg-zinc-800/50 border border-zinc-700/30 text-zinc-500 hover:bg-zinc-700/50'
+                  ? 'bg-emerald-900/50 border border-emerald-600/50 text-emerald-300 hover:bg-emerald-800/60'
+                  : 'bg-zinc-800/50 border border-zinc-700/20 text-zinc-500 hover:bg-zinc-700/50 hover:text-zinc-300'
               }`}
             >
-              <span className="font-medium text-sm">{dt.getDate()}</span>
-              <span className="text-[9px] opacity-60">{DOW_SHORT[dt.getDay()]}</span>
+              {dt.getDate()}
             </button>
           );
         })}
       </div>
 
-      {/* Note */}
       <textarea
         value={note}
         onChange={e => setNote(e.target.value)}
@@ -750,11 +750,43 @@ function ScheduleTab() {
       <button
         onClick={submit}
         disabled={submitting || workDays === 0}
-        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-xl transition-colors"
+        className="flex items-center gap-2 px-6 py-2.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-xl transition-colors text-sm"
       >
         {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-        Подать график
+        Подать график на {MONTH_RU[monthIdx]}
       </button>
+    </div>
+  );
+}
+
+function ScheduleTab() {
+  const months = upcomingMonths(4);
+  const [selectedMonth, setSelectedMonth] = useState(months[0]);
+
+  return (
+    <div>
+      {/* Month selector */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-hide">
+        {months.map((ms) => {
+          const [y, m] = ms.split('-').map(Number);
+          const active = ms === selectedMonth;
+          return (
+            <button
+              key={ms}
+              onClick={() => setSelectedMonth(ms)}
+              className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                active
+                  ? 'bg-amber-600 text-black'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+              }`}
+            >
+              {MONTH_RU[m - 1]} {y}
+            </button>
+          );
+        })}
+      </div>
+
+      <MonthSchedule key={selectedMonth} monthStr={selectedMonth} />
     </div>
   );
 }

@@ -17,25 +17,41 @@ const daySchema = z.object({
 });
 
 const postSchema = z.object({
-  days: z.array(daySchema).min(1),
-  note: z.string().max(1000).optional(),
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  days:  z.array(daySchema).min(1),
+  note:  z.string().max(1000).optional(),
 });
 
-function nextMonth(): { year: number; month: number; monthStr: string } {
-  const now   = new Date();
-  const year  = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
-  const month = now.getMonth() === 11 ? 0 : now.getMonth() + 1;
-  return { year, month, monthStr: `${year}-${String(month + 1).padStart(2, '0')}` };
+function parseMonthStr(monthStr: string): { year: number; month: number } {
+  const [y, m] = monthStr.split('-').map(Number);
+  return { year: y, month: m - 1 }; // month is 0-indexed
+}
+
+function isFutureOrCurrentMonth(monthStr: string): boolean {
+  const now = new Date();
+  const [y, m] = monthStr.split('-').map(Number);
+  return y > now.getFullYear() || (y === now.getFullYear() && m >= now.getMonth() + 1);
 }
 
 export async function GET(req: NextRequest) {
   const userId = req.headers.get('x-user-id');
   if (!userId) return err('Unauthorized', 401);
 
+  const { searchParams } = new URL(req.url);
+  const monthParam = searchParams.get('month');
+
+  // Default to next month if not specified
+  const now = new Date();
+  const defaultMonth = now.getMonth() === 11
+    ? `${now.getFullYear() + 1}-01`
+    : `${now.getFullYear()}-${String(now.getMonth() + 2).padStart(2, '0')}`;
+  const monthStr = monthParam ?? defaultMonth;
+
+  if (!/^\d{4}-\d{2}$/.test(monthStr)) return err('Invalid month format (YYYY-MM)', 400);
+  if (!isFutureOrCurrentMonth(monthStr)) return err('Cannot view schedules for past months', 400);
+
   const specialist = await prisma.specialist.findUnique({ where: { userId }, select: { id: true } });
   if (!specialist) return err('Specialist not found', 404);
-
-  const { monthStr } = nextMonth();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const existing = await (prisma as any).scheduleRequest.findUnique({
@@ -65,37 +81,36 @@ export async function POST(req: NextRequest) {
   const specialist = await prisma.specialist.findUnique({ where: { userId }, select: { id: true } });
   if (!specialist) return err('Specialist not found', 404);
 
-  const { monthStr } = nextMonth();
-
-  // Once submitted, employee CANNOT resubmit or change — only admin can
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const existing = await (prisma as any).scheduleRequest.findUnique({
-    where: { specialistId_month: { specialistId: specialist.id, month: monthStr } },
-    select: { id: true, status: true },
-  });
-  if (existing) {
-    return err('Заявка уже подана и не может быть изменена. Обратитесь к администратору.', 409);
-  }
-
   let body: unknown;
   try { body = await req.json(); } catch { return err('Invalid JSON body', 400); }
 
   const parsed = postSchema.safeParse(body);
   if (!parsed.success) return err('Validation failed: ' + parsed.error.issues[0]?.message, 400);
 
-  const { days, note } = parsed.data;
+  const { month: monthStr, days, note } = parsed.data;
 
-  // Validate that all dates belong to next month
-  const { year, month } = nextMonth();
+  if (!isFutureOrCurrentMonth(monthStr)) {
+    return err('Cannot submit schedules for past months', 400);
+  }
+
+  // Validate all dates belong to the stated month
+  const { year, month } = parseMonthStr(monthStr);
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   for (const d of days) {
-    const [dy, dm] = d.date.split('-').map(Number);
-    if (dy !== year || dm !== month + 1) {
+    const [dy, dm, dd] = d.date.split('-').map(Number);
+    if (dy !== year || dm !== month + 1 || dd < 1 || dd > daysInMonth) {
       return err(`Date ${d.date} does not belong to ${monthStr}`, 400);
     }
-    if (parseInt(d.date.split('-')[2], 10) > daysInMonth) {
-      return err(`Invalid date ${d.date}`, 400);
-    }
+  }
+
+  // Once submitted, employee CANNOT resubmit — only admin can modify
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const existing = await (prisma as any).scheduleRequest.findUnique({
+    where: { specialistId_month: { specialistId: specialist.id, month: monthStr } },
+    select: { id: true },
+  });
+  if (existing) {
+    return err('Заявка уже подана и не может быть изменена. Обратитесь к администратору.', 409);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -110,7 +125,6 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Dispatch BullMQ notification (fire-and-forget)
   try {
     const { notificationsQueue } = await import('@/infrastructure/queues/queue-registry');
     await notificationsQueue.add('schedule-request-submitted', {
