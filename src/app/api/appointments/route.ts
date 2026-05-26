@@ -15,6 +15,7 @@ import { logAudit, getRequestMeta } from '@/lib/audit-logger';
 import { triggerBookingConfirmation } from '@/lib/communication/booking-triggers';
 import { buildBookingNotificationPayload } from '@/lib/communication/payload-builder';
 import { enqueueAppointmentReminder } from '@/shared/queue/enqueue';
+import { pushOpsEventToUser } from '@/lib/ops-sse';
 
 const noopEventBus: IEventBus = {
   async publish(_event: DomainEvent): Promise<void> {},
@@ -109,6 +110,49 @@ export async function POST(req: NextRequest) {
       effectiveClientId,
       role,
     );
+
+    // Notify assigned specialist of the new booking via IN_APP bell (non-blocking)
+    void (async () => {
+      try {
+        const spec = await prisma.specialist.findUnique({
+          where: { id: parsed.data.specialistId },
+          select: { user: { select: { id: true } } },
+        });
+        if (spec?.user?.id) {
+          const apt = await prisma.appointment.findUnique({
+            where: { id: result.appointment.id },
+            select: {
+              startAt: true,
+              client: { select: { firstName: true, lastName: true } },
+              services: { select: { service: { select: { name: true } } }, take: 1, orderBy: { sortOrder: 'asc' } },
+            },
+          });
+          if (apt) {
+            const clientName = `${apt.client.firstName} ${apt.client.lastName}`.trim();
+            const serviceName = apt.services[0]?.service.name ?? 'Услуга';
+            const dateStr = apt.startAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+            const timeStr = apt.startAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            const now = new Date();
+            await prisma.notification.create({
+              data: {
+                userId: spec.user.id,
+                type: 'APPOINTMENT_CONFIRMED',
+                channel: 'IN_APP',
+                status: 'SENT',
+                title: 'Новая запись',
+                body: `${clientName} — ${serviceName} — ${dateStr} в ${timeStr}`,
+                appointmentId: result.appointment.id,
+                data: { clientName, serviceName, dateStr, timeStr },
+                sentAt: now,
+              },
+            });
+            pushOpsEventToUser(spec.user.id, { type: 'ops_refresh', ts: now.toISOString() });
+          }
+        }
+      } catch (err) {
+        console.warn('[Appointments] Specialist notification error:', err instanceof Error ? err.message : err);
+      }
+    })();
 
     // Trigger omnichannel booking confirmation (non-blocking)
     void (async () => {

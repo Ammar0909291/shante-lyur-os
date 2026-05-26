@@ -6,6 +6,7 @@ import { prisma } from '@/infrastructure/config/prisma-client';
 import { getCurrentUserId } from '@/lib/auth-server';
 import { getPresence, getConvUnread } from '@/lib/redis-client';
 import { pushChatEvent, getOnlineUserIds } from '@/lib/chat-sse';
+import { pushOpsEventToUser } from '@/lib/ops-sse';
 
 function ok<T>(data: T) { return NextResponse.json({ success: true, data }); }
 function err(msg: string, status: number) {
@@ -170,12 +171,43 @@ export async function POST(req: NextRequest) {
     return conversation;
   });
 
-  // Push SSE to all other online members
+  // Push SSE to all other online members (chat channel)
   const onlineIds = new Set(getOnlineUserIds());
   for (const uid of allMemberIds.filter((id) => id !== userId)) {
     if (onlineIds.has(uid)) {
       pushChatEvent(uid, { type: 'chat:conversation:new', conversationId: conv.id });
     }
+  }
+
+  // For GROUP conversations: create IN_APP notification for every non-creator member
+  // and push an ops_refresh event so their notification bell refetches immediately.
+  if (type === 'GROUP') {
+    const creatorName = `${actor.firstName} ${actor.lastName}`.trim();
+    const notifTitle = `Вы добавлены в группу «${name}»`;
+    const notifBody = `Создатель: ${creatorName}`;
+    const now = new Date();
+
+    void (async () => {
+      for (const uid of allMemberIds.filter((id) => id !== userId)) {
+        try {
+          await prisma.notification.create({
+            data: {
+              userId: uid,
+              type: 'STAFF_ALERT',
+              channel: 'IN_APP',
+              status: 'SENT',
+              title: notifTitle,
+              body: notifBody,
+              data: { conversationId: conv.id, conversationType: 'GROUP' },
+              sentAt: now,
+            },
+          });
+          pushOpsEventToUser(uid, { type: 'ops_refresh', ts: now.toISOString() });
+        } catch (err) {
+          console.error('[chat/conversations] group notification error for', uid, err);
+        }
+      }
+    })();
   }
 
   return ok({ conversationId: conv.id, existing: false });

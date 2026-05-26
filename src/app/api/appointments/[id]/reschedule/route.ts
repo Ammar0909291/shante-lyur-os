@@ -11,6 +11,7 @@ import type { DomainEvent } from '@/domain/events';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { triggerBookingRescheduled } from '@/lib/communication/booking-triggers';
 import { cancelReminders, scheduleReminders } from '@/lib/communication/reminder-scheduler';
+import { pushOpsEventToUser } from '@/lib/ops-sse';
 
 function ok<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -83,6 +84,29 @@ export async function POST(req: NextRequest, context: RouteContext) {
           appointmentId: id, clientUserId: apt.clientId, specialistUserId,
           clientName, specialistName, serviceName, date: dateStr, time: timeStr,
         });
+
+        // Notify specialist of rescheduling via IN_APP bell
+        if (specialistUserId) {
+          try {
+            const now = new Date();
+            await prisma.notification.create({
+              data: {
+                userId: specialistUserId,
+                type: 'APPOINTMENT_RESCHEDULED',
+                channel: 'IN_APP',
+                status: 'SENT',
+                title: 'Запись перенесена',
+                body: `${clientName} — ${serviceName} — ${dateStr} в ${timeStr}`,
+                appointmentId: id,
+                data: { clientName, serviceName, dateStr, timeStr },
+                sentAt: now,
+              },
+            });
+            pushOpsEventToUser(specialistUserId, { type: 'ops_refresh', ts: now.toISOString() });
+          } catch (nErr) {
+            console.warn('[Reschedule] Specialist notification error:', nErr instanceof Error ? nErr.message : nErr);
+          }
+        }
 
         // Cancel old reminders and schedule new ones for the updated time
         await cancelReminders(id);

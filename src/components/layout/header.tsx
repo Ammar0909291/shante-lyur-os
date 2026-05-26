@@ -94,11 +94,13 @@ function LanguageToggle() {
 
 interface OpsNotif {
   id: string;
+  type: string;
   title: string;
   body: string;
   readAt: string | null;
   createdAt: string;
   appointmentId: string | null;
+  data: { conversationId?: string; conversationType?: string } | null;
 }
 
 interface ChatConvUnread {
@@ -178,6 +180,28 @@ function NotificationBell() {
     if (diff < 60) return `${diff} мин назад`;
     return formatTime(new Date(iso));
   };
+
+  const markOneRead = React.useCallback((id: string) => {
+    const headers = getAuthHeaders();
+    if (!headers['x-user-id']) return;
+    fetch('/api/notifications/operational/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify({ ids: [id] }),
+    }).catch(() => {});
+    setNotifications((ns) => ns.map((n) => n.id === id ? { ...n, readAt: new Date().toISOString() } : n));
+  }, []);
+
+  const handleNotifClick = React.useCallback((n: OpsNotif) => {
+    markOneRead(n.id);
+    setOpen(false);
+    if (n.appointmentId) {
+      router.push(`/bookings?id=${n.appointmentId}`);
+    } else if (n.data?.conversationId) {
+      router.push(`/chat?conv=${n.data.conversationId}`);
+    }
+    // STAFF_ALERT without conversationId or system alerts → no navigation, just closes dropdown
+  }, [markOneRead, router]);
 
   const isEmpty = notifications.length === 0 && chatConvs.length === 0;
 
@@ -263,20 +287,28 @@ function NotificationBell() {
                       </div>
                     )}
                     <div className="py-1">
-                      {notifications.slice(0, 20).map((n) => (
-                        <div
-                          key={n.id}
-                          className={cn('px-3 py-2.5 flex items-start gap-2.5 border-b border-border-luxury/30 last:border-0', !n.readAt && 'bg-champagne/5')}
-                        >
-                          {!n.readAt && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-champagne shrink-0" />}
-                          {n.readAt && <span className="mt-1.5 w-1.5 h-1.5 shrink-0" />}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-text-primary">{n.title}</p>
-                            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{n.body}</p>
-                            <p className="text-[10px] text-text-tertiary mt-1">{relativeTime(n.createdAt)}</p>
-                          </div>
-                        </div>
-                      ))}
+                      {notifications.slice(0, 20).map((n) => {
+                        const isClickable = !!(n.appointmentId || n.data?.conversationId);
+                        return (
+                          <button
+                            key={n.id}
+                            onClick={() => handleNotifClick(n)}
+                            className={cn(
+                              'w-full px-3 py-2.5 flex items-start gap-2.5 border-b border-border-luxury/30 last:border-0 text-left transition-colors',
+                              !n.readAt && 'bg-champagne/5',
+                              isClickable ? 'cursor-pointer hover:bg-charcoal/60' : 'cursor-default',
+                            )}
+                          >
+                            {!n.readAt && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-champagne shrink-0" />}
+                            {n.readAt && <span className="mt-1.5 w-1.5 h-1.5 shrink-0" />}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-text-primary">{n.title}</p>
+                              <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{n.body}</p>
+                              <p className="text-[10px] text-text-tertiary mt-1">{relativeTime(n.createdAt)}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </>
                 )}
