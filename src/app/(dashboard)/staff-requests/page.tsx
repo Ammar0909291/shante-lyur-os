@@ -166,7 +166,7 @@ interface ScheduleReviewModalProps {
 }
 
 function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: ScheduleReviewModalProps) {
-  const [decision, setDecision] = React.useState<'APPROVED' | 'REJECTED'>('APPROVED');
+  const [rejecting, setRejecting] = React.useState(false);
   const [notes, setNotes] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -185,13 +185,13 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
   const workAlerts = new Set(alerts.filter((a) => dayMap[a]));
   const dept = request.department as 'MASSAGE' | 'COSMETOLOGY';
 
-  const submit = async () => {
+  const submit = async (status: 'APPROVED' | 'REJECTED') => {
     setSaving(true); setError(null);
     try {
       const res = await fetch(`/api/v1/admin/schedule-requests/${request.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ status: decision, reviewNotes: notes || undefined }),
+        body: JSON.stringify({ status, reviewNotes: notes || undefined }),
       });
       const j = await res.json() as { success: boolean; error?: { message: string } };
       if (j.success) { onDone(); onClose(); }
@@ -283,30 +283,42 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
         {/* Footer — only show actions if still pending */}
         {request.status === 'PENDING' && (
           <div className="p-4 border-t border-border-luxury flex-shrink-0 space-y-3">
-            <div className="flex gap-2">
-              {(['APPROVED','REJECTED'] as const).map((s) => (
-                <button key={s} onClick={() => setDecision(s)}
-                  className={cn('flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium border transition-colors',
-                    decision === s && s === 'APPROVED' ? 'bg-green-500/15 text-green-400 border-green-500/30' :
-                    decision === s && s === 'REJECTED' ? 'bg-red-500/15 text-red-400 border-red-500/30' :
-                    'bg-charcoal text-text-secondary border-border-luxury hover:text-text-primary')}>
-                  {s === 'APPROVED' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                  {s === 'APPROVED' ? 'Одобрить' : 'Отклонить'}
-                </button>
-              ))}
-            </div>
-            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
-              placeholder="Комментарий администратора (необязательно)..."
-              className="w-full bg-charcoal/50 border border-border-luxury rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-champagne/50 resize-none" />
+            {/* Rejection notes — shown only when rejecting */}
+            {rejecting && (
+              <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
+                placeholder="Причина отклонения (необязательно)..."
+                className="w-full bg-charcoal/50 border border-red-500/30 rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-red-500/50 resize-none" />
+            )}
             {error && <p className="text-xs text-red-400">{error}</p>}
             <div className="flex gap-2">
               <button onClick={onClose} className="flex-1 py-2 rounded-lg text-xs font-medium text-text-secondary bg-charcoal border border-border-luxury hover:text-text-primary transition-colors">
                 Отмена
               </button>
-              <button onClick={submit} disabled={saving}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-champagne/15 text-champagne border border-champagne/30 hover:bg-champagne/25 disabled:opacity-50 transition-colors">
-                {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Сохранить
-              </button>
+              {rejecting ? (
+                <>
+                  <button onClick={() => setRejecting(false)}
+                    className="px-3 py-2 rounded-lg text-xs font-medium text-text-secondary bg-charcoal border border-border-luxury hover:text-text-primary transition-colors">
+                    Назад
+                  </button>
+                  <button onClick={() => void submit('REJECTED')} disabled={saving}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 disabled:opacity-50 transition-colors">
+                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+                    Отклонить
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setRejecting(true)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/25 hover:bg-red-500/20 transition-colors">
+                    <XCircle className="w-3.5 h-3.5" /> Отклонить
+                  </button>
+                  <button onClick={() => void submit('APPROVED')} disabled={saving}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 disabled:opacity-50 transition-colors">
+                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                    Одобрить
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
