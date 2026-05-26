@@ -111,7 +111,8 @@ export default function ChatPage() {
   React.useEffect(() => {
     loadConversations();
     const id = setInterval(loadConversations, 30_000);
-    return () => clearInterval(id);
+    // Clear active conversation tracking when leaving the chat page
+    return () => { clearInterval(id); sessionStorage.removeItem('activeConversationId'); };
   }, [loadConversations]);
 
   // ── Load messages ─────────────────────────────────────────────────────────
@@ -144,6 +145,8 @@ export default function ChatPage() {
     setMessages([]);
     setNextCursor(null);
     setMyMuted(conversations.find((c) => c.id === convId)?.muted ?? false);
+    // Track active conversation for desktop notification suppression
+    sessionStorage.setItem('activeConversationId', convId);
     await loadMessages(convId);
     // Mark as read
     fetch(`/api/v1/chat/conversations/${convId}/read`, {
@@ -205,6 +208,16 @@ export default function ChatPage() {
           }
           // Refresh conversation list
           loadConversations();
+          // Desktop notification — only for messages from others, not own sends
+          if (!msg.isOwn) {
+            import('@/lib/desktopNotifications').then(({ sendDesktopNotification }) => {
+              sendDesktopNotification({
+                senderName: msg.senderName,
+                messagePreview: msg.content,
+                conversationId: msg.conversationId,
+              });
+            });
+          }
         }
 
         if (ev.type === 'chat:typing') {
@@ -515,7 +528,7 @@ export default function ChatPage() {
             {/* Chat header */}
             <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border-luxury shrink-0">
               <button
-                onClick={() => setActiveConvId(null)}
+                onClick={() => { setActiveConvId(null); sessionStorage.removeItem('activeConversationId'); }}
                 className="lg:hidden p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
