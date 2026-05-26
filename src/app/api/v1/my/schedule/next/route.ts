@@ -125,17 +125,36 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Notify all ADMIN / SUPER_ADMIN users about the new schedule request
   try {
-    const { notificationsQueue } = await import('@/infrastructure/queues/queue-registry');
-    await notificationsQueue.add('schedule-request-submitted', {
-      notificationId: request.id,
-      channel:        'in_app',
-      recipientId:    userId,
-      templateKey:    'SCHEDULE_REQUEST_SUBMITTED',
-      data: { month: monthStr, specialistId: specialist.id },
+    const specWithName = await prisma.specialist.findUnique({
+      where: { id: specialist.id },
+      select: { user: { select: { firstName: true, lastName: true } } },
     });
+    const name = specWithName
+      ? `${specWithName.user.firstName} ${specWithName.user.lastName}`.trim()
+      : 'Специалист';
+    const admins = await prisma.user.findMany({
+      where: { role: { in: ['SUPER_ADMIN', 'ADMIN'] } },
+      select: { id: true },
+    });
+    if (admins.length > 0) {
+      await prisma.notification.createMany({
+        data: admins.map((a) => ({
+          id:      crypto.randomUUID(),
+          userId:  a.id,
+          type:    'STAFF_ALERT' as const,
+          channel: 'IN_APP' as const,
+          status:  'SENT' as const,
+          title:   'Новая заявка на график',
+          body:    `${name} подал(а) заявку на график на ${monthStr}`,
+          data:    { scheduleRequestId: request.id, specialistId: specialist.id, month: monthStr },
+          sentAt:  new Date(),
+        })),
+      });
+    }
   } catch {
-    // queue failure must not break the response
+    // notification failure must not break the response
   }
 
   return ok({
