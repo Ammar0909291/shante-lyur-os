@@ -42,6 +42,18 @@ interface ShootingStar {
   nextFireAt: number;
 }
 
+interface Planet {
+  orbitBase: number;  // orbit radius when canvas min-dimension = 720
+  periodMs: number;
+  sizeBase: number;   // body radius at min-dimension = 720
+  color: string;
+  hiColor: string;
+  phase: number;
+  moon?: boolean;
+  rings?: boolean;
+  bands?: string[];
+}
+
 // ── Canvas component ───────────────────────────────────────────────────────────
 
 export function UniverseCanvas() {
@@ -85,12 +97,24 @@ export function UniverseCanvas() {
     const ss: ShootingStar = {
       active: false, startX: 0, startY: 0, angle: 0,
       length: 0, startTime: 0, duration: 0,
-      nextFireAt: 0, // set after first frame
+      nextFireAt: 0,
     };
 
     function rnd(min: number, max: number) {
       return min + Math.random() * (max - min);
     }
+
+    // Defined after rnd so phases are randomised once on mount
+    const planets: Planet[] = [
+      { orbitBase: 40,  periodMs: 5000,   sizeBase: 3,    color: '#9a9aa2', hiColor: '#c8c8d2', phase: rnd(0, Math.PI * 2) },
+      { orbitBase: 67,  periodMs: 12000,  sizeBase: 5,    color: '#c8a468', hiColor: '#ead492', phase: rnd(0, Math.PI * 2) },
+      { orbitBase: 97,  periodMs: 20000,  sizeBase: 5.5,  color: '#1e68cc', hiColor: '#4898e8', phase: rnd(0, Math.PI * 2), moon: true },
+      { orbitBase: 132, periodMs: 38000,  sizeBase: 4,    color: '#c83a14', hiColor: '#e86030', phase: rnd(0, Math.PI * 2) },
+      { orbitBase: 183, periodMs: 80000,  sizeBase: 13.5, color: '#b87840', hiColor: '#d8985a', phase: rnd(0, Math.PI * 2), bands: ['rgba(155,85,35,0.40)', 'rgba(85,45,18,0.28)', 'rgba(145,78,30,0.35)'] },
+      { orbitBase: 238, periodMs: 160000, sizeBase: 11.5, color: '#d0b050', hiColor: '#ead072', phase: rnd(0, Math.PI * 2), rings: true },
+      { orbitBase: 282, periodMs: 300000, sizeBase: 8.5,  color: '#50c0c8', hiColor: '#80e0e2', phase: rnd(0, Math.PI * 2) },
+      { orbitBase: 315, periodMs: 500000, sizeBase: 7.5,  color: '#2840c8', hiColor: '#4860e2', phase: rnd(0, Math.PI * 2) },
+    ];
 
     function initStars(w: number, h: number) {
       bgStars = Array.from({ length: 200 }, () => ({
@@ -255,29 +279,127 @@ export function UniverseCanvas() {
       }
     }
 
-    function drawGalaxyCore(t: number) {
-      const w  = canvas.width;
-      const h  = canvas.height;
-      const cx = w * 0.40;
-      const cy = h * 0.55;
-      const rx = w * 0.15;
-      const ry = h * 0.08;
-      const rot = (t / 180000) * Math.PI * 2;
+    // Draw one half (front or back) of Saturn's tilted ring system
+    function drawRingHalf(px: number, py: number, pr: number, front: boolean) {
+      const innerR = pr * 1.45;
+      const outerR = pr * 2.55;
+      const tilt   = 0.36;
 
       ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(rot);
-      ctx.scale(1, ry / rx);
+      ctx.translate(px, py);
+      ctx.scale(1, tilt);
 
-      const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-      grd.addColorStop(0,   'rgba(200,170,255,0.025)');
-      grd.addColorStop(0.5, 'rgba(200,170,255,0.015)');
-      grd.addColorStop(1,   'rgba(200,170,255,0)');
+      const rg = ctx.createRadialGradient(0, 0, innerR, 0, 0, outerR);
+      rg.addColorStop(0,    'rgba(220,200,130,0.70)');
+      rg.addColorStop(0.35, 'rgba(205,185,110,0.55)');
+      rg.addColorStop(0.70, 'rgba(188,168,90,0.35)');
+      rg.addColorStop(1,    'rgba(170,150,70,0)');
+
       ctx.beginPath();
-      ctx.arc(0, 0, rx, 0, Math.PI * 2);
-      ctx.fillStyle = grd;
+      if (front) {
+        // Bottom half of the compressed ellipse — appears in front of planet
+        ctx.arc(0, 0, outerR, 0, Math.PI, false);
+        ctx.arc(0, 0, innerR, Math.PI, 0, true);
+      } else {
+        // Top half — appears behind planet
+        ctx.arc(0, 0, outerR, Math.PI, 0, false);
+        ctx.arc(0, 0, innerR, 0, Math.PI, true);
+      }
+      ctx.closePath();
+      ctx.fillStyle = rg;
       ctx.fill();
       ctx.restore();
+    }
+
+    function drawSolarSystem(t: number) {
+      const w  = canvas.width;
+      const h  = canvas.height;
+      const sc = Math.min(w, h) / 720;
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+
+      // Orbit paths
+      for (const p of planets) {
+        const orbitR = p.orbitBase * sc;
+        ctx.beginPath();
+        ctx.arc(cx, cy, orbitR, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+
+      // Sun corona
+      const sunR = 18 * sc;
+      const corona = ctx.createRadialGradient(cx, cy, 0, cx, cy, sunR * 6);
+      corona.addColorStop(0,    'rgba(255,215,60,0.28)');
+      corona.addColorStop(0.20, 'rgba(255,165,20,0.13)');
+      corona.addColorStop(0.55, 'rgba(255,100,0,0.05)');
+      corona.addColorStop(1,    'rgba(255,80,0,0)');
+      ctx.beginPath();
+      ctx.arc(cx, cy, sunR * 6, 0, Math.PI * 2);
+      ctx.fillStyle = corona;
+      ctx.fill();
+
+      // Sun body
+      const sunGrd = ctx.createRadialGradient(cx - sunR * 0.3, cy - sunR * 0.35, 0, cx, cy, sunR);
+      sunGrd.addColorStop(0,   '#fff8d0');
+      sunGrd.addColorStop(0.4, '#ffd040');
+      sunGrd.addColorStop(1,   '#ff7700');
+      ctx.beginPath();
+      ctx.arc(cx, cy, sunR, 0, Math.PI * 2);
+      ctx.fillStyle = sunGrd;
+      ctx.fill();
+
+      // Planets
+      for (const p of planets) {
+        const orbitR = p.orbitBase * sc;
+        const angle  = (t / p.periodMs) * Math.PI * 2 + p.phase;
+        const px     = cx + Math.cos(angle) * orbitR;
+        const py     = cy + Math.sin(angle) * orbitR;
+        const pr     = p.sizeBase * sc;
+
+        // Saturn — back rings before planet body
+        if (p.rings) drawRingHalf(px, py, pr, false);
+
+        // Planet body
+        const bodyGrd = ctx.createRadialGradient(px - pr * 0.35, py - pr * 0.35, 0, px, py, pr);
+        bodyGrd.addColorStop(0, p.hiColor);
+        bodyGrd.addColorStop(1, p.color);
+        ctx.beginPath();
+        ctx.arc(px, py, pr, 0, Math.PI * 2);
+        ctx.fillStyle = bodyGrd;
+        ctx.fill();
+
+        // Gas giant bands (Jupiter / could extend to others)
+        if (p.bands) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(px, py, pr, 0, Math.PI * 2);
+          ctx.clip();
+          const bandH = pr * 0.38;
+          const offsets = [-pr * 0.52, 0, pr * 0.52];
+          for (let i = 0; i < p.bands.length; i++) {
+            ctx.fillStyle = p.bands[i];
+            ctx.fillRect(px - pr, py + offsets[i] - bandH / 2, pr * 2, bandH);
+          }
+          ctx.restore();
+        }
+
+        // Earth's moon
+        if (p.moon) {
+          const mAngle = (t / 2800) * Math.PI * 2;
+          const mR     = pr * 2.8;
+          const mx     = px + Math.cos(mAngle) * mR;
+          const my     = py + Math.sin(mAngle) * mR;
+          ctx.beginPath();
+          ctx.arc(mx, my, pr * 0.28, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(200,200,212,0.90)';
+          ctx.fill();
+        }
+
+        // Saturn — front rings over planet body
+        if (p.rings) drawRingHalf(px, py, pr, true);
+      }
     }
 
     function animate(timestamp: number) {
@@ -307,7 +429,7 @@ export function UniverseCanvas() {
       ctx.restore();
 
       drawShootingStar(timestamp);
-      drawGalaxyCore(timestamp);
+      drawSolarSystem(timestamp);
 
       rafId = requestAnimationFrame(animate);
     }
