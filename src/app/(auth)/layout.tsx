@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { UniverseCanvas } from './_universe-panel';
 
 export const metadata: Metadata = {
   title: 'Вход — Shante Lyur',
@@ -11,21 +12,15 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div
         className="hidden lg:flex lg:flex-1 flex-col items-center justify-center relative overflow-hidden"
         style={{
-          background: 'linear-gradient(145deg, #0A0A0F 0%, #13131A 40%, #1E1E2A 100%)',
+          background: 'radial-gradient(ellipse at 30% 60%, #0d0a1a 0%, #060410 60%, #020208 100%)',
         }}
         aria-hidden="true"
       >
-        {/* Decorative gradients */}
-        <div
-          className="absolute top-0 left-0 w-full h-full opacity-30"
-          style={{
-            background:
-              'radial-gradient(ellipse at 30% 20%, rgba(212,175,122,0.12) 0%, transparent 60%), radial-gradient(ellipse at 80% 80%, rgba(184,168,212,0.08) 0%, transparent 50%)',
-          }}
-        />
+        {/* Universe canvas — fills the panel, all content renders above it */}
+        <UniverseCanvas />
 
         {/* Decorative line art */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-5">
+        <div className="absolute inset-0 flex items-center justify-center opacity-5" style={{ zIndex: 1 }}>
           <div className="w-96 h-96 rounded-full border border-champagne" />
           <div className="absolute w-80 h-80 rounded-full border border-champagne" />
           <div className="absolute w-64 h-64 rounded-full border border-champagne" />
@@ -71,7 +66,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* Bottom caption */}
-        <div className="absolute bottom-8 text-center">
+        <div className="absolute bottom-8 text-center" style={{ zIndex: 2 }}>
           <p className="text-xs text-text-tertiary tracking-wider uppercase">
             Premium · Elite · Luxurious
           </p>
