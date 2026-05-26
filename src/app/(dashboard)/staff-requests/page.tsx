@@ -167,10 +167,8 @@ interface ScheduleReviewModalProps {
 function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: ScheduleReviewModalProps) {
   const [decision, setDecision] = React.useState<'APPROVED' | 'REJECTED'>('APPROVED');
   const [notes, setNotes] = React.useState('');
-  const [override, setOverride] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [coverageAlerts, setCoverageAlerts] = React.useState<string[]>([]);
 
   const [y, m] = request.days[0]?.date.split('-').map(Number) ?? [new Date().getFullYear(), new Date().getMonth() + 1];
   const monthIdx = m - 1;
@@ -185,24 +183,18 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
 
   const workAlerts = new Set(alerts.filter((a) => dayMap[a]));
   const dept = request.department as 'MASSAGE' | 'COSMETOLOGY';
-  const otherDept = dept === 'MASSAGE' ? 'COSMETOLOGY' : 'MASSAGE';
 
   const submit = async () => {
-    setSaving(true); setError(null); setCoverageAlerts([]);
+    setSaving(true); setError(null);
     try {
       const res = await fetch(`/api/v1/admin/schedule-requests/${request.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ status: decision, reviewNotes: notes || undefined, override }),
+        body: JSON.stringify({ status: decision, reviewNotes: notes || undefined }),
       });
-      const j = await res.json() as { success: boolean; error?: { message: string; coverageAlerts?: string[] } };
+      const j = await res.json() as { success: boolean; error?: { message: string } };
       if (j.success) { onDone(); onClose(); }
-      else if (res.status === 422 && j.error?.coverageAlerts) {
-        setCoverageAlerts(j.error.coverageAlerts);
-        setError(j.error.message ?? 'Недостаточно специалистов в некоторые дни');
-      } else {
-        setError(j.error?.message ?? 'Ошибка');
-      }
+      else setError(j.error?.message ?? 'Ошибка');
     } catch { setError('Ошибка сети'); }
     finally { setSaving(false); }
   };
@@ -238,10 +230,9 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
                 const dt = new Date(d.date + 'T00:00:00');
                 const isAlert = workAlerts.has(d.date);
                 const dayCov = coverage[d.date];
-                const ownCount  = dayCov ? dayCov[dept] : 0;
-                const otherCount = dayCov ? dayCov[otherDept] : 0;
+                const ownCount = dayCov ? dayCov[dept] : 0;
                 return (
-                  <div key={d.date} title={d.isWorkDay ? `${dept === 'MASSAGE' ? 'Масс' : 'Косм'}: ${ownCount} / Другой: ${otherCount}` : undefined}
+                  <div key={d.date} title={d.isWorkDay ? `${dept === 'MASSAGE' ? 'Массажисты' : 'Косметологи'}: ${ownCount}/${MIN_STAFF}` : undefined}
                     className={cn('h-10 rounded flex flex-col items-center justify-center text-xs',
                       !d.isWorkDay ? 'bg-charcoal/30 text-text-tertiary' :
                       isAlert ? 'bg-red-900/50 border border-red-500/40 text-red-300' :
@@ -279,18 +270,6 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
             </div>
           )}
 
-          {/* API coverage error after submit attempt */}
-          {coverageAlerts.length > 0 && !override && (
-            <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-3">
-              <p className="text-xs text-red-300 mb-2">{error}</p>
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-text-secondary">
-                <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)}
-                  className="accent-amber-500" />
-                Одобрить принудительно (игнорировать недобор)
-              </label>
-            </div>
-          )}
-
           {/* Note from specialist */}
           {request.note && (
             <div className="bg-charcoal/40 border border-border-luxury rounded-xl p-3">
@@ -318,14 +297,7 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
             <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
               placeholder="Комментарий администратора (необязательно)..."
               className="w-full bg-charcoal/50 border border-border-luxury rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-champagne/50 resize-none" />
-            {workAlerts.size > 0 && decision === 'APPROVED' && coverageAlerts.length === 0 && (
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-text-secondary">
-                <input type="checkbox" checked={override} onChange={(e) => setOverride(e.target.checked)}
-                  className="accent-amber-500" />
-                Одобрить с недобором (override)
-              </label>
-            )}
-            {error && coverageAlerts.length === 0 && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-red-400">{error}</p>}
             <div className="flex gap-2">
               <button onClick={onClose} className="flex-1 py-2 rounded-lg text-xs font-medium text-text-secondary bg-charcoal border border-border-luxury hover:text-text-primary transition-colors">
                 Отмена
