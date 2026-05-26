@@ -33,10 +33,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               <span className="font-serif text-3xl font-bold text-obsidian">SL</span>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="font-serif text-3xl font-medium text-text-primary tracking-tight">
+              <span className="font-serif text-3xl font-medium text-white/95 tracking-tight">
                 Shante Lyur
               </span>
-              <span className="text-xs uppercase tracking-[0.25em] text-text-tertiary">
+              <span className="text-xs uppercase tracking-[0.25em] text-white/40">
                 Wellness Studio
               </span>
             </div>
@@ -44,11 +44,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
           {/* Tagline */}
           <div className="flex flex-col gap-2">
-            <p className="font-serif text-xl text-text-primary/80 italic leading-relaxed">
+            <p className="font-serif text-xl text-white/70 italic leading-relaxed">
               Where Beauty Meets Excellence
             </p>
             <div className="w-12 h-px bg-champagne/40 mx-auto" />
-            <p className="text-sm text-text-secondary leading-relaxed">
+            <p className="text-sm text-white/55 leading-relaxed">
               Премиум-платформа для управления велнес-студией. Элегантность в каждой детали.
             </p>
           </div>
@@ -67,7 +67,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         {/* Bottom caption */}
         <div className="absolute bottom-8 text-center" style={{ zIndex: 2 }}>
-          <p className="text-xs text-text-tertiary tracking-wider uppercase">
+          <p className="text-xs text-white/35 tracking-wider uppercase">
             Premium · Elite · Luxurious
           </p>
         </div>
