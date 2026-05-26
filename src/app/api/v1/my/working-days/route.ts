@@ -13,6 +13,8 @@ const DOW_MAP: Record<string, number> = {
   THURSDAY: 4, FRIDAY: 5, SATURDAY: 6,
 };
 
+interface RequestDay { date: string; isWorkDay: boolean }
+
 export async function GET(req: NextRequest) {
   const userId = req.headers.get('x-user-id');
   if (!userId) return err('Unauthorized', 401);
@@ -27,6 +29,38 @@ export async function GET(req: NextRequest) {
 
   const fromDate = new Date(from);
   const toDate   = new Date(to + 'T23:59:59.999Z');
+
+  // Determine which YYYY-MM values are covered by the requested range
+  const monthsInRange = new Set<string>();
+  const cur = new Date(fromDate.getFullYear(), fromDate.getMonth(), 1);
+  while (cur <= toDate) {
+    monthsInRange.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`);
+    cur.setMonth(cur.getMonth() + 1);
+  }
+
+  // Fetch approved schedule requests for those months
+  const approvedRequests = await (prisma as any).scheduleRequest.findMany({
+    where: {
+      specialistId: specialist.id,
+      month: { in: [...monthsInRange] },
+      status: 'APPROVED',
+    },
+    select: { month: true, days: true },
+  }) as Array<{ month: string; days: unknown }>;
+
+  // Build map: month → Set of approved work-day date strings
+  const approvedWorkDays = new Map<string, Set<string>>();
+  const approvedMonths   = new Set<string>();
+  for (const req of approvedRequests) {
+    approvedMonths.add(req.month);
+    const workSet = new Set<string>();
+    if (Array.isArray(req.days)) {
+      for (const d of req.days as RequestDay[]) {
+        if (d.isWorkDay) workSet.add(d.date);
+      }
+    }
+    approvedWorkDays.set(req.month, workSet);
+  }
 
   const [schedules, blocked, vacations, appointments] = await Promise.all([
     prisma.workingSchedule.findMany({
@@ -52,11 +86,10 @@ export async function GET(req: NextRequest) {
         startAt: { gte: fromDate, lte: toDate },
         status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] },
       },
-      select: { startAt: true, endAt: true, status: true },
+      select: { startAt: true },
     }),
   ]);
 
-  // Build day-by-day map
   const days: Array<{
     date: string;
     isWorkDay: boolean;
@@ -69,10 +102,10 @@ export async function GET(req: NextRequest) {
 
   const cursor = new Date(fromDate);
   while (cursor <= toDate) {
-    const dateStr = cursor.toISOString().slice(0, 10);
-    const dow = cursor.getDay(); // 0=Sun
+    const dateStr = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+    const monthStr = dateStr.slice(0, 7);
+    const dow = cursor.getDay();
 
-    const schedule = schedules.find((s) => DOW_MAP[s.dayOfWeek] === dow);
     const isBlocked = blocked.some(
       (b) => b.startAt <= cursor && b.endAt >= new Date(cursor.getTime() + 86399999),
     );
@@ -80,13 +113,31 @@ export async function GET(req: NextRequest) {
       (v) => v.startDate <= cursor && v.endDate >= cursor,
     );
 
-    const dayAppts = appointments.filter((a) => a.startAt.toISOString().slice(0, 10) === dateStr);
+    let isWorkDay: boolean;
+    let startTime: string | null = '10:00';
+    let endTime:   string | null = '20:00';
+
+    if (approvedMonths.has(monthStr)) {
+      // Use approved schedule request for this month
+      const workSet = approvedWorkDays.get(monthStr);
+      isWorkDay = (workSet?.has(dateStr) ?? false) && !isBlocked && !isVacation;
+    } else {
+      // Fall back to weekly WorkingSchedule pattern
+      const schedule = schedules.find((s) => DOW_MAP[s.dayOfWeek] === dow);
+      isWorkDay  = !!schedule && !isBlocked && !isVacation;
+      startTime  = schedule?.startTime ?? null;
+      endTime    = schedule?.endTime   ?? null;
+    }
+
+    const dayAppts = appointments.filter(
+      (a) => a.startAt.toISOString().slice(0, 10) === dateStr,
+    );
 
     days.push({
       date:             dateStr,
-      isWorkDay:        !!schedule && !isBlocked && !isVacation,
-      startTime:        schedule?.startTime ?? null,
-      endTime:          schedule?.endTime ?? null,
+      isWorkDay,
+      startTime:        isWorkDay ? startTime : null,
+      endTime:          isWorkDay ? endTime   : null,
       isBlocked,
       isVacation,
       appointmentCount: dayAppts.length,

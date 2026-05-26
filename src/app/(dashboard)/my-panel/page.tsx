@@ -249,31 +249,41 @@ const REQ_STATUS_COLORS: Record<string, string> = {
 };
 
 
-const DOW_TO_NUM: Record<string, number> = {
-  MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3, THURSDAY: 4,
-  FRIDAY: 5, SATURDAY: 6, SUNDAY: 0,
-};
-
 const MONTH_RU_PANEL = [
   'Январь','Февраль','Март','Апрель','Май','Июнь',
   'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь',
 ];
 
-function ScheduleCalendar({ schedules }: { schedules: { dayOfWeek: string }[] }) {
+function ScheduleCalendar() {
   const now = new Date();
   const [year,  setYear]  = React.useState(now.getFullYear());
   const [month, setMonth] = React.useState(now.getMonth());
+  const [workDays, setWorkDays] = React.useState<Set<string>>(new Set());
+  const [loading, setLoading]   = React.useState(false);
 
-  const workDowSet = new Set(schedules.map((s) => DOW_TO_NUM[s.dayOfWeek] ?? -1));
+  React.useEffect(() => {
+    setLoading(true);
+    const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const to   = `${year}-${String(month + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+    fetch(`/api/v1/my/working-days?from=${from}&to=${to}`)
+      .then((r) => r.json())
+      .then((j: { success: boolean; data?: { days: { date: string; isWorkDay: boolean }[] } }) => {
+        if (j.success && j.data) {
+          setWorkDays(new Set(j.data.days.filter((d) => d.isWorkDay).map((d) => d.date)));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [year, month]);
 
-  const daysInMonth  = new Date(year, month + 1, 0).getDate();
-  const firstDow     = new Date(year, month, 1).getDay();
-  const blanks       = firstDow === 0 ? 6 : firstDow - 1; // Mon-first
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDow    = new Date(year, month, 1).getDay();
+  const blanks      = firstDow === 0 ? 6 : firstDow - 1;
+  const todayStr    = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-
-  const prevMonth = () => { if (month === 0) { setYear(y => y-1); setMonth(11); } else setMonth(m => m-1); };
-  const nextMonth = () => { if (month === 11) { setYear(y => y+1); setMonth(0); } else setMonth(m => m+1); };
+  const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1); };
+  const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); };
 
   return (
     <div>
@@ -287,23 +297,28 @@ function ScheduleCalendar({ schedules }: { schedules: { dayOfWeek: string }[] })
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
-        {Array.from({ length: blanks }, (_, i) => <div key={`b${i}`} />)}
-        {Array.from({ length: daysInMonth }, (_, i) => {
-          const d    = i + 1;
-          const dow  = new Date(year, month, d).getDay();
-          const isWork  = workDowSet.has(dow);
-          const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-          const isToday = dateStr === todayStr;
-          const cls = [
-            'h-9 rounded-lg flex items-center justify-center text-xs font-medium transition-colors',
-            isWork  ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/30'
-                    : 'bg-charcoal/40 text-text-tertiary',
-            isToday ? 'ring-2 ring-amber-400' : '',
-          ].join(' ');
-          return <div key={d} className={cls}>{d}</div>;
-        })}
-      </div>
+      {loading ? (
+        <div className="flex justify-center py-8 text-text-tertiary">
+          <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>
+        </div>
+      ) : (
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({ length: blanks }, (_, i) => <div key={`b${i}`} />)}
+          {Array.from({ length: daysInMonth }, (_, i) => {
+            const d       = i + 1;
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const isWork  = workDays.has(dateStr);
+            const isToday = dateStr === todayStr;
+            const cls = [
+              'h-9 rounded-lg flex items-center justify-center text-xs font-medium transition-colors',
+              isWork  ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/30'
+                      : 'bg-charcoal/40 text-text-tertiary',
+              isToday ? 'ring-2 ring-amber-400' : '',
+            ].join(' ');
+            return <div key={d} className={cls}>{d}</div>;
+          })}
+        </div>
+      )}
 
       <div className="mt-3 flex gap-4 text-[11px] text-text-tertiary">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-900/40 border border-emerald-700/30 inline-block" />Рабочий</span>
@@ -1073,10 +1088,7 @@ function ProfileTab() {
           <h3 className="text-sm font-semibold text-text-primary">{t('portal.profile.schedule')}</h3>
         </div>
         <div className="p-4">
-          {profile.workingSchedules.length > 0
-            ? <ScheduleCalendar schedules={profile.workingSchedules} />
-            : <p className="text-sm text-text-tertiary text-center py-4">График не настроен</p>
-          }
+          <ScheduleCalendar />
         </div>
       </div>
 
