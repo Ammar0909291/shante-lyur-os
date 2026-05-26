@@ -86,6 +86,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
   const [bonusType,     setBonusType]     = React.useState('CUSTOM');
   const [bonusDesc,     setBonusDesc]     = React.useState('');
   const [bonusAmt,      setBonusAmt]      = React.useState('');
+  const [bonusPct,      setBonusPct]      = React.useState('5');
   const [bonusSaving,   setBonusSaving]   = React.useState(false);
 
   // Inline commission edit
@@ -213,6 +214,13 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
 
   const inputCls = 'px-2 py-1.5 rounded-lg bg-charcoal border border-border-luxury text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-champagne/40';
   const pendingCount = saleCommissions.filter((e) => e.status === 'PENDING' || e.status === 'pending').length;
+  const salesVolume = saleCommissions.reduce((s, e) => s + e.saleTotal, 0);
+
+  function applyBonusPct() {
+    const pct = parseFloat(bonusPct);
+    if (isNaN(pct) || pct <= 0 || salesVolume <= 0) return;
+    setBonusAmt(String(Math.round(salesVolume * (pct / 100) * 100) / 100));
+  }
 
   const roleLabel = getUserRoleLabel(role);
   const deptLabel = getDepartmentLabel(department);
@@ -486,6 +494,37 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                         className="w-full px-2.5 py-2 rounded-lg bg-obsidian border border-border-luxury text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-champagne/40"
                       />
                     </div>
+
+                    {/* Quick % calculator */}
+                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-champagne/5 border border-champagne/15">
+                      <span className="text-[10px] text-text-tertiary uppercase tracking-wider whitespace-nowrap">% от продаж</span>
+                      <div className="relative w-20 shrink-0">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          value={bonusPct}
+                          onChange={(e) => setBonusPct(e.target.value)}
+                          className="w-full px-2 py-1 pr-5 rounded-md bg-obsidian border border-champagne/30 text-text-primary text-xs text-right focus:outline-none focus:ring-1 focus:ring-champagne/40"
+                        />
+                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-text-muted pointer-events-none">%</span>
+                      </div>
+                      <span className="text-[10px] text-text-tertiary">
+                        {salesVolume > 0
+                          ? `= ${fmt(Math.round(salesVolume * (parseFloat(bonusPct) || 0) / 100 * 100) / 100)} ₽`
+                          : '(нет продаж)'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={applyBonusPct}
+                        disabled={salesVolume <= 0 || !(parseFloat(bonusPct) > 0)}
+                        className="ml-auto px-2.5 py-1 rounded-md bg-champagne/15 border border-champagne/30 text-champagne text-[10px] font-medium hover:bg-champagne/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                      >
+                        Применить
+                      </button>
+                    </div>
+
                     <div className="flex gap-2 justify-end">
                       <button
                         type="button"

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import {
   CheckCircle2, XCircle, Loader2, RefreshCw, Inbox,
-  AlertTriangle, Calendar, ShieldAlert, Users,
+  AlertTriangle, Calendar, ShieldAlert, Users, LayoutGrid, Table2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { authHeaders } from '@/lib/client-auth';
@@ -37,6 +37,7 @@ type TabId = 'leave' | 'schedule' | 'service';
 
 const MONTH_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const MIN_STAFF = 6;
+const DOW_SHORT = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -314,7 +315,7 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
   );
 }
 
-// ─── Schedule tab ─────────────────────────────────────────────────────────────
+// ─── Schedule table view ──────────────────────────────────────────────────────
 
 interface ScheduleTabData {
   month: string;
@@ -323,12 +324,179 @@ interface ScheduleTabData {
   alerts: string[];
 }
 
+interface ScheduleTableProps {
+  data: ScheduleTabData;
+  month: string;
+  onReview: (r: ScheduleRequest) => void;
+}
+
+function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
+  const [y, m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const alertSet = new Set(data.alerts);
+
+  const cols = Array.from({ length: daysInMonth }, (_, i) => {
+    const d = i + 1;
+    const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dow = new Date(y, m - 1, d).getDay();
+    return { d, dateStr, dow };
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="overflow-x-auto rounded-xl border border-border-luxury">
+        <table className="text-xs border-collapse" style={{ minWidth: 'max-content' }}>
+          {/* Header row */}
+          <thead>
+            <tr className="bg-charcoal border-b border-border-luxury">
+              <th className="sticky left-0 z-20 bg-charcoal px-3 py-2 text-left text-text-tertiary font-medium whitespace-nowrap border-r border-border-luxury/60"
+                style={{ minWidth: 160 }}>
+                Сотрудник
+              </th>
+              <th className="sticky z-20 bg-charcoal px-2 py-2 text-center text-text-tertiary font-medium border-r border-border-luxury/60"
+                style={{ left: 160, minWidth: 80 }}>
+                Отдел
+              </th>
+              <th className="sticky z-20 bg-charcoal px-2 py-2 text-center text-text-tertiary font-medium border-r border-border-luxury/60"
+                style={{ left: 240, minWidth: 90 }}>
+                Статус
+              </th>
+              {cols.map(({ d, dateStr, dow }) => (
+                <th key={dateStr}
+                  className={cn(
+                    'py-1 text-center border-r border-border-luxury/30 font-medium',
+                    alertSet.has(dateStr)
+                      ? 'bg-red-900/40 text-red-300'
+                      : (dow === 0 || dow === 6)
+                      ? 'bg-charcoal text-text-tertiary/40'
+                      : 'bg-charcoal text-text-tertiary'
+                  )}
+                  style={{ width: 28 }}>
+                  <div className="text-[10px] font-semibold leading-none">{d}</div>
+                  <div className="text-[8px] opacity-60 leading-none mt-0.5">{DOW_SHORT[dow]}</div>
+                </th>
+              ))}
+              <th className="bg-charcoal px-2 py-2 text-center text-text-tertiary font-medium"
+                style={{ minWidth: 44 }}>
+                ∑
+              </th>
+            </tr>
+          </thead>
+          {/* Data rows */}
+          <tbody>
+            {data.requests.map((r) => {
+              const dayMap: Record<string, boolean> = {};
+              for (const d of r.days) dayMap[d.date] = d.isWorkDay;
+              return (
+                <tr key={r.id}
+                  onClick={() => onReview(r)}
+                  className="cursor-pointer hover:brightness-110 transition-all border-b border-border-luxury/20">
+                  <td className="sticky left-0 z-10 bg-charcoal px-3 py-2 font-medium text-text-primary whitespace-nowrap border-r border-border-luxury/40">
+                    {r.specialistName}
+                  </td>
+                  <td className="sticky z-10 bg-charcoal px-2 py-2 text-center border-r border-border-luxury/40"
+                    style={{ left: 160 }}>
+                    <DeptBadge dept={r.department} />
+                  </td>
+                  <td className="sticky z-10 bg-charcoal px-2 py-2 text-center border-r border-border-luxury/40"
+                    style={{ left: 240 }}>
+                    <StatusBadge status={r.status} />
+                  </td>
+                  {cols.map(({ dateStr }) => {
+                    const isWork = dayMap[dateStr];
+                    const isAlert = !!isWork && alertSet.has(dateStr);
+                    let cellCls = '';
+                    if (isWork === undefined) {
+                      cellCls = 'bg-charcoal/20';
+                    } else if (!isWork) {
+                      cellCls = 'bg-charcoal/40';
+                    } else if (r.status === 'APPROVED') {
+                      cellCls = isAlert ? 'bg-red-700/60' : 'bg-emerald-800/60';
+                    } else if (r.status === 'REJECTED') {
+                      cellCls = 'bg-red-900/25';
+                    } else {
+                      // PENDING
+                      cellCls = isAlert ? 'bg-red-700/40' : 'bg-amber-700/50';
+                    }
+                    return (
+                      <td key={dateStr}
+                        className={cn('border-r border-border-luxury/10', cellCls)}
+                        style={{ width: 28, height: 32 }}
+                      />
+                    );
+                  })}
+                  <td className="bg-charcoal px-2 py-2 text-center font-bold text-text-primary">
+                    {r.workDayCount}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          {/* Coverage footer */}
+          <tfoot>
+            {(['MASSAGE', 'COSMETOLOGY'] as const).map((dept) => (
+              <tr key={dept} className="border-t-2 border-border-luxury">
+                <td colSpan={3}
+                  className="sticky left-0 z-10 bg-charcoal px-3 py-1.5 text-[10px] font-semibold text-text-secondary whitespace-nowrap border-r border-border-luxury/40">
+                  {dept === 'MASSAGE' ? 'Массажисты' : 'Косметологи'}
+                </td>
+                {cols.map(({ dateStr }) => {
+                  const count = data.coverage[dateStr]?.[dept] ?? 0;
+                  const isShort = count > 0 && count < MIN_STAFF;
+                  return (
+                    <td key={dateStr}
+                      className={cn(
+                        'text-center text-[10px] font-bold border-r border-border-luxury/20',
+                        count === 0
+                          ? 'bg-charcoal text-text-tertiary/25'
+                          : isShort
+                          ? 'bg-red-900/30 text-red-300'
+                          : 'bg-charcoal text-emerald-400'
+                      )}
+                      style={{ width: 28 }}>
+                      {count > 0 ? count : ''}
+                    </td>
+                  );
+                })}
+                <td className="bg-charcoal" />
+              </tr>
+            ))}
+          </tfoot>
+        </table>
+      </div>
+      {/* Legend */}
+      <div className="flex gap-4 text-[10px] text-text-tertiary flex-wrap px-1">
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-emerald-800/60 inline-block border border-emerald-700/30" />
+          Рабочий (одобрено)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-amber-700/50 inline-block border border-amber-600/30" />
+          Рабочий (ожидает)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-red-700/50 inline-block border border-red-600/30" />
+          Недобор
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-charcoal/40 inline-block border border-border-luxury/40" />
+          Выходной
+        </span>
+        <span className="text-text-tertiary/60">Нажмите на строку — открыть заявку</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Schedule tab ─────────────────────────────────────────────────────────────
+
 function ScheduleTab() {
   const months = upcomingMonths(4);
   const [selectedMonth, setSelectedMonth] = React.useState(months[0]);
   const [data, setData] = React.useState<ScheduleTabData | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [reviewing, setReviewing] = React.useState<ScheduleRequest | null>(null);
+  const [view, setView] = React.useState<'cards' | 'table'>('cards');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -406,51 +574,71 @@ function ScheduleTab() {
             })}
           </div>
 
-          {/* Request cards */}
-          <div className="space-y-2">
-            {data.requests.map((r) => {
-              const hasAlerts = data.alerts.some((a) => r.days.some((d) => d.isWorkDay && d.date === a));
-              return (
-                <div key={r.id}
-                  className={cn('rounded-xl border p-4',
-                    r.status === 'PENDING'
-                      ? 'bg-charcoal/20 border-border-luxury'
-                      : 'bg-charcoal/10 border-border-luxury/40 opacity-75')}>
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-semibold text-text-primary">{r.specialistName}</span>
-                      <DeptBadge dept={r.department} />
-                      <StatusBadge status={r.status} />
-                      {hasAlerts && <span className="text-[10px] text-amber-400 flex items-center gap-0.5"><ShieldAlert className="w-3 h-3" /> Недобор</span>}
-                    </div>
-                    <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
-                      <Calendar className="w-3 h-3" />
-                      {r.workDayCount} дней · {fmtDate(r.submittedAt)}
-                    </div>
-                  </div>
-                  {r.reviewNotes && (
-                    <p className="mt-2 text-xs text-text-tertiary italic">{r.reviewNotes}</p>
-                  )}
-                  {r.status === 'PENDING' && (
-                    <div className="flex justify-end mt-2">
-                      <button onClick={() => setReviewing(r)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-champagne/15 text-champagne border border-champagne/30 hover:bg-champagne/25 transition-colors">
-                        Рассмотреть
-                      </button>
-                    </div>
-                  )}
-                  {r.status !== 'PENDING' && (
-                    <div className="flex justify-end mt-2">
-                      <button onClick={() => setReviewing(r)}
-                        className="text-xs text-text-tertiary hover:text-text-secondary transition-colors">
-                        Просмотреть →
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          {/* View toggle + content */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-text-tertiary">{data.requests.length} заявок</p>
+            <div className="flex gap-0.5 p-0.5 bg-charcoal/50 rounded-lg border border-border-luxury">
+              <button onClick={() => setView('cards')} title="Карточки"
+                className={cn('p-1.5 rounded transition-colors',
+                  view === 'cards' ? 'bg-onyx text-champagne' : 'text-text-tertiary hover:text-text-primary')}>
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setView('table')} title="Таблица"
+                className={cn('p-1.5 rounded transition-colors',
+                  view === 'table' ? 'bg-onyx text-champagne' : 'text-text-tertiary hover:text-text-primary')}>
+                <Table2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
+
+          {view === 'table' ? (
+            <ScheduleTable data={data} month={selectedMonth} onReview={setReviewing} />
+          ) : (
+            <div className="space-y-2">
+              {data.requests.map((r) => {
+                const hasAlerts = data.alerts.some((a) => r.days.some((d) => d.isWorkDay && d.date === a));
+                return (
+                  <div key={r.id}
+                    className={cn('rounded-xl border p-4',
+                      r.status === 'PENDING'
+                        ? 'bg-charcoal/20 border-border-luxury'
+                        : 'bg-charcoal/10 border-border-luxury/40 opacity-75')}>
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-text-primary">{r.specialistName}</span>
+                        <DeptBadge dept={r.department} />
+                        <StatusBadge status={r.status} />
+                        {hasAlerts && <span className="text-[10px] text-amber-400 flex items-center gap-0.5"><ShieldAlert className="w-3 h-3" /> Недобор</span>}
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
+                        <Calendar className="w-3 h-3" />
+                        {r.workDayCount} дней · {fmtDate(r.submittedAt)}
+                      </div>
+                    </div>
+                    {r.reviewNotes && (
+                      <p className="mt-2 text-xs text-text-tertiary italic">{r.reviewNotes}</p>
+                    )}
+                    {r.status === 'PENDING' && (
+                      <div className="flex justify-end mt-2">
+                        <button onClick={() => setReviewing(r)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-champagne/15 text-champagne border border-champagne/30 hover:bg-champagne/25 transition-colors">
+                          Рассмотреть
+                        </button>
+                      </div>
+                    )}
+                    {r.status !== 'PENDING' && (
+                      <div className="flex justify-end mt-2">
+                        <button onClick={() => setReviewing(r)}
+                          className="text-xs text-text-tertiary hover:text-text-secondary transition-colors">
+                          Просмотреть →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
 
