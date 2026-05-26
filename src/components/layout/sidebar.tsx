@@ -28,6 +28,7 @@ import {
   Coins,
   Shield,
   ShieldCheck,
+  UserCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -52,6 +53,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'nav.operations', href: '/operations', icon: Activity, roles: FRONT_DESK },
   { key: 'nav.receptionist', href: '/receptionist', icon: ClipboardList, roles: FRONT_DESK },
   { key: 'nav.myPanel', href: '/my-panel', icon: CalendarCheck, roles: SPECIALIST_ONLY },
+  { key: 'nav.myPortal', href: '/my', icon: UserCircle, roles: EMPLOYEES },
   { key: 'nav.bookings', href: '/bookings', icon: Calendar },
   { key: 'nav.clients', href: '/clients', icon: Users, roles: FRONT_DESK },
   { key: 'nav.specialists', href: '/specialists', icon: Sparkles, roles: FRONT_DESK },
