@@ -250,6 +250,13 @@ function WorkingDaysTab({ specialistId: _sid }: { specialistId: string }) {
         </button>
       </div>
 
+      {/* Day-name header row */}
+      <div className="grid grid-cols-7 mb-1">
+        {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
+          <div key={d} className="text-center text-xs text-zinc-500 py-1 font-medium">{d}</div>
+        ))}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>
       ) : (
