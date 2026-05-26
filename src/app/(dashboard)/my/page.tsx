@@ -552,7 +552,7 @@ function upcomingMonths(count = 4): string[] {
   const result: string[] = [];
   const now = new Date();
   let y = now.getFullYear();
-  let m = now.getMonth() + 1; // next month (1-indexed)
+  let m = now.getMonth() + 2; // +1 = current month (1-indexed), +2 = next month
   if (m > 12) { m = 1; y++; }
   for (let i = 0; i < count; i++) {
     result.push(`${y}-${String(m).padStart(2, '0')}`);
@@ -564,10 +564,11 @@ function upcomingMonths(count = 4): string[] {
 
 function buildEmptyDays(monthStr: string): ScheduleDay[] {
   const [y, m] = monthStr.split('-').map(Number);
-  const daysInMonth = new Date(y, m, 0).getDate();
+  const daysInMonth = new Date(y, m, 0).getDate(); // m = 1-indexed, so new Date(y, m, 0) = last day of month m
   const days: ScheduleDay[] = [];
   for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(y, m - 1, d).toISOString().slice(0, 10);
+    // Build string directly — never use toISOString() which shifts by timezone offset
+    const date = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     days.push({ date, isWorkDay: false, startTime: null, endTime: null });
   }
   return days;
