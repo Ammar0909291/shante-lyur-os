@@ -74,6 +74,11 @@ model User {
   saleCommissionEntries     SaleCommissionEntry[]
   periodAdjustments         PeriodAdjustment[]      @relation("PeriodAdjustmentTarget")
   periodAdjustmentsCreated  PeriodAdjustment[]      @relation("PeriodAdjustmentCreator")
+  conversationMembers       ConversationMember[]    @relation("ConversationMemberUser")
+  sentChatMessages          Message[]               @relation("MessageSender")
+  chatNotifsReceived        ChatNotification[]      @relation("ChatNotifRecipient")
+  chatNotifsSent            ChatNotification[]      @relation("ChatNotifSender")
+  createdConversations      Conversation[]          @relation("ConversationCreator")
 
   @@index([email])
   @@index([role, status])
@@ -1917,4 +1922,95 @@ model PeriodAdjustment {
 
   @@index([userId, periodStart, periodEnd])
   @@map("period_adjustments")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INTERNAL STAFF CHAT v2 — Conversations, Messages, Notifications
+// ═══════════════════════════════════════════════════════════════
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum MessageType {
+  TEXT
+  SYSTEM
+}
+
+model Conversation {
+  id                  String           @id @default(cuid())
+  type                ConversationType
+  name                String?          @db.VarChar(200)
+  createdById         String           @map("created_by_id") @db.Uuid
+  lastMessageAt       DateTime?        @map("last_message_at")
+  lastMessagePreview  String?          @map("last_message_preview") @db.VarChar(300)
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  createdBy     User               @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  members       ConversationMember[]
+  messages      Message[]
+  notifications ChatNotification[]
+
+  @@index([lastMessageAt])
+  @@index([createdById])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String    @id @default(cuid())
+  conversationId String    @map("conversation_id")
+  userId         String    @map("user_id") @db.Uuid
+  muted          Boolean   @default(false)
+  joinedAt       DateTime  @default(now()) @map("joined_at")
+  leftAt         DateTime? @map("left_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation("ConversationMemberUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String      @map("conversation_id")
+  senderId       String      @map("sender_id") @db.Uuid
+  type           MessageType @default(TEXT)
+  content        String      @db.Text
+  editedAt       DateTime?   @map("edited_at")
+  deletedAt      DateTime?   @map("deleted_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  conversation  Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender        User               @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  notifications ChatNotification[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
+
+model ChatNotification {
+  id             String    @id @default(cuid())
+  recipientId    String    @map("recipient_id") @db.Uuid
+  senderId       String    @map("sender_id") @db.Uuid
+  conversationId String    @map("conversation_id")
+  messageId      String    @map("message_id")
+  preview        String    @db.VarChar(200)
+  isRead         Boolean   @default(false) @map("is_read")
+  readAt         DateTime? @map("read_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  recipient    User         @relation("ChatNotifRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender       User         @relation("ChatNotifSender", fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, isRead])
+  @@index([recipientId, conversationId])
+  @@map("chat_notifications")
 }

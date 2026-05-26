@@ -249,6 +249,31 @@ export const TEMPLATES: Record<string, Template> = {
       `Unfortunately, payment for "${v.serviceName ?? '—'}" could not be processed.\n\n` +
       `Please contact us for assistance. 📞`,
   },
+  chat_notification: {
+    key: 'chat_notification',
+    nameRu: 'Уведомление чата (Telegram)',
+    bodyRu: (v) =>
+      `💬 <b>${v.senderName ?? 'Сотрудник'}</b>` +
+      (v.senderPosition ? ` (${v.senderPosition})` : '') +
+      `:\n"${v.preview ?? ''}"`,
+    bodyEn: (v) =>
+      `💬 <b>${v.senderName ?? 'Employee'}</b>` +
+      (v.senderPosition ? ` (${v.senderPosition})` : '') +
+      `:\n"${v.preview ?? ''}"`,
+  },
+
+  chat_notification_email: {
+    key: 'chat_notification_email',
+    nameRu: 'Уведомление чата (Email)',
+    bodyRu: (v) =>
+      `💬 Новое сообщение от ${v.senderName ?? 'сотрудника'}:\n\n` +
+      `"${v.preview ?? ''}"\n\n` +
+      `Откройте CRM, чтобы ответить.`,
+    bodyEn: (v) =>
+      `💬 New message from ${v.senderName ?? 'a colleague'}:\n\n` +
+      `"${v.preview ?? ''}"\n\n` +
+      `Open the CRM to reply.`,
+  },
 };
 
 export function getTemplate(key: string): Template | undefined {

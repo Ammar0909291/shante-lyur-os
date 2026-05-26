@@ -101,13 +101,22 @@ interface OpsNotif {
   appointmentId: string | null;
 }
 
+interface ChatConvUnread {
+  conversationId: string;
+  unreadCount: number;
+  lastMessagePreview: string | null;
+}
+
 function getAuthHeaders(): Record<string, string> {
   return clientAuthHeaders();
 }
 
 function NotificationBell() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [notifications, setNotifications] = React.useState<OpsNotif[]>([]);
+  const [chatConvs, setChatConvs] = React.useState<ChatConvUnread[]>([]);
+  const [chatTotal, setChatTotal] = React.useState(0);
   const [open, setOpen] = React.useState(false);
 
   const fetchNotifs = React.useCallback(() => {
@@ -121,9 +130,23 @@ function NotificationBell() {
       .catch(() => {});
   }, []);
 
+  const fetchChatUnread = React.useCallback(() => {
+    const headers = getAuthHeaders();
+    if (!headers['x-user-id']) return;
+    fetch('/api/v1/chat/unread', { headers })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) {
+          setChatTotal(json.data.total as number);
+          setChatConvs(json.data.conversations as ChatConvUnread[]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   React.useEffect(() => {
     fetchNotifs();
-    // Subscribe to ops SSE for live notification delivery
+    fetchChatUnread();
     const headers = getAuthHeaders();
     if (!headers['x-user-id']) return;
     const es = new EventSource('/api/realtime/ops-stream');
@@ -133,10 +156,12 @@ function NotificationBell() {
         if (ev.type && ev.type !== 'connected') fetchNotifs();
       } catch {}
     };
-    return () => es.close();
-  }, [fetchNotifs]);
+    const pollId = setInterval(fetchChatUnread, 60_000);
+    return () => { es.close(); clearInterval(pollId); };
+  }, [fetchNotifs, fetchChatUnread]);
 
-  const unread = notifications.filter((n) => !n.readAt).length;
+  const opsUnread = notifications.filter((n) => !n.readAt).length;
+  const totalUnread = opsUnread + chatTotal;
 
   const markAllRead = React.useCallback(() => {
     const headers = getAuthHeaders();
@@ -154,8 +179,10 @@ function NotificationBell() {
     return formatTime(new Date(iso));
   };
 
+  const isEmpty = notifications.length === 0 && chatConvs.length === 0;
+
   return (
-    <DropdownMenu.Root open={open} onOpenChange={(v) => { setOpen(v); if (v) fetchNotifs(); }}>
+    <DropdownMenu.Root open={open} onOpenChange={(v) => { setOpen(v); if (v) { fetchNotifs(); fetchChatUnread(); } }}>
       <DropdownMenu.Trigger asChild>
         <button
           className={cn(
@@ -167,9 +194,9 @@ function NotificationBell() {
           aria-label={t('header.notifications')}
         >
           <Bell className="w-5 h-5" />
-          {unread > 0 && (
+          {totalUnread > 0 && (
             <span className="absolute top-1.5 right-1.5 min-w-[1rem] h-4 rounded-full bg-champagne flex items-center justify-center px-0.5">
-              <span className="text-[9px] font-bold text-obsidian leading-none">{unread > 9 ? '9+' : unread}</span>
+              <span className="text-[9px] font-bold text-obsidian leading-none">{totalUnread > 9 ? '9+' : totalUnread}</span>
             </span>
           )}
         </button>
@@ -185,11 +212,11 @@ function NotificationBell() {
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-border-luxury">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-text-primary">{t('notif.title')}</p>
-              {unread > 0 && (
-                <span className="text-[10px] font-bold bg-champagne text-obsidian rounded-full px-1.5 py-0.5">{unread}</span>
+              {totalUnread > 0 && (
+                <span className="text-[10px] font-bold bg-champagne text-obsidian rounded-full px-1.5 py-0.5">{totalUnread}</span>
               )}
             </div>
-            {unread > 0 && (
+            {opsUnread > 0 && (
               <button onClick={markAllRead} className="text-xs text-champagne hover:opacity-80 transition-opacity flex items-center gap-1">
                 <Check className="w-3 h-3" /> {t('notif.markAll')}
               </button>
@@ -197,28 +224,63 @@ function NotificationBell() {
           </div>
 
           <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {isEmpty ? (
               <div className="px-3 py-8 text-center">
                 <Bell className="w-8 h-8 text-text-tertiary/40 mx-auto mb-2" />
                 <p className="text-sm text-text-tertiary">{t('notif.empty')}</p>
               </div>
             ) : (
-              <div className="py-1">
-                {notifications.slice(0, 20).map((n) => (
-                  <div
-                    key={n.id}
-                    className={cn('px-3 py-2.5 flex items-start gap-2.5 border-b border-border-luxury/30 last:border-0', !n.readAt && 'bg-champagne/5')}
-                  >
-                    {!n.readAt && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-champagne shrink-0" />}
-                    {n.readAt && <span className="mt-1.5 w-1.5 h-1.5 shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-text-primary">{n.title}</p>
-                      <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{n.body}</p>
-                      <p className="text-[10px] text-text-tertiary mt-1">{relativeTime(n.createdAt)}</p>
+              <>
+                {chatConvs.length > 0 && (
+                  <>
+                    <div className="px-3 py-1.5 border-b border-border-luxury/50 bg-charcoal/40">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">Сообщения</p>
                     </div>
-                  </div>
-                ))}
-              </div>
+                    {chatConvs.slice(0, 5).map((c) => (
+                      <div
+                        key={c.conversationId}
+                        onClick={() => { router.push('/chat'); setOpen(false); }}
+                        className="px-3 py-2.5 flex items-start gap-2.5 border-b border-border-luxury/30 last:border-0 bg-champagne/5 cursor-pointer hover:bg-champagne/10 transition-colors"
+                      >
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-text-primary">
+                            {c.unreadCount === 1 ? '1 новое сообщение' : `${c.unreadCount} новых сообщения`}
+                          </p>
+                          {c.lastMessagePreview && (
+                            <p className="text-xs text-text-secondary mt-0.5 truncate">{c.lastMessagePreview}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {notifications.length > 0 && (
+                  <>
+                    {chatConvs.length > 0 && (
+                      <div className="px-3 py-1.5 border-b border-border-luxury/50 bg-charcoal/40">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">Уведомления</p>
+                      </div>
+                    )}
+                    <div className="py-1">
+                      {notifications.slice(0, 20).map((n) => (
+                        <div
+                          key={n.id}
+                          className={cn('px-3 py-2.5 flex items-start gap-2.5 border-b border-border-luxury/30 last:border-0', !n.readAt && 'bg-champagne/5')}
+                        >
+                          {!n.readAt && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-champagne shrink-0" />}
+                          {n.readAt && <span className="mt-1.5 w-1.5 h-1.5 shrink-0" />}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-text-primary">{n.title}</p>
+                            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{n.body}</p>
+                            <p className="text-[10px] text-text-tertiary mt-1">{relativeTime(n.createdAt)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
             )}
           </div>
         </DropdownMenu.Content>

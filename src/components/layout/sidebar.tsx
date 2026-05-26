@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
-import { getClientRole } from '@/lib/client-auth';
+import { getClientRole, authHeaders as clientAuthHeaders } from '@/lib/client-auth';
 
 interface NavItem {
   key: string;
@@ -74,6 +74,24 @@ function getJwtRole(): string {
   return getClientRole();
 }
 
+function useChatUnread(): number {
+  const [count, setCount] = React.useState(0);
+  React.useEffect(() => {
+    const poll = () => {
+      const headers = clientAuthHeaders();
+      if (!headers['x-user-id']) return;
+      fetch('/api/v1/chat/unread', { headers })
+        .then((r) => r.json())
+        .then((json) => { if (json.success) setCount(json.data.total as number); })
+        .catch(() => {});
+    };
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return count;
+}
+
 function useUserRole(): string {
   const [role, setRole] = React.useState('');
   React.useEffect(() => {
@@ -92,6 +110,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const { t } = useLanguage();
   const [collapsed, setCollapsed] = React.useState(false);
   const role = useUserRole();
+  const chatUnread = useChatUnread();
   const visibleItems = NAV_ITEMS.filter((item) => !item.roles || (!!role && item.roles.includes(role)));
 
   return (
@@ -155,13 +174,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           {visibleItems.map(({ key, href, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
             const label = t(key);
+            const showBadge = href === '/chat' && chatUnread > 0;
             return (
               <Link
                 key={href}
                 href={href}
                 onClick={onMobileClose}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl',
+                  'relative flex items-center gap-3 px-3 py-2.5 rounded-xl',
                   'text-sm font-medium transition-all duration-150',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-champagne/40',
                   isActive
@@ -179,8 +199,16 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
                   )}
                   aria-hidden="true"
                 />
+                {showBadge && collapsed && (
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" aria-hidden="true" />
+                )}
                 <span className={cn('truncate', collapsed && 'lg:hidden')}>{label}</span>
-                {isActive && !collapsed && (
+                {showBadge && !collapsed && (
+                  <span className="ml-auto min-w-[1.25rem] h-4 rounded-full bg-red-500 flex items-center justify-center px-0.5 shrink-0">
+                    <span className="text-[9px] font-bold text-white leading-none">{chatUnread > 99 ? '99+' : chatUnread}</span>
+                  </span>
+                )}
+                {isActive && !collapsed && !showBadge && (
                   <span className="ml-auto w-1 h-4 rounded-full bg-champagne shrink-0" aria-hidden="true" />
                 )}
               </Link>
