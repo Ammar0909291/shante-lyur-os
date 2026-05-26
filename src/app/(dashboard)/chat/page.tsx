@@ -86,6 +86,9 @@ export default function ChatPage() {
   const [creatingGroup, setCreatingGroup]   = React.useState(false);
   const [typingMap, setTypingMap]           = React.useState<Record<string, TypingInfo[]>>({});
   const [myMuted, setMyMuted]               = React.useState(false);
+  const [sendError, setSendError]           = React.useState<string | null>(null);
+  const [dmError, setDmError]               = React.useState<string | null>(null);
+  const [groupError, setGroupError]         = React.useState<string | null>(null);
 
   const bottomRef   = React.useRef<HTMLDivElement>(null);
   const inputRef    = React.useRef<HTMLTextAreaElement>(null);
@@ -254,6 +257,7 @@ export default function ChatPage() {
     if (!draft.trim() || !activeConvId || sending) return;
     const content = draft.trim();
     setDraft('');
+    setSendError(null);
     setSending(true);
     // Optimistic
     const tempId = `tmp-${Date.now()}`;
@@ -268,7 +272,7 @@ export default function ChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
       });
-      const j = await r.json() as { success: boolean; data?: MessageRow };
+      const j = await r.json() as { success: boolean; data?: MessageRow; error?: { message: string } };
       if (j.success && j.data) {
         setMessages((prev) => prev.map((m) => m.id === tempId ? j.data! : m));
         setConversations((prev) => prev.map((c) =>
@@ -276,9 +280,11 @@ export default function ChatPage() {
         ));
       } else {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setSendError(j.error?.message ?? 'Не удалось отправить сообщение. Попробуйте ещё раз.');
       }
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setSendError('Ошибка сети. Проверьте соединение и попробуйте ещё раз.');
     } finally {
       setSending(false);
       inputRef.current?.focus();
@@ -326,24 +332,32 @@ export default function ChatPage() {
   // ── New DM ────────────────────────────────────────────────────────────────
 
   async function handleNewDM(targetUserId: string) {
-    setShowNewChat(false);
-    setStaffSearch('');
-    const r = await fetch('/api/v1/chat/conversations', {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'DIRECT', memberIds: [targetUserId] }),
-    });
-    const j = await r.json() as { success: boolean; data?: { conversationId: string } };
-    if (j.success && j.data) {
-      await loadConversations();
-      openConversation(j.data.conversationId);
+    setDmError(null);
+    try {
+      const r = await fetch('/api/v1/chat/conversations', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'DIRECT', memberIds: [targetUserId] }),
+      });
+      const j = await r.json() as { success: boolean; data?: { conversationId: string }; error?: { message: string } };
+      if (j.success && j.data) {
+        setShowNewChat(false);
+        setStaffSearch('');
+        await loadConversations();
+        openConversation(j.data.conversationId);
+      } else {
+        setDmError(j.error?.message ?? 'Не удалось открыть чат. Попробуйте ещё раз.');
+      }
+    } catch {
+      setDmError('Ошибка сети. Проверьте соединение и попробуйте ещё раз.');
     }
   }
 
   // ── New group ─────────────────────────────────────────────────────────────
 
   async function handleCreateGroup() {
-    if (!groupName.trim() || groupMembers.length < 2) return;
+    if (!groupName.trim() || groupMembers.length < 1) return;
+    setGroupError(null);
     setCreatingGroup(true);
     try {
       const r = await fetch('/api/v1/chat/conversations', {
@@ -351,13 +365,19 @@ export default function ChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'GROUP', name: groupName.trim(), memberIds: groupMembers }),
       });
-      const j = await r.json() as { success: boolean; data?: { conversationId: string } };
+      const j = await r.json() as { success: boolean; data?: { conversationId: string }; error?: { message: string } };
       if (j.success && j.data) {
-        setShowGroupModal(false); setGroupName(''); setGroupMembers([]);
+        setShowGroupModal(false); setGroupName(''); setGroupMembers([]); setGroupError(null);
         await loadConversations();
         openConversation(j.data.conversationId);
+      } else {
+        setGroupError(j.error?.message ?? 'Не удалось создать группу. Попробуйте ещё раз.');
       }
-    } finally { setCreatingGroup(false); }
+    } catch {
+      setGroupError('Ошибка сети. Проверьте соединение и попробуйте ещё раз.');
+    } finally {
+      setCreatingGroup(false);
+    }
   }
 
   // ── Load staff list when modal opens ─────────────────────────────────────
@@ -634,6 +654,14 @@ export default function ChatPage() {
 
             {/* Input bar */}
             <div className="shrink-0 border-t border-border-luxury px-4 py-3">
+              {sendError && (
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-1.5">
+                  <p className="text-xs text-red-400">{sendError}</p>
+                  <button onClick={() => setSendError(null)} className="text-red-400/60 hover:text-red-400 transition-colors shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
               <div className="flex items-end gap-2">
                 <textarea
                   ref={inputRef}
@@ -684,11 +712,11 @@ export default function ChatPage() {
       {/* ── New chat modal ──────────────────────────────────────────────── */}
       {showNewChat && (
         <div className="fixed inset-0 z-[60] flex items-start justify-center pt-16 bg-black/60 backdrop-blur-sm px-4"
-          onClick={(e) => { if (e.target === e.currentTarget) { setShowNewChat(false); setStaffSearch(''); } }}>
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowNewChat(false); setStaffSearch(''); setDmError(null); } }}>
           <div className="w-full max-w-sm bg-obsidian border border-border-luxury rounded-2xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-border-luxury">
               <p className="text-sm font-semibold text-text-primary">Новый чат</p>
-              <button onClick={() => { setShowNewChat(false); setStaffSearch(''); }}
+              <button onClick={() => { setShowNewChat(false); setStaffSearch(''); setDmError(null); }}
                 className="p-1 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
                 <X className="w-4 h-4" />
               </button>
@@ -723,9 +751,17 @@ export default function ChatPage() {
                 </button>
               ))}
             </div>
-            <div className="px-4 py-3 border-t border-border-luxury">
+            <div className="px-4 py-3 border-t border-border-luxury space-y-2">
+              {dmError && (
+                <div className="flex items-center justify-between gap-2 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-1.5">
+                  <p className="text-xs text-red-400">{dmError}</p>
+                  <button onClick={() => setDmError(null)} className="text-red-400/60 hover:text-red-400 transition-colors shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
               <button
-                onClick={() => { setShowNewChat(false); setShowGroupModal(true); }}
+                onClick={() => { setShowNewChat(false); setDmError(null); setShowGroupModal(true); }}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-champagne/30 text-champagne/70 hover:bg-champagne/5 hover:text-champagne transition-colors text-sm"
               >
                 <Users className="w-4 h-4" /> Создать групповой чат →
@@ -738,11 +774,11 @@ export default function ChatPage() {
       {/* ── Group chat modal ────────────────────────────────────────────── */}
       {showGroupModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
-          onClick={(e) => { if (e.target === e.currentTarget) { setShowGroupModal(false); setGroupName(''); setGroupMembers([]); } }}>
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowGroupModal(false); setGroupName(''); setGroupMembers([]); setGroupError(null); } }}>
           <div className="w-full max-w-md bg-obsidian border border-border-luxury rounded-2xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border-luxury">
               <p className="text-base font-semibold text-text-primary">Создать группу</p>
-              <button onClick={() => { setShowGroupModal(false); setGroupName(''); setGroupMembers([]); }}
+              <button onClick={() => { setShowGroupModal(false); setGroupName(''); setGroupMembers([]); setGroupError(null); }}
                 className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
                 <X className="w-4 h-4" />
               </button>
@@ -759,7 +795,7 @@ export default function ChatPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">
-                  Участники * <span className="text-text-tertiary">({groupMembers.length} выбрано, мин. 2)</span>
+                  Участники * <span className="text-text-tertiary">({groupMembers.length} выбрано, мин. 1)</span>
                 </label>
                 <div className="relative mb-2">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary" />
@@ -799,16 +835,26 @@ export default function ChatPage() {
                 </div>
               </div>
             </div>
+            <div className="px-5 pt-0 pb-2">
+              {groupError && (
+                <div className="flex items-center justify-between gap-2 rounded-lg bg-red-500/10 border border-red-500/30 px-3 py-1.5">
+                  <p className="text-xs text-red-400">{groupError}</p>
+                  <button onClick={() => setGroupError(null)} className="text-red-400/60 hover:text-red-400 transition-colors shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="flex gap-3 px-5 py-4 border-t border-border-luxury">
               <button
-                onClick={() => { setShowGroupModal(false); setGroupName(''); setGroupMembers([]); }}
+                onClick={() => { setShowGroupModal(false); setGroupName(''); setGroupMembers([]); setGroupError(null); }}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors"
               >
                 Отмена
               </button>
               <button
                 onClick={handleCreateGroup}
-                disabled={!groupName.trim() || groupMembers.length < 2 || creatingGroup}
+                disabled={!groupName.trim() || groupMembers.length < 1 || creatingGroup}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50"
               >
                 {creatingGroup ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Создать'}
