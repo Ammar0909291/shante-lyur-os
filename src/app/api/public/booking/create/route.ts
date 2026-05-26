@@ -2,7 +2,6 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/infrastructure/config/prisma-client';
-import bcrypt from 'bcryptjs';
 
 function ok<T>(data: T) { return NextResponse.json({ success: true, data }); }
 function err(msg: string, status = 400) {
@@ -14,22 +13,27 @@ interface BookingBody {
   serviceId:    string;
   date:         string;   // YYYY-MM-DD
   time:         string;   // HH:MM
-  firstName:    string;
-  lastName:     string;
   phone:        string;
 }
 
 export async function POST(req: NextRequest) {
   let body: BookingBody;
-  try {
-    body = await req.json() as BookingBody;
-  } catch {
-    return err('Invalid JSON');
+  try { body = await req.json() as BookingBody; }
+  catch { return err('Invalid JSON'); }
+
+  const { specialistId, serviceId, date, time, phone } = body;
+  if (!specialistId || !serviceId || !date || !time || !phone) {
+    return err('specialistId, serviceId, date, time, phone are required');
   }
 
-  const { specialistId, serviceId, date, time, firstName, lastName, phone } = body;
-  if (!specialistId || !serviceId || !date || !time || !firstName || !phone) {
-    return err('specialistId, serviceId, date, time, firstName, phone are required');
+  // Verify existing client — only registered CLIENT users may book online
+  const cleanPhone = phone.replace(/\s/g, '');
+  const clientUser = await prisma.user.findFirst({
+    where: { phone: cleanPhone, role: 'CLIENT', status: 'ACTIVE' },
+    select: { id: true },
+  });
+  if (!clientUser) {
+    return err('Этот номер не зарегистрирован. Обратитесь к администратору для записи.', 403);
   }
 
   // Validate specialist
@@ -39,13 +43,13 @@ export async function POST(req: NextRequest) {
   });
   if (!specialist) return err('Specialist not found', 404);
 
-  // Validate service
+  // Validate service link
   const svcLink = await prisma.specialistService.findUnique({
     where: { specialistId_serviceId: { specialistId, serviceId } },
     select: {
-      priceOverride: true,
+      priceOverride:    true,
       durationOverride: true,
-      service: { select: { id: true, name: true, baseDuration: true, basePrice: true } },
+      service: { select: { id: true, baseDuration: true, basePrice: true } },
     },
   });
   if (!svcLink) return err('Service not available for this specialist', 404);
@@ -53,14 +57,11 @@ export async function POST(req: NextRequest) {
   const duration = svcLink.durationOverride ?? svcLink.service.baseDuration;
   const price    = svcLink.priceOverride    ?? svcLink.service.basePrice;
 
-  // Build startAt / endAt (treat provided time as UTC — salon uses Asia/Yekaterinburg = UTC+5,
-  // so the caller should send UTC equivalent; for simplicity we accept as-is UTC)
   const startAt = new Date(`${date}T${time}:00.000Z`);
   const endAt   = new Date(startAt.getTime() + duration * 60_000);
-
   if (isNaN(startAt.getTime())) return err('Invalid date/time');
 
-  // Check slot still available
+  // Quick pre-check before entering transaction
   const conflict = await prisma.appointment.findFirst({
     where: {
       specialistId,
@@ -69,35 +70,16 @@ export async function POST(req: NextRequest) {
       endAt:   { gt: startAt },
     },
   });
-  if (conflict) return err('This time slot is no longer available. Please choose another.', 409);
+  if (conflict) return err('Это время уже занято. Пожалуйста, выберите другой слот.', 409);
 
-  // Find / create client user by phone
-  const cleanPhone = phone.replace(/\s/g, '');
-  let clientUser = await prisma.user.findFirst({ where: { phone: cleanPhone } });
-  if (!clientUser) {
-    const tempEmail = `guest_${cleanPhone.replace(/\D/g, '')}_${Date.now()}@shante-lyur.guest`;
-    const passwordHash = await bcrypt.hash(crypto.randomUUID(), 4);
-    clientUser = await prisma.user.create({
-      data: {
-        email:        tempEmail,
-        passwordHash,
-        firstName:    firstName.trim(),
-        lastName:     (lastName ?? '').trim() || '—',
-        phone:        cleanPhone,
-        role:         'CLIENT',
-        status:       'ACTIVE',
-        emailVerified: false,
-        phoneVerified: false,
-      },
-    });
-    await prisma.customerProfile.create({ data: { userId: clientUser.id } });
-  }
-
-  // Get default location
-  const location = await prisma.location.findFirst({ where: { isActive: true }, select: { id: true } });
+  // Default location
+  const location = await prisma.location.findFirst({
+    where: { isActive: true },
+    select: { id: true },
+  });
   if (!location) return err('No active location configured', 500);
 
-  // Find a free room for the time slot
+  // Find a free room
   const busyRoomIds = (await prisma.appointment.findMany({
     where: {
       locationId: location.id,
@@ -110,16 +92,11 @@ export async function POST(req: NextRequest) {
   })).map((a) => a.roomId as string);
 
   const freeRoom = await prisma.room.findFirst({
-    where: {
-      locationId: location.id,
-      isActive:   true,
-      id:         { notIn: busyRoomIds },
-    },
+    where: { locationId: location.id, isActive: true, id: { notIn: busyRoomIds } },
   });
 
-  // Create appointment in a transaction
+  // Atomic create with double-check
   const appointment = await prisma.$transaction(async (tx) => {
-    // Double-check conflict inside transaction
     const doubleCheck = await tx.appointment.findFirst({
       where: {
         specialistId,
@@ -132,7 +109,7 @@ export async function POST(req: NextRequest) {
 
     const appt = await tx.appointment.create({
       data: {
-        clientId:      clientUser!.id,
+        clientId:      clientUser.id,
         specialistId,
         locationId:    location.id,
         roomId:        freeRoom?.id ?? null,
@@ -156,6 +133,9 @@ export async function POST(req: NextRequest) {
     });
 
     return appt;
+  }).catch((e: Error) => {
+    if (e.message === 'SLOT_TAKEN') throw e;
+    throw e;
   });
 
   return ok({
