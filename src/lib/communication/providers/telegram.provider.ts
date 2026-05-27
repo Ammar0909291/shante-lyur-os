@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { BaseProvider } from './base.provider';
 import type { MessagePayload, SendResult } from '../types';
 
@@ -13,6 +14,15 @@ interface TelegramApiResponse {
   result?: { message_id: number };
   error_code?: number;
   description?: string;
+}
+
+async function tgPost(token: string, method: string, data: unknown): Promise<TelegramApiResponse> {
+  const res = await axios.post<TelegramApiResponse>(
+    `https://api.telegram.org/bot${token}/${method}`,
+    data,
+    { timeout: 10_000, headers: { 'Content-Type': 'application/json' } },
+  );
+  return res.data;
 }
 
 export class TelegramProvider extends BaseProvider {
@@ -65,14 +75,7 @@ export class TelegramProvider extends BaseProvider {
 
     try {
       this.log('info', `Sending message to chat_id=${payload.to}`);
-
-      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
-
-      const json = (await res.json()) as TelegramApiResponse;
+      const json = await tgPost(token, 'sendMessage', params);
 
       if (!json.ok) {
         const errMsg = json.description ?? `error_code=${json.error_code}`;
@@ -91,17 +94,14 @@ export class TelegramProvider extends BaseProvider {
   }
 
   async setWebhook(webhookUrl: string): Promise<boolean> {
+    const token = await this.resolveToken();
+    if (!token) return false;
     try {
-      const res = await fetch(`${this.apiBase}/setWebhook`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: webhookUrl,
-          secret_token: this.webhookSecret || undefined,
-          allowed_updates: ['message', 'callback_query'],
-        }),
+      const json = await tgPost(token, 'setWebhook', {
+        url: webhookUrl,
+        secret_token: this.webhookSecret || undefined,
+        allowed_updates: ['message', 'callback_query'],
       });
-      const json = (await res.json()) as TelegramApiResponse;
       this.log('info', `setWebhook result: ${json.ok}`);
       return json.ok;
     } catch {

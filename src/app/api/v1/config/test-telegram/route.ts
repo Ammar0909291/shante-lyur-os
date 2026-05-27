@@ -1,11 +1,19 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import axios, { AxiosError } from 'axios';
 import { prisma } from '@/infrastructure/config/prisma-client';
 
 function ok<T>(data: T) { return NextResponse.json({ success: true, data }); }
 function err(msg: string, status = 400) {
   return NextResponse.json({ success: false, error: { message: msg } }, { status });
+}
+
+interface TelegramApiResponse {
+  ok: boolean;
+  description?: string;
+  error_code?: number;
+  result?: unknown;
 }
 
 export async function POST(req: NextRequest) {
@@ -30,28 +38,62 @@ export async function POST(req: NextRequest) {
   }
 
   if (!botToken) {
-    return err('Telegram Bot Token не настроен. Сохраните токен в разделе Настройки → Коммуникации.', 422);
+    return err('Telegram Bot Token не настроен. Сохраните токен в разделе Коммуникации → Настройки.', 422);
   }
 
+  // Step 1: verify token with getMe
+  try {
+    const getMeRes = await axios.get<TelegramApiResponse>(
+      `https://api.telegram.org/bot${botToken}/getMe`,
+      { timeout: 10_000 },
+    );
+    if (!getMeRes.data.ok) {
+      return err(`Токен недействителен: ${getMeRes.data.description ?? 'Telegram отклонил запрос'}`, 422);
+    }
+  } catch (e) {
+    const axErr = e as AxiosError;
+    if (axErr.response) {
+      const data = axErr.response.data as TelegramApiResponse | undefined;
+      return err(`Ошибка проверки токена: ${data?.description ?? `HTTP ${axErr.response.status}`}`, 422);
+    }
+    const msg = axErr.message ?? 'Сетевая ошибка';
+    return err(
+      `Не удалось подключиться к Telegram API: ${msg}. Проверьте, доступен ли api.telegram.org с вашего сервера.`,
+      502,
+    );
+  }
+
+  // Step 2: send test message
   const salonName = process.env['SALON_NAME'] ?? 'Shante Lyur';
   const text = `✅ <b>${salonName}</b>\n\nТестовое сообщение отправлено успешно!\nTelegram-интеграция работает корректно.`;
 
   try {
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true }),
-    });
-    const json = await res.json() as { ok: boolean; description?: string; error_code?: number };
+    const sendRes = await axios.post<TelegramApiResponse>(
+      `https://api.telegram.org/bot${botToken}/sendMessage`,
+      { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true },
+      { timeout: 10_000 },
+    );
 
-    if (!json.ok) {
-      const msg = json.description ?? `Telegram API error ${json.error_code ?? ''}`;
+    if (!sendRes.data.ok) {
+      const msg = sendRes.data.description ?? `Telegram error ${sendRes.data.error_code ?? ''}`;
       return err(msg, 422);
     }
 
-    return ok({ message: `Сообщение отправлено в chat_id ${chatId}` });
+    return ok({ message: `✅ Сообщение отправлено в chat_id ${chatId}` });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Network error';
-    return err(msg, 502);
+    const axErr = e as AxiosError;
+    if (axErr.response) {
+      const data = axErr.response.data as TelegramApiResponse | undefined;
+      // 400 = bad request (usually wrong chat_id)
+      if (axErr.response.status === 400) {
+        return err(`Неверный chat_id или бот не может отправить сообщение этому пользователю. Убедитесь, что вы написали боту /start. Ошибка: ${data?.description ?? ''}`, 422);
+      }
+      return err(data?.description ?? `HTTP ${axErr.response.status}`, 422);
+    }
+    const msg = axErr.message ?? 'Сетевая ошибка';
+    return err(
+      `Не удалось отправить сообщение: ${msg}. Проверьте, доступен ли api.telegram.org с вашего сервера.`,
+      502,
+    );
   }
 }
