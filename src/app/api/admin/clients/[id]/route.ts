@@ -12,13 +12,14 @@ function apiError(message: string, status: number) {
 }
 
 const PatchSchema = z.object({
-  firstName: z.string().min(1).max(100).optional(),
-  lastName: z.string().min(1).max(100).optional(),
-  phone: z.string().max(30).optional(),
-  email: z.string().email().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
-  notes: z.string().max(2000).optional(),
+  firstName:      z.string().min(1).max(100).optional(),
+  lastName:       z.string().min(1).max(100).optional(),
+  phone:          z.string().max(30).optional(),
+  email:          z.string().email().optional(),
+  status:         z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+  notes:          z.string().max(2000).optional(),
   telegramChatId: z.string().max(100).optional().nullable(),
+  whatsappEnabled: z.boolean().optional(),
 });
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -41,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const parsed = PatchSchema.safeParse(body);
   if (!parsed.success) return apiError('Invalid request body', 400);
 
-  const { notes, telegramChatId, ...userFields } = parsed.data;
+  const { notes, telegramChatId, whatsappEnabled, ...userFields } = parsed.data;
 
   const updated = await prisma.user.update({
     where: { id },
@@ -57,25 +58,41 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     });
   }
 
-  // Save Telegram chat_id — enables Telegram notifications for this client
-  if (telegramChatId !== undefined) {
-    const chatId = telegramChatId?.trim() || null;
-    await (prisma as unknown as {
-      communicationPreference: {
-        upsert: (args: unknown) => Promise<unknown>;
-      };
-    }).communicationPreference.upsert({
-      where: { userId: id },
-      create: {
-        userId: id,
-        telegramChatId: chatId,
-        telegramEnabled: Boolean(chatId),
-      },
-      update: {
-        telegramChatId: chatId,
-        telegramEnabled: Boolean(chatId),
-      },
-    });
+  // Save communication preferences
+  if (telegramChatId !== undefined || whatsappEnabled !== undefined || userFields.phone !== undefined) {
+    const chatId     = telegramChatId !== undefined ? (telegramChatId?.trim() || null) : undefined;
+    // Use updated phone (or fall back to existing) as the WhatsApp number
+    const phoneForWa = userFields.phone?.trim() || existing.phone || null;
+
+    const commCreate: Record<string, unknown> = { userId: id };
+    const commUpdate: Record<string, unknown> = {};
+
+    if (chatId !== undefined) {
+      commCreate['telegramChatId'] = chatId;
+      commCreate['telegramEnabled'] = Boolean(chatId);
+      commUpdate['telegramChatId'] = chatId;
+      commUpdate['telegramEnabled'] = Boolean(chatId);
+    }
+
+    if (whatsappEnabled !== undefined) {
+      commCreate['whatsappEnabled'] = whatsappEnabled;
+      commCreate['whatsappPhone']   = whatsappEnabled ? phoneForWa : null;
+      commUpdate['whatsappEnabled'] = whatsappEnabled;
+      commUpdate['whatsappPhone']   = whatsappEnabled ? phoneForWa : null;
+    } else if (userFields.phone !== undefined && phoneForWa) {
+      // Phone changed — keep whatsappPhone in sync if WhatsApp was already enabled
+      commUpdate['whatsappPhone'] = phoneForWa;
+    }
+
+    if (Object.keys(commCreate).length > 1 || Object.keys(commUpdate).length > 0) {
+      await (prisma as unknown as {
+        communicationPreference: { upsert: (args: unknown) => Promise<unknown> };
+      }).communicationPreference.upsert({
+        where:  { userId: id },
+        create: commCreate,
+        update: commUpdate,
+      });
+    }
   }
 
   return ok(updated);

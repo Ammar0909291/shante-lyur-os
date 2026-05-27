@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import * as React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Star, Phone, Mail, Calendar, TrendingUp, Clock, Award, Bot } from 'lucide-react';
+import { ArrowLeft, Star, Phone, Mail, Calendar, TrendingUp, Clock, Award, Bot, MessageCircle } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { prisma } from '@/infrastructure/config/prisma-client';
@@ -78,11 +78,16 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
     }),
     (prisma as unknown as {
       communicationPreference: {
-        findUnique: (args: unknown) => Promise<{ telegramChatId: string | null } | null>;
+        findUnique: (args: unknown) => Promise<{
+          telegramChatId: string | null;
+          telegramEnabled: boolean;
+          whatsappPhone: string | null;
+          whatsappEnabled: boolean;
+        } | null>;
       };
     }).communicationPreference.findUnique({
       where: { userId: id },
-      select: { telegramChatId: true },
+      select: { telegramChatId: true, telegramEnabled: true, whatsappPhone: true, whatsappEnabled: true },
     }),
   ]);
 
@@ -173,6 +178,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
                   phone: user.phone ?? null,
                   notes: profile?.notes ?? null,
                   telegramChatId: commPref?.telegramChatId ?? null,
+                  whatsappEnabled: commPref?.whatsappEnabled ?? false,
                 }}
               />
             </div>
@@ -190,10 +196,21 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
                   {user.phone}
                 </span>
               )}
-              {commPref?.telegramChatId ? (
+              {commPref?.whatsappEnabled && commPref?.whatsappPhone ? (
+                <span className="flex items-center gap-1.5 text-sm text-green-400">
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  WhatsApp on
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-sm text-text-tertiary">
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  WhatsApp off
+                </span>
+              )}
+              {commPref?.telegramEnabled && commPref?.telegramChatId ? (
                 <span className="flex items-center gap-1.5 text-sm text-blue-400">
                   <Bot className="w-3.5 h-3.5" />
-                  Telegram connected
+                  Telegram on
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5 text-sm text-text-tertiary">

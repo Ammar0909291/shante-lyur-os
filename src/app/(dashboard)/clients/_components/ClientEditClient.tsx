@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { X, Pencil, Bot } from 'lucide-react';
+import { X, Pencil, Bot, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ClientEditData {
@@ -12,6 +12,7 @@ interface ClientEditData {
   phone: string | null;
   notes: string | null;
   telegramChatId: string | null;
+  whatsappEnabled: boolean;
 }
 
 interface Props {
@@ -26,6 +27,28 @@ const inputCls = cn(
   'transition-all',
 );
 
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200',
+        checked ? 'bg-champagne' : 'bg-charcoal',
+      )}
+    >
+      <span
+        className={cn(
+          'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200',
+          checked ? 'translate-x-4' : 'translate-x-0',
+        )}
+      />
+    </button>
+  );
+}
+
 export function ClientEditClient({ client }: Props) {
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -33,12 +56,13 @@ export function ClientEditClient({ client }: Props) {
   const [success, setSuccess] = React.useState(false);
 
   const [form, setForm] = React.useState({
-    firstName:      client.firstName,
-    lastName:       client.lastName,
-    email:          client.email,
-    phone:          client.phone ?? '',
-    notes:          client.notes ?? '',
-    telegramChatId: client.telegramChatId ?? '',
+    firstName:       client.firstName,
+    lastName:        client.lastName,
+    email:           client.email,
+    phone:           client.phone ?? '',
+    notes:           client.notes ?? '',
+    whatsappEnabled: client.whatsappEnabled,
+    telegramChatId:  client.telegramChatId ?? '',
   });
 
   const set = (field: keyof typeof form) =>
@@ -56,12 +80,13 @@ export function ClientEditClient({ client }: Props) {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          firstName:      form.firstName.trim(),
-          lastName:       form.lastName.trim(),
-          email:          form.email.trim() || undefined,
-          phone:          form.phone.trim() || undefined,
-          notes:          form.notes.trim() || undefined,
-          telegramChatId: form.telegramChatId.trim() || null,
+          firstName:       form.firstName.trim(),
+          lastName:        form.lastName.trim(),
+          email:           form.email.trim() || undefined,
+          phone:           form.phone.trim() || undefined,
+          notes:           form.notes.trim() || undefined,
+          whatsappEnabled: form.whatsappEnabled,
+          telegramChatId:  form.telegramChatId.trim() || null,
         }),
       });
       const json = await res.json();
@@ -80,6 +105,8 @@ export function ClientEditClient({ client }: Props) {
       setSaving(false);
     }
   };
+
+  const hasPhone = Boolean(form.phone.trim());
 
   return (
     <>
@@ -106,6 +133,7 @@ export function ClientEditClient({ client }: Props) {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Basic info */}
               <div className="grid grid-cols-2 gap-3">
                 <label className="space-y-1.5">
                   <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">First Name *</span>
@@ -127,27 +155,56 @@ export function ClientEditClient({ client }: Props) {
                 <input value={form.phone} onChange={set('phone')} className={inputCls} placeholder="+7 900 000-00-00" />
               </label>
 
-              {/* Telegram */}
-              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Bot className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Telegram</span>
+              {/* ── Messaging channels ──────────────────────────────── */}
+              <div className="rounded-xl border border-border-luxury bg-charcoal/30 overflow-hidden">
+                <div className="px-4 py-3 border-b border-border-luxury">
+                  <p className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">Messaging channels</p>
                 </div>
-                <label className="block space-y-1.5">
-                  <span className="text-xs text-text-tertiary">Chat ID</span>
+
+                {/* WhatsApp — phone-based, default on */}
+                <div className="px-4 py-3.5 border-b border-border-luxury">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <MessageCircle className="w-4 h-4 text-green-400 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">WhatsApp</p>
+                        <p className="text-xs text-text-tertiary">
+                          {hasPhone
+                            ? `Sends to ${form.phone.trim()}`
+                            : 'Enter a phone number above to enable'}
+                        </p>
+                      </div>
+                    </div>
+                    <Toggle
+                      checked={form.whatsappEnabled && hasPhone}
+                      onChange={(v) => setForm((f) => ({ ...f, whatsappEnabled: v }))}
+                    />
+                  </div>
+                  {form.whatsappEnabled && !hasPhone && (
+                    <p className="mt-2 text-xs text-amber-400">Add a phone number above to send WhatsApp messages.</p>
+                  )}
+                </div>
+
+                {/* Telegram — chat_id based */}
+                <div className="px-4 py-3.5">
+                  <div className="flex items-center gap-2.5 mb-2.5">
+                    <Bot className="w-4 h-4 text-blue-400 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">Telegram</p>
+                      <p className="text-xs text-text-tertiary">Requires the client's chat ID (not a phone number)</p>
+                    </div>
+                  </div>
                   <input
                     value={form.telegramChatId}
                     onChange={set('telegramChatId')}
                     className={inputCls}
-                    placeholder="e.g. 123456789"
+                    placeholder="Chat ID — e.g. 123456789"
                   />
-                </label>
-                <p className="text-xs text-text-tertiary leading-relaxed">
-                  The client must send <span className="text-blue-400 font-medium">/start</span> to your bot first.
-                  They can get their ID by messaging{' '}
-                  <span className="text-blue-400 font-medium">@userinfobot</span> in Telegram.
-                  Once set, booking confirmations and reminders will be sent automatically.
-                </p>
+                  <p className="mt-1.5 text-xs text-text-tertiary">
+                    Client messages <span className="text-blue-400">@userinfobot</span> → gets their ID.
+                    They must also send <span className="text-blue-400">/start</span> to your bot first.
+                  </p>
+                </div>
               </div>
 
               <label className="block space-y-1.5">
