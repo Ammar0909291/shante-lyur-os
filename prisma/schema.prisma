@@ -80,6 +80,9 @@ model User {
   chatNotifsSent            ChatNotification[]      @relation("ChatNotifSender")
   createdConversations      Conversation[]          @relation("ConversationCreator")
 
+  permissionGrants  UserPermissionOverride[] @relation("UserGrants")
+  grantsGiven       UserPermissionOverride[] @relation("GrantedByUser")
+
   @@index([email])
   @@index([role, status])
   @@index([phone])
@@ -2053,4 +2056,25 @@ model SystemConfig {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("system_config")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PER-USER PERMISSION OVERRIDES (SUPER_ADMIN grants extra access)
+// ═══════════════════════════════════════════════════════════════
+
+model UserPermissionOverride {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  /// Route resource, e.g. "/finance", "/payroll", "/executive"
+  resource    String   @db.VarChar(120)
+  grantedById String   @map("granted_by_id") @db.Uuid
+  grantedAt   DateTime @default(now()) @map("granted_at")
+  note        String?  @db.VarChar(500)
+
+  user      User @relation("UserGrants",    fields: [userId],      references: [id], onDelete: Cascade)
+  grantedBy User @relation("GrantedByUser", fields: [grantedById], references: [id])
+
+  @@unique([userId, resource])
+  @@index([userId])
+  @@map("user_permission_overrides")
 }

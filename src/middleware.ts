@@ -110,6 +110,8 @@ interface AccessPayload {
   sub: string;
   role: string;
   type?: string;
+  /** Per-user permission overrides granted by SUPER_ADMIN */
+  grants?: string[];
 }
 
 function getJwtSecret(): Uint8Array {
@@ -130,13 +132,13 @@ function extractToken(request: NextRequest): string | null {
 
 async function verifyToken(
   token: string,
-): Promise<{ userId: string; role: string } | null> {
+): Promise<{ userId: string; role: string; grants: string[] } | null> {
   try {
     const { payload } = await jwtVerify(token, getJwtSecret());
     const p = payload as unknown as AccessPayload;
     if (!p.sub || !p.role) return null;
     if (p.type && p.type !== 'access') return null;
-    return { userId: p.sub, role: p.role };
+    return { userId: p.sub, role: p.role, grants: p.grants ?? [] };
   } catch {
     return null;
   }
@@ -316,12 +318,18 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       return redirectTo('/login', request);
     }
 
-    // Check page-level role restriction
+    // Check page-level role restriction (with per-user grant override)
     const matchedRule = PAGE_RULES.find(
       (r) => pathname === r.path || pathname.startsWith(r.path + '/'),
     );
     if (matchedRule && !matchedRule.roles.includes(user.role)) {
-      return redirectTo(matchedRule.redirect, request);
+      // Allow if SUPER_ADMIN has granted this user explicit access to the resource
+      const hasGrant = user.grants.some(
+        (g) => pathname === g || pathname.startsWith(g + '/'),
+      );
+      if (!hasGrant) {
+        return redirectTo(matchedRule.redirect, request);
+      }
     }
 
     requestHeaders.set('x-user-id', user.userId);

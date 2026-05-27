@@ -4,7 +4,7 @@ import * as React from 'react';
 import {
   ShieldCheck, Search, RefreshCw, ChevronDown,
   User, AlertTriangle, Check, X, UserPlus, ClipboardList,
-  Loader2, Eye, EyeOff,
+  Loader2, Eye, EyeOff, KeyRound, Lock, Unlock, Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/language';
@@ -25,6 +25,14 @@ interface AuditEntry {
   id: string; action: string; entityType: string; entityId: string | null;
   ipAddress: string | null; createdAt: string;
   user: { name: string; email: string; role: string } | null;
+}
+
+interface GrantRecord {
+  id: string;
+  resource: string;
+  grantedAt: string;
+  note: string | null;
+  grantedBy: { firstName: string; lastName: string; email: string };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -59,6 +67,29 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   REFUND_ISSUED: 'Возврат', EXPORT: 'Экспорт', IMPORT: 'Импорт',
   SETTINGS_CHANGED: 'Настройки',
 };
+
+/** All CRM resources that can be individually granted to a user. */
+const GRANTABLE_RESOURCES: { resource: string; label: string; defaultRoles: UserRole[] }[] = [
+  { resource: '/dashboard',      label: 'Дашборд',                    defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER','RECEPTIONIST'] },
+  { resource: '/operations',     label: 'Операции',                   defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER','RECEPTIONIST'] },
+  { resource: '/receptionist',   label: 'Стойка администратора',      defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER','RECEPTIONIST'] },
+  { resource: '/bookings',       label: 'Бронирования',               defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER','RECEPTIONIST','COSMETOLOGIST','MASSAGIST'] },
+  { resource: '/clients',        label: 'Клиенты',                    defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER','RECEPTIONIST'] },
+  { resource: '/specialists',    label: 'Специалисты',                defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER','RECEPTIONIST'] },
+  { resource: '/services',       label: 'Услуги',                     defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER','RECEPTIONIST'] },
+  { resource: '/analytics',      label: 'Аналитика',                  defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER','RECEPTIONIST'] },
+  { resource: '/sales',          label: 'Продажи',                    defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+  { resource: '/inventory',      label: 'Склад',                      defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+  { resource: '/finance',        label: 'Финансы',                    defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+  { resource: '/payroll',        label: 'Зарплаты',                   defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+  { resource: '/risk',           label: 'Риски',                      defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+  { resource: '/promo-codes',    label: 'Промокоды',                  defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+  { resource: '/executive',      label: 'Исполнительная панель',      defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+  { resource: '/chat',           label: 'Чат',                        defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER','RECEPTIONIST','COSMETOLOGIST','MASSAGIST'] },
+  { resource: '/staff-requests', label: 'Запросы сотрудников',        defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+  { resource: '/communications', label: 'Коммуникации',               defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+  { resource: '/settings',       label: 'Настройки',                  defaultRoles: ['SUPER_ADMIN','ADMIN','MANAGER'] },
+];
 
 // ─── RoleSelect ───────────────────────────────────────────────────────────────
 
@@ -116,6 +147,224 @@ function RoleSelect({ currentRole, userId, onChanged, disabled }: {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── UserAccessModal ──────────────────────────────────────────────────────────
+
+function UserAccessModal({
+  user,
+  onClose,
+}: {
+  user: StaffUser;
+  onClose: () => void;
+}) {
+  const [grants, setGrants]     = React.useState<GrantRecord[]>([]);
+  const [loading, setLoading]   = React.useState(true);
+  const [saving, setSaving]     = React.useState<string | null>(null); // resource being saved
+  const [error, setError]       = React.useState('');
+  const [noteMap, setNoteMap]   = React.useState<Record<string, string>>({});
+
+  const fetchGrants = React.useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const res  = await fetch(`/api/v1/admin/users/${user.id}/permissions`);
+      const json = await res.json() as { success: boolean; data?: { grants: GrantRecord[] }; error?: { message?: string } };
+      if (!json.success) { setError(json.error?.message ?? 'Ошибка загрузки'); }
+      else { setGrants(json.data?.grants ?? []); }
+    } catch { setError('Ошибка сети'); }
+    finally { setLoading(false); }
+  }, [user.id]);
+
+  React.useEffect(() => { void fetchGrants(); }, [fetchGrants]);
+
+  const grantedSet = React.useMemo(() => new Set(grants.map((g) => g.resource)), [grants]);
+
+  const toggle = async (resource: string, currentlyGranted: boolean) => {
+    setSaving(resource); setError('');
+    try {
+      if (currentlyGranted) {
+        // Revoke
+        const res = await fetch(`/api/v1/admin/users/${user.id}/permissions`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resource }),
+        });
+        const json = await res.json() as { success: boolean; error?: { message?: string } };
+        if (!json.success) { setError(json.error?.message ?? 'Ошибка'); return; }
+        setGrants((prev) => prev.filter((g) => g.resource !== resource));
+      } else {
+        // Grant
+        const note = noteMap[resource] ?? undefined;
+        const res = await fetch(`/api/v1/admin/users/${user.id}/permissions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resource, note }),
+        });
+        const json = await res.json() as { success: boolean; data?: { grant: GrantRecord }; error?: { message?: string } };
+        if (!json.success) { setError(json.error?.message ?? 'Ошибка'); return; }
+        if (json.data?.grant) {
+          setGrants((prev) => [
+            ...prev.filter((g) => g.resource !== resource),
+            json.data!.grant,
+          ]);
+        }
+      }
+    } catch { setError('Ошибка сети'); }
+    finally { setSaving(null); }
+  };
+
+  const hasRoleAccess = (resource: string) =>
+    GRANTABLE_RESOURCES.find((r) => r.resource === resource)?.defaultRoles.includes(user.role) ?? false;
+
+  const meta = ROLE_META[user.role] ?? ROLE_META['CLIENT'];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-2xl bg-onyx border border-border-luxury rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg luxury-gradient flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-obsidian">{user.firstName[0]}{user.lastName[0]}</span>
+            </div>
+            <div>
+              <h3 className="font-serif text-lg font-medium text-text-primary leading-tight">
+                {user.firstName} {user.lastName}
+              </h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className={cn('text-xs font-medium', meta.color)}>{meta.label}</span>
+                <span className="text-text-tertiary text-xs">·</span>
+                <span className="text-text-tertiary text-xs">{user.email}</span>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary transition-colors p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Info banner */}
+        <div className="mx-6 mt-4 flex items-start gap-3 p-3 rounded-xl bg-champagne/8 border border-champagne/20 shrink-0">
+          <Info className="w-4 h-4 text-champagne shrink-0 mt-0.5" />
+          <p className="text-xs text-text-secondary leading-relaxed">
+            Расширенный доступ даёт сотруднику возможность открывать страницы <strong className="text-text-primary">помимо</strong> тех, что разрешены его ролью.
+            Изменения вступят в силу при <strong className="text-text-primary">следующем входе</strong> пользователя в систему.
+          </p>
+        </div>
+
+        {error && (
+          <div className="mx-6 mt-3 flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm shrink-0">
+            <AlertTriangle className="w-4 h-4 shrink-0" /> {error}
+          </div>
+        )}
+
+        {/* Body — resource list */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+          {loading ? (
+            Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-12 bg-charcoal rounded-xl animate-pulse" />
+            ))
+          ) : (
+            GRANTABLE_RESOURCES.map(({ resource, label, defaultRoles }) => {
+              const byRole    = defaultRoles.includes(user.role);
+              const granted   = grantedSet.has(resource);
+              const isSaving  = saving === resource;
+              const grantInfo = grants.find((g) => g.resource === resource);
+
+              return (
+                <div
+                  key={resource}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-3 rounded-xl border transition-all',
+                    byRole
+                      ? 'bg-charcoal/30 border-border-luxury opacity-60 cursor-not-allowed'
+                      : granted
+                      ? 'bg-green-500/8 border-green-500/30'
+                      : 'bg-charcoal/20 border-border-luxury hover:bg-charcoal/40',
+                  )}
+                >
+                  {/* Icon */}
+                  <div className={cn(
+                    'w-7 h-7 rounded-lg flex items-center justify-center shrink-0',
+                    byRole ? 'bg-text-tertiary/10' : granted ? 'bg-green-500/15' : 'bg-charcoal',
+                  )}>
+                    {byRole ? (
+                      <Lock className="w-3.5 h-3.5 text-text-tertiary" />
+                    ) : granted ? (
+                      <Unlock className="w-3.5 h-3.5 text-green-400" />
+                    ) : (
+                      <Lock className="w-3.5 h-3.5 text-text-tertiary" />
+                    )}
+                  </div>
+
+                  {/* Label + meta */}
+                  <div className="flex-1 min-w-0">
+                    <p className={cn('text-sm font-medium', byRole ? 'text-text-tertiary' : 'text-text-primary')}>
+                      {label}
+                    </p>
+                    <p className="text-xs text-text-tertiary truncate">
+                      {byRole
+                        ? `Включено по роли «${meta.label}»`
+                        : granted
+                        ? `Расширенный доступ · предоставил ${grantInfo?.grantedBy.firstName} ${grantInfo?.grantedBy.lastName}`
+                        : 'Нет доступа по роли'}
+                    </p>
+                  </div>
+
+                  {/* Toggle */}
+                  {!byRole && (
+                    <button
+                      onClick={() => void toggle(resource, granted)}
+                      disabled={isSaving}
+                      className={cn(
+                        'relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-50',
+                        granted ? 'bg-green-500' : 'bg-charcoal border border-border-luxury',
+                      )}
+                      aria-label={granted ? 'Отозвать доступ' : 'Выдать доступ'}
+                    >
+                      {isSaving ? (
+                        <Loader2 className="w-3 h-3 text-white animate-spin mx-auto" />
+                      ) : (
+                        <span className={cn(
+                          'inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform',
+                          granted ? 'translate-x-4' : 'translate-x-1',
+                        )} />
+                      )}
+                    </button>
+                  )}
+
+                  {byRole && (
+                    <div className={cn('px-2 py-0.5 rounded-md text-[10px] font-medium border shrink-0', meta.bg, meta.color)}>
+                      По умолчанию
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border-luxury shrink-0">
+          <div className="flex items-center gap-2 text-xs text-text-tertiary">
+            <KeyRound className="w-3.5 h-3.5" />
+            <span>
+              {grants.length === 0
+                ? 'Расширенный доступ не назначен'
+                : `${grants.length} расширенных разрешений`}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="px-5 py-2 rounded-xl border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal text-sm transition-all"
+          >
+            Готово
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -384,6 +633,7 @@ export default function PermissionsPage() {
   const [myRole,   setMyRole]   = React.useState<string>('');
   const [myUserId, setMyUserId] = React.useState<string>('');
   const [showCreate, setShowCreate] = React.useState(false);
+  const [accessUser, setAccessUser] = React.useState<StaffUser | null>(null);
 
   const isSuperAdmin = myRole === 'SUPER_ADMIN';
   const isAdmin      = myRole === 'ADMIN' || isSuperAdmin;
@@ -432,6 +682,13 @@ export default function PermissionsPage() {
         <CreateUserModal
           onClose={() => setShowCreate(false)}
           onCreated={() => { void fetchUsers(); }}
+        />
+      )}
+
+      {accessUser && (
+        <UserAccessModal
+          user={accessUser}
+          onClose={() => setAccessUser(null)}
         />
       )}
 
@@ -548,17 +805,20 @@ export default function PermissionsPage() {
                     <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase tracking-wider">Роль</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase tracking-wider">Статус</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase tracking-wider whitespace-nowrap">Последний вход</th>
+                    {isSuperAdmin && (
+                      <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase tracking-wider whitespace-nowrap">Доступ</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-luxury">
                   {loading ? (
                     Array.from({ length: 6 }).map((_, i) => (
-                      <tr key={i}>{Array.from({ length: 5 }).map((_, j) => (
+                      <tr key={i}>{Array.from({ length: isSuperAdmin ? 6 : 5 }).map((_, j) => (
                         <td key={j} className="px-4 py-3"><div className="h-4 bg-charcoal rounded animate-pulse" /></td>
                       ))}</tr>
                     ))
                   ) : filtered.length === 0 ? (
-                    <tr><td colSpan={5} className="px-4 py-12 text-center text-text-tertiary">
+                    <tr><td colSpan={isSuperAdmin ? 6 : 5} className="px-4 py-12 text-center text-text-tertiary">
                       <User className="w-8 h-8 mx-auto mb-2 opacity-50" />
                       <p>Пользователи не найдены</p>
                     </td></tr>
@@ -588,6 +848,21 @@ export default function PermissionsPage() {
                         <td className="px-4 py-3 text-text-tertiary text-xs">
                           {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('ru-RU', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '—'}
                         </td>
+                        {isSuperAdmin && (
+                          <td className="px-4 py-3">
+                            {canEdit ? (
+                              <button
+                                onClick={() => setAccessUser(user)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-champagne/30 text-champagne text-xs font-medium hover:bg-champagne/10 transition-all"
+                              >
+                                <KeyRound className="w-3.5 h-3.5" />
+                                Доступ
+                              </button>
+                            ) : (
+                              <span className="text-text-tertiary text-xs">—</span>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

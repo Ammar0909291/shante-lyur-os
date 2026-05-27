@@ -33,6 +33,13 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return fail('UNAUTHORIZED', 'Invalid credentials', 401);
 
+    // Fetch per-user permission overrides (granted by SUPER_ADMIN)
+    const overrides = await prisma.userPermissionOverride.findMany({
+      where: { userId: user.id },
+      select: { resource: true },
+    });
+    const grants = overrides.map((o) => o.resource);
+
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       return fail('LOCKED', `Account locked until ${user.lockedUntil.toISOString()}`, 403);
     }
@@ -60,7 +67,7 @@ export async function POST(req: NextRequest) {
     });
 
     const accessToken = jwt.sign(
-      { sub: user.id, email: user.email, role: user.role, type: 'access' },
+      { sub: user.id, email: user.email, role: user.role, type: 'access', grants },
       ACCESS_SECRET,
       { expiresIn: '8h' },
     );
