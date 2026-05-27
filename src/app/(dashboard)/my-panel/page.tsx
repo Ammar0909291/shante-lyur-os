@@ -909,6 +909,11 @@ function ProfileTab() {
   const [form, setForm] = React.useState({ displayName: '', phone: '', languagePreference: 'ru' });
   const [saving, setSaving] = React.useState(false);
   const [saveMsg, setSaveMsg] = React.useState<string | null>(null);
+  const [editingServices, setEditingServices] = React.useState(false);
+  const [allServices, setAllServices] = React.useState<{ id: string; name: string; baseDuration: number }[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = React.useState<Set<string>>(new Set());
+  const [savingServices, setSavingServices] = React.useState(false);
+  const [servicesSaveMsg, setServicesSaveMsg] = React.useState<string | null>(null);
 
   const loadAll = React.useCallback(async () => {
     try {
@@ -920,6 +925,7 @@ function ProfileTab() {
         const p = pRes.data as ProfileData;
         setProfile(p);
         setForm({ displayName: p.displayName ?? '', phone: p.user.phone ?? '', languagePreference: p.languagePreference ?? 'ru' });
+        setSelectedServiceIds(new Set(p.services.map((s) => s.id)));
       }
       if (rRes.success && rRes.data) {
         setRequests(rRes.data as { leave: RequestItem[]; schedule: RequestItem[]; service: RequestItem[] });
@@ -949,6 +955,44 @@ function ProfileTab() {
         setTimeout(() => setSaveMsg(null), 2000);
       }
     } finally { setSaving(false); }
+  };
+
+  const openServicesEdit = async () => {
+    if (allServices.length === 0) {
+      try {
+        const res = await fetch('/api/services?limit=200').then((r) => r.json()) as { success: boolean; data?: { services?: { id: string; name: string; baseDuration: number }[] } };
+        if (res.success && res.data?.services) {
+          setAllServices(res.data.services);
+        }
+      } catch { /* ignore */ }
+    }
+    setEditingServices(true);
+  };
+
+  const saveServices = async () => {
+    setSavingServices(true);
+    try {
+      const res = await fetch('/api/specialist/portal/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ services: Array.from(selectedServiceIds) }),
+      });
+      const j = await res.json() as { success: boolean };
+      if (j.success) {
+        setServicesSaveMsg('Saved');
+        setEditingServices(false);
+        void loadAll();
+        setTimeout(() => setServicesSaveMsg(null), 2000);
+      }
+    } finally { setSavingServices(false); }
+  };
+
+  const toggleService = (id: string) => {
+    setSelectedServiceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
   };
 
   const allRequests: RequestItem[] = [
@@ -1065,21 +1109,76 @@ function ProfileTab() {
       </div>
 
       {/* My services */}
-      {profile.services.length > 0 && (
-        <div className="rounded-2xl border border-border-luxury bg-onyx/50">
-          <div className="px-4 py-3 border-b border-border-luxury flex items-center gap-2">
+      <div className="rounded-2xl border border-border-luxury bg-onyx/50">
+        <div className="px-4 py-3 border-b border-border-luxury flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-champagne" />
             <h3 className="text-sm font-semibold text-text-primary">{t('portal.profile.services')}</h3>
           </div>
-          <div className="p-4 flex flex-wrap gap-2">
-            {profile.services.map((s) => (
-              <span key={s.id} className="text-xs text-text-secondary bg-charcoal/50 border border-border-luxury px-2.5 py-1 rounded-lg">
-                {s.name} <span className="text-text-tertiary">{s.baseDuration}м</span>
-              </span>
-            ))}
-          </div>
+          {!editingServices ? (
+            <button onClick={openServicesEdit} className="text-xs text-champagne hover:text-champagne/80">
+              {t('common.edit')}
+            </button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button onClick={() => { setEditingServices(false); setSelectedServiceIds(new Set(profile.services.map((s) => s.id))); }}
+                className="text-xs text-text-tertiary hover:text-text-secondary">
+                {t('common.cancel')}
+              </button>
+              <button onClick={saveServices} disabled={savingServices}
+                className="flex items-center gap-1 text-xs text-champagne hover:text-champagne/80 disabled:opacity-50">
+                {savingServices && <Loader2 className="w-3 h-3 animate-spin" />}
+                {savingServices ? t('portal.profile.saving') : t('common.save')}
+              </button>
+            </div>
+          )}
         </div>
-      )}
+        <div className="p-4">
+          {servicesSaveMsg && (
+            <div className="flex items-center gap-2 text-xs text-green-400 bg-green-400/8 border border-green-400/20 rounded-lg px-3 py-2 mb-3">
+              <Check className="w-3.5 h-3.5" />{servicesSaveMsg}
+            </div>
+          )}
+          {!editingServices ? (
+            profile.services.length === 0 ? (
+              <p className="text-xs text-text-tertiary">No services assigned. Click Edit to add.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {profile.services.map((s) => (
+                  <span key={s.id} className="text-xs text-text-secondary bg-charcoal/50 border border-border-luxury px-2.5 py-1 rounded-lg">
+                    {s.name} <span className="text-text-tertiary">{s.baseDuration}м</span>
+                  </span>
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+              {allServices.length === 0 ? (
+                <div className="flex items-center gap-2 text-xs text-text-tertiary">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />Loading services…
+                </div>
+              ) : (
+                allServices.map((s) => (
+                  <label key={s.id} className="flex items-center gap-3 cursor-pointer group">
+                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                      selectedServiceIds.has(s.id)
+                        ? 'bg-champagne border-champagne'
+                        : 'border-border-luxury bg-charcoal/30 group-hover:border-champagne/40'
+                    }`}
+                      onClick={() => toggleService(s.id)}>
+                      {selectedServiceIds.has(s.id) && (
+                        <Check className="w-2.5 h-2.5 text-obsidian" />
+                      )}
+                    </div>
+                    <span className="text-sm text-text-primary flex-1" onClick={() => toggleService(s.id)}>{s.name}</span>
+                    <span className="text-xs text-text-tertiary">{s.baseDuration}м</span>
+                  </label>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* My schedule — monthly calendar */}
       <div className="rounded-2xl border border-border-luxury bg-onyx/50">

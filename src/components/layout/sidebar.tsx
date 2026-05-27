@@ -54,7 +54,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'nav.receptionist', href: '/receptionist', icon: ClipboardList, roles: FRONT_DESK },
   { key: 'nav.myPanel', href: '/my-panel', icon: CalendarCheck, roles: SPECIALIST_ONLY },
   { key: 'nav.myPortal', href: '/my', icon: UserCircle, roles: EMPLOYEES },
-  { key: 'nav.bookings', href: '/bookings', icon: Calendar },
+  { key: 'nav.bookings', href: '/bookings', icon: Calendar, roles: FRONT_DESK },
   { key: 'nav.clients', href: '/clients', icon: Users, roles: FRONT_DESK },
   { key: 'nav.specialists', href: '/specialists', icon: Sparkles, roles: FRONT_DESK },
   { key: 'nav.services', href: '/services', icon: Flower2, roles: FRONT_DESK },

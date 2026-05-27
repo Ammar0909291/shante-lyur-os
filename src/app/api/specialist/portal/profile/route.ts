@@ -15,6 +15,7 @@ const PatchSchema = z.object({
   displayName:        z.string().max(100).optional(),
   phone:              z.string().max(30).nullable().optional(),
   languagePreference: z.enum(['ru', 'en']).optional(),
+  services:           z.array(z.string().uuid()).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -62,13 +63,29 @@ export async function PATCH(req: NextRequest) {
   const parsed = PatchSchema.safeParse(body);
   if (!parsed.success) return err('VALIDATION_ERROR', parsed.error.errors[0]?.message ?? 'Invalid input', 400);
 
-  const { phone } = parsed.data;
+  const { phone, services } = parsed.data;
 
   const specialist = await prisma.specialist.findUnique({ where: { userId }, select: { id: true } });
   if (!specialist) return err('NOT_FOUND', 'Specialist record not found', 404);
 
   if (phone !== undefined) {
     await prisma.user.update({ where: { id: userId }, data: { phone } });
+  }
+
+  if (services !== undefined) {
+    // Deactivate all current specialist services
+    await prisma.specialistService.updateMany({
+      where: { specialistId: specialist.id },
+      data: { isActive: false },
+    });
+    // Upsert each selected service as active
+    for (const serviceId of services) {
+      await prisma.specialistService.upsert({
+        where: { specialistId_serviceId: { specialistId: specialist.id, serviceId } },
+        update: { isActive: true },
+        create: { specialistId: specialist.id, serviceId, isActive: true },
+      });
+    }
   }
 
   return ok({ updated: true });
