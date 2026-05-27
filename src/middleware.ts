@@ -5,7 +5,7 @@ import { jwtVerify } from 'jose';
 // Role groups
 // ---------------------------------------------------------------------------
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'] as const;
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] as const;
 const FRONT_DESK_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST'] as const;
 const SPECIALIST_ROLES = ['COSMETOLOGIST', 'MASSAGIST'] as const;
 const EMPLOYEE_ROLES = [...FRONT_DESK_ROLES, ...SPECIALIST_ROLES] as const;
@@ -48,7 +48,7 @@ const PUBLIC_API_ROUTES = [
   '/api/health',
 ];
 
-// Admin-only API routes (SUPER_ADMIN + ADMIN)
+// Admin-only API routes (SUPER_ADMIN + ADMIN + MANAGER — same CRM rights)
 const ADMIN_ONLY_API = ['/api/admin', '/api/finance', '/api/executive', '/api/risk'];
 
 // Manager+ routes (SUPER_ADMIN, ADMIN, MANAGER)
