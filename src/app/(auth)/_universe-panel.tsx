@@ -60,14 +60,19 @@ export function UniverseCanvas() {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
   React.useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const _canvasMaybe = canvasRef.current;
+    if (!_canvasMaybe) return;
 
     // Don't run on mobile when panel is hidden
-    if (canvas.offsetParent === null && window.innerWidth < 768) return;
+    if (_canvasMaybe.offsetParent === null && window.innerWidth < 768) return;
 
-    const ctx = canvas.getContext('2d', { willReadFrequently: false });
-    if (!ctx) return;
+    const _ctxMaybe = _canvasMaybe.getContext('2d', { willReadFrequently: false });
+    if (!_ctxMaybe) return;
+
+    // Re-declare as non-nullable so TypeScript tracks the correct type inside
+    // closures (closures don't inherit narrowing from outer if-guards).
+    const canvas: HTMLCanvasElement = _canvasMaybe;
+    const ctx: CanvasRenderingContext2D = _ctxMaybe;
 
     let rafId = 0;
     let lastTime = 0;
@@ -408,9 +413,6 @@ export function UniverseCanvas() {
         // Schedule first shooting star 5–12s after start
         ss.nextFireAt = timestamp + rnd(5000, 12000);
       }
-      const rawDelta = timestamp - lastTime;
-      // Clamp delta so a hidden tab waking up doesn't cause position jumps
-      const _delta = Math.min(rawDelta, 16); // eslint-disable-line @typescript-eslint/no-unused-vars
       lastTime = timestamp;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
