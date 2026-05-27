@@ -304,7 +304,7 @@ function UserAccessModal({
                       {byRole
                         ? `Включено по роли «${meta.label}»`
                         : granted
-                        ? `Расширенный доступ · предоставил ${grantInfo?.grantedBy.firstName} ${grantInfo?.grantedBy.lastName}`
+                        ? `Расширенный доступ · предоставил ${grantInfo?.grantedBy?.firstName ?? ''} ${grantInfo?.grantedBy?.lastName ?? ''}`.trim()
                         : 'Нет доступа по роли'}
                     </p>
                   </div>
