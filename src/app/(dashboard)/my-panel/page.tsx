@@ -58,7 +58,6 @@ interface PerfData {
     workingDays: number;
   };
   commissionRate: number;
-  showEarnings: boolean;
   period: { year: number; month: number };
 }
 
@@ -778,23 +777,14 @@ function PerformanceTab() {
         {/* Total Sales + Commission */}
         <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-2">
           <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Sales & Commission</p>
-          {perf.showEarnings ? (
-            <>
-              <div>
-                <p className="text-[10px] text-text-tertiary mb-0.5">Total Sales</p>
-                <p className="text-lg font-bold text-champagne leading-tight">{formatCurrency(perf.month.totalSales)}</p>
-              </div>
-              <div className="border-t border-border-luxury/50 pt-2">
-                <p className="text-[10px] text-text-tertiary mb-0.5">Your Commission ({commissionPct}%)</p>
-                <p className="text-base font-semibold text-green-400 leading-tight">{formatCurrency(perf.month.totalCommission)}</p>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-2xl font-bold text-text-tertiary">—</p>
-              <p className="text-[10px] text-text-tertiary italic">hidden by admin</p>
-            </>
-          )}
+          <div>
+            <p className="text-[10px] text-text-tertiary mb-0.5">Total Sales</p>
+            <p className="text-lg font-bold text-champagne leading-tight">{formatCurrency(perf.month.totalSales)}</p>
+          </div>
+          <div className="border-t border-border-luxury/50 pt-2">
+            <p className="text-[10px] text-text-tertiary mb-0.5">Your Commission ({commissionPct}%)</p>
+            <p className="text-base font-semibold text-green-400 leading-tight">{formatCurrency(perf.month.totalCommission)}</p>
+          </div>
         </div>
 
         {/* First-time: Purchased */}

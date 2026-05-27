@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const specialist = await prisma.specialist.findUnique({
     where: { userId },
-    select: { id: true, showEarningsToSpecialist: true, commissionRate: true },
+    select: { id: true, commissionRate: true },
   });
   if (!specialist) return err('NOT_FOUND', 'Specialist record not found', 404);
 
@@ -107,8 +107,7 @@ export async function GET(req: NextRequest) {
       workingDays,
     },
     commissionRate: Number(specialist.commissionRate),
-    showEarnings: specialist.showEarningsToSpecialist,
-    // Echo back the queried period
+    // Always show earnings in specialist's own portal
     period: { year, month },
   });
 }
