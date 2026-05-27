@@ -114,6 +114,9 @@ function buildTlsAgent(): { httpsAgent?: https.Agent } {
 const BASE_CONFIG: AxiosRequestConfig = {
   timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
+  // Never throw on HTTP error status — return the body so callers can read
+  // json.ok / json.description from Telegram's error response (e.g. 400 "chat not found")
+  validateStatus: () => true,
   ...buildTlsAgent(),
   ...buildProxyConfig(),
 };
