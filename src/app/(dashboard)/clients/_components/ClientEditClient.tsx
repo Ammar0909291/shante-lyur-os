@@ -198,10 +198,16 @@ export function ClientEditClient({ client }: Props) {
                     value={form.telegramChatId}
                     onChange={set('telegramChatId')}
                     className={inputCls}
-                    placeholder="Chat ID — e.g. 123456789"
+                    placeholder="Numeric ID only — e.g. 5849201733 (not a username)"
                   />
+                  {form.telegramChatId.trim() && !/^-?\d+$/.test(form.telegramChatId.trim()) && (
+                    <p className="mt-1 text-xs text-amber-400 flex items-center gap-1">
+                      ⚠ This looks like a username, not a numeric ID. Ask the client to message @userinfobot to get their real ID.
+                    </p>
+                  )}
                   <p className="mt-1.5 text-xs text-text-tertiary">
-                    Client messages <span className="text-blue-400">@userinfobot</span> → gets their ID.
+                    Must be a <span className="text-blue-400 font-medium">numeric ID</span>, not a username.
+                    Client messages <span className="text-blue-400">@userinfobot</span> in Telegram → it replies with their numeric ID.
                     They must also send <span className="text-blue-400">/start</span> to your bot first.
                   </p>
                 </div>
