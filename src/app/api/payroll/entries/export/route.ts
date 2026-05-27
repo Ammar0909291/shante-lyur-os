@@ -94,10 +94,13 @@ export async function GET(req: NextRequest) {
   const ws3 = XLSX.utils.json_to_sheet(summaryRows);
   XLSX.utils.book_append_sheet(wb, ws3, 'Сводка');
 
-  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+  const buf  = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  const blob = new Blob([buf as unknown as ArrayBuffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
 
   const safeName = name.replace(/[^\wа-яёА-ЯЁ\s]/gi, '').replace(/\s+/g, '_');
-  return new NextResponse(buf, {
+  return new NextResponse(blob, {
     headers: {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="payroll_${safeName}_${from.toISOString().split('T')[0]}.xlsx"`,

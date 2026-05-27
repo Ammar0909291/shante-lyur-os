@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   if (!specialist) return err('Specialist not found', 404);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const existing = await (prisma as any).scheduleRequest.findUnique({
+  const existing = await prisma.scheduleRequest.findUnique({
     where: { specialistId_month: { specialistId: specialist.id, month: monthStr } },
   });
 
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const existing = await (prisma as any).scheduleRequest.findUnique({
+  const existing = await prisma.scheduleRequest.findUnique({
     where: { specialistId_month: { specialistId: specialist.id, month: monthStr } },
     select: { id: true, status: true },
   });
@@ -115,9 +115,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Create or re-submit (REJECTED → reset to PENDING with new days)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const request = existing
-    ? await (prisma as any).scheduleRequest.update({
+    ? await prisma.scheduleRequest.update({
         where: { id: existing.id },
         data: {
           days:        days as object[],
@@ -129,7 +128,7 @@ export async function POST(req: NextRequest) {
           reviewedAt:  null,
         },
       })
-    : await (prisma as any).scheduleRequest.create({
+    : await prisma.scheduleRequest.create({
         data: {
           specialistId: specialist.id,
           month:        monthStr,

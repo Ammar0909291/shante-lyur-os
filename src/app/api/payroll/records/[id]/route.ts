@@ -115,7 +115,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       reopen:   { from: ['CANCELLED', 'APPROVED'], to: 'DRAFT' },
     };
 
-    let updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = {};
     if (action) {
       const trans = statusMap[action];
       if (!trans?.from.includes(record.status)) {

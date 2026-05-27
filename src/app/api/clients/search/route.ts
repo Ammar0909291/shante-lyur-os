@@ -8,9 +8,6 @@ function apiError(code: string, message: string, status: number) {
   return NextResponse.json({ success: false, error: { code, message } }, { status });
 }
 
-function formatClientRef(uuid: string): string {
-  return 'CL-' + uuid.replace(/-/g, '').substring(0, 8).toUpperCase();
-}
 
 export async function GET(req: NextRequest) {
   try {

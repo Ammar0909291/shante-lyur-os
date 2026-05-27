@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Fetch approved schedule requests for those months
-  const approvedRequests = await (prisma as any).scheduleRequest.findMany({
+  const approvedRequests = await prisma.scheduleRequest.findMany({
     where: {
       specialistId: specialist.id,
       month: { in: [...monthsInRange] },

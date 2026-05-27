@@ -191,7 +191,7 @@ export function ClientEditClient({ client }: Props) {
                     <Bot className="w-4 h-4 text-blue-400 shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-text-primary">Telegram</p>
-                      <p className="text-xs text-text-tertiary">Requires the client's chat ID (not a phone number)</p>
+                      <p className="text-xs text-text-tertiary">Requires the client&apos;s chat ID (not a phone number)</p>
                     </div>
                   </div>
                   <input

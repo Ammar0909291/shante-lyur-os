@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const role = req.headers.get('x-user-role') ?? '';
   if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) return err('Forbidden', 403);
 
-  const rows = await (prisma as any).systemConfig.findMany({
+  const rows = await prisma.systemConfig.findMany({
     where: { key: { in: ALLOWED_KEYS } },
   });
 
@@ -58,11 +58,11 @@ export async function PATCH(req: NextRequest) {
     // Skip if value is masked (unchanged)
     if (value.startsWith('***') || value === '') {
       if (value === '') {
-        await (prisma as any).systemConfig.deleteMany({ where: { key } });
+        await prisma.systemConfig.deleteMany({ where: { key } });
       }
       continue;
     }
-    await (prisma as any).systemConfig.upsert({
+    await prisma.systemConfig.upsert({
       where: { key },
       update: { value },
       create: { key, value },

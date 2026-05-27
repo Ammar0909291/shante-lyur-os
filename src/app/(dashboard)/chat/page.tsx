@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import {
   MessageCircle, Send, Search, Plus, X, Check,
   Users, Bell, BellOff, ChevronLeft, Loader2,
@@ -66,7 +66,6 @@ const ROLE_LABEL: Record<string, string> = {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [conversations, setConversations]   = React.useState<ConversationItem[]>([]);

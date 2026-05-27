@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { getCurrentUserId } from '@/lib/auth-server';
-import { getPresence, getConvUnread } from '@/lib/redis-client';
+import { getConvUnread } from '@/lib/redis-client';
 import { pushChatEvent, getOnlineUserIds } from '@/lib/chat-sse';
 import { pushOpsEventToUser } from '@/lib/ops-sse';
 

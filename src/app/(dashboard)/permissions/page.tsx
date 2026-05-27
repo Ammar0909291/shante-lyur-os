@@ -164,7 +164,6 @@ function UserAccessModal({
   const [loading, setLoading]   = React.useState(true);
   const [saving, setSaving]     = React.useState<string | null>(null); // resource being saved
   const [error, setError]       = React.useState('');
-  const [noteMap, setNoteMap]   = React.useState<Record<string, string>>({});
 
   const fetchGrants = React.useCallback(async () => {
     setLoading(true); setError('');
@@ -196,11 +195,10 @@ function UserAccessModal({
         setGrants((prev) => prev.filter((g) => g.resource !== resource));
       } else {
         // Grant
-        const note = noteMap[resource] ?? undefined;
         const res = await fetch(`/api/v1/admin/users/${user.id}/permissions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ resource, note }),
+          body: JSON.stringify({ resource }),
         });
         const json = await res.json() as { success: boolean; data?: { grant: GrantRecord }; error?: { message?: string } };
         if (!json.success) { setError(json.error?.message ?? 'Ошибка'); return; }
@@ -214,9 +212,6 @@ function UserAccessModal({
     } catch { setError('Ошибка сети'); }
     finally { setSaving(null); }
   };
-
-  const hasRoleAccess = (resource: string) =>
-    GRANTABLE_RESOURCES.find((r) => r.resource === resource)?.defaultRoles.includes(user.role) ?? false;
 
   const meta = ROLE_META[user.role] ?? ROLE_META['CLIENT'];
 

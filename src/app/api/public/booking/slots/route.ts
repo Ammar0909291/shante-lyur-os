@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   const monthStr = date.slice(0, 7);
 
   // Check if specialist works on this day
-  const approvedRequest = await (prisma as any).scheduleRequest.findFirst({
+  const approvedRequest = await prisma.scheduleRequest.findFirst({
     where: { specialistId, month: monthStr, status: 'APPROVED' },
     select: { days: true },
   }) as { days: unknown } | null;
