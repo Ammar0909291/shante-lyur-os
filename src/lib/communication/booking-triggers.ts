@@ -1,5 +1,6 @@
 import { prisma } from '@/infrastructure/config/prisma-client';
 import { omnichannelQueue } from '@/infrastructure/queues/queue-registry';
+import { renderTemplate } from '@/lib/communication/templates/definitions';
 import type { OmnichannelMessageJob } from '@/infrastructure/queues/job-types';
 type OmnichannelChannel = 'whatsapp' | 'telegram' | 'max' | 'email';
 
@@ -21,30 +22,146 @@ export interface BookingTriggerParams {
 
 const SALON_NAME = process.env['SALON_NAME'] ?? 'Shante Lyur';
 
-async function getUserChannels(userId: string): Promise<OmnichannelChannel[]> {
+interface CommPref {
+  emailEnabled: boolean;
+  whatsappEnabled: boolean;
+  whatsappPhone: string | null;
+  telegramEnabled: boolean;
+  telegramChatId: string | null;
+  maxEnabled: boolean;
+  maxUserId: string | null;
+}
+
+async function getUserPref(userId: string): Promise<CommPref | null> {
   try {
-    const pref = await (prisma as unknown as { communicationPreference: { findUnique: (args: unknown) => Promise<{ emailEnabled: boolean; whatsappEnabled: boolean; whatsappPhone: string | null; telegramEnabled: boolean; telegramChatId: string | null; maxEnabled: boolean; maxUserId: string | null } | null> } }).communicationPreference.findUnique({ where: { userId } });
-    if (!pref) return [];
-    const channels: OmnichannelChannel[] = [];
-    if (pref.emailEnabled) channels.push('email');
-    if (pref.whatsappEnabled && pref.whatsappPhone) channels.push('whatsapp');
-    if (pref.telegramEnabled && pref.telegramChatId) channels.push('telegram');
-    if (pref.maxEnabled && pref.maxUserId) channels.push('max');
-    return channels;
-  } catch {
-    return [];
+    return await (prisma as unknown as {
+      communicationPreference: { findUnique: (args: unknown) => Promise<CommPref | null> };
+    }).communicationPreference.findUnique({ where: { userId } });
+  } catch { return null; }
+}
+
+async function getUserChannels(userId: string): Promise<OmnichannelChannel[]> {
+  const pref = await getUserPref(userId);
+  if (!pref) return [];
+  const channels: OmnichannelChannel[] = [];
+  if (pref.emailEnabled) channels.push('email');
+  if (pref.whatsappEnabled && pref.whatsappPhone) channels.push('whatsapp');
+  if (pref.telegramEnabled && pref.telegramChatId) channels.push('telegram');
+  if (pref.maxEnabled && pref.maxUserId) channels.push('max');
+  return channels;
+}
+
+// ─── Direct send (no Redis/worker required) ───────────────────────────────────
+
+async function sendDirect(
+  userId: string,
+  channel: OmnichannelChannel,
+  templateKey: string,
+  vars: Record<string, string>,
+  appointmentId?: string,
+): Promise<void> {
+  const pref = await getUserPref(userId);
+
+  let recipient: string | null = null;
+  switch (channel) {
+    case 'telegram': recipient = pref?.telegramChatId ?? null; break;
+    case 'whatsapp': recipient = pref?.whatsappPhone  ?? null; break;
+    case 'max':      recipient = pref?.maxUserId      ?? null; break;
+    case 'email': {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      recipient = user?.email ?? null;
+      break;
+    }
+  }
+  if (!recipient) {
+    console.warn(`[BookingTriggers] No recipient for user=${userId} channel=${channel}`);
+    return;
+  }
+
+  const body = renderTemplate(templateKey, vars);
+  if (!body) {
+    console.warn(`[BookingTriggers] Template not found: ${templateKey}`);
+    return;
+  }
+
+  // Create/update the outbound record
+  let msgId: string | null = null;
+  try {
+    const rec = await (prisma as unknown as {
+      outboundMessage: { create: (args: unknown) => Promise<{ id: string }> };
+    }).outboundMessage.create({
+      data: {
+        userId,
+        channel: channel.toUpperCase(),
+        provider: channel,
+        body,
+        status: 'PENDING',
+        appointmentId: appointmentId ?? null,
+        recipientChatId: ['telegram', 'max'].includes(channel) ? recipient : null,
+        recipientPhone:  channel === 'whatsapp'                 ? recipient : null,
+        recipientEmail:  channel === 'email'                    ? recipient : null,
+      },
+    });
+    msgId = rec.id;
+  } catch { /* non-critical — continue with send even if DB write fails */ }
+
+  // Dynamically import provider to avoid circular deps
+  let result: { success: boolean; error?: string; externalId?: string };
+  try {
+    if (channel === 'telegram') {
+      const { TelegramProvider } = await import('@/lib/communication/providers/telegram.provider');
+      const p = new TelegramProvider();
+      result = await p.send({ to: recipient, body });
+    } else if (channel === 'whatsapp') {
+      const { WhatsAppProvider } = await import('@/lib/communication/providers/whatsapp.provider');
+      const p = new WhatsAppProvider();
+      result = await p.send({ to: recipient, body });
+    } else {
+      console.info(`[BookingTriggers] Direct send not yet implemented for channel=${channel}`);
+      return;
+    }
+  } catch (e) {
+    result = { success: false, error: e instanceof Error ? e.message : 'Unknown error' };
+  }
+
+  // Update record with outcome
+  if (msgId) {
+    try {
+      await (prisma as unknown as {
+        outboundMessage: { update: (args: unknown) => Promise<unknown> };
+      }).outboundMessage.update({
+        where: { id: msgId },
+        data: result.success
+          ? { status: 'SENT', sentAt: new Date(), externalId: result.externalId ?? null }
+          : { status: 'FAILED', failedAt: new Date(), errorMessage: result.error },
+      });
+    } catch { /* non-critical */ }
+  }
+
+  if (result.success) {
+    console.info(`[BookingTriggers] Direct send OK channel=${channel} user=${userId}`);
+  } else {
+    console.warn(`[BookingTriggers] Direct send FAILED channel=${channel} user=${userId}: ${result.error}`);
   }
 }
 
-async function enqueue(job: OmnichannelMessageJob, priority?: number): Promise<void> {
+// ─── Queue (Redis-backed, with direct fallback) ───────────────────────────────
+
+async function enqueueOrSendDirect(
+  job: OmnichannelMessageJob,
+  priority?: number,
+): Promise<void> {
   try {
     await omnichannelQueue.add(
       `msg-${job.channel}-${job.userId}-${Date.now()}`,
       job,
       priority !== undefined ? { priority } : undefined,
     );
-  } catch (err) {
-    console.warn('[BookingTriggers] Queue unavailable, skipping enqueue:', err instanceof Error ? err.message : err);
+    console.info(`[BookingTriggers] Enqueued channel=${job.channel} user=${job.userId}`);
+  } catch {
+    // Redis unavailable — send directly so the message always gets out
+    console.info(`[BookingTriggers] Queue unavailable, sending directly channel=${job.channel}`);
+    await sendDirect(job.userId, job.channel as OmnichannelChannel, job.templateKey, job.vars ?? {}, job.appointmentId);
   }
 }
 
@@ -69,7 +186,7 @@ export async function triggerBookingConfirmation(params: BookingTriggerParams & 
   const channels = await getUserChannels(clientUserId);
   for (const channel of channels) {
     const msgId = await createPendingRecord(clientUserId, channel, appointmentId);
-    await enqueue({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'booking_confirmation', vars, appointmentId }, priority);
+    await enqueueOrSendDirect({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'booking_confirmation', vars, appointmentId }, priority);
   }
 
   // Staff alert — use VIP template if client is VIP, alert specialist directly
@@ -78,7 +195,7 @@ export async function triggerBookingConfirmation(params: BookingTriggerParams & 
     const staffTemplate = isVip ? 'vip_booking' : 'staff_new_booking';
     for (const channel of staffChannels) {
       const msgId = await createPendingRecord(specialistUserId, channel, appointmentId);
-      await enqueue({ outboundMessageId: msgId, userId: specialistUserId, channel, templateKey: staffTemplate, vars, appointmentId }, priority);
+      await enqueueOrSendDirect({ outboundMessageId: msgId, userId: specialistUserId, channel, templateKey: staffTemplate, vars, appointmentId }, priority);
     }
   }
 
@@ -92,14 +209,14 @@ export async function triggerBookingCancellation(params: BookingTriggerParams): 
   const channels = await getUserChannels(clientUserId);
   for (const channel of channels) {
     const msgId = await createPendingRecord(clientUserId, channel, appointmentId);
-    await enqueue({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'booking_cancellation', vars, appointmentId });
+    await enqueueOrSendDirect({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'booking_cancellation', vars, appointmentId });
   }
 
   if (specialistUserId) {
     const staffChannels = await getUserChannels(specialistUserId);
     for (const channel of staffChannels) {
       const msgId = await createPendingRecord(specialistUserId, channel, appointmentId);
-      await enqueue({ outboundMessageId: msgId, userId: specialistUserId, channel, templateKey: 'staff_cancellation', vars, appointmentId });
+      await enqueueOrSendDirect({ outboundMessageId: msgId, userId: specialistUserId, channel, templateKey: 'staff_cancellation', vars, appointmentId });
     }
   }
 
@@ -114,7 +231,7 @@ export async function triggerBookingReminder(params: BookingTriggerParams & { wi
   const channels = await getUserChannels(clientUserId);
   for (const channel of channels) {
     const msgId = await createPendingRecord(clientUserId, channel, appointmentId);
-    await enqueue({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey, vars, appointmentId });
+    await enqueueOrSendDirect({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey, vars, appointmentId });
   }
 
   console.info(`[BookingTriggers] ${templateKey} enqueued for ${clientUserId}`);
@@ -127,7 +244,7 @@ export async function triggerBookingRescheduled(params: BookingTriggerParams): P
   const channels = await getUserChannels(clientUserId);
   for (const channel of channels) {
     const msgId = await createPendingRecord(clientUserId, channel, appointmentId);
-    await enqueue({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'booking_rescheduled', vars, appointmentId });
+    await enqueueOrSendDirect({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'booking_rescheduled', vars, appointmentId });
   }
 
   console.info(`[BookingTriggers] booking_rescheduled enqueued for ${clientUserId}`);
@@ -144,7 +261,7 @@ export async function triggerOperationalAlert(params: {
     const channels = await getUserChannels(userId);
     for (const channel of channels) {
       const msgId = await createPendingRecord(userId, channel, undefined);
-      await enqueue({ outboundMessageId: msgId, userId, channel, templateKey, vars });
+      await enqueueOrSendDirect({ outboundMessageId: msgId, userId, channel, templateKey, vars });
     }
   }
 }
@@ -158,7 +275,7 @@ export async function triggerNoShow(params: BookingTriggerParams & { adminUserId
     const channels = await getUserChannels(specialistUserId);
     for (const channel of channels) {
       const msgId = await createPendingRecord(specialistUserId, channel, appointmentId);
-      await enqueue({ outboundMessageId: msgId, userId: specialistUserId, channel, templateKey: 'no_show', vars, appointmentId });
+      await enqueueOrSendDirect({ outboundMessageId: msgId, userId: specialistUserId, channel, templateKey: 'no_show', vars, appointmentId });
     }
   }
 
@@ -167,7 +284,7 @@ export async function triggerNoShow(params: BookingTriggerParams & { adminUserId
     const channels = await getUserChannels(userId);
     for (const channel of channels) {
       const msgId = await createPendingRecord(userId, channel, appointmentId);
-      await enqueue({ outboundMessageId: msgId, userId, channel, templateKey: 'no_show', vars, appointmentId });
+      await enqueueOrSendDirect({ outboundMessageId: msgId, userId, channel, templateKey: 'no_show', vars, appointmentId });
     }
   }
 }
@@ -187,7 +304,7 @@ export async function triggerPaymentReceived(params: {
   const channels = await getUserChannels(clientUserId);
   for (const channel of channels) {
     const msgId = await createPendingRecord(clientUserId, channel, appointmentId);
-    await enqueue({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'payment_received', vars, appointmentId });
+    await enqueueOrSendDirect({ outboundMessageId: msgId, userId: clientUserId, channel, templateKey: 'payment_received', vars, appointmentId });
   }
 }
 
