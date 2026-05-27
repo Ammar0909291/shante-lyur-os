@@ -49,7 +49,6 @@ const SPECIALIST_ONLY = ['COSMETOLOGIST', 'MASSAGIST'];
 const EMPLOYEES = [...FRONT_DESK, ...SPECIALIST_ONLY];
 
 const NAV_ITEMS: NavItem[] = [
-  { key: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
   { key: 'nav.operations', href: '/operations', icon: Activity, roles: FRONT_DESK },
   { key: 'nav.receptionist', href: '/receptionist', icon: ClipboardList, roles: FRONT_DESK },
   { key: 'nav.myPanel', href: '/my-panel', icon: CalendarCheck, roles: SPECIALIST_ONLY },
