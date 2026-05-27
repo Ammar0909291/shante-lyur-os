@@ -18,6 +18,7 @@ const PatchSchema = z.object({
   email: z.string().email().optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
   notes: z.string().max(2000).optional(),
+  telegramChatId: z.string().max(100).optional().nullable(),
 });
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -40,7 +41,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const parsed = PatchSchema.safeParse(body);
   if (!parsed.success) return apiError('Invalid request body', 400);
 
-  const { notes, ...userFields } = parsed.data;
+  const { notes, telegramChatId, ...userFields } = parsed.data;
 
   const updated = await prisma.user.update({
     where: { id },
@@ -53,6 +54,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { userId: id },
       create: { userId: id, notes },
       update: { notes },
+    });
+  }
+
+  // Save Telegram chat_id — enables Telegram notifications for this client
+  if (telegramChatId !== undefined) {
+    const chatId = telegramChatId?.trim() || null;
+    await (prisma as unknown as {
+      communicationPreference: {
+        upsert: (args: unknown) => Promise<unknown>;
+      };
+    }).communicationPreference.upsert({
+      where: { userId: id },
+      create: {
+        userId: id,
+        telegramChatId: chatId,
+        telegramEnabled: Boolean(chatId),
+      },
+      update: {
+        telegramChatId: chatId,
+        telegramEnabled: Boolean(chatId),
+      },
     });
   }
 

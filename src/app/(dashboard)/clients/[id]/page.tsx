@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import * as React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Star, Phone, Mail, Calendar, TrendingUp, Clock, Award } from 'lucide-react';
+import { ArrowLeft, Star, Phone, Mail, Calendar, TrendingUp, Clock, Award, Bot } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } from '@/components/ui/badge';
 import { prisma } from '@/infrastructure/config/prisma-client';
@@ -32,7 +32,7 @@ function StatCard({ label, value, sub, icon }: { label: string; value: string; s
 export default async function ClientProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [user, statusStats, topServiceRows, unpaidAgg, finProfile] = await Promise.all([
+  const [user, statusStats, topServiceRows, unpaidAgg, finProfile, commPref] = await Promise.all([
     prisma.user.findFirst({
       where: { id, role: 'CLIENT' },
       include: {
@@ -75,6 +75,14 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
     prisma.customerProfile.findUnique({
       where: { userId: id },
       select: { prepaidBalance: true },
+    }),
+    (prisma as unknown as {
+      communicationPreference: {
+        findUnique: (args: unknown) => Promise<{ telegramChatId: string | null } | null>;
+      };
+    }).communicationPreference.findUnique({
+      where: { userId: id },
+      select: { telegramChatId: true },
     }),
   ]);
 
@@ -164,6 +172,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
                   email: user.email,
                   phone: user.phone ?? null,
                   notes: profile?.notes ?? null,
+                  telegramChatId: commPref?.telegramChatId ?? null,
                 }}
               />
             </div>
@@ -179,6 +188,17 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
                 <span className="flex items-center gap-1.5 text-sm text-text-secondary">
                   <Phone className="w-3.5 h-3.5 text-text-tertiary" />
                   {user.phone}
+                </span>
+              )}
+              {commPref?.telegramChatId ? (
+                <span className="flex items-center gap-1.5 text-sm text-blue-400">
+                  <Bot className="w-3.5 h-3.5" />
+                  Telegram connected
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-sm text-text-tertiary">
+                  <Bot className="w-3.5 h-3.5" />
+                  No Telegram
                 </span>
               )}
             </div>
