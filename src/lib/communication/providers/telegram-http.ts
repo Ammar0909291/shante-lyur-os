@@ -1,14 +1,18 @@
 /**
  * Shared axios factory for Telegram Bot API calls.
  *
- * Reads HTTPS_PROXY / HTTP_PROXY from the environment so that if
- * the server can't reach api.telegram.org directly (firewall, ISP block, etc.)
- * it routes through whatever proxy the operator has configured.
+ * Handles two common environment problems:
  *
- * Set in .env.local:
- *   HTTPS_PROXY=http://user:pass@proxyhost:3128
- *   # or a SOCKS5 address if you use one
+ * 1. TLS inspection by VPN / antivirus software (Kaspersky, Happ VPN, etc.)
+ *    These tools intercept HTTPS and re-sign with their own CA.
+ *    Node.js rejects the cert (ECONNABORTED) while browsers/PowerShell work fine
+ *    because they use the Windows certificate store which includes the VPN CA.
+ *    Fix: set TELEGRAM_TLS_SKIP_VERIFY=true in .env (dev only).
+ *
+ * 2. Outbound network blocked at firewall/ISP level.
+ *    Fix: set HTTPS_PROXY=http://host:port in .env.
  */
+import https from 'https';
 import axios, { type AxiosRequestConfig } from 'axios';
 
 interface AxiosProxyConfig {
@@ -46,6 +50,23 @@ function buildProxyConfig(): { proxy?: AxiosProxyConfig } {
   }
 }
 
+function buildTlsAgent(): { httpsAgent?: https.Agent } {
+  // Skip TLS verification when VPN/antivirus is doing TLS inspection.
+  // Only active when TELEGRAM_TLS_SKIP_VERIFY=true is set in .env.
+  const skip =
+    process.env['TELEGRAM_TLS_SKIP_VERIFY'] === 'true' ||
+    process.env['NODE_TLS_REJECT_UNAUTHORIZED'] === '0';
+
+  if (!skip) return {};
+
+  return {
+    httpsAgent: new https.Agent({
+      rejectUnauthorized: false,
+      keepAlive: false,
+    }),
+  };
+}
+
 export interface TelegramApiResponse {
   ok: boolean;
   result?: unknown;
@@ -54,8 +75,9 @@ export interface TelegramApiResponse {
 }
 
 const BASE_CONFIG: AxiosRequestConfig = {
-  timeout: 12_000,
+  timeout: 15_000,
   headers: { 'Content-Type': 'application/json' },
+  ...buildTlsAgent(),
   ...buildProxyConfig(),
 };
 
