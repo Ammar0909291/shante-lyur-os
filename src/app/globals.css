@@ -39,357 +39,421 @@
   --color-info: #7898C4;
 }
 
-/* ─── Light Theme ────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ELITE DAY THEME — "Ivory & Obsidian"
+ * Design: dark sidebar · pure-white cards · warm ivory page · rich gold
+ * Inspired by Vercel / Linear / Notion premium dashboards
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 html.light {
-  --color-obsidian: #F5F1EC;
-  --color-onyx: #EDE8E1;
-  --color-charcoal: #E3DDD5;
-  --color-text-primary: #181410;
-  --color-text-secondary: #4A4541;
-  --color-text-tertiary: #7A7570;
-  --color-border: #C8C2BA;
-  --color-border-light: #B8B2AA;
-  --color-champagne: #B8922A;
-  --color-champagne-light: #A07820;
-  --color-champagne-dark: #8A6418;
+  /* ── Core surface stack ──────────────────────────────────────────────────
+   * obsidian = page backdrop (warm ivory)
+   * onyx     = card/panel surface (pure white — creates depth vs ivory)
+   * charcoal = nested / secondary surface
+   */
+  --color-obsidian:      #F2EDE6;
+  --color-onyx:          #FFFFFF;
+  --color-charcoal:      #EAE4DC;
+
+  /* ── Typography — rich contrast, not muddy ──────────────────────────── */
+  --color-text-primary:   #0F0E0C;   /* near-black — max readability       */
+  --color-text-secondary: #36322C;   /* deep warm gray                     */
+  --color-text-tertiary:  #706A62;   /* medium gray — still passes WCAG AA */
+
+  /* ── Borders — crisp hairlines, not invisible ───────────────────────── */
+  --color-border:        #D8D1C8;
+  --color-border-light:  #E4DDD5;
+
+  /* ── Gold accent — rich antique gold, legible on white ─────────────── */
+  --color-champagne:       #8A6718;
+  --color-champagne-light: #A07C28;
+  --color-champagne-dark:  #6D5010;
+
+  /* ── Functional semantic ────────────────────────────────────────────── */
+  --color-success: #1B6E38;
+  --color-warning: #7A5000;
+  --color-error:   #8C1A1A;
+  --color-info:    #1A3C8A;
 }
 
+/* ── Page & body ─────────────────────────────────────────────────────────── */
 html.light body {
-  background-color: #F5F1EC;
-  color: #181410;
+  background-color: #F2EDE6;
+  color: #0F0E0C;
 }
 
-/* Background surfaces */
-html.light .bg-obsidian { background-color: #F5F1EC !important; }
-html.light .bg-onyx { background-color: #EDE8E1 !important; }
-html.light .bg-charcoal { background-color: #E3DDD5 !important; }
-html.light .bg-charcoal\/50 { background-color: rgba(227, 221, 213, 0.6) !important; }
-html.light .bg-charcoal\/8 { background-color: rgba(184, 146, 42, 0.1) !important; }
+/* ══════════════════════════════════════════════════════════════════════════
+ * DARK SIDEBAR — stays dark in light mode (elite pattern)
+ * aside uses bg-onyx; we override it here to keep it rich and dark.
+ * All text/icon colours inside aside reset to dark-theme values.
+ * ══════════════════════════════════════════════════════════════════════════ */
+html.light aside {
+  background-color: #19170F !important;
+  border-color: #2C2920 !important;
+}
+html.light aside .border-border-luxury,
+html.light aside .border-b,
+html.light aside .border-t { border-color: #2C2920 !important; }
 
-/* Hover/focus state overrides */
-html.light .hover\:bg-charcoal\/50:hover { background-color: rgba(227, 221, 213, 0.6) !important; }
-html.light .hover\:bg-charcoal:hover { background-color: #E3DDD5 !important; }
-html.light .focus\:bg-charcoal:focus { background-color: #E3DDD5 !important; }
-html.light .hover\:bg-white\/4:hover { background-color: rgba(0,0,0,0.04) !important; }
+/* Sidebar text — restore dark-theme palette */
+html.light aside .text-text-primary    { color: #F0EDE8 !important; }
+html.light aside .text-text-secondary  { color: #9A9490 !important; }
+html.light aside .text-text-tertiary   { color: #6A6560 !important; }
+html.light aside .text-champagne       { color: #D4AF7A !important; }
 
-/* Text */
-html.light .text-text-primary { color: #181410 !important; }
-html.light .text-text-secondary { color: #4A4541 !important; }
-html.light .text-text-tertiary { color: #7A7570 !important; }
+/* Sidebar backgrounds */
+html.light aside .bg-onyx              { background-color: #19170F !important; }
+html.light aside .bg-charcoal         { background-color: #232118 !important; }
+html.light aside .hover\:bg-charcoal:hover { background-color: #232118 !important; }
+html.light aside .bg-champagne\/8     { background-color: rgba(212,175,122,0.10) !important; }
+html.light aside .bg-champagne        { background-color: #D4AF7A !important; }
+html.light aside .text-obsidian       { color: #0A0A0F !important; }
 
-/* Champagne accent in light mode (deeper gold for contrast) */
-html.light .text-champagne { color: #B8922A !important; }
+/* Sidebar active indicator and unread badge */
+html.light aside .bg-red-500          { background-color: #dc2626 !important; }
+html.light aside .text-white          { color: #FFFFFF !important; }
 
-/* Borders */
-html.light .border-border-luxury { border-color: #C8C2BA !important; }
-html.light .divide-border-luxury > * + * { border-color: #C8C2BA !important; }
-html.light .border-border-light { border-color: #B8B2AA !important; }
-html.light .border-champagne\/40 { border-color: rgba(184, 146, 42, 0.4) !important; }
-html.light .border-champagne\/30 { border-color: rgba(184, 146, 42, 0.3) !important; }
+/* Sidebar collapse button */
+html.light aside button               { color: #9A9490; }
+html.light aside button:hover         { color: #F0EDE8; background-color: #232118; }
 
-/* Header surface */
-html.light .bg-onyx\/80 { background-color: rgba(237, 232, 225, 0.92) !important; }
+/* ══════════════════════════════════════════════════════════════════════════
+ * MAIN CONTENT AREA — surfaces & backgrounds
+ * ══════════════════════════════════════════════════════════════════════════ */
 
-/* Input fields in light mode */
-html.light .bg-obsidian input,
-html.light input.bg-obsidian,
-html.light textarea.bg-obsidian,
-html.light select.bg-obsidian { background-color: #F0EBE4 !important; border-color: #C8C2BA !important; }
+/* Primary surfaces */
+html.light .bg-obsidian         { background-color: #F2EDE6 !important; }
+html.light .bg-onyx             { background-color: #FFFFFF !important; }
+html.light .bg-charcoal         { background-color: #EAE4DC !important; }
 
-/* Stat cards in light mode — stronger surface separation */
-html.light .bg-onyx.border { box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+/* Opacity variants — charcoal */
+html.light .bg-charcoal\/8      { background-color: rgba(138,103,24,0.08) !important; }
+html.light .bg-charcoal\/10     { background-color: rgba(210,200,188,0.50) !important; }
+html.light .bg-charcoal\/20     { background-color: rgba(210,200,188,0.55) !important; }
+html.light .bg-charcoal\/30     { background-color: rgba(210,200,188,0.65) !important; }
+html.light .bg-charcoal\/40     { background-color: rgba(210,200,188,0.75) !important; }
+html.light .bg-charcoal\/50     { background-color: rgba(210,200,188,0.80) !important; }
+html.light .bg-charcoal\/60     { background-color: rgba(210,200,188,0.85) !important; }
+html.light .bg-charcoal\/70     { background-color: rgba(210,200,188,0.88) !important; }
+html.light .bg-charcoal\/80     { background-color: rgba(210,200,188,0.92) !important; }
 
-/* Table rows */
-html.light tbody tr:hover { background-color: rgba(227, 221, 213, 0.5) !important; }
+/* Opacity variants — onyx */
+html.light .bg-onyx\/50         { background-color: rgba(255,255,255,0.75) !important; }
+html.light .bg-onyx\/60         { background-color: rgba(255,255,255,0.82) !important; }
+html.light .bg-onyx\/80         { background-color: rgba(255,255,255,0.92) !important; }
 
-/* Champagne button text stays dark on both themes */
-html.light .bg-champagne-gradient { color: #181410; }
+/* Opacity variants — obsidian */
+html.light .bg-obsidian\/20     { background-color: rgba(242,237,230,0.40) !important; }
+html.light .bg-obsidian\/60     { background-color: rgba(230,224,215,0.75) !important; }
+html.light .bg-obsidian\/70     { background-color: rgba(225,218,208,0.88) !important; }
+html.light .bg-obsidian\/80     { background-color: rgba(220,214,205,0.92) !important; }
 
-/* Scrollbar */
-html.light ::-webkit-scrollbar-track { background: #EDE8E1; }
-html.light ::-webkit-scrollbar-thumb { background: #B8B2AA; }
-html.light ::-webkit-scrollbar-thumb:hover { background: #7A7570; }
-html.light * { scrollbar-color: #B8B2AA #EDE8E1; }
+/* Header backdrop */
+html.light .bg-onyx\/80         { background-color: rgba(255,255,255,0.92) !important; }
 
-/* Badge backgrounds need explicit light overrides */
-html.light .bg-sage\/15 { background-color: rgba(100, 140, 100, 0.15) !important; }
-html.light .text-sage { color: #3A6E3A !important; }
+/* White opacity → dark-on-light inversions */
+html.light .hover\:bg-white\/4:hover  { background-color: rgba(0,0,0,0.04) !important; }
+html.light .hover\:bg-white\/5:hover  { background-color: rgba(0,0,0,0.05) !important; }
+html.light .hover\:bg-white\/8:hover  { background-color: rgba(0,0,0,0.06) !important; }
+html.light .active\:bg-white\/8:active{ background-color: rgba(0,0,0,0.06) !important; }
 
-/* Language toggle & header buttons */
-html.light .border-border-luxury.px-2 { border-color: #C8C2BA !important; }
+/* Hover states */
+html.light .hover\:bg-charcoal:hover         { background-color: #EAE4DC !important; }
+html.light .hover\:bg-charcoal\/30:hover     { background-color: rgba(210,200,188,0.65) !important; }
+html.light .hover\:bg-charcoal\/40:hover     { background-color: rgba(210,200,188,0.75) !important; }
+html.light .hover\:bg-charcoal\/50:hover     { background-color: rgba(210,200,188,0.80) !important; }
+html.light .hover\:bg-charcoal\/60:hover     { background-color: rgba(210,200,188,0.85) !important; }
+html.light .hover\:bg-charcoal\/80:hover     { background-color: rgba(210,200,188,0.92) !important; }
+html.light .focus\:bg-charcoal:focus         { background-color: #EAE4DC !important; }
 
-/* ─── Light Theme: Executive / Analytics visibility ──────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+ * TYPOGRAPHY
+ * ══════════════════════════════════════════════════════════════════════════ */
+html.light .text-text-primary   { color: #0F0E0C !important; }
+html.light .text-text-secondary { color: #36322C !important; }
+html.light .text-text-tertiary  { color: #706A62 !important; }
+html.light .text-text-muted     { color: #706A62 !important; }
 
-/* Tabs — inactive tabs must be clearly readable (not ghosted) */
-html.light button.text-text-tertiary { color: #5A5550 !important; }
-html.light .text-text-tertiary { color: #6A6560 !important; }
+/* Champagne/gold — rich antique gold, reads on white */
+html.light .text-champagne              { color: #8A6718 !important; }
+html.light .hover\:text-champagne:hover { color: #A07C28 !important; }
+html.light .hover\:text-champagne\/80:hover { color: rgba(138,103,24,0.85) !important; }
 
-/* Executive period/tab selector container */
-html.light .bg-obsidian\/60 { background-color: rgba(220, 215, 208, 0.7) !important; }
-html.light .bg-obsidian\/80 { background-color: rgba(225, 220, 212, 0.92) !important; }
-html.light .bg-charcoal\/8  { background-color: rgba(184, 146, 42, 0.08) !important; }
-html.light .bg-champagne\/8 { background-color: rgba(184, 146, 42, 0.08) !important; }
+/* Interactive text */
+html.light .text-text-tertiary:is(button, a) { color: #55504A !important; }
+html.light button.text-text-tertiary          { color: #55504A !important; }
 
-/*
- * ═══════════════════════════════════════════════════════════════════════════
- * LIGHT THEME COLOR CONTRAST — MANDATORY COVERAGE RULES
- * ═══════════════════════════════════════════════════════════════════════════
- * Any Tailwind text/bg/border color that is visible in dark mode but
- * near-invisible on light backgrounds MUST have an override in this file.
- *
- * REQUIRED: When adding a new colored class to ANY component, add its
- * html.light override here BEFORE committing. Include opacity variants:
- *   text-amber-400/70  →  html.light .text-amber-400\/70 { color: ... }
- *   bg-amber-950/30    →  html.light .bg-amber-950\/30   { background-color: ... }
- *
- * FORBIDDEN patterns without a paired override:
- *   text-{color}-300/400  (light pastels invisible on parchment)
- *   bg-{color}-900/950    (very dark bg → washed-out in light theme)
- *   text-{color}-400/70   (opacity reduces already-pale color to nothing)
- * ═══════════════════════════════════════════════════════════════════════════
- */
+/* ══════════════════════════════════════════════════════════════════════════
+ * BORDERS
+ * ══════════════════════════════════════════════════════════════════════════ */
+html.light .border-border-luxury        { border-color: #D8D1C8 !important; }
+html.light .divide-border-luxury > * + *{ border-color: #D8D1C8 !important; }
+html.light .border-border-light         { border-color: #E4DDD5 !important; }
+html.light .border-obsidian             { border-color: #E4DDD5 !important; }
+html.light .border-onyx                 { border-color: #E4DDD5 !important; }
 
-/* Status / semantic color overrides for light theme readability */
-/* Emerald / green */
-html.light .text-emerald-400  { color: #1a7a3a !important; }
-html.light .text-emerald-300  { color: #1a7a3a !important; } /* emerald-300 = emerald-400 in light — P0 fix */
-html.light .text-green-400    { color: #167a30 !important; }
-html.light .text-green-300    { color: #177a30 !important; }
-html.light .bg-emerald-400\/5  { background-color: rgba(20, 120, 60, 0.08) !important; }
-html.light .bg-green-900\/40   { background-color: rgba(20, 100, 40, 0.12) !important; }
-html.light .bg-green-900\/30   { background-color: rgba(20, 100, 40, 0.10) !important; }
-html.light .bg-green-950\/30   { background-color: rgba(20, 100, 40, 0.10) !important; } /* 950 variant — P0 fix */
-html.light .border-emerald-400\/30 { border-color: rgba(20, 120, 60, 0.35) !important; }
-html.light .border-green-700\/30   { border-color: rgba(20, 100, 40, 0.30) !important; } /* /30 variant — P0 fix */
-html.light .bg-emerald-900\/20 { background-color: rgba(20, 100, 40, 0.10) !important; }
+/* Champagne borders */
+html.light .border-champagne\/15 { border-color: rgba(138,103,24,0.20) !important; }
+html.light .border-champagne\/20 { border-color: rgba(138,103,24,0.28) !important; }
+html.light .border-champagne\/30 { border-color: rgba(138,103,24,0.36) !important; }
+html.light .border-champagne\/40 { border-color: rgba(138,103,24,0.45) !important; }
+html.light .border-champagne\/50 { border-color: rgba(138,103,24,0.55) !important; }
 
-/* Amber / warning */
-html.light .text-amber-400      { color: #8a5c00 !important; }
-html.light .text-amber-400\/70  { color: #8a5c00 !important; } /* opacity variant — P0 fix */
-html.light .text-amber-300      { color: #9a6400 !important; }
-html.light .bg-amber-400\/5     { background-color: rgba(140, 90, 0, 0.08) !important; }
-html.light .bg-amber-900\/20    { background-color: rgba(140, 90, 0, 0.10) !important; }
-html.light .bg-amber-900\/30    { background-color: rgba(140, 90, 0, 0.12) !important; }
-html.light .bg-amber-950\/30    { background-color: rgba(140, 90, 0, 0.10) !important; } /* 950 variant — P0 fix */
-html.light .bg-amber-500\/10    { background-color: rgba(140, 90, 0, 0.10) !important; }
-html.light .bg-amber-500\/15    { background-color: rgba(140, 90, 0, 0.12) !important; }
-html.light .border-amber-400\/30 { border-color: rgba(140, 90, 0, 0.35) !important; }
-html.light .border-amber-700\/30 { border-color: rgba(140, 90, 0, 0.30) !important; } /* /30 variant — P0 fix */
-html.light .border-amber-700\/40 { border-color: rgba(140, 90, 0, 0.35) !important; }
-html.light .border-amber-500\/20 { border-color: rgba(140, 90, 0, 0.3) !important; }
-html.light .border-amber-500\/40 { border-color: rgba(140, 90, 0, 0.4) !important; }
-html.light .text-amber-300.text-xs { color: #8a5c00 !important; }
+/* ══════════════════════════════════════════════════════════════════════════
+ * CHAMPAGNE BACKGROUNDS
+ * ══════════════════════════════════════════════════════════════════════════ */
+html.light .bg-champagne\/5  { background-color: rgba(138,103,24,0.07) !important; }
+html.light .bg-champagne\/8  { background-color: rgba(138,103,24,0.09) !important; }
+html.light .bg-champagne\/10 { background-color: rgba(138,103,24,0.11) !important; }
+html.light .bg-champagne\/15 { background-color: rgba(138,103,24,0.15) !important; }
+html.light .bg-champagne\/20 { background-color: rgba(138,103,24,0.18) !important; }
+html.light .bg-champagne\/50 { background-color: rgba(138,103,24,0.45) !important; }
+html.light .bg-champagne\/60 { background-color: rgba(138,103,24,0.55) !important; }
+html.light .hover\:bg-champagne\/20:hover { background-color: rgba(138,103,24,0.22) !important; }
 
-/* Red / error */
-html.light .text-red-400      { color: #9a1a1a !important; }
-html.light .text-red-400\/70  { color: #9a1a1a !important; } /* opacity variant — P0 fix */
-html.light .text-red-300      { color: #a02020 !important; }
-html.light .bg-red-500\/10    { background-color: rgba(154, 26, 26, 0.10) !important; }
-html.light .bg-red-900\/20    { background-color: rgba(154, 26, 26, 0.10) !important; }
-html.light .bg-red-900\/30    { background-color: rgba(154, 26, 26, 0.12) !important; }
-html.light .bg-red-900\/40    { background-color: rgba(154, 26, 26, 0.12) !important; }
-html.light .bg-red-950\/40    { background-color: rgba(154, 26, 26, 0.12) !important; } /* 950 variant — P0 fix */
-html.light .border-red-700\/30  { border-color: rgba(154, 26, 26, 0.30) !important; } /* /30 variant — P0 fix */
-html.light .border-red-700\/40  { border-color: rgba(154, 26, 26, 0.35) !important; }
-html.light .border-red-500\/20  { border-color: rgba(154, 26, 26, 0.30) !important; }
-html.light .border-red-500\/30  { border-color: rgba(154, 26, 26, 0.35) !important; }
+/* ══════════════════════════════════════════════════════════════════════════
+ * CARDS — add shadow for depth on white cards against ivory bg
+ * ══════════════════════════════════════════════════════════════════════════ */
+html.light .bg-onyx.border,
+html.light .bg-onyx\/50.border,
+html.light .bg-onyx\/60.border {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05) !important;
+}
+html.light .shadow-luxury-lg {
+  box-shadow: 0 12px 40px rgba(0,0,0,0.14), 0 4px 12px rgba(0,0,0,0.08) !important;
+}
+html.light .rounded-2xl.border.bg-onyx {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04) !important;
+}
 
-/* Blue / info */
-html.light .text-blue-400  { color: #1a4a8a !important; }
-html.light .text-blue-300  { color: #1a4a8a !important; }
-html.light .bg-blue-900\/40  { background-color: rgba(26, 74, 138, 0.10) !important; }
-html.light .bg-blue-900\/30  { background-color: rgba(26, 74, 138, 0.10) !important; }
-html.light .border-blue-700\/40 { border-color: rgba(26, 74, 138, 0.35) !important; }
+/* ══════════════════════════════════════════════════════════════════════════
+ * STATUS / SEMANTIC COLORS
+ * Deep, saturated — clearly readable on white backgrounds
+ * ══════════════════════════════════════════════════════════════════════════ */
 
-/* Sky (APPROVED status badge, total payable column, KPI cards) */
-html.light .text-sky-400        { color: #0284c7 !important; }
-html.light .text-sky-300        { color: #0369a1 !important; }
-html.light .text-sky-200        { color: #0369a1 !important; }
-html.light .bg-sky-400\/10      { background-color: rgba(2, 132, 199, 0.10) !important; }
-html.light .bg-sky-400\/5       { background-color: rgba(2, 132, 199, 0.07) !important; }
-html.light .border-sky-400\/20  { border-color: rgba(2, 132, 199, 0.25) !important; }
-html.light .border-sky-400\/30  { border-color: rgba(2, 132, 199, 0.30) !important; }
+/* ── Green / success ──────────────────────────────────────────────────── */
+html.light .text-green-400   { color: #166534 !important; }
+html.light .text-green-300   { color: #15803d !important; }
+html.light .text-emerald-400 { color: #065f46 !important; }
+html.light .text-emerald-300 { color: #065f46 !important; }
+html.light .bg-green-900\/40  { background-color: rgba(22,101,52,0.10) !important; }
+html.light .bg-green-900\/30  { background-color: rgba(22,101,52,0.08) !important; }
+html.light .bg-green-950\/30  { background-color: rgba(22,101,52,0.08) !important; }
+html.light .bg-green-500\/10  { background-color: rgba(22,101,52,0.10) !important; }
+html.light .bg-green-400\/8   { background-color: rgba(22,101,52,0.08) !important; }
+html.light .bg-emerald-400\/5 { background-color: rgba(6,95,70,0.08) !important; }
+html.light .bg-emerald-900\/20{ background-color: rgba(6,95,70,0.09) !important; }
+html.light .border-green-400\/20  { border-color: rgba(22,101,52,0.25) !important; }
+html.light .border-green-500\/20  { border-color: rgba(22,101,52,0.25) !important; }
+html.light .border-green-700\/30  { border-color: rgba(22,101,52,0.30) !important; }
+html.light .border-emerald-400\/30{ border-color: rgba(6,95,70,0.30) !important; }
 
-/* Orange accent */
+/* ── Amber / warning ──────────────────────────────────────────────────── */
+html.light .text-amber-400      { color: #78350f !important; }
+html.light .text-amber-400\/70  { color: #78350f !important; }
+html.light .text-amber-300      { color: #92400e !important; }
+html.light .bg-amber-400\/5     { background-color: rgba(120,53,15,0.07) !important; }
+html.light .bg-amber-500\/10    { background-color: rgba(120,53,15,0.10) !important; }
+html.light .bg-amber-500\/15    { background-color: rgba(120,53,15,0.12) !important; }
+html.light .bg-amber-900\/20    { background-color: rgba(120,53,15,0.09) !important; }
+html.light .bg-amber-900\/30    { background-color: rgba(120,53,15,0.10) !important; }
+html.light .bg-amber-950\/30    { background-color: rgba(120,53,15,0.10) !important; }
+html.light .border-amber-400\/30 { border-color: rgba(120,53,15,0.32) !important; }
+html.light .border-amber-500\/20 { border-color: rgba(120,53,15,0.28) !important; }
+html.light .border-amber-500\/40 { border-color: rgba(120,53,15,0.40) !important; }
+html.light .border-amber-700\/30 { border-color: rgba(120,53,15,0.32) !important; }
+html.light .border-amber-700\/40 { border-color: rgba(120,53,15,0.38) !important; }
+
+/* ── Red / error ──────────────────────────────────────────────────────── */
+html.light .text-red-400       { color: #991b1b !important; }
+html.light .text-red-400\/70   { color: #991b1b !important; }
+html.light .text-red-300       { color: #b91c1c !important; }
+html.light .bg-red-500\/10     { background-color: rgba(153,27,27,0.10) !important; }
+html.light .bg-red-900\/20     { background-color: rgba(153,27,27,0.09) !important; }
+html.light .bg-red-900\/30     { background-color: rgba(153,27,27,0.10) !important; }
+html.light .bg-red-900\/40     { background-color: rgba(153,27,27,0.10) !important; }
+html.light .bg-red-950\/30     { background-color: rgba(153,27,27,0.09) !important; }
+html.light .bg-red-950\/40     { background-color: rgba(153,27,27,0.10) !important; }
+html.light .border-red-500\/20  { border-color: rgba(153,27,27,0.28) !important; }
+html.light .border-red-500\/30  { border-color: rgba(153,27,27,0.34) !important; }
+html.light .border-red-700\/30  { border-color: rgba(153,27,27,0.32) !important; }
+html.light .border-red-700\/40  { border-color: rgba(153,27,27,0.38) !important; }
+
+/* ── Blue / info ──────────────────────────────────────────────────────── */
+html.light .text-blue-400  { color: #1e3a8a !important; }
+html.light .text-blue-300  { color: #1e40af !important; }
+html.light .bg-blue-900\/40  { background-color: rgba(30,58,138,0.09) !important; }
+html.light .bg-blue-900\/30  { background-color: rgba(30,58,138,0.08) !important; }
+html.light .border-blue-700\/40 { border-color: rgba(30,58,138,0.32) !important; }
+
+/* ── Sky ──────────────────────────────────────────────────────────────── */
+html.light .text-sky-400   { color: #0369a1 !important; }
+html.light .text-sky-300   { color: #0369a1 !important; }
+html.light .text-sky-200   { color: #0284c7 !important; }
+html.light .bg-sky-400\/10 { background-color: rgba(3,105,161,0.09) !important; }
+html.light .bg-sky-400\/5  { background-color: rgba(3,105,161,0.07) !important; }
+html.light .border-sky-400\/20 { border-color: rgba(3,105,161,0.26) !important; }
+html.light .border-sky-400\/30 { border-color: rgba(3,105,161,0.32) !important; }
+
+/* ── Violet / in-progress ─────────────────────────────────────────────── */
+html.light .text-violet-400   { color: #5b21b6 !important; }
+html.light .text-violet-300   { color: #6d28d9 !important; }
+html.light .bg-violet-900\/40 { background-color: rgba(91,33,182,0.09) !important; }
+html.light .bg-violet-900\/30 { background-color: rgba(91,33,182,0.08) !important; }
+html.light .border-violet-700\/50 { border-color: rgba(91,33,182,0.36) !important; }
+
+/* ── Teal ─────────────────────────────────────────────────────────────── */
+html.light .text-teal-400   { color: #0f766e !important; }
+html.light .text-teal-300   { color: #0f766e !important; }
+html.light .bg-teal-900\/40 { background-color: rgba(15,118,110,0.09) !important; }
+html.light .border-teal-700\/40 { border-color: rgba(15,118,110,0.32) !important; }
+
+/* ── Orange ───────────────────────────────────────────────────────────── */
 html.light .text-orange-400       { color: #c2410c !important; }
-html.light .text-orange-300       { color: #c2410c !important; }
-html.light .bg-orange-400\/20     { background-color: rgba(194, 65, 12, 0.12) !important; }
-html.light .bg-orange-400\/10     { background-color: rgba(194, 65, 12, 0.08) !important; }
-html.light .border-orange-400\/30 { border-color: rgba(194, 65, 12, 0.30) !important; }
+html.light .text-orange-300       { color: #ea580c !important; }
+html.light .bg-orange-400\/20     { background-color: rgba(194,65,12,0.11) !important; }
+html.light .bg-orange-400\/10     { background-color: rgba(194,65,12,0.09) !important; }
+html.light .border-orange-400\/30 { border-color: rgba(194,65,12,0.30) !important; }
 
-/* text-muted (alias for text-tertiary, used widely across all pages) */
-html.light .text-text-muted { color: #7A7570 !important; }
+/* ── Yellow ───────────────────────────────────────────────────────────── */
+html.light .text-yellow-300    { color: #92400e !important; }
+html.light .text-yellow-400    { color: #78350f !important; }
+html.light .bg-yellow-400\/10  { background-color: rgba(120,53,15,0.10) !important; }
+html.light .bg-yellow-500\/10  { background-color: rgba(120,53,15,0.10) !important; }
+html.light .border-yellow-400\/30 { border-color: rgba(120,53,15,0.30) !important; }
 
-/* Yellow — CRITICAL: yellow-300/400 is near-invisible on light backgrounds */
-html.light .text-yellow-300    { color: #854d0e !important; }
-html.light .text-yellow-400    { color: #854d0e !important; }
-html.light .bg-yellow-400\/10  { background-color: rgba(133, 77, 14, 0.10) !important; }
-html.light .bg-yellow-500\/10  { background-color: rgba(133, 77, 14, 0.10) !important; }
-html.light .border-yellow-400\/30 { border-color: rgba(133, 77, 14, 0.30) !important; }
+/* ── Indigo ───────────────────────────────────────────────────────────── */
+html.light .text-indigo-400       { color: #3730a3 !important; }
+html.light .text-indigo-300       { color: #4338ca !important; }
+html.light .bg-indigo-900\/40     { background-color: rgba(55,48,163,0.09) !important; }
+html.light .bg-indigo-900\/30     { background-color: rgba(55,48,163,0.08) !important; }
+html.light .border-indigo-700\/30 { border-color: rgba(55,48,163,0.28) !important; }
+html.light .border-indigo-700\/40 { border-color: rgba(55,48,163,0.34) !important; }
 
-/* Violet / in-progress */
-html.light .text-violet-300   { color: #5a2a8a !important; }
-html.light .text-violet-400   { color: #5a2a8a !important; }
-html.light .bg-violet-900\/40 { background-color: rgba(90, 42, 138, 0.10) !important; }
-html.light .bg-violet-900\/30 { background-color: rgba(90, 42, 138, 0.10) !important; }
-html.light .border-violet-700\/50 { border-color: rgba(90, 42, 138, 0.40) !important; }
+/* ── Rose / pink ──────────────────────────────────────────────────────── */
+html.light .text-rose-400       { color: #9f1239 !important; }
+html.light .text-rose-300       { color: #be123c !important; }
+html.light .bg-rose-900\/40     { background-color: rgba(159,18,57,0.09) !important; }
+html.light .bg-rose-900\/30     { background-color: rgba(159,18,57,0.08) !important; }
+html.light .border-rose-700\/30 { border-color: rgba(159,18,57,0.28) !important; }
+html.light .border-rose-700\/40 { border-color: rgba(159,18,57,0.34) !important; }
 
-/* Teal */
-html.light .text-teal-300   { color: #0a5a5a !important; }
-html.light .bg-teal-900\/40 { background-color: rgba(10, 90, 90, 0.10) !important; }
-html.light .border-teal-700\/40 { border-color: rgba(10, 90, 90, 0.35) !important; }
+/* ── Zinc ─────────────────────────────────────────────────────────────── */
+html.light .text-zinc-400       { color: #52524e !important; }
+html.light .text-zinc-300       { color: #3f3f3b !important; }
+html.light .text-zinc-500       { color: #6b6b67 !important; }
+html.light .bg-zinc-500\/10     { background-color: rgba(82,82,78,0.10) !important; }
+html.light .border-zinc-400\/20 { border-color: rgba(82,82,78,0.22) !important; }
 
-/* Indigo — P0 fix */
-html.light .text-indigo-300      { color: #3730a3 !important; }
-html.light .text-indigo-400      { color: #3730a3 !important; }
-html.light .bg-indigo-900\/40    { background-color: rgba(55, 48, 163, 0.10) !important; }
-html.light .bg-indigo-900\/30    { background-color: rgba(55, 48, 163, 0.10) !important; }
-html.light .border-indigo-700\/30 { border-color: rgba(55, 48, 163, 0.30) !important; }
-html.light .border-indigo-700\/40 { border-color: rgba(55, 48, 163, 0.35) !important; }
+/* ── Slate ────────────────────────────────────────────────────────────── */
+html.light .text-slate-400    { color: #4b5563 !important; }
+html.light .bg-slate-400\/10  { background-color: rgba(75,85,99,0.10) !important; }
 
-/* Rose / pink — P0 fix */
-html.light .text-rose-300      { color: #9f1239 !important; }
-html.light .text-rose-400      { color: #9f1239 !important; }
-html.light .bg-rose-900\/40    { background-color: rgba(159, 18, 57, 0.10) !important; }
-html.light .bg-rose-900\/30    { background-color: rgba(159, 18, 57, 0.10) !important; }
-html.light .border-rose-700\/30 { border-color: rgba(159, 18, 57, 0.30) !important; }
-html.light .border-rose-700\/40 { border-color: rgba(159, 18, 57, 0.35) !important; }
+/* ── Lavender ─────────────────────────────────────────────────────────── */
+html.light .text-lavender       { color: #5b21b6 !important; }
+html.light .bg-lavender\/10     { background-color: rgba(91,33,182,0.09) !important; }
+html.light .bg-lavender\/20     { background-color: rgba(91,33,182,0.14) !important; }
+html.light .border-lavender\/20 { border-color: rgba(91,33,182,0.22) !important; }
+html.light .border-lavender\/30 { border-color: rgba(91,33,182,0.28) !important; }
 
-/* ─── Light Theme: Charts ────────────────────────────────────────────────── */
-/* Recharts needs explicit class overrides for light mode readability */
-html.light .recharts-cartesian-grid-horizontal line,
-html.light .recharts-cartesian-grid-vertical line { stroke: rgba(100, 90, 80, 0.2) !important; }
-html.light .recharts-text { fill: #5A5550 !important; }
-html.light .recharts-legend-item-text { color: #4A4541 !important; }
-html.light .recharts-tooltip-wrapper .recharts-default-tooltip {
-  background-color: #F0EBE4 !important;
-  border-color: #C8C2BA !important;
-  color: #181410 !important;
-}
-html.light .recharts-tooltip-label { color: #181410 !important; }
-html.light .recharts-tooltip-item  { color: #4A4541 !important; }
+/* ── Blush ────────────────────────────────────────────────────────────── */
+html.light .text-blush       { color: #9f1239 !important; }
+html.light .bg-blush\/10     { background-color: rgba(159,18,57,0.09) !important; }
+html.light .bg-blush\/20     { background-color: rgba(159,18,57,0.14) !important; }
+html.light .border-blush\/20 { border-color: rgba(159,18,57,0.22) !important; }
+html.light .border-blush\/30 { border-color: rgba(159,18,57,0.28) !important; }
 
-/* ─── Light Theme: Sidebar section labels ────────────────────────────────── */
-html.light .tracking-\[0\.12em\] { color: #7A7570 !important; }
+/* ── Sage ─────────────────────────────────────────────────────────────── */
+html.light .text-sage        { color: #166534 !important; }
+html.light .bg-sage\/10      { background-color: rgba(22,101,52,0.09) !important; }
+html.light .bg-sage\/15      { background-color: rgba(22,101,52,0.12) !important; }
+html.light .border-sage\/30  { border-color: rgba(22,101,52,0.28) !important; }
 
-/* Luxury gradient text stays readable on light */
-html.light .luxury-gradient .text-obsidian { color: #181410 !important; }
-
-/* ─── Light Theme: Form inputs ───────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+ * INPUTS & FORMS
+ * ══════════════════════════════════════════════════════════════════════════ */
 html.light input,
 html.light textarea,
 html.light select {
-  background-color: #F0EBE4;
-  border-color: #C8C2BA;
-  color: #181410;
+  background-color: #FFFFFF !important;
+  border-color: #D8D1C8 !important;
+  color: #0F0E0C !important;
 }
 html.light input::placeholder,
 html.light textarea::placeholder { color: #9A9490 !important; }
-
-/* ─── Light Theme: Card shadows ──────────────────────────────────────────── */
-html.light .shadow-luxury-lg {
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08) !important;
+html.light input:focus,
+html.light textarea:focus,
+html.light select:focus {
+  border-color: #8A6718 !important;
+  box-shadow: 0 0 0 3px rgba(138,103,24,0.12) !important;
 }
 
-/* ─── Light Theme: Inactive tab text minimum contrast ────────────────────── */
-html.light nav button,
-html.light [role="tab"] {
-  --tw-text-opacity: 1;
+/* ══════════════════════════════════════════════════════════════════════════
+ * CHARTS (Recharts)
+ * ══════════════════════════════════════════════════════════════════════════ */
+html.light .recharts-cartesian-grid-horizontal line,
+html.light .recharts-cartesian-grid-vertical line { stroke: rgba(0,0,0,0.10) !important; }
+html.light .recharts-text { fill: #4A4540 !important; }
+html.light .recharts-legend-item-text { color: #36322C !important; }
+html.light .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #FFFFFF !important;
+  border-color: #D8D1C8 !important;
+  color: #0F0E0C !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
 }
-html.light .text-text-tertiary:is(button, a) { color: #5A5550 !important; }
+html.light .recharts-tooltip-label { color: #0F0E0C !important; }
+html.light .recharts-tooltip-item  { color: #36322C !important; }
 
-/* ─── Light Theme: Missing opacity variants ──────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+ * SCROLLBARS
+ * ══════════════════════════════════════════════════════════════════════════ */
+html.light ::-webkit-scrollbar-track { background: #F2EDE6; }
+html.light ::-webkit-scrollbar-thumb { background: #C8C0B8; border-radius: 3px; }
+html.light ::-webkit-scrollbar-thumb:hover { background: #9A9490; }
+html.light * { scrollbar-color: #C8C0B8 #F2EDE6; }
 
-/* charcoal opacity variants (50 already covered above) */
-html.light .bg-charcoal\/10  { background-color: rgba(227, 221, 213, 0.30) !important; }
-html.light .bg-charcoal\/20  { background-color: rgba(227, 221, 213, 0.40) !important; }
-html.light .bg-charcoal\/30  { background-color: rgba(227, 221, 213, 0.50) !important; }
-html.light .bg-charcoal\/40  { background-color: rgba(227, 221, 213, 0.60) !important; }
-html.light .bg-charcoal\/60  { background-color: rgba(227, 221, 213, 0.72) !important; }
-html.light .bg-charcoal\/70  { background-color: rgba(227, 221, 213, 0.80) !important; }
-html.light .bg-charcoal\/80  { background-color: rgba(227, 221, 213, 0.88) !important; }
-
-html.light .hover\:bg-charcoal\/30:hover { background-color: rgba(227, 221, 213, 0.50) !important; }
-html.light .hover\:bg-charcoal\/40:hover { background-color: rgba(227, 221, 213, 0.60) !important; }
-html.light .hover\:bg-charcoal\/60:hover { background-color: rgba(227, 221, 213, 0.72) !important; }
-html.light .hover\:bg-charcoal\/80:hover { background-color: rgba(227, 221, 213, 0.88) !important; }
-
-/* onyx / obsidian opacity variants */
-html.light .bg-onyx\/50      { background-color: rgba(237, 232, 225, 0.65) !important; }
-html.light .bg-onyx\/80      { background-color: rgba(237, 232, 225, 0.88) !important; }
-html.light .bg-obsidian\/20  { background-color: rgba(245, 241, 236, 0.35) !important; }
-html.light .bg-obsidian\/70  { background-color: rgba(220, 215, 207, 0.88) !important; }
-html.light .border-obsidian  { border-color: #EDE8E1 !important; }
-html.light .border-onyx      { border-color: #EDE8E1 !important; }
-
-/* White opacity classes → dark-on-light inversions */
-html.light .hover\:bg-white\/5:hover   { background-color: rgba(0, 0, 0, 0.05) !important; }
-html.light .hover\:bg-white\/8:hover   { background-color: rgba(0, 0, 0, 0.06) !important; }
-html.light .active\:bg-white\/8:active { background-color: rgba(0, 0, 0, 0.06) !important; }
-
-/* Champagne opacity variants (Tailwind generates static rgba, not CSS-var-aware) */
-html.light .bg-champagne\/10           { background-color: rgba(184, 146, 42, 0.12) !important; }
-html.light .bg-champagne\/15           { background-color: rgba(184, 146, 42, 0.16) !important; }
-html.light .bg-champagne\/20           { background-color: rgba(184, 146, 42, 0.18) !important; }
-html.light .bg-champagne\/5            { background-color: rgba(184, 146, 42, 0.07) !important; }
-html.light .hover\:bg-champagne\/20:hover { background-color: rgba(184, 146, 42, 0.22) !important; }
-html.light .border-champagne\/15       { border-color: rgba(184, 146, 42, 0.22) !important; }
-html.light .border-champagne\/20       { border-color: rgba(184, 146, 42, 0.28) !important; }
-html.light .border-champagne\/50       { border-color: rgba(184, 146, 42, 0.55) !important; }
-html.light .bg-champagne\/60           { background-color: rgba(184, 146, 42, 0.55) !important; }
-html.light .bg-champagne\/50           { background-color: rgba(184, 146, 42, 0.48) !important; }
-
-/* Zinc colors (inventory, status labels) */
-html.light .text-zinc-400        { color: #5A5855 !important; }
-html.light .text-zinc-300        { color: #4A4845 !important; }
-html.light .bg-zinc-500\/10      { background-color: rgba(90, 88, 85, 0.10) !important; }
-html.light .border-zinc-400\/20  { border-color: rgba(90, 88, 85, 0.25) !important; }
-html.light .text-zinc-500        { color: #6A6865 !important; }
-
-/* Slate colors */
-html.light .text-slate-400       { color: #5A6070 !important; }
-html.light .bg-slate-400\/10     { background-color: rgba(90, 96, 112, 0.10) !important; }
-
-/* Lavender accent (appointments, calendar) */
-html.light .text-lavender        { color: #6A4AB0 !important; }
-html.light .bg-lavender\/10      { background-color: rgba(106, 74, 176, 0.10) !important; }
-html.light .bg-lavender\/20      { background-color: rgba(106, 74, 176, 0.16) !important; }
-html.light .border-lavender\/20  { border-color: rgba(106, 74, 176, 0.25) !important; }
-html.light .border-lavender\/30  { border-color: rgba(106, 74, 176, 0.32) !important; }
-
-/* Blush accent (spa, beauty categories) */
-html.light .text-blush           { color: #A04040 !important; }
-html.light .bg-blush\/10         { background-color: rgba(160, 64, 64, 0.10) !important; }
-html.light .bg-blush\/20         { background-color: rgba(160, 64, 64, 0.16) !important; }
-html.light .border-blush\/20     { border-color: rgba(160, 64, 64, 0.25) !important; }
-html.light .border-blush\/30     { border-color: rgba(160, 64, 64, 0.32) !important; }
-
-/* Glass effects — invert for light surfaces */
+/* ══════════════════════════════════════════════════════════════════════════
+ * GLASS MORPHISM — invert for light surfaces
+ * ══════════════════════════════════════════════════════════════════════════ */
 html.light .glass {
-  background: rgba(0, 0, 0, 0.02) !important;
-  border-color: rgba(0, 0, 0, 0.08) !important;
+  background: rgba(255,255,255,0.65) !important;
+  backdrop-filter: blur(12px);
+  border-color: rgba(0,0,0,0.08) !important;
 }
 html.light .glass-medium {
-  background: rgba(0, 0, 0, 0.04) !important;
-  border-color: rgba(0, 0, 0, 0.10) !important;
+  background: rgba(255,255,255,0.75) !important;
+  backdrop-filter: blur(16px);
+  border-color: rgba(0,0,0,0.10) !important;
 }
 
-/* Nav link hover — was rgba(255,255,255,0.04) which is invisible on light bg */
+/* ══════════════════════════════════════════════════════════════════════════
+ * NAVIGATION LINKS (outside sidebar)
+ * ══════════════════════════════════════════════════════════════════════════ */
 html.light .nav-link:hover {
-  background: rgba(0, 0, 0, 0.05) !important;
-  color: #181410 !important;
+  background: rgba(0,0,0,0.04) !important;
+  color: #0F0E0C !important;
 }
-
-/* Card hover — lighter depth cue */
 html.light .card-luxury:hover {
-  border-color: #B8B2AA !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10), 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+  border-color: #C8C0B8 !important;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06) !important;
 }
 
-/* Sage accent in light mode */
-html.light .bg-sage\/15   { background-color: rgba(60, 120, 60, 0.14) !important; }
-html.light .bg-sage\/10   { background-color: rgba(60, 120, 60, 0.10) !important; }
-html.light .border-sage\/30 { border-color: rgba(60, 120, 60, 0.30) !important; }
+/* ══════════════════════════════════════════════════════════════════════════
+ * TABLE ROWS
+ * ══════════════════════════════════════════════════════════════════════════ */
+html.light tbody tr:hover { background-color: rgba(216,209,200,0.40) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * MODAL / OVERLAY BACKDROPS
+ * ══════════════════════════════════════════════════════════════════════════ */
+html.light .bg-obsidian\/80 { background-color: rgba(80,70,60,0.55) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * SECTION / TRACKING LABELS
+ * ══════════════════════════════════════════════════════════════════════════ */
+html.light .tracking-\[0\.12em\] { color: #706A62 !important; }
+html.light .luxury-gradient .text-obsidian { color: #0F0E0C !important; }
+
 
 /* ─── Base Styles ────────────────────────────────────────────────────── */
 @layer base {
