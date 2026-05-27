@@ -19,7 +19,7 @@ export class TelegramProvider extends BaseProvider {
   readonly name = 'Telegram Bot API';
   readonly channel = 'telegram';
 
-  private readonly botToken: string;
+  private botToken: string;
   private readonly webhookSecret: string;
 
   constructor() {
@@ -32,12 +32,26 @@ export class TelegramProvider extends BaseProvider {
     return Boolean(this.botToken);
   }
 
+  private async resolveToken(): Promise<string> {
+    if (this.botToken) return this.botToken;
+    try {
+      const { prisma } = await import('@/infrastructure/config/prisma-client');
+      const row = await (prisma as unknown as { systemConfig: { findUnique: (args: unknown) => Promise<{ value: string } | null> } })
+        .systemConfig.findUnique({ where: { key: 'telegram_bot_token' }, select: { value: true } });
+      if (row?.value) {
+        this.botToken = row.value;
+      }
+    } catch {}
+    return this.botToken;
+  }
+
   get apiBase(): string {
     return `https://api.telegram.org/bot${this.botToken}`;
   }
 
   async send(payload: MessagePayload): Promise<SendResult> {
-    if (!this.isConfigured()) {
+    const token = await this.resolveToken();
+    if (!token) {
       this.log('warn', 'Not configured — message not sent', { to: payload.to });
       return { success: false, error: 'Telegram provider not configured' };
     }
@@ -52,7 +66,7 @@ export class TelegramProvider extends BaseProvider {
     try {
       this.log('info', `Sending message to chat_id=${payload.to}`);
 
-      const res = await fetch(`${this.apiBase}/sendMessage`, {
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),

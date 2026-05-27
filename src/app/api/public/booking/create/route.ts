@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/infrastructure/config/prisma-client';
+import { triggerBookingConfirmation } from '@/lib/communication/booking-triggers';
 
 function ok<T>(data: T) { return NextResponse.json({ success: true, data }); }
 function err(msg: string, status = 400) {
@@ -30,16 +31,16 @@ export async function POST(req: NextRequest) {
   const cleanPhone = phone.replace(/\s/g, '');
   const clientUser = await prisma.user.findFirst({
     where: { phone: cleanPhone, role: 'CLIENT', status: 'ACTIVE' },
-    select: { id: true },
+    select: { id: true, firstName: true, lastName: true },
   });
   if (!clientUser) {
     return err('Этот номер не зарегистрирован. Обратитесь к администратору для записи.', 403);
   }
 
-  // Validate specialist
+  // Validate specialist (include user info for notification)
   const specialist = await prisma.specialist.findUnique({
     where: { id: specialistId, status: 'ACTIVE' },
-    select: { id: true },
+    select: { id: true, department: true, user: { select: { id: true, firstName: true, lastName: true } } },
   });
   if (!specialist) return err('Specialist not found', 404);
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
     select: {
       priceOverride:    true,
       durationOverride: true,
-      service: { select: { id: true, baseDuration: true, basePrice: true } },
+      service: { select: { id: true, name: true, baseDuration: true, basePrice: true } },
     },
   });
   if (!svcLink) return err('Service not available for this specialist', 404);
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
 
   const freeRoom = await prisma.room.findFirst({
     where: { locationId: location.id, isActive: true, id: { notIn: busyRoomIds } },
+    select: { id: true, name: true },
   });
 
   // Atomic create with double-check
@@ -137,6 +139,22 @@ export async function POST(req: NextRequest) {
     if (e.message === 'SLOT_TAKEN') throw e;
     throw e;
   });
+
+  // Fire booking confirmation notification (non-blocking)
+  const dateLabel = startAt.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const timeLabel = `${String(startAt.getUTCHours()).padStart(2, '0')}:${String(startAt.getUTCMinutes()).padStart(2, '0')}`;
+  triggerBookingConfirmation({
+    appointmentId:    appointment.id,
+    clientUserId:     clientUser.id,
+    specialistUserId: specialist.user?.id,
+    clientName:       `${clientUser.firstName} ${clientUser.lastName}`,
+    specialistName:   specialist.user ? `${specialist.user.firstName} ${specialist.user.lastName}` : 'Специалист',
+    serviceName:      svcLink.service.name,
+    department:       specialist.department ?? undefined,
+    date:             dateLabel,
+    time:             timeLabel,
+    room:             freeRoom?.name ?? undefined,
+  }).catch((e) => console.warn('[booking/create] triggerBookingConfirmation failed:', e));
 
   return ok({
     appointmentId: appointment.id,

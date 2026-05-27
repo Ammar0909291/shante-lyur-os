@@ -246,6 +246,10 @@ function SettingsPanel() {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
+  // Telegram test
+  const [tgChatId, setTgChatId] = React.useState('');
+  const [tgTesting, setTgTesting] = React.useState(false);
+  const [tgTestResult, setTgTestResult] = React.useState<{ ok: boolean; msg: string } | null>(null);
 
   React.useEffect(() => {
     void (async () => {
@@ -269,6 +273,28 @@ function SettingsPanel() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } finally { setSaving(false); }
+  }
+
+  async function testTelegram() {
+    setTgTesting(true);
+    setTgTestResult(null);
+    try {
+      const res = await fetch('/api/v1/config/test-telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ chatId: tgChatId }),
+      });
+      const json = await res.json() as { success: boolean; data?: { message: string }; error?: { message: string } };
+      if (json.success) {
+        setTgTestResult({ ok: true, msg: json.data?.message ?? 'Отправлено!' });
+      } else {
+        setTgTestResult({ ok: false, msg: json.error?.message ?? 'Ошибка' });
+      }
+    } catch (e) {
+      setTgTestResult({ ok: false, msg: e instanceof Error ? e.message : 'Network error' });
+    } finally {
+      setTgTesting(false);
+    }
   }
 
   if (loading) return <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-champagne" /></div>;
@@ -316,6 +342,42 @@ function SettingsPanel() {
                 </div>
               );
             })}
+
+            {/* Telegram test section */}
+            {title === 'Telegram' && (
+              <div className="pt-2 border-t border-border-luxury/50 space-y-3">
+                <p className="text-xs text-text-tertiary">
+                  Тест: отправьте сообщение боту в Telegram, узнайте свой chat_id через{' '}
+                  <span className="text-champagne font-medium">@userinfobot</span>, затем введите его ниже.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tgChatId}
+                    onChange={(e) => setTgChatId(e.target.value)}
+                    placeholder="Ваш chat_id (например: 123456789)"
+                    className="flex-1 bg-charcoal border border-border-luxury rounded-xl px-3 py-2 text-sm text-text-primary placeholder-text-tertiary/40"
+                  />
+                  <button
+                    onClick={() => void testTelegram()}
+                    disabled={tgTesting || !tgChatId.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 disabled:opacity-40 transition-all whitespace-nowrap"
+                  >
+                    {tgTesting
+                      ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Отправка...</>
+                      : <><Send className="w-3.5 h-3.5" /> Отправить тест</>}
+                  </button>
+                </div>
+                {tgTestResult && (
+                  <p className={cn('text-xs flex items-center gap-1.5', tgTestResult.ok ? 'text-emerald-400' : 'text-red-400')}>
+                    {tgTestResult.ok
+                      ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                    {tgTestResult.msg}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ))}
