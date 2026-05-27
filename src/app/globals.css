@@ -454,6 +454,102 @@ html.light .bg-obsidian\/80 { background-color: rgba(80,70,60,0.55) !important; 
 html.light .tracking-\[0\.12em\] { color: #706A62 !important; }
 html.light .luxury-gradient .text-obsidian { color: #0F0E0C !important; }
 
+/* ══════════════════════════════════════════════════════════════════════════
+ * LIGHT THEME SUPPLEMENT — Employee pages visibility fixes
+ * Covers my/page.tsx · receptionist/page.tsx · my-panel/page.tsx
+ * All classes missed in the initial build — audit-driven additions
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── text-white → readable dark in main content (sidebar keeps its own rule) */
+html.light .text-white       { color: #0F0E0C !important; }
+html.light aside .text-white { color: #FFFFFF !important; }   /* sidebar restore */
+
+/* ── Hover text states ──────────────────────────────────────────────────── */
+html.light .hover\:text-white:hover    { color: #0F0E0C !important; }
+html.light .hover\:text-zinc-200:hover { color: #3f3f3b !important; }
+html.light .hover\:text-zinc-300:hover { color: #52524e !important; }
+
+/* ── White-opacity backgrounds (non-hover base states) ─────────────────── */
+html.light .bg-white\/5                { background-color: rgba(0,0,0,0.04) !important; }
+html.light .bg-white\/10               { background-color: rgba(0,0,0,0.07) !important; }
+
+/* ── White-opacity borders — CRITICAL (tab containers, table headers) ──── */
+html.light .border-white\/10           { border-color: rgba(0,0,0,0.10) !important; }
+html.light .border-white\/5            { border-color: rgba(0,0,0,0.06) !important; }
+
+/* ── White-opacity hover — CRITICAL (calendar nav buttons, tab hover) ──── */
+html.light .hover\:bg-white\/10:hover  { background-color: rgba(0,0,0,0.07) !important; }
+
+/* ── Divide (table row separators in procedures / sales tabs) ───────────── */
+html.light .divide-white\/5 > * + *    { border-color: rgba(0,0,0,0.06) !important; }
+
+/* ── Purple family — vacation cells in working-days calendar ──────────── */
+html.light .text-purple-300            { color: #6b21a8 !important; }
+html.light .text-purple-400            { color: #7e22ce !important; }
+html.light .bg-purple-900\/40          { background-color: rgba(107,33,168,0.09) !important; }
+html.light .bg-purple-800\/60          { background-color: rgba(107,33,168,0.12) !important; }
+html.light .border-purple-700\/30      { border-color: rgba(126,34,206,0.28) !important; }
+html.light .border-purple-700\/50      { border-color: rgba(126,34,206,0.40) !important; }
+
+/* ── Zinc-800 variants — schedule cells, month selector, table text ────── */
+html.light .text-zinc-200              { color: #3f3f3b !important; }
+html.light .text-zinc-600              { color: #706A62 !important; }
+html.light .bg-zinc-800                { background-color: #E8E4E0 !important; }
+html.light .bg-zinc-700\/60            { background-color: rgba(82,82,78,0.22) !important; }
+html.light .bg-zinc-800\/40            { background-color: rgba(82,82,78,0.12) !important; }
+html.light .bg-zinc-800\/50            { background-color: rgba(82,82,78,0.15) !important; }
+html.light .border-zinc-700\/20        { border-color: rgba(82,82,78,0.18) !important; }
+html.light .border-zinc-500\/20        { border-color: rgba(82,82,78,0.20) !important; }
+html.light .hover\:bg-zinc-700:hover         { background-color: rgba(82,82,78,0.20) !important; }
+html.light .hover\:bg-zinc-700\/50:hover     { background-color: rgba(82,82,78,0.18) !important; }
+
+/* ── Active tab indicator + legend swatches ─────────────────────────────── */
+html.light .bg-amber-950\/20           { background-color: rgba(120,53,15,0.08) !important; }
+html.light .bg-amber-900\/40           { background-color: rgba(120,53,15,0.11) !important; }
+html.light .bg-emerald-800\/60         { background-color: rgba(6,95,70,0.12) !important; }
+html.light .bg-rose-800\/60            { background-color: rgba(159,18,57,0.12) !important; }
+
+/* ── Emerald variants — calendar cells, workload strip, schedule ────────── */
+html.light .bg-emerald-900\/40         { background-color: rgba(6,95,70,0.10) !important; }
+html.light .bg-emerald-900\/50         { background-color: rgba(6,95,70,0.12) !important; }
+html.light .bg-emerald-900\/20         { background-color: rgba(6,95,70,0.09) !important; }
+html.light .border-emerald-700\/30     { border-color: rgba(6,95,70,0.28) !important; }
+html.light .border-emerald-700\/40     { border-color: rgba(6,95,70,0.34) !important; }
+html.light .border-emerald-700\/50     { border-color: rgba(6,95,70,0.40) !important; }
+html.light .border-emerald-600\/50     { border-color: rgba(5,150,105,0.40) !important; }
+
+/* ── Missing /50 border variants for status badges ──────────────────────── */
+html.light .border-rose-700\/50        { border-color: rgba(159,18,57,0.40) !important; }
+html.light .border-red-700\/50         { border-color: rgba(153,27,27,0.40) !important; }
+html.light .border-indigo-700\/50      { border-color: rgba(55,48,163,0.40) !important; }
+html.light .border-amber-700\/50       { border-color: rgba(120,53,15,0.42) !important; }
+html.light .border-blue-700\/50        { border-color: rgba(30,58,138,0.40) !important; }
+html.light .border-violet-700\/40      { border-color: rgba(109,40,217,0.34) !important; }
+html.light .border-green-700\/40       { border-color: rgba(22,101,52,0.36) !important; }
+html.light .border-slate-400\/20       { border-color: rgba(100,116,139,0.22) !important; }
+html.light .border-blue-500\/20        { border-color: rgba(30,58,138,0.22) !important; }
+
+/* ── ActionBtn 30% base backgrounds ─────────────────────────────────────── */
+html.light .bg-teal-900\/30            { background-color: rgba(15,118,110,0.08) !important; }
+html.light .bg-violet-900\/30          { background-color: rgba(91,33,182,0.08) !important; }
+html.light .bg-green-900\/30           { background-color: rgba(22,101,52,0.08) !important; }
+html.light .bg-blue-900\/30            { background-color: rgba(30,58,138,0.08) !important; }
+html.light .bg-black\/20               { background-color: rgba(0,0,0,0.05) !important; }
+
+/* ── ActionBtn 50% hover states ──────────────────────────────────────────── */
+html.light .hover\:bg-teal-900\/50:hover    { background-color: rgba(15,118,110,0.14) !important; }
+html.light .hover\:bg-violet-900\/50:hover  { background-color: rgba(91,33,182,0.14) !important; }
+html.light .hover\:bg-green-900\/50:hover   { background-color: rgba(22,101,52,0.14) !important; }
+html.light .hover\:bg-amber-900\/50:hover   { background-color: rgba(120,53,15,0.14) !important; }
+html.light .hover\:bg-red-900\/50:hover     { background-color: rgba(153,27,27,0.14) !important; }
+html.light .hover\:bg-blue-900\/50:hover    { background-color: rgba(30,58,138,0.14) !important; }
+html.light .hover\:bg-emerald-800\/60:hover { background-color: rgba(6,95,70,0.16) !important; }
+html.light .hover\:bg-zinc-700\/50:hover    { background-color: rgba(82,82,78,0.18) !important; }
+
+/* ── Today ring · rose opacity text ─────────────────────────────────────── */
+html.light .ring-amber-400             { --tw-ring-color: rgba(120,53,15,0.45) !important; }
+html.light .text-rose-400\/80          { color: rgba(159,18,57,0.82) !important; }
+
 
 /* ─── Base Styles ────────────────────────────────────────────────────── */
 @layer base {
