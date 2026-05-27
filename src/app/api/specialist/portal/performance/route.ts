@@ -18,87 +18,75 @@ export async function GET(req: NextRequest) {
 
   const specialist = await prisma.specialist.findUnique({
     where: { userId },
-    select: { id: true, department: true, showEarningsToSpecialist: true, dailyTargetSessions: true },
+    select: { id: true, showEarningsToSpecialist: true },
   });
   if (!specialist) return err('NOT_FOUND', 'Specialist record not found', 404);
 
   const now = new Date();
-
-  // Week bounds (Mon–Sun of current week)
-  const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
-  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
-  const weekEnd   = new Date(weekStart.getTime() + 7 * 86400000);
-
-  // Month bounds
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  const [weekApts, monthApts] = await Promise.all([
-    prisma.appointment.findMany({
-      where: { specialistId: specialist.id, startAt: { gte: weekStart, lt: weekEnd } },
-      select: { status: true, totalPrice: true, clientId: true },
-    }),
-    prisma.appointment.findMany({
-      where: { specialistId: specialist.id, startAt: { gte: monthStart, lt: monthEnd } },
-      select: {
-        status: true,
-        totalPrice: true,
-        clientId: true,
-        services: { select: { serviceId: true, service: { select: { name: true } } } },
-      },
-    }),
-  ]);
+  // All appointments this month
+  const monthApts = await prisma.appointment.findMany({
+    where: { specialistId: specialist.id, startAt: { gte: monthStart, lt: monthEnd } },
+    select: { status: true, totalPrice: true, clientId: true, startAt: true },
+  });
 
-  // Week stats
-  const weekCompleted  = weekApts.filter((a) => a.status === 'COMPLETED').length;
-  const weekCancelled  = weekApts.filter((a) => a.status === 'CANCELLED').length;
-  const weekNoShows    = weekApts.filter((a) => a.status === 'NO_SHOW').length;
-  const weekWorkedDays = Math.max(1, dayOfWeek + 1);
-  const dailyTarget = specialist.dailyTargetSessions ?? 8;
-  const weekWorkloadPct = specialist.department === 'MASSAGE'
-    ? Math.round((weekCompleted / (dailyTarget * weekWorkedDays)) * 100)
-    : null;
+  // Procedures done = completed appointments
+  const proceduresDone = monthApts.filter((a) => a.status === 'COMPLETED').length;
 
-  // Month stats
-  const monthCompleted = monthApts.filter((a) => a.status === 'COMPLETED').length;
-  const monthRevenue   = monthApts
+  // Total sales = sum of completed appointment prices
+  const totalSales = monthApts
     .filter((a) => a.status === 'COMPLETED')
-    .reduce((sum, a) => sum + Number(a.totalPrice), 0);
+    .reduce((sum, a) => sum + Number(a.totalPrice ?? 0), 0);
 
-  // Most booked service
-  const serviceCount: Record<string, { name: string; count: number }> = {};
-  for (const a of monthApts.filter((a) => a.status === 'COMPLETED')) {
-    for (const s of a.services) {
-      if (!serviceCount[s.serviceId]) serviceCount[s.serviceId] = { name: s.service.name, count: 0 };
-      serviceCount[s.serviceId].count++;
+  // Working days = distinct calendar days with at least one appointment (any non-cancelled)
+  const activeDays = new Set(
+    monthApts
+      .filter((a) => a.status !== 'CANCELLED')
+      .map((a) => {
+        const d = new Date(a.startAt);
+        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      }),
+  );
+  const workingDays = activeDays.size;
+
+  // First-time clients: clients who had an appointment this month but NEVER with this specialist before
+  const monthClientIds = [...new Set(monthApts.map((a) => a.clientId))];
+
+  // For each client, check if they had any appointment with this specialist before monthStart
+  const priorAppts = await prisma.appointment.findMany({
+    where: {
+      specialistId: specialist.id,
+      clientId: { in: monthClientIds },
+      startAt: { lt: monthStart },
+    },
+    select: { clientId: true },
+  });
+  const clientsWithPrior = new Set(priorAppts.map((a) => a.clientId));
+  const firstTimeClientIds = new Set(monthClientIds.filter((id) => !clientsWithPrior.has(id)));
+
+  // Among first-time clients, count those with COMPLETED vs not
+  let firstTimePurchased  = 0;
+  let firstTimeNoPurchase = 0;
+
+  for (const a of monthApts) {
+    if (!firstTimeClientIds.has(a.clientId)) continue;
+    if (a.status === 'COMPLETED') {
+      firstTimePurchased++;
+    } else if (a.status === 'CANCELLED' || a.status === 'NO_SHOW') {
+      firstTimeNoPurchase++;
     }
   }
-  const topService = Object.values(serviceCount).sort((a, b) => b.count - a.count)[0] ?? null;
-
-  // Repeat client rate (clients with > 1 completed session this month)
-  const clientSessions: Record<string, number> = {};
-  for (const a of monthApts.filter((a) => a.status === 'COMPLETED')) {
-    clientSessions[a.clientId] = (clientSessions[a.clientId] ?? 0) + 1;
-  }
-  const repeatClients = Object.values(clientSessions).filter((n) => n > 1).length;
-  const totalClients  = Object.keys(clientSessions).length;
-  const repeatRate    = totalClients > 0 ? Math.round((repeatClients / totalClients) * 100) : 0;
 
   return ok({
-    week: {
-      completed: weekCompleted,
-      cancelled: weekCancelled,
-      noShows: weekNoShows,
-      workloadPct: weekWorkloadPct,
-    },
     month: {
-      completed: monthCompleted,
-      topService: topService?.name ?? null,
-      repeatRate,
-      earnings: specialist.showEarningsToSpecialist ? Math.round(monthRevenue) : null,
+      proceduresDone,
+      totalSales: Math.round(totalSales),
+      firstTimePurchased,
+      firstTimeNoPurchase,
+      workingDays,
     },
     showEarnings: specialist.showEarningsToSpecialist,
-    isMassage: specialist.department === 'MASSAGE',
-    dailyTarget,
   });
 }

@@ -49,10 +49,14 @@ interface ScheduleSlot {
 }
 
 interface PerfData {
-  week: { completed: number; cancelled: number; noShows: number; workloadPct: number | null };
-  month: { completed: number; topService: string | null; repeatRate: number; earnings: number | null };
+  month: {
+    proceduresDone: number;
+    totalSales: number;
+    firstTimePurchased: number;
+    firstTimeNoPurchase: number;
+    workingDays: number;
+  };
   showEarnings: boolean;
-  isMassage: boolean;
 }
 
 interface ProfileData {
@@ -717,43 +721,63 @@ function PerformanceTab() {
   );
   if (!perf) return <p className="text-center text-sm text-text-secondary py-8">{t('common.noData')}</p>;
 
+  const monthLabel = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-border-luxury bg-onyx/50">
-        <div className="px-4 py-3 border-b border-border-luxury flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-champagne" />
-          <h3 className="text-sm font-semibold text-text-primary">{t('portal.perf.week')}</h3>
-        </div>
-        <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label={t('portal.perf.completed')} value={perf.week.completed} />
-          <StatCard label={t('portal.perf.cancelled')} value={perf.week.cancelled} />
-          <StatCard label={t('portal.perf.noShows')} value={perf.week.noShows} />
-          {perf.isMassage && perf.week.workloadPct !== null && (
-            <StatCard label={t('portal.perf.workload')} value={`${perf.week.workloadPct}%`} />
-          )}
-        </div>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-1">
+        <TrendingUp className="w-4 h-4 text-champagne" />
+        <span className="text-sm font-semibold text-text-primary">{monthLabel}</span>
       </div>
 
-      <div className="rounded-2xl border border-border-luxury bg-onyx/50">
-        <div className="px-4 py-3 border-b border-border-luxury flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-champagne" />
-          <h3 className="text-sm font-semibold text-text-primary">{t('portal.perf.month')}</h3>
+      {/* 5 stat cards in a 2-col grid, last row spans full width */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Procedures Done */}
+        <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-1">
+          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Procedures Done</p>
+          <p className="text-2xl font-bold text-text-primary">{perf.month.proceduresDone}</p>
+          <p className="text-[10px] text-text-tertiary">completed this month</p>
         </div>
-        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCard label={t('portal.perf.completed')} value={perf.month.completed} />
-          <StatCard label={t('portal.perf.repeatRate')} value={`${perf.month.repeatRate}%`} />
-          {perf.month.topService && (
-            <StatCard label={t('portal.perf.topService')} value={perf.month.topService} />
-          )}
-          {perf.showEarnings && perf.month.earnings !== null && (
-            <StatCard label={t('portal.perf.earnings')} value={formatCurrency(perf.month.earnings)} />
+
+        {/* Total Sales */}
+        <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-1">
+          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Total Sales</p>
+          {perf.showEarnings ? (
+            <>
+              <p className="text-2xl font-bold text-champagne">{formatCurrency(perf.month.totalSales)}</p>
+              <p className="text-[10px] text-text-tertiary">revenue this month</p>
+            </>
+          ) : (
+            <>
+              <p className="text-2xl font-bold text-text-tertiary">—</p>
+              <p className="text-[10px] text-text-tertiary italic">hidden by admin</p>
+            </>
           )}
         </div>
-        {!perf.showEarnings && (
-          <div className="px-4 pb-4">
-            <p className="text-[10px] text-text-tertiary italic">{t('portal.perf.earningsHidden')}</p>
+
+        {/* First-time: Purchased */}
+        <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-1">
+          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">New Clients</p>
+          <p className="text-2xl font-bold text-green-400">{perf.month.firstTimePurchased}</p>
+          <p className="text-[10px] text-text-tertiary">first-timers who purchased</p>
+        </div>
+
+        {/* First-time: No Purchase */}
+        <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-1">
+          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Missed Clients</p>
+          <p className="text-2xl font-bold text-amber-400">{perf.month.firstTimeNoPurchase}</p>
+          <p className="text-[10px] text-text-tertiary">first-timers who didn&apos;t complete</p>
+        </div>
+
+        {/* Working Days — full width */}
+        <div className="col-span-2 rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Total Working Days</p>
+            <p className="text-[10px] text-text-tertiary">days with active appointments</p>
           </div>
-        )}
+          <p className="text-3xl font-bold text-text-primary">{perf.month.workingDays}</p>
+        </div>
       </div>
     </div>
   );
