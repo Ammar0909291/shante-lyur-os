@@ -85,9 +85,21 @@ html.light body {
 /* ══════════════════════════════════════════════════════════════════════════
  * DARK SIDEBAR — stays dark in light mode (elite pattern)
  * aside uses bg-onyx; we override it here to keep it rich and dark.
- * All text/icon colours inside aside reset to dark-theme values.
+ * CSS custom properties are scoped here so any var()-based utility
+ * inside the sidebar resolves to dark-theme values automatically.
  * ══════════════════════════════════════════════════════════════════════════ */
 html.light aside {
+  /* ── CSS variable scope reset (covers var()-based utilities) ── */
+  --color-obsidian:      #0A0A0F;
+  --color-onyx:          #19170F;
+  --color-charcoal:      #232118;
+  --color-text-primary:  #F0EDE8;
+  --color-text-secondary:#9A9490;
+  --color-text-tertiary: #6A6560;
+  --color-champagne:     #D4AF7A;
+  --color-champagne-light:#E8D4A8;
+  --color-border:        #2C2920;
+  --color-border-light:  #332F26;
   background-color: #19170F !important;
   border-color: #2C2920 !important;
 }
@@ -95,25 +107,31 @@ html.light aside .border-border-luxury,
 html.light aside .border-b,
 html.light aside .border-t { border-color: #2C2920 !important; }
 
-/* Sidebar text — restore dark-theme palette */
-html.light aside .text-text-primary    { color: #F0EDE8 !important; }
-html.light aside .text-text-secondary  { color: #9A9490 !important; }
-html.light aside .text-text-tertiary   { color: #6A6560 !important; }
-html.light aside .text-champagne       { color: #D4AF7A !important; }
+/* ── Sidebar text — restore dark-theme palette (class overrides) ─────────
+ * We use html.light body aside to get specificity (0,2,3) which beats
+ * the general html.light .text-* rules at (0,2,1).
+ * ─────────────────────────────────────────────────────────────────────── */
+html.light body aside .text-text-primary    { color: #F0EDE8 !important; }
+html.light body aside .text-text-secondary  { color: #9A9490 !important; }
+html.light body aside .text-text-tertiary   { color: #6A6560 !important; }
+html.light body aside .text-champagne       { color: #D4AF7A !important; }
+html.light body aside .text-obsidian        { color: #0A0A0F !important; }
+html.light body aside .text-white           { color: #FFFFFF !important; }
 
-/* Sidebar backgrounds */
-html.light aside .bg-onyx              { background-color: #19170F !important; }
-html.light aside .bg-charcoal         { background-color: #232118 !important; }
-html.light aside .hover\:bg-charcoal:hover { background-color: #232118 !important; }
-html.light aside .bg-champagne\/8     { background-color: rgba(212,175,122,0.10) !important; }
-html.light aside .bg-champagne        { background-color: #D4AF7A !important; }
-html.light aside .text-obsidian       { color: #0A0A0F !important; }
+/* ── Sidebar backgrounds ─────────────────────────────────────────────── */
+html.light body aside .bg-onyx              { background-color: #19170F !important; }
+html.light body aside .bg-charcoal         { background-color: #232118 !important; }
+html.light body aside .hover\:bg-charcoal:hover { background-color: #232118 !important; }
+html.light body aside .bg-champagne\/8     { background-color: rgba(212,175,122,0.10) !important; }
+html.light body aside .bg-champagne        { background-color: #D4AF7A !important; }
 
-/* Sidebar active indicator and unread badge */
-html.light aside .bg-red-500          { background-color: #dc2626 !important; }
-html.light aside .text-white          { color: #FFFFFF !important; }
+/* ── Sidebar active indicator and unread badge ───────────────────────── */
+html.light body aside .bg-red-500          { background-color: #dc2626 !important; }
 
-/* Sidebar collapse button */
+/* ── Sidebar nav link active state ──────────────────────────────────── */
+html.light body aside .bg-champagne\/8     { background-color: rgba(212,175,122,0.10) !important; }
+
+/* ── Sidebar collapse / close buttons ───────────────────────────────── */
 html.light aside button               { color: #9A9490; }
 html.light aside button:hover         { color: #F0EDE8; background-color: #232118; }
 
