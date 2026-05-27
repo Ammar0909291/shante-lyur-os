@@ -109,6 +109,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
       )}
 
       <aside
+        data-sidebar="true"
         className={cn(
           'fixed top-0 left-0 z-50 h-full flex flex-col',
           'bg-onyx border-r border-border-luxury',
