@@ -9,7 +9,7 @@ function err(msg: string, status = 400) {
   return NextResponse.json({ success: false, error: { message: msg } }, { status });
 }
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
 function r2(n: number): number { return Math.round(n * 100) / 100; }
 

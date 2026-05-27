@@ -5,7 +5,7 @@ import { z } from 'zod';
 import * as R from '@/shared/api/response';
 import { prisma } from '@/infrastructure/config/prisma-client';
 
-const ADMIN_ROLES       = ['SUPER_ADMIN', 'ADMIN'];
+const ADMIN_ROLES       = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 const SUPER_ADMIN_ROLES = ['SUPER_ADMIN'];
 
 const bodySchema = z.object({

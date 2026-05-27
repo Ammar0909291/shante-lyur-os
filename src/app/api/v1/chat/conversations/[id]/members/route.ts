@@ -14,7 +14,7 @@ function err(msg: string, status: number) {
 type Params = { params: Promise<{ id: string }> };
 
 const EMPLOYEE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST', 'COSMETOLOGIST', 'MASSAGIST'];
-const ADMIN_ROLES    = ['SUPER_ADMIN', 'ADMIN'];
+const ADMIN_ROLES    = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
 const AddMembersSchema = z.object({
   memberIds: z.array(z.string().uuid()).min(1).max(18),

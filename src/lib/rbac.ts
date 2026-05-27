@@ -34,9 +34,9 @@ export const ROLE_HIERARCHY: Record<AppRole, number> = {
 /** Root system authority — NEVER restrict. */
 export const isSuperAdmin = (role: string): boolean => role === 'SUPER_ADMIN';
 
-/** SUPER_ADMIN + ADMIN */
+/** SUPER_ADMIN + ADMIN + MANAGER (same CRM rights) */
 export const isAdminOrAbove = (role: string): boolean =>
-  ['SUPER_ADMIN', 'ADMIN'].includes(role);
+  ['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role);
 
 /** SUPER_ADMIN + ADMIN + MANAGER */
 export const isManagerOrAbove = (role: string): boolean =>
@@ -58,7 +58,7 @@ export const isSpecialist = (role: string): boolean =>
 
 export const RBAC_GROUPS = {
   SUPER_ADMIN_ONLY: ['SUPER_ADMIN'],
-  ADMIN_ONLY:       ['SUPER_ADMIN', 'ADMIN'],
+  ADMIN_ONLY:       ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
   MANAGER_UP:       ['SUPER_ADMIN', 'ADMIN', 'MANAGER'],
   FRONT_DESK:       ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST'],
   EMPLOYEES:        ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST', 'COSMETOLOGIST', 'MASSAGIST'],
@@ -81,7 +81,7 @@ function unauthorized(): Response {
   );
 }
 
-/** Returns 401/403 Response if caller is not authenticated as SUPER_ADMIN+ADMIN; null otherwise. */
+/** Returns 401/403 Response if caller is not authenticated as SUPER_ADMIN+ADMIN+MANAGER; null otherwise. */
 export function requireAdmin(userId: string | null, role: string): Response | null {
   if (!userId) return unauthorized();
   if (!isAdminOrAbove(role)) return forbidden('Admin access required');

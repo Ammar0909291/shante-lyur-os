@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const role = req.headers.get('x-user-role') ?? '';
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) return err('Forbidden', 403);
+  if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) return err('Forbidden', 403);
 
   const body = await req.json() as Record<string, string>;
 

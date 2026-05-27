@@ -10,7 +10,7 @@ function err(msg: string, status = 400) {
 
 export async function GET(req: NextRequest) {
   const role = req.headers.get('x-user-role') ?? '';
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) return err('Forbidden', 403);
+  if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) return err('Forbidden', 403);
 
   const { searchParams } = req.nextUrl;
   const page   = Math.max(1, parseInt(searchParams.get('page')  ?? '1',  10));

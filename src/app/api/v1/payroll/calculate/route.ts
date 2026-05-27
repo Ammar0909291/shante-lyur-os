@@ -5,7 +5,7 @@ import { z } from 'zod';
 import * as R from '@/shared/api/response';
 import { prisma } from '@/infrastructure/config/prisma-client';
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
 const bodySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'from must be YYYY-MM-DD'),

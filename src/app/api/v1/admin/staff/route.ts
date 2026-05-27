@@ -18,7 +18,7 @@ const DEPT_MAP: Record<string, 'COSMETOLOGY' | 'MASSAGE'> = {
 export async function POST(req: NextRequest) {
   const callerRole = req.headers.get('x-user-role') ?? '';
   const callerId   = req.headers.get('x-user-id')   ?? '';
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(callerRole)) return err('Forbidden', 403);
+  if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(callerRole)) return err('Forbidden', 403);
 
   let body: {
     firstName: string;

@@ -13,7 +13,7 @@ function apiError(code: string, message: string, status: number) {
 }
 function requireAdmin(req: NextRequest) {
   const role = req.headers.get('x-user-role') ?? '';
-  if (!['ADMIN', 'SUPER_ADMIN'].includes(role)) return apiError('FORBIDDEN', 'Admin access required', 403);
+  if (!['ADMIN', 'SUPER_ADMIN', 'MANAGER'].includes(role)) return apiError('FORBIDDEN', 'Admin access required', 403);
   return null;
 }
 

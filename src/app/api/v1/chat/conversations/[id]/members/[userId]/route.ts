@@ -11,7 +11,7 @@ function err(msg: string, status: number) {
 
 type Params = { params: Promise<{ id: string; userId: string }> };
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
 export async function DELETE(req: NextRequest, { params }: Params) {
   const actorId = getCurrentUserId(req) ?? req.headers.get('x-user-id');

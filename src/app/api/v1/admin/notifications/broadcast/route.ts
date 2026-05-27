@@ -11,7 +11,7 @@ function err(msg: string, status: number) {
   return NextResponse.json({ success: false, error: { message: msg } }, { status });
 }
 
-const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN'];
+const ADMIN_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
 const TARGET_ROLES: Record<string, string[]> = {
   all:        ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'RECEPTIONIST', 'COSMETOLOGIST', 'MASSAGIST'],

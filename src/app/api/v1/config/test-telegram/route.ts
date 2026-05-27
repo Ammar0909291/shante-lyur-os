@@ -24,7 +24,7 @@ function networkErrMessage(e: AxiosError): string {
 
 export async function POST(req: NextRequest) {
   const role = req.headers.get('x-user-role') ?? '';
-  if (!['SUPER_ADMIN', 'ADMIN'].includes(role)) return err('Forbidden', 403);
+  if (!['SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(role)) return err('Forbidden', 403);
 
   let body: { chatId?: string };
   try { body = await req.json() as { chatId?: string }; }
