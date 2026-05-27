@@ -210,7 +210,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
               {commPref?.telegramEnabled && commPref?.telegramChatId ? (
                 <span className="flex items-center gap-1.5 text-sm text-blue-400">
                   <Bot className="w-3.5 h-3.5" />
-                  Telegram on
+                  Telegram: <span className="font-mono text-xs bg-blue-500/10 px-1.5 py-0.5 rounded">{commPref.telegramChatId}</span>
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5 text-sm text-text-tertiary">
