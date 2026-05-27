@@ -93,7 +93,9 @@ html.light body {
  * ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Background & CSS variable scope ─────────────────────────────────── */
-html.light [data-sidebar] {
+/* bg-onyx compound: (0,3,1) > html.light .bg-onyx (0,2,1) → we win       */
+html.light [data-sidebar],
+html.light [data-sidebar].bg-onyx {
   --color-obsidian:       #0A0A0F;
   --color-onyx:           #19170F;
   --color-charcoal:       #232118;
