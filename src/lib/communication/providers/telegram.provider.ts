@@ -1,5 +1,5 @@
-import axios from 'axios';
 import { BaseProvider } from './base.provider';
+import { tgPost, type TelegramApiResponse } from './telegram-http';
 import type { MessagePayload, SendResult } from '../types';
 
 interface TelegramSendMessageParams {
@@ -7,22 +7,6 @@ interface TelegramSendMessageParams {
   text: string;
   parse_mode?: 'HTML' | 'Markdown' | 'MarkdownV2';
   disable_web_page_preview?: boolean;
-}
-
-interface TelegramApiResponse {
-  ok: boolean;
-  result?: { message_id: number };
-  error_code?: number;
-  description?: string;
-}
-
-async function tgPost(token: string, method: string, data: unknown): Promise<TelegramApiResponse> {
-  const res = await axios.post<TelegramApiResponse>(
-    `https://api.telegram.org/bot${token}/${method}`,
-    data,
-    { timeout: 10_000, headers: { 'Content-Type': 'application/json' } },
-  );
-  return res.data;
 }
 
 export class TelegramProvider extends BaseProvider {
@@ -55,10 +39,6 @@ export class TelegramProvider extends BaseProvider {
     return this.botToken;
   }
 
-  get apiBase(): string {
-    return `https://api.telegram.org/bot${this.botToken}`;
-  }
-
   async send(payload: MessagePayload): Promise<SendResult> {
     const token = await this.resolveToken();
     if (!token) {
@@ -75,7 +55,7 @@ export class TelegramProvider extends BaseProvider {
 
     try {
       this.log('info', `Sending message to chat_id=${payload.to}`);
-      const json = await tgPost(token, 'sendMessage', params);
+      const json: TelegramApiResponse = await tgPost(token, 'sendMessage', params);
 
       if (!json.ok) {
         const errMsg = json.description ?? `error_code=${json.error_code}`;
@@ -83,7 +63,8 @@ export class TelegramProvider extends BaseProvider {
         return { success: false, error: errMsg, providerResponse: json as unknown as Record<string, unknown> };
       }
 
-      const externalId = String(json.result?.message_id ?? '');
+      const result = json.result as { message_id?: number } | undefined;
+      const externalId = String(result?.message_id ?? '');
       this.log('info', `Sent OK, message_id=${externalId}`);
       return { success: true, externalId, providerResponse: json as unknown as Record<string, unknown> };
     } catch (err) {
