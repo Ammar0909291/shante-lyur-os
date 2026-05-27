@@ -52,11 +52,14 @@ interface PerfData {
   month: {
     proceduresDone: number;
     totalSales: number;
+    totalCommission: number;
     firstTimePurchased: number;
     firstTimeNoPurchase: number;
     workingDays: number;
   };
+  commissionRate: number;
   showEarnings: boolean;
+  period: { year: number; month: number };
 }
 
 interface ProfileData {
@@ -701,11 +704,15 @@ function ScheduleTab() {
 
 function PerformanceTab() {
   const { t } = useLanguage();
-  const [perf, setPerf] = React.useState<PerfData | null>(null);
+  const now = new Date();
+  const [year,  setYear]  = React.useState(now.getFullYear());
+  const [month, setMonth] = React.useState(now.getMonth() + 1); // 1-based
+  const [perf, setPerf]   = React.useState<PerfData | null>(null);
   const [loading, setLoading] = React.useState(true);
 
-  React.useEffect(() => {
-    fetch('/api/specialist/portal/performance')
+  const load = React.useCallback((y: number, m: number) => {
+    setLoading(true);
+    fetch(`/api/specialist/portal/performance?year=${y}&month=${m}`)
       .then((r) => r.json())
       .then((j: { success: boolean; data?: PerfData }) => {
         if (j.success && j.data) setPerf(j.data);
@@ -714,6 +721,22 @@ function PerformanceTab() {
       .finally(() => setLoading(false));
   }, []);
 
+  React.useEffect(() => { load(year, month); }, [load, year, month]);
+
+  const prevMonth = () => {
+    if (month === 1) { setYear((y) => y - 1); setMonth(12); }
+    else setMonth((m) => m - 1);
+  };
+  const nextMonth = () => {
+    const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+    if (isCurrentMonth) return; // can't go into the future
+    if (month === 12) { setYear((y) => y + 1); setMonth(1); }
+    else setMonth((m) => m + 1);
+  };
+
+  const monthLabel = new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+
   if (loading) return (
     <div className="flex items-center justify-center h-48 gap-2 text-text-tertiary">
       <Loader2 className="w-5 h-5 animate-spin" />
@@ -721,32 +744,50 @@ function PerformanceTab() {
   );
   if (!perf) return <p className="text-center text-sm text-text-secondary py-8">{t('common.noData')}</p>;
 
-  const monthLabel = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const commissionPct = Math.round(perf.commissionRate * 100);
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-1">
-        <TrendingUp className="w-4 h-4 text-champagne" />
-        <span className="text-sm font-semibold text-text-primary">{monthLabel}</span>
+      {/* Month navigation */}
+      <div className="flex items-center justify-between px-1">
+        <button onClick={prevMonth} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
+          <ChevronRight className="w-4 h-4 rotate-180" />
+        </button>
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-champagne" />
+          <span className="text-sm font-semibold text-text-primary">{monthLabel}</span>
+        </div>
+        <button onClick={nextMonth}
+          className={cn('p-1.5 rounded-lg transition-colors',
+            isCurrentMonth
+              ? 'text-text-tertiary/30 cursor-not-allowed'
+              : 'text-text-tertiary hover:text-text-primary hover:bg-charcoal')}>
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* 5 stat cards in a 2-col grid, last row spans full width */}
+      {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3">
         {/* Procedures Done */}
         <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-1">
           <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Procedures Done</p>
           <p className="text-2xl font-bold text-text-primary">{perf.month.proceduresDone}</p>
-          <p className="text-[10px] text-text-tertiary">completed this month</p>
+          <p className="text-[10px] text-text-tertiary">completed appointments</p>
         </div>
 
-        {/* Total Sales */}
-        <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-1">
-          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Total Sales</p>
+        {/* Total Sales + Commission */}
+        <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-2">
+          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Sales & Commission</p>
           {perf.showEarnings ? (
             <>
-              <p className="text-2xl font-bold text-champagne">{formatCurrency(perf.month.totalSales)}</p>
-              <p className="text-[10px] text-text-tertiary">revenue this month</p>
+              <div>
+                <p className="text-[10px] text-text-tertiary mb-0.5">Total Sales</p>
+                <p className="text-lg font-bold text-champagne leading-tight">{formatCurrency(perf.month.totalSales)}</p>
+              </div>
+              <div className="border-t border-border-luxury/50 pt-2">
+                <p className="text-[10px] text-text-tertiary mb-0.5">Your Commission ({commissionPct}%)</p>
+                <p className="text-base font-semibold text-green-400 leading-tight">{formatCurrency(perf.month.totalCommission)}</p>
+              </div>
             </>
           ) : (
             <>
@@ -767,7 +808,7 @@ function PerformanceTab() {
         <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-1">
           <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Missed Clients</p>
           <p className="text-2xl font-bold text-amber-400">{perf.month.firstTimeNoPurchase}</p>
-          <p className="text-[10px] text-text-tertiary">first-timers who didn&apos;t complete</p>
+          <p className="text-[10px] text-text-tertiary">first-timers — no completed visit</p>
         </div>
 
         {/* Working Days — full width */}

@@ -18,29 +18,51 @@ export async function GET(req: NextRequest) {
 
   const specialist = await prisma.specialist.findUnique({
     where: { userId },
-    select: { id: true, showEarningsToSpecialist: true },
+    select: { id: true, showEarningsToSpecialist: true, commissionRate: true },
   });
   if (!specialist) return err('NOT_FOUND', 'Specialist record not found', 404);
 
+  // Optional month/year from query params — default to current month
+  const { searchParams } = new URL(req.url);
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const year  = parseInt(searchParams.get('year')  ?? String(now.getFullYear()), 10);
+  const month = parseInt(searchParams.get('month') ?? String(now.getMonth() + 1), 10); // 1-based
 
-  // All appointments this month
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd   = new Date(year, month, 1);
+
+  // All appointments this month for this specialist
   const monthApts = await prisma.appointment.findMany({
     where: { specialistId: specialist.id, startAt: { gte: monthStart, lt: monthEnd } },
-    select: { status: true, totalPrice: true, clientId: true, startAt: true },
+    select: {
+      status: true,
+      totalPrice: true,
+      clientId: true,
+      startAt: true,
+      payments: {
+        where: { status: { in: ['CAPTURED', 'AUTHORIZED', 'PARTIALLY_REFUNDED'] } },
+        select: { specialistCommission: true },
+      },
+    },
   });
 
-  // Procedures done = completed appointments
-  const proceduresDone = monthApts.filter((a) => a.status === 'COMPLETED').length;
+  const completedApts = monthApts.filter((a) => a.status === 'COMPLETED');
 
   // Total sales = sum of completed appointment prices
-  const totalSales = monthApts
-    .filter((a) => a.status === 'COMPLETED')
-    .reduce((sum, a) => sum + Number(a.totalPrice ?? 0), 0);
+  const totalSales = completedApts.reduce((sum, a) => sum + Number(a.totalPrice ?? 0), 0);
 
-  // Working days = distinct calendar days with at least one appointment (any non-cancelled)
+  // Total commission — use Payment.specialistCommission if available, else totalSales * commissionRate
+  const commissionsFromPayments = completedApts.flatMap((a) =>
+    a.payments.map((p) => Number(p.specialistCommission ?? 0)),
+  );
+  const totalCommission = commissionsFromPayments.some((v) => v > 0)
+    ? commissionsFromPayments.reduce((s, v) => s + v, 0)
+    : Math.round(totalSales * Number(specialist.commissionRate));
+
+  // Procedures done = completed appointments count
+  const proceduresDone = completedApts.length;
+
+  // Working days = distinct calendar days with at least one non-cancelled appointment
   const activeDays = new Set(
     monthApts
       .filter((a) => a.status !== 'CANCELLED')
@@ -51,42 +73,42 @@ export async function GET(req: NextRequest) {
   );
   const workingDays = activeDays.size;
 
-  // First-time clients: clients who had an appointment this month but NEVER with this specialist before
+  // First-time clients: clients who had NO prior appointment with this specialist before monthStart
   const monthClientIds = [...new Set(monthApts.map((a) => a.clientId))];
-
-  // For each client, check if they had any appointment with this specialist before monthStart
-  const priorAppts = await prisma.appointment.findMany({
-    where: {
-      specialistId: specialist.id,
-      clientId: { in: monthClientIds },
-      startAt: { lt: monthStart },
-    },
-    select: { clientId: true },
-  });
-  const clientsWithPrior = new Set(priorAppts.map((a) => a.clientId));
-  const firstTimeClientIds = new Set(monthClientIds.filter((id) => !clientsWithPrior.has(id)));
-
-  // Among first-time clients, count those with COMPLETED vs not
   let firstTimePurchased  = 0;
   let firstTimeNoPurchase = 0;
 
-  for (const a of monthApts) {
-    if (!firstTimeClientIds.has(a.clientId)) continue;
-    if (a.status === 'COMPLETED') {
-      firstTimePurchased++;
-    } else if (a.status === 'CANCELLED' || a.status === 'NO_SHOW') {
-      firstTimeNoPurchase++;
+  if (monthClientIds.length > 0) {
+    const priorApts = await prisma.appointment.findMany({
+      where: {
+        specialistId: specialist.id,
+        clientId: { in: monthClientIds },
+        startAt: { lt: monthStart },
+      },
+      select: { clientId: true },
+    });
+    const clientsWithPrior = new Set(priorApts.map((a) => a.clientId));
+    const firstTimeIds = new Set(monthClientIds.filter((id) => !clientsWithPrior.has(id)));
+
+    for (const a of monthApts) {
+      if (!firstTimeIds.has(a.clientId)) continue;
+      if (a.status === 'COMPLETED') firstTimePurchased++;
+      else if (a.status === 'CANCELLED' || a.status === 'NO_SHOW') firstTimeNoPurchase++;
     }
   }
 
   return ok({
     month: {
       proceduresDone,
-      totalSales: Math.round(totalSales),
+      totalSales:     Math.round(totalSales),
+      totalCommission: Math.round(totalCommission),
       firstTimePurchased,
       firstTimeNoPurchase,
       workingDays,
     },
+    commissionRate: Number(specialist.commissionRate),
     showEarnings: specialist.showEarningsToSpecialist,
+    // Echo back the queried period
+    period: { year, month },
   });
 }
