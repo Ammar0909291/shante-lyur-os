@@ -53,11 +53,12 @@ interface PerfData {
     proceduresDone: number;
     totalSales: number;
     totalCommission: number;
+    commissionPending: number;
+    commissionApproved: number;
     firstTimePurchased: number;
     firstTimeNoPurchase: number;
     workingDays: number;
   };
-  commissionRate: number;
   period: { year: number; month: number };
 }
 
@@ -743,8 +744,6 @@ function PerformanceTab() {
   );
   if (!perf) return <p className="text-center text-sm text-text-secondary py-8">{t('common.noData')}</p>;
 
-  const commissionPct = Math.round(perf.commissionRate * 100);
-
   return (
     <div className="space-y-4">
       {/* Month navigation */}
@@ -781,9 +780,26 @@ function PerformanceTab() {
             <p className="text-[10px] text-text-tertiary mb-0.5">Total Sales</p>
             <p className="text-lg font-bold text-champagne leading-tight">{formatCurrency(perf.month.totalSales)}</p>
           </div>
-          <div className="border-t border-border-luxury/50 pt-2">
-            <p className="text-[10px] text-text-tertiary mb-0.5">Your Commission ({commissionPct}%)</p>
+          <div className="border-t border-border-luxury/50 pt-2 space-y-1">
+            <p className="text-[10px] text-text-tertiary">Your Commission</p>
             <p className="text-base font-semibold text-green-400 leading-tight">{formatCurrency(perf.month.totalCommission)}</p>
+            {(perf.month.commissionPending > 0 || perf.month.commissionApproved > 0) && (
+              <div className="flex gap-2 pt-0.5">
+                {perf.month.commissionApproved > 0 && (
+                  <span className="text-[9px] bg-green-500/15 text-green-400 border border-green-500/20 rounded px-1.5 py-0.5">
+                    ✓ {formatCurrency(perf.month.commissionApproved)} approved
+                  </span>
+                )}
+                {perf.month.commissionPending > 0 && (
+                  <span className="text-[9px] bg-amber-500/15 text-amber-400 border border-amber-500/20 rounded px-1.5 py-0.5">
+                    ⏳ {formatCurrency(perf.month.commissionPending)} pending
+                  </span>
+                )}
+              </div>
+            )}
+            {perf.month.totalCommission === 0 && (
+              <p className="text-[9px] text-text-tertiary italic">No commission entries yet for this period</p>
+            )}
           </div>
         </div>
 

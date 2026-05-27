@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const specialist = await prisma.specialist.findUnique({
     where: { userId },
-    select: { id: true, commissionRate: true },
+    select: { id: true },
   });
   if (!specialist) return err('NOT_FOUND', 'Specialist record not found', 404);
 
@@ -31,19 +31,10 @@ export async function GET(req: NextRequest) {
   const monthStart = new Date(year, month - 1, 1);
   const monthEnd   = new Date(year, month, 1);
 
-  // All appointments this month for this specialist
+  // ── Appointments for this month ──────────────────────────────────────────────
   const monthApts = await prisma.appointment.findMany({
     where: { specialistId: specialist.id, startAt: { gte: monthStart, lt: monthEnd } },
-    select: {
-      status: true,
-      totalPrice: true,
-      clientId: true,
-      startAt: true,
-      payments: {
-        where: { status: { in: ['CAPTURED', 'AUTHORIZED', 'PARTIALLY_REFUNDED'] } },
-        select: { specialistCommission: true },
-      },
-    },
+    select: { status: true, totalPrice: true, clientId: true, startAt: true },
   });
 
   const completedApts = monthApts.filter((a) => a.status === 'COMPLETED');
@@ -51,18 +42,29 @@ export async function GET(req: NextRequest) {
   // Total sales = sum of completed appointment prices
   const totalSales = completedApts.reduce((sum, a) => sum + Number(a.totalPrice ?? 0), 0);
 
-  // Total commission — use Payment.specialistCommission if available, else totalSales * commissionRate
-  const commissionsFromPayments = completedApts.flatMap((a) =>
-    a.payments.map((p) => Number(p.specialistCommission ?? 0)),
-  );
-  const totalCommission = commissionsFromPayments.some((v) => v > 0)
-    ? commissionsFromPayments.reduce((s, v) => s + v, 0)
-    : Math.round(totalSales * Number(specialist.commissionRate));
+  // ── Commission from SaleCommissionEntry (the real per-sale commission) ───────
+  const commissionEntries = await prisma.saleCommissionEntry.findMany({
+    where: {
+      userId,
+      saleDate: { gte: monthStart, lt: monthEnd },
+    },
+    select: { commissionAmount: true, status: true },
+  });
 
-  // Procedures done = completed appointments count
+  const commissionPending  = commissionEntries
+    .filter((e) => e.status === 'PENDING')
+    .reduce((s, e) => s + Number(e.commissionAmount), 0);
+
+  const commissionApproved = commissionEntries
+    .filter((e) => e.status === 'APPROVED' || e.status === 'PAID')
+    .reduce((s, e) => s + Number(e.commissionAmount), 0);
+
+  const totalCommission = commissionPending + commissionApproved;
+
+  // ── Procedures done ──────────────────────────────────────────────────────────
   const proceduresDone = completedApts.length;
 
-  // Working days = distinct calendar days with at least one non-cancelled appointment
+  // ── Working days ─────────────────────────────────────────────────────────────
   const activeDays = new Set(
     monthApts
       .filter((a) => a.status !== 'CANCELLED')
@@ -73,7 +75,7 @@ export async function GET(req: NextRequest) {
   );
   const workingDays = activeDays.size;
 
-  // First-time clients: clients who had NO prior appointment with this specialist before monthStart
+  // ── First-time clients ───────────────────────────────────────────────────────
   const monthClientIds = [...new Set(monthApts.map((a) => a.clientId))];
   let firstTimePurchased  = 0;
   let firstTimeNoPurchase = 0;
@@ -100,14 +102,14 @@ export async function GET(req: NextRequest) {
   return ok({
     month: {
       proceduresDone,
-      totalSales:     Math.round(totalSales),
-      totalCommission: Math.round(totalCommission),
+      totalSales:          Math.round(totalSales),
+      totalCommission:     Math.round(totalCommission),
+      commissionPending:   Math.round(commissionPending),
+      commissionApproved:  Math.round(commissionApproved),
       firstTimePurchased,
       firstTimeNoPurchase,
       workingDays,
     },
-    commissionRate: Number(specialist.commissionRate),
-    // Always show earnings in specialist's own portal
     period: { year, month },
   });
 }
