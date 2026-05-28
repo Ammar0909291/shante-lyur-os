@@ -59,7 +59,7 @@ jest.mock('@/infrastructure/config/prisma-client', () => ({
 function postReq(body: unknown): NextRequest {
   return new NextRequest('http://localhost:3000/api/specialists', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-user-id': 'usr-admin', 'x-user-role': 'ADMIN' },
     body: JSON.stringify(body),
   });
 }

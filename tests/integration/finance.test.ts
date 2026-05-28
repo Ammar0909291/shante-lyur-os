@@ -54,6 +54,16 @@ jest.mock('@/infrastructure/config/prisma-client', () => ({
       findUnique: jest.fn(),
       update:     jest.fn(),
     },
+    payrollEntry: {
+      findFirst: jest.fn(),
+      create:    jest.fn(),
+    },
+    specialistSalaryConfig: {
+      findUnique: jest.fn(),
+    },
+    specialist: {
+      findUnique: jest.fn(),
+    },
     $transaction: jest.fn(),
   },
 }));
@@ -80,6 +90,9 @@ const p = _prisma as unknown as {
   auditLog:        { create: AnyFn };
   revenueRecord:   { create: AnyFn };
   customerProfile: { findUnique: AnyFn; update: AnyFn };
+  payrollEntry:    { findFirst: AnyFn; create: AnyFn };
+  specialistSalaryConfig: { findUnique: AnyFn };
+  specialist:      { findUnique: AnyFn };
   $transaction: AnyFn;
 };
 
@@ -210,6 +223,10 @@ describe('POST /api/finance/payments', () => {
     p.revenueRecord.create.mockResolvedValue({});
     p.customerProfile.findUnique.mockResolvedValue(null); // no profile → skip lifetime update
     p.customerProfile.update.mockResolvedValue({});
+    p.payrollEntry.findFirst.mockResolvedValue(null); // no existing commission entry
+    p.specialistSalaryConfig.findUnique.mockResolvedValue(null); // no salary config
+    p.specialist.findUnique.mockResolvedValue({ commissionRate: dec(0.3) });
+    p.payrollEntry.create.mockResolvedValue({});
   }
 
   it('creates payment and updates appointment to PAID', async () => {

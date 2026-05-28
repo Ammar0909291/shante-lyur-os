@@ -65,7 +65,7 @@ function adminReq(url: string, body?: unknown): NextRequest {
 function operatorReq(url: string, body?: unknown): NextRequest {
   return new NextRequest(url, {
     method: body ? 'POST' : 'GET',
-    headers: { 'x-user-id': 'op-1', 'x-user-role': 'OPERATOR', 'Content-Type': 'application/json' },
+    headers: { 'x-user-id': 'op-1', 'x-user-role': 'RECEPTIONIST', 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
 }
@@ -86,11 +86,13 @@ const TODAY_11 = new Date('2026-05-19T08:00:00Z');
 const SPECIALIST_MASSAGE = {
   id: 'spec-m1',
   specialization: 'Массажист',
+  department: 'MASSAGE',
   user: { firstName: 'Анна', lastName: 'Иванова' },
 };
 const SPECIALIST_COSM = {
   id: 'spec-c1',
   specialization: 'Косметолог',
+  department: 'COSMETOLOGY',
   user: { firstName: 'Мария', lastName: 'Петрова' },
 };
 

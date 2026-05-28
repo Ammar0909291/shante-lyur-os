@@ -36,16 +36,19 @@ const SPECIALISTS = [
   {
     id: 'sp-1',
     specialization: 'Массажист SPA',
+    department: 'MASSAGE',
     user: { firstName: 'Анна', lastName: 'Иванова' },
   },
   {
     id: 'sp-2',
     specialization: 'массажист Thai',
+    department: 'MASSAGE',
     user: { firstName: 'Мария', lastName: 'Петрова' },
   },
   {
     id: 'sp-3',
     specialization: 'Косметолог',
+    department: 'COSMETOLOGY',
     user: { firstName: 'Елена', lastName: 'Сидорова' },
   },
 ];
