@@ -101,6 +101,7 @@ interface ClientCardData {
 // ─── Client card modal ────────────────────────────────────────────────────────
 
 function ClientCardModal({ clientId, onClose }: { clientId: string; onClose: () => void }) {
+  const { t } = useLanguage();
   const [data, setData] = React.useState<ClientCardData | null>(null);
   const [loading, setLoading] = React.useState(true);
 
@@ -125,7 +126,7 @@ function ClientCardModal({ clientId, onClose }: { clientId: string; onClose: () 
         <div className="flex items-center justify-between px-4 py-3 border-b border-border-luxury shrink-0">
           <div className="flex items-center gap-2">
             <UserCircle className="w-4 h-4 text-champagne" />
-            <span className="text-sm font-semibold text-text-primary">{data?.name ?? 'Клиент'}</span>
+            <span className="text-sm font-semibold text-text-primary">{data?.name ?? t('portal.client.name')}</span>
           </div>
           <button onClick={onClose} className="p-1 rounded text-text-tertiary hover:text-text-primary transition-colors">
             <X className="w-4 h-4" />
@@ -138,7 +139,7 @@ function ClientCardModal({ clientId, onClose }: { clientId: string; onClose: () 
           </div>
         ) : !data ? (
           <div className="flex items-center justify-center h-40">
-            <p className="text-sm text-text-secondary">Нет данных</p>
+            <p className="text-sm text-text-secondary">{t('portal.client.noData')}</p>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -155,7 +156,7 @@ function ClientCardModal({ clientId, onClose }: { clientId: string; onClose: () 
               <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 space-y-2">
                 <div className="flex items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
-                  <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">Аллергии</span>
+                  <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">{t('portal.client.allergies')}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {data.allergies.map((a, i) => (
@@ -172,7 +173,7 @@ function ClientCardModal({ clientId, onClose }: { clientId: string; onClose: () 
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-2">
                 <div className="flex items-center gap-1.5">
                   <Leaf className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Ограничения</span>
+                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">{t('portal.client.restrictions')}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {data.restrictions.map((r, i) => (
@@ -187,9 +188,9 @@ function ClientCardModal({ clientId, onClose }: { clientId: string; onClose: () 
             {/* Profile notes */}
             {(data.skinType || data.bodyType || data.notes) && (
               <div className="rounded-xl border border-border-luxury bg-charcoal/20 p-3 space-y-1.5">
-                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">Профиль</span>
-                {data.skinType && <p className="text-xs text-text-secondary">Тип кожи: {data.skinType}</p>}
-                {data.bodyType && <p className="text-xs text-text-secondary">Тип тела: {data.bodyType}</p>}
+                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">{t('portal.client.profile')}</span>
+                {data.skinType && <p className="text-xs text-text-secondary">{t('portal.client.skinType')}: {data.skinType}</p>}
+                {data.bodyType && <p className="text-xs text-text-secondary">{t('portal.client.bodyType')}: {data.bodyType}</p>}
                 {data.notes && <p className="text-xs text-text-secondary italic">{data.notes}</p>}
               </div>
             )}
@@ -197,7 +198,7 @@ function ClientCardModal({ clientId, onClose }: { clientId: string; onClose: () 
             {/* Recent visits */}
             {data.recentVisits.length > 0 && (
               <div className="space-y-2">
-                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">Последние визиты</span>
+                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">{t('portal.client.recentVisits')}</span>
                 {data.recentVisits.slice(0, 5).map((v) => (
                   <div key={v.id} className="rounded-lg border border-border-luxury/50 bg-charcoal/20 px-3 py-2">
                     <div className="flex items-center justify-between">
@@ -213,7 +214,7 @@ function ClientCardModal({ clientId, onClose }: { clientId: string; onClose: () 
             {/* Specialist notes */}
             {data.specialistNotes.length > 0 && (
               <div className="space-y-2">
-                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">Мои заметки</span>
+                <span className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">{t('portal.client.myNotes')}</span>
                 {data.specialistNotes.map((n) => (
                   <div key={n.id} className="rounded-lg border border-border-luxury/50 bg-charcoal/20 px-3 py-2 space-y-0.5">
                     <div className="flex items-center justify-between">
@@ -227,7 +228,7 @@ function ClientCardModal({ clientId, onClose }: { clientId: string; onClose: () 
             )}
 
             {data.allergies.length === 0 && data.recentVisits.length === 0 && data.specialistNotes.length === 0 && (
-              <p className="text-sm text-text-tertiary text-center py-4">Нет дополнительных данных о клиенте</p>
+              <p className="text-sm text-text-tertiary text-center py-4">{t('portal.client.noExtraData')}</p>
             )}
           </div>
         )}
@@ -256,12 +257,8 @@ const REQ_STATUS_COLORS: Record<string, string> = {
 };
 
 
-const MONTH_RU_PANEL = [
-  'Январь','Февраль','Март','Апрель','Май','Июнь',
-  'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь',
-];
-
 function ScheduleCalendar() {
+  const { t, lang } = useLanguage();
   const now = new Date();
   const [year,  setYear]  = React.useState(now.getFullYear());
   const [month, setMonth] = React.useState(now.getMonth());
@@ -298,7 +295,7 @@ function ScheduleCalendar() {
         <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-white/10 text-text-tertiary hover:text-text-primary transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
-        <span className="text-sm font-semibold text-champagne">{MONTH_RU_PANEL[month]} {year}</span>
+        <span className="text-sm font-semibold text-champagne">{new Date(year, month).toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU', { month: 'long' })} {year}</span>
         <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-white/10 text-text-tertiary hover:text-text-primary transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
         </button>
@@ -328,8 +325,8 @@ function ScheduleCalendar() {
       )}
 
       <div className="mt-3 flex gap-4 text-[11px] text-text-tertiary">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-900/40 border border-emerald-700/30 inline-block" />Рабочий</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-charcoal/40 inline-block" />Выходной</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-900/40 border border-emerald-700/30 inline-block" />{t('portal.schedule.workDay')}</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-charcoal/40 inline-block" />{t('portal.schedule.dayOff')}</span>
       </div>
     </div>
   );
@@ -768,60 +765,60 @@ function PerformanceTab() {
       <div className="grid grid-cols-2 gap-3">
         {/* Procedures Done */}
         <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-1">
-          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Procedures Done</p>
+          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">{t('portal.perf.procsDone')}</p>
           <p className="text-2xl font-bold text-text-primary">{perf.month.proceduresDone}</p>
-          <p className="text-[10px] text-text-tertiary">completed appointments</p>
+          <p className="text-[10px] text-text-tertiary">{t('portal.perf.completedAppts')}</p>
         </div>
 
         {/* Total Sales + Commission */}
         <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-2">
-          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Sales & Commission</p>
+          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">{t('portal.perf.salesCommission')}</p>
           <div>
-            <p className="text-[10px] text-text-tertiary mb-0.5">Total Sales</p>
+            <p className="text-[10px] text-text-tertiary mb-0.5">{t('portal.perf.totalSales')}</p>
             <p className="text-lg font-bold text-champagne leading-tight">{formatCurrency(perf.month.totalSales)}</p>
           </div>
           <div className="border-t border-border-luxury/50 pt-2 space-y-1">
-            <p className="text-[10px] text-text-tertiary">Your Commission</p>
+            <p className="text-[10px] text-text-tertiary">{t('portal.perf.yourCommission')}</p>
             <p className="text-base font-semibold text-green-400 leading-tight">{formatCurrency(perf.month.totalCommission)}</p>
             {(perf.month.commissionPending > 0 || perf.month.commissionApproved > 0) && (
               <div className="flex gap-2 pt-0.5">
                 {perf.month.commissionApproved > 0 && (
                   <span className="text-[9px] bg-green-500/15 text-green-400 border border-green-500/20 rounded px-1.5 py-0.5">
-                    ✓ {formatCurrency(perf.month.commissionApproved)} approved
+                    ✓ {formatCurrency(perf.month.commissionApproved)} {t('portal.perf.statusApproved')}
                   </span>
                 )}
                 {perf.month.commissionPending > 0 && (
                   <span className="text-[9px] bg-amber-500/15 text-amber-400 border border-amber-500/20 rounded px-1.5 py-0.5">
-                    ⏳ {formatCurrency(perf.month.commissionPending)} pending
+                    ⏳ {formatCurrency(perf.month.commissionPending)} {t('portal.perf.statusPending')}
                   </span>
                 )}
               </div>
             )}
             {perf.month.totalCommission === 0 && (
-              <p className="text-[9px] text-text-tertiary italic">No commission entries yet for this period</p>
+              <p className="text-[9px] text-text-tertiary italic">{t('portal.perf.noCommission')}</p>
             )}
           </div>
         </div>
 
         {/* First-time: Purchased */}
         <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-1">
-          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">New Clients</p>
+          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">{t('portal.perf.newClients')}</p>
           <p className="text-2xl font-bold text-green-400">{perf.month.firstTimePurchased}</p>
-          <p className="text-[10px] text-text-tertiary">first-timers who purchased</p>
+          <p className="text-[10px] text-text-tertiary">{t('portal.perf.firstTimersBought')}</p>
         </div>
 
         {/* First-time: No Purchase */}
         <div className="rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex flex-col gap-1">
-          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Missed Clients</p>
+          <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">{t('portal.perf.missedClients')}</p>
           <p className="text-2xl font-bold text-amber-400">{perf.month.firstTimeNoPurchase}</p>
-          <p className="text-[10px] text-text-tertiary">first-timers — no completed visit</p>
+          <p className="text-[10px] text-text-tertiary">{t('portal.perf.firstTimersNoVisit')}</p>
         </div>
 
         {/* Working Days — full width */}
         <div className="col-span-2 rounded-2xl border border-border-luxury bg-onyx/50 p-4 flex items-center justify-between">
           <div className="flex flex-col gap-1">
-            <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">Total Working Days</p>
-            <p className="text-[10px] text-text-tertiary">days with active appointments</p>
+            <p className="text-[11px] font-medium text-text-tertiary uppercase tracking-wider">{t('portal.perf.workingDays')}</p>
+            <p className="text-[10px] text-text-tertiary">{t('portal.perf.daysWithAppts')}</p>
           </div>
           <p className="text-3xl font-bold text-text-primary">{perf.month.workingDays}</p>
         </div>
@@ -1168,11 +1165,11 @@ function ProfileTab() {
                 <select value={form.languagePreference}
                   onChange={(e) => setForm((f) => ({ ...f, languagePreference: e.target.value }))}
                   className={inputCls}>
-                  <option value="ru">Русский</option>
-                  <option value="en">English</option>
+                  <option value="ru">{t('portal.profile.langRu')}</option>
+                  <option value="en">{t('portal.profile.langEn')}</option>
                 </select>
               ) : (
-                <p className="text-sm text-text-primary">{profile.languagePreference === 'ru' ? 'Русский' : 'English'}</p>
+                <p className="text-sm text-text-primary">{profile.languagePreference === 'ru' ? t('portal.profile.langRu') : t('portal.profile.langEn')}</p>
               )}
             </div>
           </div>
@@ -1212,12 +1209,12 @@ function ProfileTab() {
           )}
           {!editingServices ? (
             profile.services.length === 0 ? (
-              <p className="text-xs text-text-tertiary">No services assigned. Click Edit to add.</p>
+              <p className="text-xs text-text-tertiary">{t('portal.client.noServices')}</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {profile.services.map((s) => (
                   <span key={s.id} className="text-xs text-text-secondary bg-charcoal/50 border border-border-luxury px-2.5 py-1 rounded-lg">
-                    {s.name} <span className="text-text-tertiary">{s.baseDuration}м</span>
+                    {s.name} <span className="text-text-tertiary">{s.baseDuration}{t('common.minAbbr')}</span>
                   </span>
                 ))}
               </div>
