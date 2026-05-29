@@ -93,7 +93,7 @@ export default function ProfilePage() {
       })
       .catch(() => setError(t('profile.error.connection')))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const handleLogout = React.useCallback(async () => {
     try { await fetch('/api/auth/logout', { method: 'POST' }); } finally {

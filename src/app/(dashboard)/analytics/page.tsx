@@ -265,7 +265,7 @@ export default function AnalyticsPage() {
       })
       .catch(() => setError(t('analytics.error.network')))
       .finally(() => setLoading(false));
-  }, [range, specialistId]);
+  }, [range, specialistId, t]);
 
   const chartSeries = data?.series.map((p) => ({
     ...p,

@@ -112,6 +112,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
     } finally { setLoading(false); }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useEffect(() => { void load(); }, [from, to]);
 
   async function approveAll() {

@@ -574,11 +574,13 @@ export default function CommunicationsPage() {
   React.useEffect(() => {
     void fetchAnalytics();
     void fetchQueue();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days]);
 
   React.useEffect(() => {
     if (tab === 'history') void fetchHistory();
     if (tab === 'queue') void fetchQueue();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, days]);
 
   const Spinner = () => (

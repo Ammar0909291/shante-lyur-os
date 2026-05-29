@@ -159,6 +159,7 @@ export default function SalesPage() {
   const refresh = React.useCallback(() => {
     fetchData(PRESETS[activePreset].days);
     fetchRecentSales(PRESETS[activePreset].days);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePreset, fetchData, fetchRecentSales]);
 
   React.useEffect(() => { refresh(); }, [refresh]);

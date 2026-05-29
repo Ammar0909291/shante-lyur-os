@@ -912,7 +912,7 @@ export default function OperationsPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
 
   // Initial load + polling
   React.useEffect(() => {

@@ -165,6 +165,7 @@ function HeaderWidget({ summary }: { summary: Summary }) {
         {/* Avatar */}
         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
           {specialist.avatarUrl
+            // eslint-disable-next-line @next/next/no-img-element
             ? <img src={specialist.avatarUrl} alt="" className="w-full h-full object-cover" />
             : <User className="w-7 h-7 text-amber-200" />
           }

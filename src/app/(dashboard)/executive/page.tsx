@@ -255,9 +255,13 @@ export default function ExecutivePage() {
     } finally { setExporting(false); }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useEffect(() => { fetchIntel(period); }, [period]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useEffect(() => { if (tab === 'forecast') fetchForecast(); }, [tab]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useEffect(() => { if (tab === 'retention') fetchRetention(); }, [tab, period]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useEffect(() => { if (tab === 'risks') fetchRisks(); }, [tab]);
 
   const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
