@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { CheckCircle } from 'lucide-react';
+import { useLanguage } from '@/contexts/language';
 
 export default function ForgotPasswordPage() {
+  const { t } = useLanguage();
   const [email, setEmail] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -14,7 +16,7 @@ export default function ForgotPasswordPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim()) { setError('Введите email'); return; }
+    if (!email.trim()) { setError(t('auth.enterEmail')); return; }
     setLoading(true); setError('');
     try {
       await fetch('/api/auth/forgot-password', {
@@ -24,7 +26,7 @@ export default function ForgotPasswordPage() {
       });
       setSent(true);
     } catch {
-      setError('Ошибка соединения. Попробуйте позже.');
+      setError(t('auth.networkError'));
     } finally {
       setLoading(false);
     }
@@ -36,13 +38,13 @@ export default function ForgotPasswordPage() {
         <div className="flex justify-center mb-4">
           <CheckCircle className="w-12 h-12 text-champagne" />
         </div>
-        <h2 className="font-serif text-2xl font-medium text-text-primary">Письмо отправлено</h2>
+        <h2 className="font-serif text-2xl font-medium text-text-primary">{t('auth.emailSent')}</h2>
         <p className="text-sm text-text-secondary mt-2 mb-6">
-          Если этот email зарегистрирован, вы получите ссылку для сброса пароля.<br />
-          Ссылка действительна 1 час.
+          {t('auth.emailSentDesc')}<br />
+          {t('auth.linkExpiry')}
         </p>
         <Link href="/login" className="text-sm text-champagne hover:underline">
-          ← Вернуться ко входу
+          {t('auth.backToLogin')}
         </Link>
       </div>
     );
@@ -52,10 +54,10 @@ export default function ForgotPasswordPage() {
     <div className="animate-slide-up">
       <div className="mb-8">
         <h2 className="font-serif text-2xl font-medium text-text-primary tracking-tight">
-          Сброс пароля
+          {t('auth.resetPassword')}
         </h2>
         <p className="text-sm text-text-secondary mt-1.5">
-          Введите email — мы отправим ссылку для входа
+          {t('auth.resetSubtitle')}
         </p>
       </div>
 
@@ -73,14 +75,14 @@ export default function ForgotPasswordPage() {
         />
 
         <Button type="submit" variant="primary" fullWidth loading={loading}>
-          Отправить ссылку
+          {t('auth.sendLink')}
         </Button>
       </form>
 
       <p className="mt-6 text-center text-sm text-text-tertiary">
-        Вспомнили пароль?{' '}
+        {t('auth.rememberPassword')}{' '}
         <Link href="/login" className="text-champagne hover:underline">
-          Войти
+          {t('auth.login')}
         </Link>
       </p>
     </div>

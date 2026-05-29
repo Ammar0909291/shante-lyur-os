@@ -324,7 +324,7 @@ export default function BookingsPage() {
         [t('bookings.export.date')]: new Date(b.startAt).toLocaleDateString(locale),
         [t('bookings.export.time')]: new Date(b.startAt).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
         [t('bookings.export.duration')]: b.totalDuration,
-        [t('bookings.export.status')]: getAppointmentStatusLabel(b.status),
+        [t('bookings.export.status')]: getAppointmentStatusLabel(b.status, t),
         [t('bookings.export.price')]: b.totalPrice,
         [t('bookings.export.location')]: b.locationName,
         [t('bookings.export.notes')]: b.notes ?? '',
@@ -353,7 +353,7 @@ export default function BookingsPage() {
         {/* Mini header */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-border-luxury flex-shrink-0 bg-onyx">
           <h2 className="font-serif text-base font-medium text-text-primary">
-            Операционная панель — {t('bookings.title')}
+            {t('bookings.opsPanel')} — {t('bookings.title')}
           </h2>
           <div className="flex items-center gap-2">
             <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowNewDialog(true)}>
@@ -364,7 +364,7 @@ export default function BookingsPage() {
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border-luxury text-sm text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors"
             >
               <X className="w-4 h-4" />
-              Закрыть панель
+              {t('bookings.closePanel')}
             </button>
           </div>
         </div>
@@ -394,7 +394,7 @@ export default function BookingsPage() {
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-champagne/30 bg-champagne/5 text-champagne text-sm hover:bg-champagne/10 transition-colors"
           >
             <LayoutGrid className="w-4 h-4" />
-            Live Панель
+            {t('bookings.livePanel')}
           </button>
           <button
             onClick={() => setShowAnalytics((v) => !v)}
@@ -653,7 +653,7 @@ export default function BookingsPage() {
                     <td className="px-4 py-3.5 text-text-tertiary whitespace-nowrap tabular-nums">{b.totalDuration} {t('common.min')}</td>
                     <td className="px-4 py-3.5">
                       <Badge variant={getAppointmentStatusBadgeVariant(b.status)} dot>
-                        {getAppointmentStatusLabel(b.status)}
+                        {getAppointmentStatusLabel(b.status, t)}
                       </Badge>
                     </td>
                     <td className="px-4 py-3.5">
@@ -699,7 +699,7 @@ export default function BookingsPage() {
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-text-primary text-sm truncate">{b.clientName}</span>
                     <Badge variant={getAppointmentStatusBadgeVariant(b.status)}>
-                      {getAppointmentStatusLabel(b.status)}
+                      {getAppointmentStatusLabel(b.status, t)}
                     </Badge>
                   </div>
                   <p className="text-xs text-text-secondary mt-0.5 truncate">{b.services[0]?.name ?? '—'}</p>

@@ -316,7 +316,7 @@ export default function AnalyticsPage() {
             href="/analytics/specialists"
             className="inline-flex items-center gap-1.5 h-8 px-3.5 text-xs font-medium rounded-xl border border-border-luxury bg-onyx text-text-secondary hover:text-champagne hover:border-champagne/40 transition-all"
           >
-            KPI специалистов
+            {t('analytics.kpi.title')}
           </Link>
         </div>
         <div className="flex flex-wrap gap-2 items-center">

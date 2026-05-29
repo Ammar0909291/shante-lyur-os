@@ -9,6 +9,7 @@ import {
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { authHeaders } from '@/lib/client-auth';
+import { useLanguage } from '@/contexts/language';
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -37,9 +38,21 @@ type TabId = 'leave' | 'schedule' | 'service';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const MONTH_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const MIN_STAFF = 6;
-const DOW_SHORT = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+function getMonthName(monthIndex: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { month: 'long' }).format(new Date(2024, monthIndex, 1));
+}
+
+function getDowShort(locale: string): string[] {
+  // Returns Mon-indexed short day names [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+  const base = new Date(2024, 0, 1); // Jan 1, 2024 is Monday
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(d);
+  });
+}
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -66,11 +79,13 @@ const STATUS_STYLES: Record<string, string> = {
   APPROVED: 'text-green-400 bg-green-400/10 border-green-400/20',
   REJECTED: 'text-red-400   bg-red-400/10   border-red-400/20',
 };
-const STATUS_LABELS: Record<string, string> = {
-  PENDING: 'На рассмотрении', APPROVED: 'Одобрено', REJECTED: 'Отклонено',
-};
-
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useLanguage();
+  const STATUS_LABELS: Record<string, string> = {
+    PENDING: t('staffReq.status.PENDING'),
+    APPROVED: t('staffReq.status.APPROVED'),
+    REJECTED: t('staffReq.status.REJECTED'),
+  };
   return (
     <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider',
       STATUS_STYLES[status] ?? STATUS_STYLES['PENDING'])}>
@@ -80,7 +95,11 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function DeptBadge({ dept }: { dept: string }) {
-  const map: Record<string, string> = { MASSAGE: 'Массаж', COSMETOLOGY: 'Косметология' };
+  const { t } = useLanguage();
+  const map: Record<string, string> = {
+    MASSAGE: t('staffReq.dept.MASSAGE'),
+    COSMETOLOGY: t('staffReq.dept.COSMETOLOGY'),
+  };
   const cls = dept === 'MASSAGE'
     ? 'bg-blue-400/10 text-blue-300 border-blue-400/20'
     : 'bg-purple-400/10 text-purple-300 border-purple-400/20';
@@ -98,6 +117,7 @@ interface ReviewModalProps {
   onDone: () => void; onClose: () => void;
 }
 function ReviewModal({ id, requestType, label, onDone, onClose }: ReviewModalProps) {
+  const { t } = useLanguage();
   const [status, setStatus] = React.useState<'APPROVED' | 'REJECTED'>('APPROVED');
   const [notes, setNotes] = React.useState('');
   const [saving, setSaving] = React.useState(false);
@@ -113,8 +133,8 @@ function ReviewModal({ id, requestType, label, onDone, onClose }: ReviewModalPro
       });
       const j = await res.json() as { success: boolean; error?: { message: string } };
       if (j.success) { onDone(); onClose(); }
-      else setError(j.error?.message ?? 'Ошибка');
-    } catch { setError('Ошибка сети'); }
+      else setError(j.error?.message ?? t('staffReq.modal.error'));
+    } catch { setError(t('staffReq.modal.networkError')); }
     finally { setSaving(false); }
   };
 
@@ -133,23 +153,23 @@ function ReviewModal({ id, requestType, label, onDone, onClose }: ReviewModalPro
                   status === s && s === 'REJECTED' ? 'bg-red-500/15 text-red-400 border-red-500/30' :
                   'bg-charcoal text-text-secondary border-border-luxury hover:text-text-primary')}>
                 {s === 'APPROVED' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                {s === 'APPROVED' ? 'Одобрить' : 'Отклонить'}
+                {s === 'APPROVED' ? t('staffReq.modal.approve') : t('staffReq.modal.reject')}
               </button>
             ))}
           </div>
           <div>
-            <label className="text-xs text-text-secondary mb-1 block">Комментарий (необязательно)</label>
+            <label className="text-xs text-text-secondary mb-1 block">{t('staffReq.modal.commentLabel')}</label>
             <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)}
-              placeholder="Причина решения..."
+              placeholder={t('staffReq.modal.commentPlaceholder')}
               className="w-full bg-charcoal/50 border border-border-luxury rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-champagne/50 resize-none" />
           </div>
           {error && <p className="text-xs text-red-400">{error}</p>}
         </div>
         <div className="px-4 pb-4 flex gap-2">
-          <button onClick={onClose} className="flex-1 py-2 rounded-lg text-xs font-medium text-text-secondary bg-charcoal border border-border-luxury hover:text-text-primary transition-colors">Отмена</button>
+          <button onClick={onClose} className="flex-1 py-2 rounded-lg text-xs font-medium text-text-secondary bg-charcoal border border-border-luxury hover:text-text-primary transition-colors">{t('staffReq.modal.cancel')}</button>
           <button onClick={submit} disabled={saving}
             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-champagne/15 text-champagne border border-champagne/30 hover:bg-champagne/25 disabled:opacity-50 transition-colors">
-            {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Сохранить
+            {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {t('staffReq.modal.save')}
           </button>
         </div>
       </div>
@@ -168,6 +188,7 @@ interface ScheduleReviewModalProps {
 }
 
 function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: ScheduleReviewModalProps) {
+  const { t, lang } = useLanguage();
   const [rejecting, setRejecting] = React.useState(false);
   const [notes, setNotes] = React.useState('');
   const [saving, setSaving] = React.useState(false);
@@ -197,8 +218,8 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
       });
       const j = await res.json() as { success: boolean; error?: { message: string } };
       if (j.success) { onDone(); onClose(); }
-      else setError(j.error?.message ?? 'Ошибка');
-    } catch { setError('Ошибка сети'); }
+      else setError(j.error?.message ?? t('staffReq.modal.error'));
+    } catch { setError(t('staffReq.modal.networkError')); }
     finally { setSaving(false); }
   };
 
@@ -213,7 +234,7 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
             <h3 className="text-sm font-semibold text-text-primary">{request.specialistName}</h3>
             <div className="flex items-center gap-2 mt-0.5">
               <DeptBadge dept={request.department} />
-              <span className="text-xs text-text-tertiary">{request.workDayCount} рабочих дней · подан {fmtDate(request.submittedAt)}</span>
+              <span className="text-xs text-text-tertiary">{request.workDayCount} {t('staffReq.workDays')} {fmtDate(request.submittedAt)}</span>
             </div>
           </div>
           <StatusBadge status={request.status} />
@@ -223,7 +244,7 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
           {/* Calendar */}
           <div>
             <div className="grid grid-cols-7 gap-0.5 mb-0.5">
-              {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map((d) => (
+              {getDowShort(lang === 'en' ? 'en-GB' : 'ru-RU').map((d) => (
                 <div key={d} className="text-center text-[10px] text-text-tertiary py-1">{d}</div>
               ))}
             </div>
@@ -235,7 +256,7 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
                 const dayCov = coverage[d.date];
                 const ownCount = dayCov ? dayCov[dept] : 0;
                 return (
-                  <div key={d.date} title={d.isWorkDay ? `${dept === 'MASSAGE' ? 'Массажисты' : 'Косметологи'}: ${ownCount}/${MIN_STAFF}` : undefined}
+                  <div key={d.date} title={d.isWorkDay ? `${dept === 'MASSAGE' ? t('staffReq.dept.massagists') : t('staffReq.dept.cosmetologists')}: ${ownCount}/${MIN_STAFF}` : undefined}
                     className={cn('h-10 rounded flex flex-col items-center justify-center text-xs',
                       !d.isWorkDay ? 'bg-charcoal/30 text-text-tertiary' :
                       isAlert ? 'bg-red-900/50 border border-red-500/40 text-red-300' :
@@ -254,10 +275,10 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
 
           {/* Legend */}
           <div className="flex gap-3 text-[10px] text-text-tertiary flex-wrap">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-800/60 border border-emerald-600/30 inline-block" />Рабочий</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-800/60 border border-red-500/40 inline-block" />Недобор</span>
-            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-charcoal/30" />Выходной</span>
-            <span className="text-text-tertiary">Число = специалистов этого типа на день</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-800/60 border border-emerald-600/30 inline-block" />{t('staffReq.legend.working')}</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-800/60 border border-red-500/40 inline-block" />{t('staffReq.legend.shortage')}</span>
+            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-charcoal/30" />{t('staffReq.legend.dayOff')}</span>
+            <span className="text-text-tertiary">{t('staffReq.legend.countHint')}</span>
           </div>
 
           {/* Coverage alerts */}
@@ -265,7 +286,7 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
             <div className="bg-amber-900/20 border border-amber-500/30 rounded-xl p-3">
               <div className="flex items-center gap-2 mb-1">
                 <ShieldAlert className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <p className="text-xs font-semibold text-amber-300">Дни с недобором (менее {MIN_STAFF} специалистов)</p>
+                <p className="text-xs font-semibold text-amber-300">{t('staffReq.shortageAlertTitle').replace('{n}', String(MIN_STAFF))}</p>
               </div>
               <p className="text-[10px] text-amber-400/80">
                 {[...workAlerts].sort().map((d) => fmtDate(d)).join(', ')}
@@ -276,7 +297,7 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
           {/* Note from specialist */}
           {request.note && (
             <div className="bg-charcoal/40 border border-border-luxury rounded-xl p-3">
-              <p className="text-[10px] text-text-tertiary mb-1">Примечание специалиста</p>
+              <p className="text-[10px] text-text-tertiary mb-1">{t('staffReq.modal.specialistNote')}</p>
               <p className="text-xs text-text-secondary">{request.note}</p>
             </div>
           )}
@@ -288,36 +309,36 @@ function ScheduleReviewModal({ request, coverage, alerts, onDone, onClose }: Sch
             {/* Rejection notes — shown only when rejecting */}
             {rejecting && (
               <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
-                placeholder="Причина отклонения (необязательно)..."
+                placeholder={t('staffReq.modal.rejectionPlaceholder')}
                 className="w-full bg-charcoal/50 border border-red-500/30 rounded-lg px-3 py-2 text-xs text-text-primary focus:outline-none focus:border-red-500/50 resize-none" />
             )}
             {error && <p className="text-xs text-red-400">{error}</p>}
             <div className="flex gap-2">
               <button onClick={onClose} className="flex-1 py-2 rounded-lg text-xs font-medium text-text-secondary bg-charcoal border border-border-luxury hover:text-text-primary transition-colors">
-                Отмена
+                {t('staffReq.modal.cancel')}
               </button>
               {rejecting ? (
                 <>
                   <button onClick={() => setRejecting(false)}
                     className="px-3 py-2 rounded-lg text-xs font-medium text-text-secondary bg-charcoal border border-border-luxury hover:text-text-primary transition-colors">
-                    Назад
+                    {t('staffReq.modal.back')}
                   </button>
                   <button onClick={() => void submit('REJECTED')} disabled={saving}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 disabled:opacity-50 transition-colors">
                     {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-                    Отклонить
+                    {t('staffReq.modal.reject')}
                   </button>
                 </>
               ) : (
                 <>
                   <button onClick={() => setRejecting(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/25 hover:bg-red-500/20 transition-colors">
-                    <XCircle className="w-3.5 h-3.5" /> Отклонить
+                    <XCircle className="w-3.5 h-3.5" /> {t('staffReq.modal.reject')}
                   </button>
                   <button onClick={() => void submit('APPROVED')} disabled={saving}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium bg-green-500/15 text-green-400 border border-green-500/30 hover:bg-green-500/25 disabled:opacity-50 transition-colors">
                     {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                    Одобрить
+                    {t('staffReq.modal.approve')}
                   </button>
                 </>
               )}
@@ -344,7 +365,7 @@ interface ScheduleTableProps {
   onReview: (r: ScheduleRequest) => void;
 }
 
-function exportScheduleXlsx(data: ScheduleTabData, month: string) {
+function exportScheduleXlsx(data: ScheduleTabData, month: string, t: (k: string) => string) {
   const [y, m] = month.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
 
@@ -354,10 +375,17 @@ function exportScheduleXlsx(data: ScheduleTabData, month: string) {
     return { d, dateStr };
   });
 
-  const DEPT_LABEL: Record<string, string> = { MASSAGE: 'Массаж', COSMETOLOGY: 'Косметология' };
-  const STATUS_LABEL: Record<string, string> = { PENDING: 'Ожидает', APPROVED: 'Одобрено', REJECTED: 'Отклонено' };
+  const DEPT_LABEL: Record<string, string> = {
+    MASSAGE: t('staffReq.dept.MASSAGE'),
+    COSMETOLOGY: t('staffReq.dept.COSMETOLOGY'),
+  };
+  const STATUS_LABEL: Record<string, string> = {
+    PENDING: t('staffReq.status.PENDING'),
+    APPROVED: t('staffReq.status.APPROVED'),
+    REJECTED: t('staffReq.status.REJECTED'),
+  };
 
-  const header = ['Сотрудник', 'Отдел', 'Статус', ...cols.map((c) => String(c.d)), '∑'];
+  const header = [t('staffReq.colEmployee'), t('staffReq.colDept'), t('staffReq.colStatus'), ...cols.map((c) => String(c.d)), t('staffReq.colTotal')];
   const rows: (string | number)[][] = [header];
 
   for (const r of data.requests) {
@@ -367,7 +395,7 @@ function exportScheduleXlsx(data: ScheduleTabData, month: string) {
       r.specialistName,
       DEPT_LABEL[r.department] ?? r.department,
       STATUS_LABEL[r.status] ?? r.status,
-      ...cols.map((c) => (dayMap[c.dateStr] ? 'Р' : '')),
+      ...cols.map((c) => (dayMap[c.dateStr] ? t('staffReq.workMarker') : '')),
       r.workDayCount,
     ]);
   }
@@ -375,7 +403,7 @@ function exportScheduleXlsx(data: ScheduleTabData, month: string) {
   // Coverage footer rows
   for (const dept of ['MASSAGE', 'COSMETOLOGY'] as const) {
     rows.push([
-      dept === 'MASSAGE' ? 'Массажисты' : 'Косметологи', '', '',
+      dept === 'MASSAGE' ? t('staffReq.dept.massagists') : t('staffReq.dept.cosmetologists'), '', '',
       ...cols.map((c) => data.coverage[c.dateStr]?.[dept] ?? 0),
       '',
     ]);
@@ -384,18 +412,18 @@ function exportScheduleXlsx(data: ScheduleTabData, month: string) {
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 22 }, { wch: 14 }, { wch: 12 }, ...cols.map(() => ({ wch: 4 })), { wch: 4 }];
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, `График ${month}`);
+  XLSX.utils.book_append_sheet(wb, ws, `${t('staffReq.printTitle')} ${month}`);
   XLSX.writeFile(wb, `schedule-${month}.xlsx`);
 }
 
-function printScheduleTable(month: string) {
+function printScheduleTable(month: string, printTitle: string) {
   const el = document.getElementById('schedule-print-area');
   if (!el) return;
   const win = window.open('', '_blank', 'width=1200,height=800');
   if (!win) return;
   win.document.write(`<!DOCTYPE html><html><head>
     <meta charset="utf-8"/>
-    <title>График ${month}</title>
+    <title>${printTitle} ${month}</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: Arial, sans-serif; font-size: 10px; background: #fff; color: #000; padding: 12px; }
@@ -414,7 +442,7 @@ function printScheduleTable(month: string) {
       @media print { body { padding: 0; } }
     </style>
   </head><body>`);
-  win.document.write(`<h2>График на ${month}</h2>`);
+  win.document.write(`<h2>${printTitle} ${month}</h2>`);
   win.document.write(el.innerHTML);
   win.document.write(`</body></html>`);
   win.document.close();
@@ -423,15 +451,21 @@ function printScheduleTable(month: string) {
 }
 
 function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
+  const { t, lang } = useLanguage();
   const [y, m] = month.split('-').map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
   const alertSet = new Set(data.alerts);
+
+  const locale = lang === 'en' ? 'en-GB' : 'ru-RU';
+  const dowShortArr = getDowShort(locale);
 
   const cols = Array.from({ length: daysInMonth }, (_, i) => {
     const d = i + 1;
     const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const dow = new Date(y, m - 1, d).getDay();
-    return { d, dateStr, dow };
+    // Convert Sunday=0...Saturday=6 to Mon=0...Sun=6 for dowShortArr index
+    const dowMonIdx = dow === 0 ? 6 : dow - 1;
+    return { d, dateStr, dow, dowMonIdx };
   });
 
   return (
@@ -439,16 +473,16 @@ function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
       {/* Toolbar */}
       <div className="flex items-center justify-end gap-2">
         <button
-          onClick={() => exportScheduleXlsx(data, month)}
+          onClick={() => exportScheduleXlsx(data, month, t)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
         >
           <Download className="w-3.5 h-3.5" /> Excel
         </button>
         <button
-          onClick={() => printScheduleTable(month)}
+          onClick={() => printScheduleTable(month, t('staffReq.printTitle'))}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-400 text-xs font-medium hover:bg-blue-500/20 transition-colors"
         >
-          <Printer className="w-3.5 h-3.5" /> Печать
+          <Printer className="w-3.5 h-3.5" /> {t('staffReq.exportPrint')}
         </button>
       </div>
 
@@ -459,17 +493,17 @@ function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
             <tr className="bg-charcoal border-b border-border-luxury">
               <th className="sticky left-0 z-20 bg-charcoal px-3 py-2 text-left text-text-tertiary font-medium whitespace-nowrap border-r border-border-luxury/60"
                 style={{ minWidth: 160 }}>
-                Сотрудник
+                {t('staffReq.colEmployee')}
               </th>
               <th className="sticky z-20 bg-charcoal px-2 py-2 text-center text-text-tertiary font-medium border-r border-border-luxury/60"
                 style={{ left: 160, minWidth: 80 }}>
-                Отдел
+                {t('staffReq.colDept')}
               </th>
               <th className="sticky z-20 bg-charcoal px-2 py-2 text-center text-text-tertiary font-medium border-r border-border-luxury/60"
                 style={{ left: 240, minWidth: 90 }}>
-                Статус
+                {t('staffReq.colStatus')}
               </th>
-              {cols.map(({ d, dateStr, dow }) => (
+              {cols.map(({ d, dateStr, dow, dowMonIdx }) => (
                 <th key={dateStr}
                   className={cn(
                     'py-1 text-center border-r border-border-luxury/30 font-medium',
@@ -481,7 +515,7 @@ function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
                   )}
                   style={{ width: 28 }}>
                   <div className="text-[10px] font-semibold leading-none">{d}</div>
-                  <div className="text-[8px] opacity-60 leading-none mt-0.5">{DOW_SHORT[dow]}</div>
+                  <div className="text-[8px] opacity-60 leading-none mt-0.5">{dowShortArr[dowMonIdx]}</div>
                 </th>
               ))}
               <th className="bg-charcoal px-2 py-2 text-center text-text-tertiary font-medium"
@@ -548,7 +582,7 @@ function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
               <tr key={dept} className="border-t-2 border-border-luxury">
                 <td colSpan={3}
                   className="sticky left-0 z-10 bg-charcoal px-3 py-1.5 text-[10px] font-semibold text-text-secondary whitespace-nowrap border-r border-border-luxury/40">
-                  {dept === 'MASSAGE' ? 'Массажисты' : 'Косметологи'}
+                  {dept === 'MASSAGE' ? t('staffReq.dept.massagists') : t('staffReq.dept.cosmetologists')}
                 </td>
                 {cols.map(({ dateStr }) => {
                   const count = data.coverage[dateStr]?.[dept] ?? 0;
@@ -578,21 +612,21 @@ function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
       <div className="flex gap-4 text-[10px] text-text-tertiary flex-wrap px-1">
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-emerald-800/60 inline-block border border-emerald-700/30" />
-          Рабочий (одобрено)
+          {t('staffReq.legend.workApproved')}
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-amber-700/50 inline-block border border-amber-600/30" />
-          Рабочий (ожидает)
+          {t('staffReq.legend.workPending')}
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-red-700/50 inline-block border border-red-600/30" />
-          Недобор
+          {t('staffReq.legend.shortage')}
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-charcoal/40 inline-block border border-border-luxury/40" />
-          Выходной
+          {t('staffReq.legend.dayOff')}
         </span>
-        <span className="text-text-tertiary/60">Нажмите на строку — открыть заявку</span>
+        <span className="text-text-tertiary/60">{t('staffReq.legend.clickRow')}</span>
       </div>
     </div>
   );
@@ -601,6 +635,7 @@ function ScheduleTable({ data, month, onReview }: ScheduleTableProps) {
 // ─── Schedule tab ─────────────────────────────────────────────────────────────
 
 function ScheduleTab() {
+  const { t, lang } = useLanguage();
   const months = upcomingMonths(4);
   const [selectedMonth, setSelectedMonth] = React.useState(months[0]);
   const [data, setData] = React.useState<ScheduleTabData | null>(null);
@@ -620,6 +655,7 @@ function ScheduleTab() {
   React.useEffect(() => { void load(); }, [load]);
 
   const [y, m] = selectedMonth.split('-').map(Number);
+  const locale = lang === 'en' ? 'en-GB' : 'ru-RU';
 
   return (
     <div className="space-y-4">
@@ -633,7 +669,7 @@ function ScheduleTab() {
                 ms === selectedMonth
                   ? 'bg-champagne/15 text-champagne border-champagne/30'
                   : 'bg-charcoal text-text-secondary border-border-luxury hover:text-text-primary')}>
-              {MONTH_RU[mm - 1]} {my}
+              {getMonthName(mm - 1, locale)} {my}
             </button>
           );
         })}
@@ -644,7 +680,7 @@ function ScheduleTab() {
       ) : !data || data.requests.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 gap-3 text-text-tertiary">
           <Inbox className="w-8 h-8" />
-          <p className="text-sm">Нет заявок на {MONTH_RU[m - 1]} {y}</p>
+          <p className="text-sm">{t('staffReq.noRequestsForMonth')} {getMonthName(m - 1, locale)} {y}</p>
         </div>
       ) : (
         <>
@@ -653,13 +689,13 @@ function ScheduleTab() {
             <div className="bg-amber-900/20 border border-amber-500/30 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <ShieldAlert className="w-4 h-4 text-amber-400" />
-                <p className="text-xs font-semibold text-amber-300">{data.alerts.length} {data.alerts.length === 1 ? 'день' : 'дней'} с недобором специалистов (менее {MIN_STAFF})</p>
+                <p className="text-xs font-semibold text-amber-300">{data.alerts.length} {t('staffReq.shortageAlert').replace('{n}', String(MIN_STAFF))}</p>
               </div>
               <div className="flex gap-4 text-xs text-text-tertiary">
                 {data.alerts.slice(0, 6).map((d) => (
                   <span key={d}>{fmtDate(d)}</span>
                 ))}
-                {data.alerts.length > 6 && <span>+{data.alerts.length - 6} ещё</span>}
+                {data.alerts.length > 6 && <span>{t('staffReq.moreAlerts').replace('{n}', String(data.alerts.length - 6))}</span>}
               </div>
             </div>
           )}
@@ -668,7 +704,7 @@ function ScheduleTab() {
           <div className="grid grid-cols-2 gap-3">
             {(['MASSAGE','COSMETOLOGY'] as const).map((dept) => {
               const deptReqs = data.requests.filter((r) => r.department === dept);
-              const label = dept === 'MASSAGE' ? 'Массажисты' : 'Косметологи';
+              const label = dept === 'MASSAGE' ? t('staffReq.dept.massagists') : t('staffReq.dept.cosmetologists');
               const pending = deptReqs.filter((r) => r.status === 'PENDING').length;
               const approved = deptReqs.filter((r) => r.status === 'APPROVED').length;
               return (
@@ -678,7 +714,7 @@ function ScheduleTab() {
                     <p className="text-xs font-medium text-text-primary">{label}</p>
                   </div>
                   <p className="text-lg font-bold text-champagne">{deptReqs.length}</p>
-                  <p className="text-[10px] text-text-tertiary">{approved} одобрено · {pending} ожидает</p>
+                  <p className="text-[10px] text-text-tertiary">{approved} {t('staffReq.approved')} · {pending} {t('staffReq.pending')}</p>
                 </div>
               );
             })}
@@ -686,14 +722,14 @@ function ScheduleTab() {
 
           {/* View toggle + content */}
           <div className="flex items-center justify-between">
-            <p className="text-xs text-text-tertiary">{data.requests.length} заявок</p>
+            <p className="text-xs text-text-tertiary">{data.requests.length} {t('staffReq.requestsCount')}</p>
             <div className="flex gap-0.5 p-0.5 bg-charcoal/50 rounded-lg border border-border-luxury">
-              <button onClick={() => setView('cards')} title="Карточки"
+              <button onClick={() => setView('cards')} title={t('staffReq.viewCards')}
                 className={cn('p-1.5 rounded transition-colors',
                   view === 'cards' ? 'bg-onyx text-champagne' : 'text-text-tertiary hover:text-text-primary')}>
                 <LayoutGrid className="w-3.5 h-3.5" />
               </button>
-              <button onClick={() => setView('table')} title="Таблица"
+              <button onClick={() => setView('table')} title={t('staffReq.viewTable')}
                 className={cn('p-1.5 rounded transition-colors',
                   view === 'table' ? 'bg-onyx text-champagne' : 'text-text-tertiary hover:text-text-primary')}>
                 <Table2 className="w-3.5 h-3.5" />
@@ -718,11 +754,11 @@ function ScheduleTab() {
                         <span className="text-sm font-semibold text-text-primary">{r.specialistName}</span>
                         <DeptBadge dept={r.department} />
                         <StatusBadge status={r.status} />
-                        {hasAlerts && <span className="text-[10px] text-amber-400 flex items-center gap-0.5"><ShieldAlert className="w-3 h-3" /> Недобор</span>}
+                        {hasAlerts && <span className="text-[10px] text-amber-400 flex items-center gap-0.5"><ShieldAlert className="w-3 h-3" /> {t('staffReq.shortage')}</span>}
                       </div>
                       <div className="flex items-center gap-2 text-[10px] text-text-tertiary">
                         <Calendar className="w-3 h-3" />
-                        {r.workDayCount} дней · {fmtDate(r.submittedAt)}
+                        {r.workDayCount} {t('risk.daysUnit')} · {fmtDate(r.submittedAt)}
                       </div>
                     </div>
                     {r.reviewNotes && (
@@ -732,7 +768,7 @@ function ScheduleTab() {
                       <div className="flex justify-end mt-2">
                         <button onClick={() => setReviewing(r)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-champagne/15 text-champagne border border-champagne/30 hover:bg-champagne/25 transition-colors">
-                          Рассмотреть
+                          {t('staffReq.review')}
                         </button>
                       </div>
                     )}
@@ -740,7 +776,7 @@ function ScheduleTab() {
                       <div className="flex justify-end mt-2">
                         <button onClick={() => setReviewing(r)}
                           className="text-xs text-text-tertiary hover:text-text-secondary transition-colors">
-                          Просмотреть →
+                          {t('staffReq.viewDetails')}
                         </button>
                       </div>
                     )}
@@ -776,6 +812,7 @@ interface CardProps<T> {
 function ReqCard<T extends { id: string; specialistName: string; status: string; reviewNotes: string | null; createdAt: string }>({
   req, requestType, onReview, children,
 }: CardProps<T> & { children: React.ReactNode }) {
+  const { t, lang } = useLanguage();
   const isPending = req.status === 'PENDING';
   return (
     <div className={cn('rounded-xl border p-4 space-y-2.5',
@@ -784,18 +821,18 @@ function ReqCard<T extends { id: string; specialistName: string; status: string;
         <span className="text-sm font-semibold text-text-primary">{req.specialistName}</span>
         <div className="flex items-center gap-2">
           <StatusBadge status={req.status} />
-          <span className="text-[10px] text-text-tertiary">{new Date(req.createdAt).toLocaleDateString('ru-RU')}</span>
+          <span className="text-[10px] text-text-tertiary">{new Date(req.createdAt).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU')}</span>
         </div>
       </div>
       {children}
       {req.reviewNotes && (
-        <p className="text-xs text-text-tertiary italic border-t border-border-luxury/40 pt-2">Комментарий: {req.reviewNotes}</p>
+        <p className="text-xs text-text-tertiary italic border-t border-border-luxury/40 pt-2">{t('staffReq.reviewComment')} {req.reviewNotes}</p>
       )}
       {isPending && (
         <div className="flex justify-end pt-1">
-          <button onClick={() => onReview(req.id, requestType, `Запрос от ${req.specialistName}`)}
+          <button onClick={() => onReview(req.id, requestType, `${t('staffReq.requestFrom')} ${req.specialistName}`)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-champagne/15 text-champagne border border-champagne/30 hover:bg-champagne/25 transition-colors">
-            Рассмотреть
+            {t('staffReq.review')}
           </button>
         </div>
       )}
@@ -804,14 +841,15 @@ function ReqCard<T extends { id: string; specialistName: string; status: string;
 }
 
 function LeaveList({ items, onReview }: { items: LeaveReq[]; onReview: CardProps<LeaveReq>['onReview'] }) {
+  const { t, lang } = useLanguage();
   if (items.length === 0) return <Empty />;
   return (
     <div className="space-y-3">
       {items.map((r) => (
         <ReqCard key={r.id} req={r} requestType="leave" onReview={onReview}>
           <div className="text-xs text-text-secondary space-y-0.5">
-            <p><span className="text-text-tertiary">Дата: </span>{new Date(r.date).toLocaleDateString('ru-RU')}</p>
-            {r.reason && <p><span className="text-text-tertiary">Причина: </span>{r.reason}</p>}
+            <p><span className="text-text-tertiary">{t('staffReq.leave.dateLabel')} </span>{new Date(r.date).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ru-RU')}</p>
+            {r.reason && <p><span className="text-text-tertiary">{t('staffReq.leave.reasonLabel')} </span>{r.reason}</p>}
           </div>
         </ReqCard>
       ))}
@@ -820,14 +858,15 @@ function LeaveList({ items, onReview }: { items: LeaveReq[]; onReview: CardProps
 }
 
 function ServiceList({ items, onReview }: { items: ServiceReq[]; onReview: CardProps<ServiceReq>['onReview'] }) {
+  const { t } = useLanguage();
   if (items.length === 0) return <Empty />;
   return (
     <div className="space-y-3">
       {items.map((r) => (
         <ReqCard key={r.id} req={r} requestType="service" onReview={onReview}>
           <div className="text-xs text-text-secondary space-y-0.5">
-            <p><span className="text-text-tertiary">Услуга: </span>{r.serviceName}</p>
-            {r.note && <p><span className="text-text-tertiary">Примечание: </span>{r.note}</p>}
+            <p><span className="text-text-tertiary">{t('staffReq.service.serviceLabel')} </span>{r.serviceName}</p>
+            {r.note && <p><span className="text-text-tertiary">{t('staffReq.service.noteLabel')} </span>{r.note}</p>}
           </div>
         </ReqCard>
       ))}
@@ -836,10 +875,11 @@ function ServiceList({ items, onReview }: { items: ServiceReq[]; onReview: CardP
 }
 
 function Empty() {
+  const { t } = useLanguage();
   return (
     <div className="flex flex-col items-center justify-center py-12 gap-3 text-text-tertiary">
       <Inbox className="w-8 h-8" />
-      <p className="text-sm">Нет заявок</p>
+      <p className="text-sm">{t('staffReq.noRequests')}</p>
     </div>
   );
 }
@@ -847,6 +887,7 @@ function Empty() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function StaffRequestsPage() {
+  const { t } = useLanguage();
   const [data, setData] = React.useState<OldRequestsData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -859,10 +900,10 @@ export default function StaffRequestsPage() {
       const res = await fetch('/api/admin/specialist-requests', { headers: authHeaders() });
       const j = await res.json() as { success: boolean; data?: { leave: LeaveReq[]; schedule: unknown[]; service: ServiceReq[] }; error?: { message: string } };
       if (j.success && j.data) setData({ leave: j.data.leave, service: j.data.service });
-      else setError(j.error?.message ?? 'Ошибка загрузки');
-    } catch { setError('Ошибка сети'); }
+      else setError(j.error?.message ?? t('staffReq.loadError'));
+    } catch { setError(t('staffReq.modal.networkError')); }
     finally { setLoading(false); }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => { void load(); }, [load]);
 
@@ -870,17 +911,17 @@ export default function StaffRequestsPage() {
   const pendingService = data?.service.filter((r) => r.status === 'PENDING').length ?? 0;
 
   const TABS: { id: TabId; label: string }[] = [
-    { id: 'schedule', label: 'Графики' },
-    { id: 'leave',    label: 'Отгулы' },
-    { id: 'service',  label: 'Процедуры' },
+    { id: 'schedule', label: t('staffReq.tab.schedules') },
+    { id: 'leave',    label: t('staffReq.tab.leave') },
+    { id: 'service',  label: t('staffReq.tab.service') },
   ];
 
   return (
     <div className="p-4 lg:p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-serif text-2xl font-medium text-text-primary">Заявки сотрудников</h2>
-          <p className="text-sm text-text-tertiary mt-0.5">Рассмотрение запросов специалистов</p>
+          <h2 className="font-serif text-2xl font-medium text-text-primary">{t('staffReq.title')}</h2>
+          <p className="text-sm text-text-tertiary mt-0.5">{t('staffReq.subtitle')}</p>
         </div>
         <button onClick={load} disabled={loading}
           className="p-2 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal border border-border-luxury transition-colors disabled:opacity-50">
@@ -913,13 +954,13 @@ export default function StaffRequestsPage() {
       {tab !== 'schedule' && (
         loading ? (
           <div className="flex items-center justify-center h-48 gap-2 text-text-tertiary">
-            <Loader2 className="w-5 h-5 animate-spin" /><span>Загрузка...</span>
+            <Loader2 className="w-5 h-5 animate-spin" /><span>{t('staffReq.loading')}</span>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
             <AlertTriangle className="w-8 h-8 text-amber-400" />
             <p className="text-sm text-text-secondary">{error}</p>
-            <button onClick={load} className="text-xs text-champagne hover:underline">Повторить</button>
+            <button onClick={load} className="text-xs text-champagne hover:underline">{t('staffReq.retry')}</button>
           </div>
         ) : data ? (
           <>

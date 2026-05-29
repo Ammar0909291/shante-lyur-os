@@ -71,15 +71,31 @@ export function getAppointmentStatusBadgeVariant(
   return map[status] ?? 'default';
 }
 
-export function getAppointmentStatusLabel(status: string): string {
-  const map: Record<string, string> = {
+const STATUS_KEYS: Record<string, string> = {
+  PENDING: 'rec.status.pending',
+  CONFIRMED: 'rec.status.confirmed',
+  COMPLETED: 'rec.status.done',
+  CANCELLED: 'rec.status.cancelled',
+  NO_SHOW: 'rec.status.noshow',
+  ARRIVED: 'rec.status.arrived',
+  ACTIVE: 'rec.status.active',
+  WAITING: 'rec.status.waiting',
+};
+
+export function getAppointmentStatusLabel(status: string, t?: (key: string) => string): string {
+  const key = STATUS_KEYS[status];
+  if (t && key) return t(key);
+  const fallback: Record<string, string> = {
     PENDING: 'Ожидание',
     CONFIRMED: 'Подтверждено',
     COMPLETED: 'Завершено',
     CANCELLED: 'Отменено',
-    NO_SHOW: 'Не явился',
+    NO_SHOW: 'Неявка',
+    ARRIVED: 'Прибыл',
+    ACTIVE: 'В процессе',
+    WAITING: 'Ожидает специалиста',
   };
-  return map[status] ?? status;
+  return fallback[status] ?? status;
 }
 
 export function getPaymentStatusBadgeVariant(

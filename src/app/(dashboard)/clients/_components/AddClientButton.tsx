@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { X, UserPlus } from 'lucide-react';
+import { useLanguage } from '@/contexts/language';
 
 interface FormState {
   firstName: string;
@@ -15,6 +16,7 @@ const EMPTY: FormState = { firstName: '', lastName: '', phone: '', email: '' };
 
 export function AddClientButton() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [open, setOpen] = React.useState(false);
   const [form, setForm] = React.useState<FormState>(EMPTY);
   const [error, setError] = React.useState('');
@@ -35,7 +37,7 @@ export function AddClientButton() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
-      setError('Заполните обязательные поля');
+      setError(t('clients.error.requiredFields'));
       return;
     }
 
@@ -54,14 +56,14 @@ export function AddClientButton() {
 
       const json = await res.json() as { success: boolean; error?: { message?: string } };
       if (!res.ok) {
-        setError(json.error?.message ?? 'Ошибка при создании клиента');
+        setError(json.error?.message ?? t('clients.error.createFailed'));
         return;
       }
 
       handleClose();
       router.refresh();
     } catch {
-      setError('Ошибка соединения');
+      setError(t('clients.error.network'));
     } finally {
       setSaving(false);
     }
@@ -74,14 +76,14 @@ export function AddClientButton() {
         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors"
       >
         <UserPlus className="w-4 h-4" />
-        Добавить клиента
+        {t('clients.add')}
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
           <div className="w-full max-w-md bg-obsidian border border-border-luxury rounded-2xl shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
-              <h3 className="font-serif text-lg font-medium text-text-primary">Новый клиент</h3>
+              <h3 className="font-serif text-lg font-medium text-text-primary">{t('clients.new')}</h3>
               <button onClick={handleClose} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
                 <X className="w-4 h-4" />
               </button>
@@ -90,23 +92,23 @@ export function AddClientButton() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-text-secondary mb-1.5">Имя *</label>
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5">{t('clients.form.firstName')}</label>
                   <input
                     name="firstName"
                     value={form.firstName}
                     onChange={handleChange}
-                    placeholder="Мария"
+                    placeholder={t('clients.form.firstNamePlaceholder')}
                     disabled={saving}
                     className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-text-secondary mb-1.5">Фамилия *</label>
+                  <label className="block text-xs font-medium text-text-secondary mb-1.5">{t('clients.form.lastName')}</label>
                   <input
                     name="lastName"
                     value={form.lastName}
                     onChange={handleChange}
-                    placeholder="Иванова"
+                    placeholder={t('clients.form.lastNamePlaceholder')}
                     disabled={saving}
                     className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
                   />
@@ -114,26 +116,26 @@ export function AddClientButton() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">Эл. почта *</label>
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">{t('clients.form.email')}</label>
                 <input
                   name="email"
                   type="email"
                   value={form.email}
                   onChange={handleChange}
-                  placeholder="почта@пример.ru"
+                  placeholder={t('clients.form.emailPlaceholder')}
                   disabled={saving}
                   className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">Телефон</label>
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">{t('clients.form.phone')}</label>
                 <input
                   name="phone"
                   type="tel"
                   value={form.phone}
                   onChange={handleChange}
-                  placeholder="+7 (999) 000-00-00"
+                  placeholder={t('clients.form.phonePlaceholder')}
                   disabled={saving}
                   className="w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all disabled:opacity-50"
                 />
@@ -150,14 +152,14 @@ export function AddClientButton() {
                   disabled={saving}
                   className="flex-1 px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors disabled:opacity-50"
                 >
-                  Отмена
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="flex-1 px-4 py-2.5 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50"
                 >
-                  {saving ? 'Создание...' : 'Создать клиента'}
+                  {saving ? t('clients.action.creating') : t('clients.action.create')}
                 </button>
               </div>
             </form>

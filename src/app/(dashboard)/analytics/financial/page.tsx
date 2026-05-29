@@ -20,13 +20,19 @@ import type {
 
 // tooltipStyle comes from useChartTheme() inside the component
 
-const DOW_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+// DOW_LABELS are computed from lang inside the component using Intl.DateTimeFormat
+// Mon-first weekday abbreviations (Mon=0 … Sun=6)
+function getDowLabels(lang: string): string[] {
+  const fmt = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'ru-RU', { weekday: 'short' });
+  return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2025, 0, 6 + i)));
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function KPI({ label, value, sub, trend }: {
   label: string; value: string; sub?: string; trend?: number;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="bg-onyx border border-border-luxury rounded-2xl p-5">
       <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-2">{label}</p>
@@ -38,7 +44,7 @@ function KPI({ label, value, sub, trend }: {
             ? <TrendingUp className="w-3.5 h-3.5 text-sage" />
             : <TrendingDown className="w-3.5 h-3.5 text-red-400" />}
           <span className={cn('text-xs font-semibold', trend > 0 ? 'text-sage' : 'text-red-400')}>
-            {trend > 0 ? '+' : ''}{trend}% vs прошлый период
+            {trend > 0 ? '+' : ''}{trend}% {t('analytics.financial.vsPrevPeriod')}
           </span>
         </div>
       )}
@@ -55,7 +61,7 @@ function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   );
 }
 
-function PeakHeatmap({ data, emptyHeatCell }: { data: PeakHoursResponse['heatmap']; emptyHeatCell: string }) {
+function PeakHeatmap({ data, emptyHeatCell, dowLabels, bookingCountLabel }: { data: PeakHoursResponse['heatmap']; emptyHeatCell: string; dowLabels: string[]; bookingCountLabel: string }) {
   const maxCount = Math.max(1, ...data.map(c => c.bookingCount));
   const cellMap = new Map(data.map(c => [`${c.dayOfWeek}-${c.hour}`, c.bookingCount]));
   const hours = Array.from({ length: 15 }, (_, i) => i + 7); // 7–21
@@ -68,7 +74,7 @@ function PeakHeatmap({ data, emptyHeatCell }: { data: PeakHoursResponse['heatmap
             <div key={h} className="flex-1 text-center text-[10px] text-text-tertiary">{h}</div>
           ))}
         </div>
-        {DOW_LABELS.map((day, dow) => (
+        {dowLabels.map((day, dow) => (
           <div key={dow} className="flex items-center gap-0.5 mb-0.5">
             <span className="w-8 text-[11px] text-text-tertiary shrink-0">{day}</span>
             {hours.map(h => {
@@ -79,7 +85,7 @@ function PeakHeatmap({ data, emptyHeatCell }: { data: PeakHoursResponse['heatmap
                   key={h}
                   className="flex-1 aspect-square rounded-sm transition-colors"
                   style={{ backgroundColor: count === 0 ? emptyHeatCell : `rgba(212,175,122,${0.12 + intensity * 0.75})` }}
-                  title={count > 0 ? `${day} ${h}:00 — ${count} записей` : undefined}
+                  title={count > 0 ? `${day} ${h}:00 — ${count} ${bookingCountLabel}` : undefined}
                 />
               );
             })}
@@ -100,15 +106,16 @@ function daysAgoStr(n: number) {
 }
 
 const PRESETS = [
-  { label: '7 дней',   from: () => daysAgoStr(6),  to: todayStr },
-  { label: '30 дней',  from: () => daysAgoStr(29), to: todayStr },
-  { label: '90 дней',  from: () => daysAgoStr(89), to: todayStr },
+  { labelKey: 'analytics.financial.preset7d',  from: () => daysAgoStr(6),  to: todayStr },
+  { labelKey: 'analytics.financial.preset30d', from: () => daysAgoStr(29), to: todayStr },
+  { labelKey: 'analytics.financial.preset90d', from: () => daysAgoStr(89), to: todayStr },
 ];
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function FinancialAnalyticsPage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const dowLabels = getDowLabels(lang);
   const chart = useChartTheme();
 
   const [from, setFrom] = React.useState(() => daysAgoStr(29));
@@ -131,7 +138,7 @@ export default function FinancialAnalyticsPage() {
         fetch('/api/analytics/financial/forecast'),
       ]);
       if (!revRes.ok || !peakRes.ok || !foreRes.ok) {
-        setError('Не удалось загрузить данные');
+        setError(t('analytics.financial.errorLoad'));
         return;
       }
       const [revJson, peakJson, foreJson] = await Promise.all([
@@ -141,7 +148,7 @@ export default function FinancialAnalyticsPage() {
       setPeakHours(peakJson.data);
       setForecast(foreJson.data);
     } catch {
-      setError('Ошибка соединения');
+      setError(t('analytics.financial.errorNetwork'));
     } finally {
       setLoading(false);
     }
@@ -153,7 +160,7 @@ export default function FinancialAnalyticsPage() {
     setExporting(true);
     try {
       const res = await fetch(`/api/analytics/export/financial?from=${from}&to=${to}`);
-      if (!res.ok) { setError('Ошибка экспорта'); return; }
+      if (!res.ok) { setError(t('analytics.financial.errorExport')); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -162,7 +169,7 @@ export default function FinancialAnalyticsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      setError('Ошибка экспорта');
+      setError(t('analytics.financial.errorExport'));
     } finally {
       setExporting(false);
     }
@@ -192,9 +199,9 @@ export default function FinancialAnalyticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs text-text-tertiary mb-1">
-            <Link href="/analytics" className="hover:text-champagne transition-colors">Аналитика</Link>
+            <Link href="/analytics" className="hover:text-champagne transition-colors">{t('analytics.financial.breadcrumbAnalytics')}</Link>
             <span>/</span>
-            <span className="text-text-secondary">Финансы</span>
+            <span className="text-text-secondary">{t('analytics.financial.breadcrumbFinance')}</span>
           </div>
           <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">
             {t('analytics.financial.title')}
@@ -206,7 +213,7 @@ export default function FinancialAnalyticsPage() {
         <div className="flex flex-wrap items-center gap-2">
           {PRESETS.map(p => (
             <button
-              key={p.label}
+              key={p.labelKey}
               onClick={() => { setFrom(p.from()); setTo(p.to()); }}
               className={cn(
                 'h-8 px-3 text-xs font-medium rounded-lg border transition-all',
@@ -215,7 +222,7 @@ export default function FinancialAnalyticsPage() {
                   : 'bg-charcoal border-border-luxury text-text-secondary hover:border-border-light',
               )}
             >
-              {p.label}
+              {t(p.labelKey)}
             </button>
           ))}
           <input type="date" value={from} onChange={e => setFrom(e.target.value)} className={inputCls} />
@@ -227,7 +234,7 @@ export default function FinancialAnalyticsPage() {
             className="inline-flex items-center gap-1.5 h-9 px-3.5 text-xs font-medium rounded-xl border border-border-luxury bg-onyx text-text-secondary hover:text-champagne hover:border-champagne/40 transition-all disabled:opacity-50"
           >
             {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            Экспорт .xlsx
+            {t('analytics.financial.exportXlsx')}
           </button>
         </div>
       </div>
@@ -257,7 +264,7 @@ export default function FinancialAnalyticsPage() {
             <KPI
               label={t('analytics.financial.revenue')}
               value={formatCurrency(revenue.total)}
-              sub={`${revenue.byDay.length} дней`}
+              sub={`${revenue.byDay.length} ${t('analytics.financial.daysCount')}`}
               trend={revenue.trend.vsLastPeriod}
             />
             <KPI
@@ -279,9 +286,9 @@ export default function FinancialAnalyticsPage() {
 
           {/* ── Revenue by category ── */}
           <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
-            <SectionHeader title={t('analytics.financial.byCategory')} sub="Суммарная выручка за период" />
+            <SectionHeader title={t('analytics.financial.byCategory')} sub={t('analytics.financial.byCategorySub')} />
             {revenue.byCategory.length === 0 ? (
-              <div className="flex items-center justify-center py-12 text-text-tertiary text-sm">Нет данных</div>
+              <div className="flex items-center justify-center py-12 text-text-tertiary text-sm">{t('analytics.financial.noData')}</div>
             ) : (
               <div className="p-6">
                 <div className="h-52">
@@ -291,7 +298,7 @@ export default function FinancialAnalyticsPage() {
                       <XAxis type="number" tick={{ fontSize: 11, fill: '#6A6560' }} axisLine={false} tickLine={false}
                         tickFormatter={v => `${Math.round(v / 1000)}k`} />
                       <YAxis dataKey="category" type="category" tick={{ fontSize: 11, fill: '#9A9490' }} axisLine={false} tickLine={false} width={96} />
-                      <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v), 'Выручка']} />
+                      <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v), t('analytics.financial.revenueTooltip')]} />
                       <Bar dataKey="revenue" fill="#D4AF7A" radius={[0, 4, 4, 0]} opacity={0.85} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -302,18 +309,18 @@ export default function FinancialAnalyticsPage() {
 
           {/* ── Specialist type split ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {revenue.bySpecialistType.map(t => (
-              <div key={t.specialistType} className="bg-onyx border border-border-luxury rounded-2xl p-5">
+            {revenue.bySpecialistType.map(st => (
+              <div key={st.specialistType} className="bg-onyx border border-border-luxury rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <BarChart3 className="w-4 h-4 text-champagne" />
                   <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary">
-                    {t.specialistType === 'MASSAGE' ? 'Массаж' : 'Косметология'}
+                    {st.specialistType === 'MASSAGE' ? t('analytics.financial.massage') : t('analytics.financial.cosmetology')}
                   </p>
                 </div>
                 <p className="font-serif text-2xl font-medium text-text-primary tabular-nums">
-                  {formatCurrency(t.revenue)}
+                  {formatCurrency(st.revenue)}
                 </p>
-                <p className="text-sm text-text-secondary mt-1">{t.sessionCount} сеансов</p>
+                <p className="text-sm text-text-secondary mt-1">{st.sessionCount} {t('analytics.financial.sessionCountLabel')}</p>
               </div>
             ))}
           </div>
@@ -323,24 +330,24 @@ export default function FinancialAnalyticsPage() {
       {/* ── Peak hours heatmap ── */}
       {!loading && peakHours && (
         <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
-          <SectionHeader title={t('analytics.financial.peakHours')} sub="Записи по часам и дням недели" />
+          <SectionHeader title={t('analytics.financial.peakHours')} sub={t('analytics.financial.peakHoursSub')} />
           {peakHours.heatmap.length === 0 ? (
-            <div className="flex items-center justify-center py-12 text-text-tertiary text-sm">Нет данных</div>
+            <div className="flex items-center justify-center py-12 text-text-tertiary text-sm">{t('analytics.financial.noData')}</div>
           ) : (
             <>
-              <PeakHeatmap data={peakHours.heatmap} emptyHeatCell={chart.emptyHeatCell} />
+              <PeakHeatmap data={peakHours.heatmap} emptyHeatCell={chart.emptyHeatCell} dowLabels={dowLabels} bookingCountLabel={t('analytics.financial.bookingCount')} />
               {peakHours.peakDay && (
                 <div className="px-6 pb-4 flex flex-wrap gap-4 text-sm text-text-secondary">
                   {peakHours.peakHour && (
                     <span>
-                      Пиковый час: <span className="text-champagne font-medium">
-                        {DOW_LABELS[peakHours.peakHour.dayOfWeek]} {peakHours.peakHour.hour}:00
+                      {t('analytics.financial.peakHourLabel')} <span className="text-champagne font-medium">
+                        {dowLabels[peakHours.peakHour.dayOfWeek]} {peakHours.peakHour.hour}:00
                       </span>
                     </span>
                   )}
                   <span>
-                    Лучший день: <span className="text-champagne font-medium">
-                      {DOW_LABELS[peakHours.peakDay.dayOfWeek]}
+                    {t('analytics.financial.bestDayLabel')} <span className="text-champagne font-medium">
+                      {dowLabels[peakHours.peakDay.dayOfWeek]}
                     </span>
                   </span>
                 </div>
@@ -357,13 +364,13 @@ export default function FinancialAnalyticsPage() {
             <div>
               <h3 className="font-serif text-lg font-medium text-text-primary">{t('analytics.financial.forecast')}</h3>
               <p className="text-xs text-text-tertiary mt-0.5">
-                Прогноз на основе 7-дневного скользящего среднего
+                {t('analytics.financial.forecastSub')}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {forecast.trend === 'up' && <span className="flex items-center gap-1 text-sage text-xs font-medium"><TrendingUp className="w-3.5 h-3.5" />Рост</span>}
-              {forecast.trend === 'down' && <span className="flex items-center gap-1 text-red-400 text-xs font-medium"><TrendingDown className="w-3.5 h-3.5" />Снижение</span>}
-              {forecast.trend === 'stable' && <span className="flex items-center gap-1 text-text-tertiary text-xs font-medium"><Minus className="w-3.5 h-3.5" />Стабильно</span>}
+              {forecast.trend === 'up' && <span className="flex items-center gap-1 text-sage text-xs font-medium"><TrendingUp className="w-3.5 h-3.5" />{t('analytics.financial.trendUp')}</span>}
+              {forecast.trend === 'down' && <span className="flex items-center gap-1 text-red-400 text-xs font-medium"><TrendingDown className="w-3.5 h-3.5" />{t('analytics.financial.trendDown')}</span>}
+              {forecast.trend === 'stable' && <span className="flex items-center gap-1 text-text-tertiary text-xs font-medium"><Minus className="w-3.5 h-3.5" />{t('analytics.financial.trendStable')}</span>}
             </div>
           </div>
           <div className="p-6">
@@ -383,16 +390,16 @@ export default function FinancialAnalyticsPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6A6560' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10, fill: '#6A6560' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${Math.round(v / 1000)}k`} />
-                  <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number, name: string) => [formatCurrency(v), name === 'historical' ? 'Факт' : 'Прогноз']} />
+                  <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number, name: string) => [formatCurrency(v), name === 'historical' ? t('analytics.financial.legendFact') : t('analytics.financial.legendForecast')]} />
                   <Area type="monotone" dataKey="historical" stroke="#D4AF7A" strokeWidth={2} fill="url(#histGrad)" connectNulls />
                   <Area type="monotone" dataKey="forecast" stroke="#8BA888" strokeWidth={2} strokeDasharray="5 4" fill="url(#foreGrad)" connectNulls />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
             <div className="flex items-center gap-5 mt-3 text-xs text-text-tertiary">
-              <div className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-champagne inline-block" />Факт</div>
-              <div className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-sage inline-block border-dashed" style={{ borderTop: '2px dashed #8BA888', background: 'none' }} />Прогноз ({t('analytics.financial.confidence')}: {forecast.forecast[0]?.confidence ?? '—'})</div>
-              <span className="ml-auto">Среднее: {formatCurrency(forecast.rollingAvgRevenue)}/день</span>
+              <div className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-champagne inline-block" />{t('analytics.financial.legendFact')}</div>
+              <div className="flex items-center gap-1.5"><span className="w-4 h-0.5 bg-sage inline-block border-dashed" style={{ borderTop: '2px dashed #8BA888', background: 'none' }} />{t('analytics.financial.legendForecast')} ({t('analytics.financial.confidence')}: {forecast.forecast[0]?.confidence ?? '—'})</div>
+              <span className="ml-auto">{t('analytics.financial.rollingAvg')} {formatCurrency(forecast.rollingAvgRevenue)}/{t('analytics.financial.perDay')}</span>
             </div>
           </div>
         </div>
@@ -401,7 +408,7 @@ export default function FinancialAnalyticsPage() {
       {/* ── Revenue by day (area chart) ── */}
       {!loading && revenue && revenue.byDay.length > 0 && (
         <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
-          <SectionHeader title="Выручка по дням" sub="Завершённые записи" />
+          <SectionHeader title={t('analytics.financial.revenueByDay')} sub={t('analytics.financial.revenueByDaySub')} />
           <div className="p-6 h-48">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={revenue.byDay.map(d => ({ date: d.date.slice(5), revenue: d.revenue }))} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
@@ -414,7 +421,7 @@ export default function FinancialAnalyticsPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2A38" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6A6560' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                 <YAxis tick={{ fontSize: 10, fill: '#6A6560' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${Math.round(v / 1000)}k`} />
-                <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v), 'Выручка']} />
+                <Tooltip contentStyle={chart.tooltipStyle} formatter={(v: number) => [formatCurrency(v), t('analytics.financial.revenueTooltip')]} />
                 <Area type="monotone" dataKey="revenue" stroke="#D4AF7A" strokeWidth={2} fill="url(#revGrad)" />
               </AreaChart>
             </ResponsiveContainer>

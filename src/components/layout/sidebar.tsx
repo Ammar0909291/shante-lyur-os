@@ -137,7 +137,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
           <button
             onClick={onMobileClose}
             className="lg:hidden p-1.5 rounded-md text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
-            aria-label="Закрыть меню"
+            aria-label={t('sidebar.closeMenu')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -149,14 +149,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
               'text-text-tertiary hover:text-text-primary hover:bg-charcoal',
               'transition-colors',
             )}
-            aria-label={collapsed ? 'Развернуть' : 'Свернуть'}
+            aria-label={collapsed ? t('sidebar.expandMenu') : t('sidebar.collapseMenu')}
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label="Основная навигация">
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1" aria-label={t('sidebar.mainNav')}>
           {visibleItems.map(({ key, href, icon: Icon }) => {
             const isActive = pathname === href || pathname.startsWith(`${href}/`);
             const label = t(key);

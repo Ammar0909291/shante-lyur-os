@@ -4,6 +4,7 @@ import * as React from 'react';
 import { X, Download, Plus, Trash2, CheckSquare, RefreshCw, ChevronDown, ChevronUp, Pencil, Lock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCommissionTypeLabel, getUserRoleLabel, getDepartmentLabel } from '@/lib/labels';
+import { useLanguage } from '@/contexts/language';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,23 +57,28 @@ const STATUS_COLOR: Record<string, string> = {
   approved: 'text-sky-400 bg-sky-400/10 border-sky-400/20',
   paid:     'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
 };
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'Ожидает', APPROVED: 'Утверждено', PAID: 'Выплачено',
-  pending: 'Ожидает', approved: 'Утверждено', paid: 'Выплачено',
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  PENDING:  'payroll.comm.pending',
+  APPROVED: 'payroll.comm.approved',
+  PAID:     'payroll.status.paid',
+  pending:  'payroll.comm.pending',
+  approved: 'payroll.comm.approved',
+  paid:     'payroll.status.paid',
 };
 
-const BONUS_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'STANDARD_SALE',    label: 'Стандартная' },
-  { value: 'NEW_CLIENT',       label: 'Новый клиент' },
-  { value: 'RETURNING_CLIENT', label: 'Возврат клиента' },
-  { value: 'TARGET_BONUS',     label: 'За план' },
-  { value: 'QUALITY_BONUS',    label: 'За качество' },
-  { value: 'CUSTOM',           label: 'Особый' },
+const BONUS_TYPE_KEYS: Array<{ value: string; labelKey: string }> = [
+  { value: 'STANDARD_SALE',    labelKey: 'payroll.bonus.standard' },
+  { value: 'NEW_CLIENT',       labelKey: 'payroll.bonus.newClient' },
+  { value: 'RETURNING_CLIENT', labelKey: 'payroll.bonus.returningClient' },
+  { value: 'TARGET_BONUS',     labelKey: 'payroll.bonus.targetBonus' },
+  { value: 'QUALITY_BONUS',    labelKey: 'payroll.bonus.qualityBonus' },
+  { value: 'CUSTOM',           labelKey: 'payroll.bonus.custom' },
 ];
 
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
 export function EmployeePayrollPanel({ specialistId, userId, name, role, department, onClose }: Props) {
+  const { t } = useLanguage();
   const [from, setFrom] = React.useState(monthStart());
   const [to,   setTo]   = React.useState(today());
 
@@ -259,15 +265,15 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
           {summary && (
             <div className="ml-auto flex items-center gap-6">
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Комиссии</p>
+                <p className="text-[10px] uppercase tracking-wider text-text-tertiary">{t('payroll.panel.commissionsSummary')}</p>
                 <p className="text-sm font-medium text-emerald-400">{fmt(summary.totalSaleCommissions)}</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Бонусы</p>
+                <p className="text-[10px] uppercase tracking-wider text-text-tertiary">{t('payroll.panel.bonusesSummary')}</p>
                 <p className="text-sm font-medium text-champagne">{fmt(summary.totalBonuses)}</p>
               </div>
               <div className="text-right border-l border-border-luxury pl-6">
-                <p className="text-[10px] uppercase tracking-wider text-text-tertiary">Итого</p>
+                <p className="text-[10px] uppercase tracking-wider text-text-tertiary">{t('payroll.panel.totalSummary')}</p>
                 <p className="text-base font-semibold text-champagne">{fmt(summary.grandTotal)}</p>
               </div>
             </div>
@@ -288,11 +294,11 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                   className="w-full flex items-center justify-between px-6 py-3.5 border-b border-border-luxury bg-charcoal/20 hover:bg-charcoal/40 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-text-primary">Комиссии за продажи</span>
-                    <span className="text-xs text-text-tertiary">{saleCommissions.length} записей</span>
+                    <span className="text-sm font-semibold text-text-primary">{t('payroll.panel.saleCommissions')}</span>
+                    <span className="text-xs text-text-tertiary">{saleCommissions.length} {t('payroll.panel.entries')}</span>
                     {pendingCount > 0 && (
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-400 border border-amber-400/25">
-                        {pendingCount} ожидают
+                        {pendingCount} {t('payroll.panel.awaiting')}
                       </span>
                     )}
                   </div>
@@ -303,7 +309,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                         onClick={(e) => { e.stopPropagation(); void approveAll(); }}
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-400/10 border border-sky-400/20 text-sky-400 text-xs hover:bg-sky-400/20 transition-colors"
                       >
-                        <CheckSquare className="w-3 h-3" /> Утвердить все
+                        <CheckSquare className="w-3 h-3" /> {t('payroll.panel.approveAll')}
                       </button>
                     )}
                     {saleOpen ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
@@ -313,15 +319,15 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                 {saleOpen && (
                   saleCommissions.length === 0 ? (
                     <div className="px-6 py-10 text-center text-sm text-text-tertiary">
-                      Нет комиссий за период.
-                      <p className="text-xs text-text-tertiary/60 mt-1">Комиссии появляются автоматически при записи продаж.</p>
+                      {t('payroll.panel.noCommissions')}
+                      <p className="text-xs text-text-tertiary/60 mt-1">{t('payroll.panel.commissionsHint')}</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-border-luxury bg-charcoal/10">
-                            {['Дата', 'Клиент', 'Услуги', 'Тип', 'Сумма', 'Ставка', 'Комиссия ₽', 'Статус', ''].map((h) => (
+                            {[t('payroll.col.date'), t('payroll.col.client'), t('payroll.col.services'), t('payroll.col.type'), t('payroll.col.amount'), t('payroll.col.rate'), t('payroll.col.commissionRub'), t('payroll.col.status'), ''].map((h) => (
                               <th key={h} className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary whitespace-nowrap">{h}</th>
                             ))}
                           </tr>
@@ -379,14 +385,14 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                                 <td className="px-3 py-2.5">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className={cn('text-[10px] rounded px-1.5 py-0.5 border font-medium', STATUS_COLOR[e.status] ?? 'text-text-tertiary bg-charcoal border-border-luxury')}>
-                                      {STATUS_LABEL[e.status] ?? e.status}
+                                      {STATUS_LABEL_KEYS[e.status] ? t(STATUS_LABEL_KEYS[e.status]) : e.status}
                                     </span>
                                     {e.edited && (
                                       <span
-                                        title={e.editedAt ? `Изменено ${new Date(e.editedAt).toLocaleDateString('ru-RU')}` : 'Изменено'}
+                                        title={e.editedAt ? `${t('payroll.panel.edited')} ${new Date(e.editedAt).toLocaleDateString('ru-RU')}` : t('payroll.panel.edited')}
                                         className="text-[10px] px-1.5 py-0.5 rounded bg-violet-400/10 border border-violet-400/20 text-violet-400 font-medium cursor-help"
                                       >
-                                        Изменено
+                                        {t('payroll.panel.edited')}
                                       </span>
                                     )}
                                   </div>
@@ -401,7 +407,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                                         onClick={() => void saveEdit(e)}
                                         disabled={editSaving}
                                         className="p-1 rounded text-emerald-400 hover:bg-emerald-400/10 transition-colors disabled:opacity-50"
-                                        title="Сохранить"
+                                        title={t('payroll.panel.saveTitle')}
                                       >
                                         <Check className="w-3.5 h-3.5" />
                                       </button>
@@ -409,19 +415,19 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                                         type="button"
                                         onClick={cancelEdit}
                                         className="p-1 rounded text-text-muted hover:text-text-primary transition-colors"
-                                        title="Отмена"
+                                        title={t('payroll.panel.cancelTitle')}
                                       >
                                         <X className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   ) : e.isLocked ? (
-                                    <span title="Период закрыт"><Lock className="w-3.5 h-3.5 text-text-muted/40" /></span>
+                                    <span title={t('payroll.panel.periodLocked')}><Lock className="w-3.5 h-3.5 text-text-muted/40" /></span>
                                   ) : (
                                     <button
                                       type="button"
                                       onClick={() => startEdit(e)}
                                       className="p-1 rounded text-text-muted/40 hover:text-text-muted transition-colors"
-                                      title="Редактировать комиссию"
+                                      title={t('payroll.panel.editCommission')}
                                     >
                                       <Pencil className="w-3.5 h-3.5" />
                                     </button>
@@ -445,8 +451,8 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                     onClick={() => setBonusOpen((v) => !v)}
                     className="flex items-center gap-3 flex-1 text-left hover:opacity-80 transition-opacity"
                   >
-                    <span className="text-sm font-semibold text-text-primary">Другие бонусы</span>
-                    <span className="text-xs text-text-tertiary">{bonuses.length} записей</span>
+                    <span className="text-sm font-semibold text-text-primary">{t('payroll.panel.otherBonuses')}</span>
+                    <span className="text-xs text-text-tertiary">{bonuses.length} {t('payroll.panel.entries')}</span>
                     {bonusOpen ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
                   </button>
                   <button
@@ -454,7 +460,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                     onClick={() => setShowBonusForm((v) => !v)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-champagne/30 bg-champagne/5 text-champagne text-xs hover:bg-champagne/10 transition-colors"
                   >
-                    <Plus className="w-3 h-3" /> Добавить бонус
+                    <Plus className="w-3 h-3" /> {t('payroll.panel.addBonus')}
                   </button>
                 </div>
 
@@ -463,19 +469,19 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                   <div className="px-6 py-4 bg-charcoal/30 border-b border-border-luxury space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider block mb-1">Тип бонуса</label>
+                        <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider block mb-1">{t('payroll.panel.bonusType')}</label>
                         <select
                           value={bonusType}
                           onChange={(e) => setBonusType(e.target.value)}
                           className="w-full px-2.5 py-2 rounded-lg bg-obsidian border border-border-luxury text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-champagne/40 [&>option]:bg-obsidian"
                         >
-                          {BONUS_TYPE_OPTIONS.map(({ value, label }) => (
-                            <option key={value} value={value}>{label}</option>
+                          {BONUS_TYPE_KEYS.map(({ value, labelKey }) => (
+                            <option key={value} value={value}>{t(labelKey)}</option>
                           ))}
                         </select>
                       </div>
                       <div>
-                        <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider block mb-1">Сумма ₽</label>
+                        <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider block mb-1">{t('payroll.panel.bonusAmount')}</label>
                         <input
                           type="number" min="0" step="0.01"
                           value={bonusAmt}
@@ -486,19 +492,19 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider block mb-1">Описание</label>
+                      <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider block mb-1">{t('payroll.panel.bonusDescription')}</label>
                       <input
                         type="text"
                         value={bonusDesc}
                         onChange={(e) => setBonusDesc(e.target.value)}
-                        placeholder="Причина / комментарий"
+                        placeholder={t('payroll.panel.bonusDescPlaceholder')}
                         className="w-full px-2.5 py-2 rounded-lg bg-obsidian border border-border-luxury text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-champagne/40"
                       />
                     </div>
 
                     {/* Quick % calculator */}
                     <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-champagne/5 border border-champagne/15">
-                      <span className="text-[10px] text-text-tertiary uppercase tracking-wider whitespace-nowrap">% от продаж</span>
+                      <span className="text-[10px] text-text-tertiary uppercase tracking-wider whitespace-nowrap">{t('payroll.panel.pctOfSales')}</span>
                       <div className="relative w-20 shrink-0">
                         <input
                           type="number"
@@ -514,7 +520,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                       <span className="text-[10px] text-text-tertiary">
                         {salesVolume > 0
                           ? `= ${fmt(Math.round(salesVolume * (parseFloat(bonusPct) || 0) / 100 * 100) / 100)} ₽`
-                          : '(нет продаж)'}
+                          : t('payroll.panel.noSales')}
                       </span>
                       <button
                         type="button"
@@ -522,7 +528,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                         disabled={salesVolume <= 0 || !(parseFloat(bonusPct) > 0)}
                         className="ml-auto px-2.5 py-1 rounded-md bg-champagne/15 border border-champagne/30 text-champagne text-[10px] font-medium hover:bg-champagne/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                       >
-                        Применить
+                        {t('payroll.panel.apply')}
                       </button>
                     </div>
 
@@ -532,7 +538,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                         onClick={() => setShowBonusForm(false)}
                         className="px-4 py-1.5 rounded-lg border border-border-luxury text-text-secondary text-xs hover:text-text-primary transition-colors"
                       >
-                        Отмена
+                        {t('payroll.panel.cancel')}
                       </button>
                       <button
                         type="button"
@@ -540,7 +546,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                         disabled={bonusSaving || !bonusDesc.trim() || bonusAmt === ''}
                         className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-champagne text-obsidian text-xs font-medium hover:bg-champagne/90 disabled:opacity-50 transition-colors"
                       >
-                        Сохранить
+                        {t('payroll.panel.save')}
                       </button>
                     </div>
                   </div>
@@ -549,7 +555,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                 {bonusOpen && (
                   bonuses.length === 0 ? (
                     <div className="px-6 py-8 text-center text-sm text-text-tertiary">
-                      Нет бонусов за период.
+                      {t('payroll.panel.noBonuses')}
                     </div>
                   ) : (
                     <div className="divide-y divide-border-luxury/30">
@@ -566,7 +572,7 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
                             <span className={cn('text-[10px] rounded px-1.5 py-0.5 border font-medium', STATUS_COLOR[b.entryStatus] ?? 'text-text-tertiary bg-charcoal border-border-luxury')}>
-                              {STATUS_LABEL[b.entryStatus] ?? b.entryStatus}
+                              {STATUS_LABEL_KEYS[b.entryStatus] ? t(STATUS_LABEL_KEYS[b.entryStatus]) : b.entryStatus}
                             </span>
                             <span className="text-sm font-semibold text-champagne tabular-nums">{fmt(b.amount)}</span>
                             <button
@@ -591,10 +597,10 @@ export function EmployeePayrollPanel({ specialistId, userId, name, role, departm
             <div className="px-6 py-5 border-t border-border-luxury mt-auto">
               <div className="flex items-center justify-between px-5 py-4 rounded-2xl bg-champagne/5 border border-champagne/15">
                 <div>
-                  <p className="text-xs text-text-tertiary uppercase tracking-wider">Итого комиссий</p>
+                  <p className="text-xs text-text-tertiary uppercase tracking-wider">{t('payroll.panel.grandTotal')}</p>
                   <div className="flex items-center gap-4 mt-1">
-                    <span className="text-xs text-text-muted">Продажи: <span className="text-emerald-400 font-medium">{fmt(summary.totalSaleCommissions)}</span></span>
-                    <span className="text-xs text-text-muted">Бонусы: <span className="text-champagne font-medium">{fmt(summary.totalBonuses)}</span></span>
+                    <span className="text-xs text-text-muted">{t('payroll.panel.salesLabel')} <span className="text-emerald-400 font-medium">{fmt(summary.totalSaleCommissions)}</span></span>
+                    <span className="text-xs text-text-muted">{t('payroll.panel.bonusesLabel')} <span className="text-champagne font-medium">{fmt(summary.totalBonuses)}</span></span>
                   </div>
                 </div>
                 <p className="text-2xl font-serif font-medium text-champagne">{fmt(summary.grandTotal)}</p>

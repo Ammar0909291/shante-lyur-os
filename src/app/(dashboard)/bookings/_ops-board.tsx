@@ -7,6 +7,7 @@ import {
   Ban, RefreshCw, LayoutGrid, Rows, Grid3X3, Wifi, WifiOff,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 import type {
   TodayOperationsResponse,
   OperationalAppointment,
@@ -48,14 +49,14 @@ function durationToHeight(minutes: number): number {
   return Math.max(minutes * PX_PER_MIN, 28);
 }
 
-function formatLocalTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('ru-RU', {
+function formatLocalTime(iso: string, locale = 'ru-RU'): string {
+  return new Date(iso).toLocaleTimeString(locale, {
     timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit',
   });
 }
 
-function formatLocalDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', {
+function formatLocalDate(iso: string, locale = 'ru-RU'): string {
+  return new Date(iso).toLocaleDateString(locale, {
     timeZone: TIMEZONE, day: 'numeric', month: 'long', year: 'numeric', weekday: 'long',
   });
 }
@@ -64,15 +65,15 @@ function formatLocalDate(iso: string): string {
 const STATUS_CFG: Record<OperationalStatus, {
   bg: string; border: string; text: string; dotColor: string; label: string;
 }> = {
-  PENDING:     { bg: 'bg-amber-900/30',  border: 'border-amber-600/50',  text: 'text-amber-200',   dotColor: 'bg-amber-400',  label: 'Ожидает' },
-  CONFIRMED:   { bg: 'bg-yellow-900/35', border: 'border-yellow-500/55', text: 'text-yellow-100',  dotColor: 'bg-yellow-400', label: 'Подтверждён' },
-  ARRIVED:     { bg: 'bg-yellow-800/45', border: 'border-yellow-400/70', text: 'text-yellow-50',   dotColor: 'bg-yellow-300', label: 'Прибыл' },
-  WAITING:     { bg: 'bg-orange-900/35', border: 'border-orange-500/55', text: 'text-orange-200',  dotColor: 'bg-orange-400', label: 'В очереди' },
-  IN_PROGRESS: { bg: 'bg-emerald-900/35',border: 'border-emerald-500/55',text: 'text-emerald-100', dotColor: 'bg-emerald-400',label: 'В работе' },
-  COMPLETED:   { bg: 'bg-zinc-800/50',   border: 'border-zinc-600/35',   text: 'text-zinc-400',    dotColor: 'bg-zinc-500',   label: 'Завершён' },
-  CANCELLED:   { bg: 'bg-red-950/40',    border: 'border-red-700/40',    text: 'text-red-400',     dotColor: 'bg-red-500',    label: 'Отменён' },
-  NO_SHOW:     { bg: 'bg-zinc-900/45',   border: 'border-zinc-700/30',   text: 'text-zinc-500',    dotColor: 'bg-zinc-600',   label: 'Не явился' },
-  RESCHEDULED: { bg: 'bg-blue-900/30',   border: 'border-blue-600/40',   text: 'text-blue-300',    dotColor: 'bg-blue-400',   label: 'Перенесён' },
+  PENDING:     { bg: 'bg-amber-900/30',  border: 'border-amber-600/50',  text: 'text-amber-200',   dotColor: 'bg-amber-400',  label: 'Pending' },
+  CONFIRMED:   { bg: 'bg-yellow-900/35', border: 'border-yellow-500/55', text: 'text-yellow-100',  dotColor: 'bg-yellow-400', label: 'Confirmed' },
+  ARRIVED:     { bg: 'bg-yellow-800/45', border: 'border-yellow-400/70', text: 'text-yellow-50',   dotColor: 'bg-yellow-300', label: 'Arrived' },
+  WAITING:     { bg: 'bg-orange-900/35', border: 'border-orange-500/55', text: 'text-orange-200',  dotColor: 'bg-orange-400', label: 'Waiting' },
+  IN_PROGRESS: { bg: 'bg-emerald-900/35',border: 'border-emerald-500/55',text: 'text-emerald-100', dotColor: 'bg-emerald-400',label: 'In progress' },
+  COMPLETED:   { bg: 'bg-zinc-800/50',   border: 'border-zinc-600/35',   text: 'text-zinc-400',    dotColor: 'bg-zinc-500',   label: 'Completed' },
+  CANCELLED:   { bg: 'bg-red-950/40',    border: 'border-red-700/40',    text: 'text-red-400',     dotColor: 'bg-red-500',    label: 'Cancelled' },
+  NO_SHOW:     { bg: 'bg-zinc-900/45',   border: 'border-zinc-700/30',   text: 'text-zinc-500',    dotColor: 'bg-zinc-600',   label: 'No show' },
+  RESCHEDULED: { bg: 'bg-blue-900/30',   border: 'border-blue-600/40',   text: 'text-blue-300',    dotColor: 'bg-blue-400',   label: 'Rescheduled' },
 };
 
 const DEPT_COLOR: Record<string, string> = {
@@ -80,13 +81,6 @@ const DEPT_COLOR: Record<string, string> = {
   MASSAGE:     'text-indigo-300',
   RECEPTION:   'text-sky-300',
   MANAGEMENT:  'text-amber-300',
-};
-
-const DEPT_LABEL: Record<string, string> = {
-  COSMETOLOGY: 'Косметология',
-  MASSAGE:     'Массаж',
-  RECEPTION:   'Ресепшн',
-  MANAGEMENT:  'Менеджмент',
 };
 
 // ── Conflict detection ─────────────────────────────────────────────────────────
@@ -138,6 +132,8 @@ interface BlockProps {
 }
 
 const AppointmentBlock = React.memo(function AppointmentBlock({ apt, colWidth, isConflict, onClick }: BlockProps) {
+  const { t, lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
   const startMin = isoToLocalMinutes(apt.startAt);
   if (startMin < DAY_START_HOUR * 60 || startMin >= DAY_END_HOUR * 60) return null;
 
@@ -157,14 +153,14 @@ const AppointmentBlock = React.memo(function AppointmentBlock({ apt, colWidth, i
         isConflict && 'ring-2 ring-red-500/70',
       )}
       style={{ top, height: height - 2, width: colWidth - 10, zIndex: 5 }}
-      title={`${apt.clientName} · ${apt.services[0] ?? ''} · ${formatLocalTime(apt.startAt)}`}
+      title={`${apt.clientName} · ${apt.services[0] ?? ''} · ${formatLocalTime(apt.startAt, locale)}`}
     >
       <div className="px-2 py-1.5 h-full flex flex-col gap-0.5">
         {/* Status dot + time */}
         <div className="flex items-center gap-1 flex-shrink-0">
           <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', cfg.dotColor)} />
           <span className="text-[10px] font-mono opacity-75 leading-none">
-            {formatLocalTime(apt.startAt)}
+            {formatLocalTime(apt.startAt, locale)}
           </span>
           {isPaid && !isShort && (
             <span className="ml-auto text-[9px] bg-emerald-500/20 text-emerald-300 rounded px-1 leading-tight">✓</span>
@@ -186,7 +182,7 @@ const AppointmentBlock = React.memo(function AppointmentBlock({ apt, colWidth, i
         {/* Duration + room */}
         {height >= 88 && (
           <div className="flex items-center gap-1 mt-auto opacity-55 flex-shrink-0">
-            <span className="text-[9px]">{apt.duration} мин</span>
+            <span className="text-[9px]">{apt.duration} {t('ops.minAbbr')}</span>
             {apt.roomName && (
               <>
                 <span className="text-[9px]">·</span>
@@ -209,16 +205,29 @@ interface ModalProps {
 }
 
 function QuickActionModal({ apt, onClose, onAction, actionLoading }: ModalProps) {
+  const { t } = useLanguage();
   const cfg    = STATUS_CFG[apt.operationalStatus] ?? STATUS_CFG.PENDING;
   const actions = allowedActions(apt.operationalStatus);
 
+  const STATUS_LABEL: Record<string, string> = {
+    PENDING:     t('ops.status.pending'),
+    CONFIRMED:   t('ops.status.confirmed'),
+    ARRIVED:     t('ops.status.arrived'),
+    WAITING:     t('ops.status.waiting'),
+    IN_PROGRESS: t('ops.status.in_progress'),
+    COMPLETED:   t('ops.status.completed'),
+    CANCELLED:   t('ops.status.cancelled'),
+    NO_SHOW:     t('ops.status.no_show'),
+    RESCHEDULED: t('ops.status.rescheduled'),
+  };
+
   const ACTION_UI: Record<TransitionAction, { label: string; icon: React.ReactNode; variant: string }> = {
-    confirm:  { label: 'Подтвердить',    icon: <Check className="w-4 h-4" />,     variant: 'bg-yellow-600 hover:bg-yellow-500 text-white' },
-    checkin:  { label: 'Отметить приход', icon: <UserCheck className="w-4 h-4" />, variant: 'bg-emerald-700 hover:bg-emerald-600 text-white' },
-    start:    { label: 'Начать процедуру',icon: <Play className="w-4 h-4" />,      variant: 'bg-emerald-600 hover:bg-emerald-500 text-white' },
-    complete: { label: 'Завершить',       icon: <Check className="w-4 h-4" />,     variant: 'bg-indigo-600 hover:bg-indigo-500 text-white' },
-    noshow:   { label: 'Не явился',       icon: <UserCheck className="w-4 h-4" />, variant: 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' },
-    cancel:   { label: 'Отменить',        icon: <Ban className="w-4 h-4" />,       variant: 'bg-red-800 hover:bg-red-700 text-red-200' },
+    confirm:  { label: t('ops.action.confirm'),  icon: <Check className="w-4 h-4" />,     variant: 'bg-yellow-600 hover:bg-yellow-500 text-white' },
+    checkin:  { label: t('ops.action.checkin'),  icon: <UserCheck className="w-4 h-4" />, variant: 'bg-emerald-700 hover:bg-emerald-600 text-white' },
+    start:    { label: t('ops.action.start'),    icon: <Play className="w-4 h-4" />,      variant: 'bg-emerald-600 hover:bg-emerald-500 text-white' },
+    complete: { label: t('ops.action.complete'), icon: <Check className="w-4 h-4" />,     variant: 'bg-indigo-600 hover:bg-indigo-500 text-white' },
+    noshow:   { label: t('ops.action.noshow'),   icon: <UserCheck className="w-4 h-4" />, variant: 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' },
+    cancel:   { label: t('ops.action.cancel'),   icon: <Ban className="w-4 h-4" />,       variant: 'bg-red-800 hover:bg-red-700 text-red-200' },
   };
 
   return (
@@ -233,7 +242,7 @@ function QuickActionModal({ apt, onClose, onAction, actionLoading }: ModalProps)
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className={cn('w-2 h-2 rounded-full', cfg.dotColor)} />
-              <span className={cn('text-xs font-medium', cfg.text)}>{cfg.label}</span>
+              <span className={cn('text-xs font-medium', cfg.text)}>{STATUS_LABEL[apt.operationalStatus] ?? cfg.label}</span>
             </div>
             <h3 className="text-base font-serif font-medium text-text-primary truncate">{apt.clientName}</h3>
             <p className="text-sm text-text-secondary mt-0.5">{apt.services.join(', ')}</p>
@@ -246,46 +255,46 @@ function QuickActionModal({ apt, onClose, onAction, actionLoading }: ModalProps)
         {/* Details */}
         <div className="px-5 py-4 space-y-2 text-sm border-b border-border-luxury">
           <div className="flex items-center justify-between">
-            <span className="text-text-secondary">Специалист</span>
+            <span className="text-text-secondary">{t('booking.fieldSpecialist')}</span>
             <span className="text-text-primary font-medium">{apt.specialistName}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-text-secondary">Время</span>
+            <span className="text-text-secondary">{t('booking.fieldTime')}</span>
             <span className="text-text-primary font-mono">
               {formatLocalTime(apt.startAt)} – {formatLocalTime(apt.endAt)}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-text-secondary">Длительность</span>
-            <span className="text-text-primary">{apt.duration} мин</span>
+            <span className="text-text-secondary">{t('booking.fieldDuration')}</span>
+            <span className="text-text-primary">{apt.duration} {t('common.min')}</span>
           </div>
           {apt.roomName && (
             <div className="flex items-center justify-between">
-              <span className="text-text-secondary">Кабинет</span>
+              <span className="text-text-secondary">{t('rec.assignRoom')}</span>
               <span className="text-text-primary">{apt.roomName}</span>
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span className="text-text-secondary">Выручка</span>
+            <span className="text-text-secondary">{t('ops.specialist.revenue')}</span>
             <span className="text-text-primary font-medium">{formatCurrency(apt.revenue)}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-text-secondary">Оплата</span>
+            <span className="text-text-secondary">{t('ops.payment')}</span>
             <span className={cn('text-xs px-1.5 py-0.5 rounded font-medium',
               apt.paymentStatus === 'PAID' ? 'bg-emerald-500/20 text-emerald-300' :
               apt.paymentStatus === 'DEPOSIT_PAID' ? 'bg-yellow-500/20 text-yellow-300' :
               'bg-zinc-700/50 text-zinc-400'
             )}>
-              {apt.paymentStatus === 'PAID' ? 'Оплачено' :
-               apt.paymentStatus === 'DEPOSIT_PAID' ? 'Депозит' :
-               apt.paymentStatus === 'PARTIAL_PAID' ? 'Частично' :
-               'Не оплачено'}
+              {apt.paymentStatus === 'PAID' ? t('ops.paid') :
+               apt.paymentStatus === 'DEPOSIT_PAID' ? t('ops.deposit') :
+               apt.paymentStatus === 'PARTIAL_PAID' ? t('ops.partial') :
+               t('ops.unpaid')}
             </span>
           </div>
           {apt.waitMinutes !== null && apt.waitMinutes > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-text-secondary">Ожидание</span>
-              <span className="text-orange-300 font-medium">{apt.waitMinutes} мин</span>
+              <span className="text-text-secondary">{t('ops.wait')}</span>
+              <span className="text-orange-300 font-medium">{apt.waitMinutes} {t('common.min')}</span>
             </div>
           )}
         </div>
@@ -293,7 +302,7 @@ function QuickActionModal({ apt, onClose, onAction, actionLoading }: ModalProps)
         {/* Actions */}
         {actions.length > 0 && (
           <div className="px-5 py-4 space-y-2">
-            <p className="text-xs text-text-tertiary uppercase tracking-wider mb-3">Быстрые действия</p>
+            <p className="text-xs text-text-tertiary uppercase tracking-wider mb-3">{t('ops.quickActions')}</p>
             <div className="grid grid-cols-2 gap-2">
               {actions.map(action => {
                 const ui = ACTION_UI[action];
@@ -323,14 +332,14 @@ function QuickActionModal({ apt, onClose, onAction, actionLoading }: ModalProps)
             className="flex-1 text-center text-xs py-2 rounded-xl border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors"
             onClick={onClose}
           >
-            Профиль клиента
+            {t('ops.clientProfile')}
           </Link>
           <Link
             href={`/bookings`}
             className="flex-1 text-center text-xs py-2 rounded-xl border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors"
             onClick={onClose}
           >
-            В список записей
+            {t('ops.toBookings')}
           </Link>
         </div>
       </div>
@@ -348,16 +357,18 @@ interface BoardHeaderProps {
 }
 
 function BoardHeader({ data, isConnected, onRefresh, refreshing }: BoardHeaderProps) {
+  const { t, lang } = useLanguage();
   const [now, setNow] = React.useState(() => new Date());
   React.useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const m   = data?.metrics;
   const revenue = data?.queue.reduce((s, a) => s + (a.operationalStatus !== 'CANCELLED' && a.operationalStatus !== 'NO_SHOW' ? a.revenue : 0), 0) ?? 0;
   const totalActive = (m?.pending ?? 0) + (m?.confirmed ?? 0) + (m?.arrived ?? 0) + (m?.waiting ?? 0) + (m?.inProgress ?? 0);
-  const dateLabel = data?.date ? formatLocalDate(new Date(data.date + 'T12:00:00Z').toISOString()) : '';
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+  const dateLabel = data?.date ? formatLocalDate(new Date(data.date + 'T12:00:00Z').toISOString(), locale) : '';
 
   return (
     <div className="border-b border-border-luxury px-4 py-3 flex-shrink-0">
@@ -368,9 +379,9 @@ function BoardHeader({ data, isConnected, onRefresh, refreshing }: BoardHeaderPr
             <h2 className="font-serif text-lg font-medium text-text-primary capitalize truncate">{dateLabel}</h2>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-text-secondary text-xs font-mono">
-                {now.toLocaleTimeString('ru-RU', { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {now.toLocaleTimeString(locale, { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
-              <span className="text-text-tertiary text-xs">Екатеринбург</span>
+              <span className="text-text-tertiary text-xs">{t('ops.location')}</span>
             </div>
           </div>
         </div>
@@ -395,12 +406,12 @@ function BoardHeader({ data, isConnected, onRefresh, refreshing }: BoardHeaderPr
       {/* Metrics row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         {[
-          { label: 'Записей сегодня',   value: m?.totalBookings ?? 0,             color: 'text-text-primary' },
-          { label: 'Активных',          value: totalActive,                        color: 'text-yellow-300' },
-          { label: 'В работе',          value: m?.inProgress ?? 0,                color: 'text-emerald-300' },
-          { label: 'Завершено',         value: m?.completed ?? 0,                 color: 'text-zinc-300' },
-          { label: 'Отмен',             value: (m?.cancelled ?? 0) + (m?.noShow ?? 0), color: 'text-red-400' },
-          { label: 'Выручка (план)',    value: formatCurrency(revenue),            color: 'text-champagne' },
+          { label: t('ops.bookingsToday'), value: m?.totalBookings ?? 0,             color: 'text-text-primary' },
+          { label: t('ops.active'),        value: totalActive,                        color: 'text-yellow-300' },
+          { label: t('ops.inProgress'),    value: m?.inProgress ?? 0,                color: 'text-emerald-300' },
+          { label: t('ops.completed'),     value: m?.completed ?? 0,                 color: 'text-zinc-300' },
+          { label: t('ops.cancels'),       value: (m?.cancelled ?? 0) + (m?.noShow ?? 0), color: 'text-red-400' },
+          { label: t('ops.revenuePlan'),   value: formatCurrency(revenue),            color: 'text-champagne' },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-charcoal/60 border border-border-luxury rounded-xl px-3 py-2">
             <p className="text-[10px] text-text-tertiary uppercase tracking-wider mb-0.5">{label}</p>
@@ -423,24 +434,25 @@ interface FilterBarProps {
 }
 
 function FilterBar({ filters, specialists, rooms, view, onFilters, onView }: FilterBarProps) {
+  const { t } = useLanguage();
   const pill = 'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer';
   const active = 'bg-champagne text-obsidian';
   const inactive = 'bg-charcoal border border-border-luxury text-text-secondary hover:text-text-primary';
 
   const DEPT_FILTERS = [
-    { value: '', label: 'Все' },
-    { value: 'COSMETOLOGY', label: 'Косметология' },
-    { value: 'MASSAGE', label: 'Массаж' },
-    { value: 'RECEPTION', label: 'Ресепшн' },
+    { value: '', label: t('ops.filter.all') },
+    { value: 'COSMETOLOGY', label: t('ops.dept.cosmetology') },
+    { value: 'MASSAGE', label: t('ops.dept.massage') },
+    { value: 'RECEPTION', label: t('ops.dept.reception') },
   ];
 
   const STATUS_FILTERS = [
-    { value: '', label: 'Все статусы' },
-    { value: 'IN_PROGRESS', label: 'В работе' },
-    { value: 'CONFIRMED', label: 'Подтверждён' },
-    { value: 'PENDING', label: 'Ожидает' },
-    { value: 'COMPLETED', label: 'Завершён' },
-    { value: 'CANCELLED', label: 'Отменён' },
+    { value: '', label: t('ops.filter.allStatuses') },
+    { value: 'IN_PROGRESS', label: t('ops.inProgress') },
+    { value: 'CONFIRMED', label: t('ops.status.confirmed') },
+    { value: 'PENDING', label: t('ops.status.pending') },
+    { value: 'COMPLETED', label: t('ops.status.completed') },
+    { value: 'CANCELLED', label: t('ops.status.cancelled') },
   ];
 
   const selectCls = 'bg-charcoal border border-border-luxury text-text-secondary text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-champagne/30 cursor-pointer';
@@ -451,9 +463,9 @@ function FilterBar({ filters, specialists, rooms, view, onFilters, onView }: Fil
         {/* View mode toggle */}
         <div className="flex items-center gap-1 mr-2">
           {([
-            { v: 'day' as ViewMode,     icon: <LayoutGrid className="w-3.5 h-3.5" />, label: 'По специалистам' },
-            { v: 'room' as ViewMode,    icon: <Grid3X3 className="w-3.5 h-3.5" />,    label: 'По кабинетам' },
-            { v: 'compact' as ViewMode, icon: <Rows className="w-3.5 h-3.5" />,       label: 'Компакт' },
+            { v: 'day' as ViewMode,     icon: <LayoutGrid className="w-3.5 h-3.5" />, label: t('ops.view.bySpecialist') },
+            { v: 'room' as ViewMode,    icon: <Grid3X3 className="w-3.5 h-3.5" />,    label: t('ops.view.byRoom') },
+            { v: 'compact' as ViewMode, icon: <Rows className="w-3.5 h-3.5" />,       label: t('ops.view.compact') },
           ] as const).map(({ v, icon, label }) => (
             <button key={v} onClick={() => onView(v)}
               className={cn(pill, 'flex items-center gap-1.5', view === v ? active : inactive)}
@@ -497,7 +509,7 @@ function FilterBar({ filters, specialists, rooms, view, onFilters, onView }: Fil
           onChange={e => onFilters({ ...filters, specialistId: e.target.value })}
           className={selectCls}
         >
-          <option value="">Все специалисты</option>
+          <option value="">{t('ops.allSpecialists')}</option>
           {specialists.map(s => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
@@ -510,7 +522,7 @@ function FilterBar({ filters, specialists, rooms, view, onFilters, onView }: Fil
             onChange={e => onFilters({ ...filters, roomId: e.target.value })}
             className={selectCls}
           >
-            <option value="">Все кабинеты</option>
+            <option value="">{t('ops.allRooms')}</option>
             {rooms.map(r => (
               <option key={r.id} value={r.id}>{r.name}</option>
             ))}
@@ -524,7 +536,7 @@ function FilterBar({ filters, specialists, rooms, view, onFilters, onView }: Fil
             className={cn(pill, inactive, 'flex items-center gap-1')}
           >
             <X className="w-3 h-3" />
-            Сбросить
+            {t('ops.reset')}
           </button>
         )}
       </div>
@@ -622,10 +634,17 @@ interface SpecHeaderProps {
 }
 
 function SpecialistColumnHeader({ specialist, aptCount, completedCount }: SpecHeaderProps) {
+  const { t } = useLanguage();
   const occupancy = aptCount > 0 ? Math.round((completedCount / aptCount) * 100) : 0;
   const liveColor = specialist.liveStatus === 'BUSY' ? 'bg-emerald-400' :
                     specialist.liveStatus === 'OVERBOOKED' ? 'bg-red-400 animate-pulse' :
                     'bg-zinc-500';
+  const DEPT_T: Record<string, string> = {
+    COSMETOLOGY: t('ops.dept.cosmetology'),
+    MASSAGE: t('ops.dept.massage'),
+    RECEPTION: t('ops.dept.reception'),
+    MANAGEMENT: t('ops.dept.management'),
+  };
 
   return (
     <div
@@ -637,12 +656,12 @@ function SpecialistColumnHeader({ specialist, aptCount, completedCount }: SpecHe
         <span className="text-sm font-medium text-text-primary truncate leading-tight">{specialist.name}</span>
       </div>
       <span className={cn('text-[10px] font-medium', DEPT_COLOR[specialist.type] ?? 'text-text-tertiary')}>
-        {DEPT_LABEL[specialist.type] ?? specialist.type}
+        {DEPT_T[specialist.type] ?? specialist.type}
       </span>
       <div className="flex items-center gap-2 mt-0.5">
-        <span className="text-[10px] text-text-tertiary">{aptCount} записей</span>
+        <span className="text-[10px] text-text-tertiary">{aptCount} {t('ops.bookings')}</span>
         {aptCount > 0 && (
-          <span className="text-[10px] text-zinc-500">{occupancy}% выпол.</span>
+          <span className="text-[10px] text-zinc-500">{occupancy}% {t('ops.done')}</span>
         )}
       </div>
     </div>
@@ -651,7 +670,12 @@ function SpecialistColumnHeader({ specialist, aptCount, completedCount }: SpecHe
 
 // ── RoomColumnHeader ───────────────────────────────────────────────────────────
 function RoomColumnHeader({ room }: { room: RoomStatus }) {
-  const TYPE_LABEL: Record<string, string> = { MASSAGE: 'Массаж', COSMETOLOGY: 'Косметология', GENERAL: 'Общий' };
+  const { t } = useLanguage();
+  const TYPE_LABEL: Record<string, string> = {
+    MASSAGE: t('ops.room.type.massage'),
+    COSMETOLOGY: t('ops.room.type.cosmetology'),
+    GENERAL: t('ops.room.type.general'),
+  };
   const TYPE_COLOR: Record<string, string> = { MASSAGE: 'text-indigo-300', COSMETOLOGY: 'text-rose-300', GENERAL: 'text-sky-300' };
 
   return (
@@ -666,18 +690,31 @@ function RoomColumnHeader({ room }: { room: RoomStatus }) {
       <span className={cn('text-[10px] font-medium', TYPE_COLOR[room.type] ?? 'text-text-tertiary')}>
         {TYPE_LABEL[room.type] ?? room.type}
       </span>
-      <span className="text-[10px] text-text-tertiary">{room.todayBookings} записей</span>
+      <span className="text-[10px] text-text-tertiary">{room.todayBookings} {t('ops.bookings')}</span>
     </div>
   );
 }
 
 // ── CompactView ────────────────────────────────────────────────────────────────
 function CompactView({ apts, onSelect }: { apts: OperationalAppointment[]; onSelect: (a: OperationalAppointment) => void }) {
+  const { t, lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+  const STATUS_LABEL: Record<string, string> = {
+    PENDING:     t('ops.status.pending'),
+    CONFIRMED:   t('ops.status.confirmed'),
+    ARRIVED:     t('ops.status.arrived'),
+    WAITING:     t('ops.status.waiting'),
+    IN_PROGRESS: t('ops.status.in_progress'),
+    COMPLETED:   t('ops.status.completed'),
+    CANCELLED:   t('ops.status.cancelled'),
+    NO_SHOW:     t('ops.status.no_show'),
+    RESCHEDULED: t('ops.status.rescheduled'),
+  };
   const sorted = [...apts].sort((a, b) => a.startAt.localeCompare(b.startAt));
   if (sorted.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-text-tertiary">
-        <p className="text-sm">Нет записей по выбранным фильтрам</p>
+        <p className="text-sm">{t('ops.noFiltered')}</p>
       </div>
     );
   }
@@ -697,7 +734,7 @@ function CompactView({ apts, onSelect }: { apts: OperationalAppointment[]; onSel
             >
               <div className={cn('w-1 self-stretch rounded-full flex-shrink-0', cfg.dotColor)} />
               <div className="w-16 flex-shrink-0 font-mono text-sm text-text-secondary">
-                {formatLocalTime(apt.startAt)}
+                {formatLocalTime(apt.startAt, locale)}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-text-primary truncate">{apt.clientName}</p>
@@ -705,7 +742,7 @@ function CompactView({ apts, onSelect }: { apts: OperationalAppointment[]; onSel
               </div>
               <div className="flex-shrink-0 text-right">
                 <span className={cn('text-xs px-2 py-0.5 rounded-md border', cfg.bg, cfg.border, cfg.text)}>
-                  {cfg.label}
+                  {STATUS_LABEL[apt.operationalStatus] ?? cfg.label}
                 </span>
                 {apt.roomName && (
                   <p className="text-[10px] text-text-tertiary mt-0.5">{apt.roomName}</p>
@@ -713,7 +750,7 @@ function CompactView({ apts, onSelect }: { apts: OperationalAppointment[]; onSel
               </div>
               <div className="flex-shrink-0 text-right w-20">
                 <p className="text-xs font-medium text-champagne">{formatCurrency(apt.revenue)}</p>
-                <p className="text-[10px] text-text-tertiary">{apt.duration} мин</p>
+                <p className="text-[10px] text-text-tertiary">{apt.duration} {t('ops.minAbbr')}</p>
               </div>
             </button>
           );
@@ -725,6 +762,7 @@ function CompactView({ apts, onSelect }: { apts: OperationalAppointment[]; onSel
 
 // ── Main OpsBoard component ────────────────────────────────────────────────────
 export function OpsBoard() {
+  const { t } = useLanguage();
   const [data, setData] = React.useState<TodayOperationsResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -870,7 +908,7 @@ export function OpsBoard() {
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-8 h-8 border-2 border-champagne/30 border-t-champagne rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-text-secondary">Загрузка операционной панели...</p>
+          <p className="text-sm text-text-secondary">{t('ops.loading')}</p>
         </div>
       </div>
     );
@@ -927,7 +965,7 @@ export function OpsBoard() {
                 ))}
                 {columns.length === 0 && (
                   <div className="flex items-center px-6 py-3 text-sm text-text-tertiary">
-                    Нет колонок по выбранным фильтрам
+                    {t('ops.noCols')}
                   </div>
                 )}
               </div>
@@ -979,7 +1017,7 @@ export function OpsBoard() {
                 {columns.length === 0 && (
                   <div className="flex items-center justify-center px-8" style={{ height: TOTAL_HEIGHT, minWidth: 320 }}>
                     <p className="text-sm text-text-tertiary text-center">
-                      Нет данных по выбранным фильтрам.<br />Попробуйте сбросить фильтры.
+                      {t('ops.noData')}
                     </p>
                   </div>
                 )}

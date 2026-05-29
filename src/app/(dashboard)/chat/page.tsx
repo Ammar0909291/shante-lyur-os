@@ -9,6 +9,7 @@ import {
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useChatUnread } from '@/contexts/chatUnread';
+import { useLanguage } from '@/contexts/language';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,23 +33,23 @@ interface TypingInfo { userId: string; userName: string; expiresAt: number; }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function timeFmt(iso: string) {
+function timeFmt(iso: string, t: (key: string) => string) {
   const d = new Date(iso);
   const now = new Date();
   const isToday = d.toDateString() === now.toDateString();
   const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
   const isYesterday = d.toDateString() === yesterday.toDateString();
   if (isToday) return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  if (isYesterday) return 'Вчера';
+  if (isYesterday) return t('chat.yesterday');
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
-function dateSeparatorLabel(iso: string) {
+function dateSeparatorLabel(iso: string, t: (key: string) => string) {
   const d = new Date(iso);
   const now = new Date();
-  if (d.toDateString() === now.toDateString()) return 'Сегодня';
+  if (d.toDateString() === now.toDateString()) return t('chat.today');
   const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
+  if (d.toDateString() === yesterday.toDateString()) return t('chat.yesterday');
   return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
@@ -58,15 +59,23 @@ function isSameDay(a: string, b: string) {
 
 const inputCls = 'w-full px-3 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all';
 
-const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: 'Супер-администратор', ADMIN: 'Администратор', MANAGER: 'Менеджер',
-  RECEPTIONIST: 'Ресепшн', COSMETOLOGIST: 'Косметолог', MASSAGIST: 'Массажист',
-};
+function getRoleLabel(role: string, t: (key: string) => string): string {
+  const map: Record<string, string> = {
+    SUPER_ADMIN: t('chat.role.super'),
+    ADMIN: t('chat.role.admin'),
+    MANAGER: t('chat.role.manager'),
+    RECEPTIONIST: t('chat.role.receptionist'),
+    COSMETOLOGIST: t('chat.role.cosmetologist'),
+    MASSAGIST: t('chat.role.massagist'),
+  };
+  return map[role] ?? role;
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
   const searchParams = useSearchParams();
+  const { t } = useLanguage();
 
   const [conversations, setConversations]   = React.useState<ConversationItem[]>([]);
   const [activeConvId, setActiveConvId]     = React.useState<string | null>(null);
@@ -296,7 +305,7 @@ export default function ChatPage() {
     // Optimistic
     const tempId = `tmp-${Date.now()}`;
     const optimistic: MessageRow = {
-      id: tempId, conversationId: activeConvId, senderId: '', senderName: 'Вы',
+      id: tempId, conversationId: activeConvId, senderId: '', senderName: t('chat.you'),
       type: 'TEXT', content, createdAt: new Date().toISOString(), isOwn: true,
     };
     setMessages((prev) => [...prev, optimistic]);
@@ -314,11 +323,11 @@ export default function ChatPage() {
         ));
       } else {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        setSendError(j.error?.message ?? 'Не удалось отправить сообщение. Попробуйте ещё раз.');
+        setSendError(j.error?.message ?? t('chat.errorSend'));
       }
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      setSendError('Ошибка сети. Проверьте соединение и попробуйте ещё раз.');
+      setSendError(t('chat.errorNetwork'));
     } finally {
       setSending(false);
       inputRef.current?.focus();
@@ -380,10 +389,10 @@ export default function ChatPage() {
         await loadConversations();
         openConversation(j.data.conversationId);
       } else {
-        setDmError(j.error?.message ?? 'Не удалось открыть чат. Попробуйте ещё раз.');
+        setDmError(j.error?.message ?? t('chat.errorOpenDM'));
       }
     } catch {
-      setDmError('Ошибка сети. Проверьте соединение и попробуйте ещё раз.');
+      setDmError(t('chat.errorNetwork'));
     }
   }
 
@@ -405,10 +414,10 @@ export default function ChatPage() {
         await loadConversations();
         openConversation(j.data.conversationId);
       } else {
-        setGroupError(j.error?.message ?? 'Не удалось создать группу. Попробуйте ещё раз.');
+        setGroupError(j.error?.message ?? t('chat.errorCreateGroup'));
       }
     } catch {
-      setGroupError('Ошибка сети. Проверьте соединение и попробуйте ещё раз.');
+      setGroupError(t('chat.errorNetwork'));
     } finally {
       setCreatingGroup(false);
     }
@@ -447,7 +456,7 @@ export default function ChatPage() {
           <div className="flex items-center gap-2 min-w-0">
             <Bell className="w-3.5 h-3.5 text-champagne shrink-0" />
             <p className="text-xs text-text-secondary truncate">
-              Включите уведомления, чтобы получать сообщения в фоне
+              {t('chat.notifBanner')}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -455,7 +464,7 @@ export default function ChatPage() {
               onClick={handleEnableNotifications}
               className="text-xs font-medium text-champagne hover:text-champagne/80 transition-colors whitespace-nowrap"
             >
-              Включить
+              {t('chat.enableNotifs')}
             </button>
             <button
               onClick={() => setNotifPerm('denied')}
@@ -477,11 +486,11 @@ export default function ChatPage() {
         {/* Header */}
         <div className="px-4 py-4 border-b border-border-luxury">
           <div className="flex items-center justify-between">
-            <h2 className="font-serif text-lg font-medium text-text-primary">Сообщения</h2>
+            <h2 className="font-serif text-lg font-medium text-text-primary">{t('chat.messages')}</h2>
             <button
               onClick={() => setShowNewChat(true)}
               className="p-1.5 rounded-lg bg-champagne/10 border border-champagne/30 text-champagne hover:bg-champagne/20 transition-colors"
-              title="Новый чат"
+              title={t('chat.newChat')}
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -495,7 +504,7 @@ export default function ChatPage() {
             <input
               value={convSearch}
               onChange={(e) => setConvSearch(e.target.value)}
-              placeholder="Поиск сотрудника или чата..."
+              placeholder={t('chat.searchConvPlaceholder')}
               className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-champagne/30"
             />
           </div>
@@ -507,7 +516,7 @@ export default function ChatPage() {
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <MessageCircle className="w-8 h-8 text-text-tertiary" />
               <p className="text-xs text-text-tertiary text-center px-4">
-                {convSearch ? 'Ничего не найдено' : 'Нет чатов. Нажмите + чтобы начать.'}
+                {convSearch ? t('chat.nothingFound') : t('chat.noChats')}
               </p>
             </div>
           ) : (
@@ -541,15 +550,15 @@ export default function ChatPage() {
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-sm font-medium text-text-primary truncate">{conv.name}</span>
                       {conv.lastMessageAt && (
-                        <span className="text-[10px] text-text-tertiary shrink-0">{timeFmt(conv.lastMessageAt)}</span>
+                        <span className="text-[10px] text-text-tertiary shrink-0">{timeFmt(conv.lastMessageAt, t)}</span>
                       )}
                     </div>
                     <div className="flex items-center justify-between gap-1 mt-0.5">
                       <p className="text-xs text-text-tertiary truncate">
                         {conv.lastMessagePreview ?? (
                           conv.type === 'GROUP'
-                            ? `${conv.memberCount} участников`
-                            : (partner ? ROLE_LABEL[conv.members.find((m) => m.id !== conv.members[0]?.id)?.position ?? ''] ?? '' : '')
+                            ? `${conv.memberCount} ${t('chat.members')}`
+                            : ''
                         )}
                       </p>
                       {conv.unreadCount > 0 && (
@@ -596,13 +605,13 @@ export default function ChatPage() {
                   {activeConv.type === 'DIRECT' && (() => {
                     const partner = activeConv.members.find((m) => m.id !== activeConv.members[0]?.id) ?? activeConv.members[0];
                     return partner?.isOnline ? (
-                      <><span className="w-1.5 h-1.5 rounded-full bg-green-400" /><span className="text-[10px] text-green-400">В сети</span></>
+                      <><span className="w-1.5 h-1.5 rounded-full bg-green-400" /><span className="text-[10px] text-green-400">{t('chat.online')}</span></>
                     ) : (
                       <span className="text-[10px] text-text-tertiary">{partner?.position ?? ''}</span>
                     );
                   })()}
                   {activeConv.type === 'GROUP' && (
-                    <span className="text-[10px] text-text-tertiary">{activeConv.memberCount} участников</span>
+                    <span className="text-[10px] text-text-tertiary">{activeConv.memberCount} {t('chat.members')}</span>
                   )}
                 </div>
               </div>
@@ -610,7 +619,7 @@ export default function ChatPage() {
               <button
                 onClick={handleMuteToggle}
                 className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
-                title={myMuted ? 'Включить уведомления' : 'Выключить уведомления'}
+                title={myMuted ? t('chat.enableNotifsFull') : t('chat.disableNotifs')}
               >
                 {myMuted ? <BellOff className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
               </button>
@@ -629,7 +638,7 @@ export default function ChatPage() {
                   onClick={() => loadMessages(activeConvId!, nextCursor)}
                   className="w-full text-xs text-champagne/70 hover:text-champagne py-2 transition-colors"
                 >
-                  Загрузить предыдущие сообщения
+                  {t('chat.loadMore')}
                 </button>
               )}
 
@@ -640,8 +649,8 @@ export default function ChatPage() {
               ) : messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full gap-3 pt-12">
                   <MessageCircle className="w-10 h-10 text-text-tertiary" />
-                  <p className="text-sm text-text-secondary">Начните переписку</p>
-                  <p className="text-xs text-text-tertiary">Первое сообщение ещё не отправлено</p>
+                  <p className="text-sm text-text-secondary">{t('chat.startConversation')}</p>
+                  <p className="text-xs text-text-tertiary">{t('chat.noMessagesYet')}</p>
                 </div>
               ) : (
                 messages.map((msg, idx) => {
@@ -655,7 +664,7 @@ export default function ChatPage() {
                   if (msg.type === 'SYSTEM') {
                     return (
                       <div key={msg.id}>
-                        {showDate && <DateSep label={dateSeparatorLabel(msg.createdAt)} />}
+                        {showDate && <DateSep label={dateSeparatorLabel(msg.createdAt, t)} />}
                         <p className="text-center text-[11px] text-text-tertiary italic py-1.5">{msg.content}</p>
                       </div>
                     );
@@ -663,7 +672,7 @@ export default function ChatPage() {
 
                   return (
                     <div key={msg.id}>
-                      {showDate && <DateSep label={dateSeparatorLabel(msg.createdAt)} />}
+                      {showDate && <DateSep label={dateSeparatorLabel(msg.createdAt, t)} />}
                       <div className={cn('flex gap-2 mb-0.5', msg.isOwn ? 'justify-end' : 'justify-start')}>
                         {!msg.isOwn && activeConv.type === 'GROUP' && (
                           <div className="w-7 h-7 shrink-0 mt-1">
@@ -682,7 +691,7 @@ export default function ChatPage() {
                           )}>
                             <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.content}</p>
                             <div className={cn('flex items-center justify-end gap-1 mt-1', msg.isOwn ? 'text-obsidian/60' : 'text-text-tertiary')}>
-                              <span className="text-[10px]">{timeFmt(msg.createdAt)}</span>
+                              <span className="text-[10px]">{timeFmt(msg.createdAt, t)}</span>
                             </div>
                           </div>
                         </div>
@@ -705,7 +714,7 @@ export default function ChatPage() {
                     ))}
                   </div>
                   <p className="text-xs text-text-tertiary italic">
-                    {typingUsers.map((t) => t.userName).join(', ')} печатает...
+                    {typingUsers.map((u) => u.userName).join(', ')} {t('chat.typing')}
                   </p>
                 </div>
               )}
@@ -729,7 +738,7 @@ export default function ChatPage() {
                   value={draft}
                   onChange={(e) => handleDraftChange(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Написать сообщение... (Enter — отправить, Shift+Enter — новая строка)"
+                  placeholder={t('chat.inputPlaceholder')}
                   rows={1}
                   className={cn(
                     'flex-1 px-3.5 py-2.5 rounded-xl text-sm resize-none overflow-hidden',
@@ -763,8 +772,8 @@ export default function ChatPage() {
               <MessageCircle className="w-10 h-10 text-text-tertiary" />
             </div>
             <div className="text-center">
-              <p className="text-text-primary font-medium">Выберите чат или начните новый</p>
-              <p className="text-sm text-text-tertiary mt-1">Нажмите + в левой панели, чтобы написать кому-либо</p>
+              <p className="text-text-primary font-medium">{t('chat.selectOrNew')}</p>
+              <p className="text-sm text-text-tertiary mt-1">{t('chat.selectHint')}</p>
             </div>
           </div>
         )}
@@ -777,7 +786,7 @@ export default function ChatPage() {
           onClick={(e) => { if (e.target === e.currentTarget) { setShowNewChat(false); setStaffSearch(''); setDmError(null); } }}>
           <div className="w-full max-w-sm bg-obsidian border border-border-luxury rounded-2xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-border-luxury">
-              <p className="text-sm font-semibold text-text-primary">Новый чат</p>
+              <p className="text-sm font-semibold text-text-primary">{t('chat.newChat')}</p>
               <button onClick={() => { setShowNewChat(false); setStaffSearch(''); setDmError(null); }}
                 className="p-1 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
                 <X className="w-4 h-4" />
@@ -790,7 +799,7 @@ export default function ChatPage() {
                   autoFocus
                   value={staffSearch}
                   onChange={(e) => setStaffSearch(e.target.value)}
-                  placeholder="Поиск по имени..."
+                  placeholder={t('chat.searchByName')}
                   className="w-full pl-8 pr-3 py-2 text-sm rounded-lg bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-champagne/30"
                 />
               </div>
@@ -808,7 +817,7 @@ export default function ChatPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-text-primary">{s.firstName} {s.lastName}</p>
-                    <p className="text-xs text-text-tertiary">{s.specialization ?? ROLE_LABEL[s.role] ?? s.role}</p>
+                    <p className="text-xs text-text-tertiary">{s.specialization ?? getRoleLabel(s.role, t)}</p>
                   </div>
                 </button>
               ))}
@@ -826,7 +835,7 @@ export default function ChatPage() {
                 onClick={() => { setShowNewChat(false); setDmError(null); setShowGroupModal(true); }}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-champagne/30 text-champagne/70 hover:bg-champagne/5 hover:text-champagne transition-colors text-sm"
               >
-                <Users className="w-4 h-4" /> Создать групповой чат →
+                <Users className="w-4 h-4" /> {t('chat.createGroupBtn')}
               </button>
             </div>
           </div>
@@ -839,7 +848,7 @@ export default function ChatPage() {
           onClick={(e) => { if (e.target === e.currentTarget) { setShowGroupModal(false); setGroupName(''); setGroupMembers([]); setGroupError(null); } }}>
           <div className="w-full max-w-md bg-obsidian border border-border-luxury rounded-2xl shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border-luxury">
-              <p className="text-base font-semibold text-text-primary">Создать группу</p>
+              <p className="text-base font-semibold text-text-primary">{t('chat.createGroup')}</p>
               <button onClick={() => { setShowGroupModal(false); setGroupName(''); setGroupMembers([]); setGroupError(null); }}
                 className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
                 <X className="w-4 h-4" />
@@ -847,24 +856,24 @@ export default function ChatPage() {
             </div>
             <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
               <div>
-                <label className="block text-xs font-medium text-text-secondary mb-1.5">Название группы *</label>
+                <label className="block text-xs font-medium text-text-secondary mb-1.5">{t('chat.groupNameLabel')}</label>
                 <input
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
-                  placeholder="Например: Косметологи"
+                  placeholder={t('chat.groupNamePlaceholder')}
                   className={inputCls}
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-text-secondary mb-1.5">
-                  Участники * <span className={cn('text-text-tertiary', groupMembers.length >= 99 && 'text-red-400')}>({groupMembers.length} выбрано, макс. 99)</span>
+                  {t('chat.membersLabel')} <span className={cn('text-text-tertiary', groupMembers.length >= 99 && 'text-red-400')}>({groupMembers.length} {t('chat.membersSelected')})</span>
                 </label>
                 <div className="relative mb-2">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-tertiary" />
                   <input
                     value={staffSearch}
                     onChange={(e) => setStaffSearch(e.target.value)}
-                    placeholder="Поиск..."
+                    placeholder={t('chat.searchShort')}
                     className="w-full pl-8 pr-3 py-2 text-sm rounded-lg bg-charcoal border border-border-luxury text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-champagne/30"
                   />
                 </div>
@@ -890,7 +899,7 @@ export default function ChatPage() {
                         <Avatar name={`${s.firstName} ${s.lastName}`} size="xs" />
                         <div>
                           <p className={cn('text-sm font-medium', sel ? 'text-champagne' : 'text-text-primary')}>{s.firstName} {s.lastName}</p>
-                          <p className="text-[10px] text-text-tertiary">{s.specialization ?? ROLE_LABEL[s.role] ?? s.role}</p>
+                          <p className="text-[10px] text-text-tertiary">{s.specialization ?? getRoleLabel(s.role, t)}</p>
                         </div>
                       </button>
                     );
@@ -913,14 +922,14 @@ export default function ChatPage() {
                 onClick={() => { setShowGroupModal(false); setGroupName(''); setGroupMembers([]); setGroupError(null); }}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors"
               >
-                Отмена
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleCreateGroup}
                 disabled={!groupName.trim() || groupMembers.length < 1 || creatingGroup}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50"
               >
-                {creatingGroup ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Создать'}
+                {creatingGroup ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : t('chat.create')}
               </button>
             </div>
           </div>

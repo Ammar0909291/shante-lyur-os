@@ -3,12 +3,22 @@
 import * as React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
-const WEEKDAYS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-const MONTHS_RU = [
-  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
-];
+function getMonthNames(locale: string): string[] {
+  return Array.from({ length: 12 }, (_, i) =>
+    new Intl.DateTimeFormat(locale, { month: 'long' }).format(new Date(2000, i, 1))
+      .replace(/^./, (c) => c.toUpperCase())
+  );
+}
+
+function getWeekdayNames(locale: string): string[] {
+  // Monday-first: Mon=1..Sun=0 → reorder to Mon..Sun
+  const days = Array.from({ length: 7 }, (_, i) =>
+    new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(new Date(2000, 0, 3 + i))
+  );
+  return days;
+}
 
 interface CalendarProps {
   value: string; // YYYY-MM-DD
@@ -25,6 +35,11 @@ interface Cell {
 }
 
 export function Calendar({ value, onChange, minDate }: CalendarProps) {
+  const { lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+  const MONTHS = getMonthNames(locale);
+  const WEEKDAYS = getWeekdayNames(locale);
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -86,25 +101,25 @@ export function Calendar({ value, onChange, minDate }: CalendarProps) {
           type="button"
           onClick={prevMonth}
           className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
-          aria-label="Предыдущий месяц"
+          aria-label={lang === 'en' ? 'Previous month' : 'Предыдущий месяц'}
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
         <span className="text-sm font-medium text-text-primary">
-          {MONTHS_RU[viewMonth]} {viewYear}
+          {MONTHS[viewMonth]} {viewYear}
         </span>
         <button
           type="button"
           onClick={nextMonth}
           className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
-          aria-label="Следующий месяц"
+          aria-label={lang === 'en' ? 'Next month' : 'Следующий месяц'}
         >
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 
       <div className="grid grid-cols-7 mb-1">
-        {WEEKDAYS_RU.map((d) => (
+        {WEEKDAYS.map((d) => (
           <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wider text-text-tertiary py-1">
             {d}
           </div>
@@ -132,7 +147,7 @@ export function Calendar({ value, onChange, minDate }: CalendarProps) {
                 other && !sel && !tod && 'text-text-tertiary',
                 !other && !sel && !tod && !dis && 'text-text-primary',
               )}
-              aria-label={`${cell.date.getDate()} ${MONTHS_RU[cell.date.getMonth()]} ${cell.date.getFullYear()}`}
+              aria-label={`${cell.date.getDate()} ${MONTHS[cell.date.getMonth()]} ${cell.date.getFullYear()}`}
               aria-pressed={sel}
             >
               {cell.day}

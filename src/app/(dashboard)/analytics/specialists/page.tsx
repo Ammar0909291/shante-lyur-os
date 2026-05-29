@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { ArrowLeft, TrendingUp, Users, BarChart2, Clock, Trophy, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,19 +23,19 @@ interface SpecialistKPI {
 
 type SortKey = 'name' | 'revenue' | 'visits' | 'uniqueClients' | 'avgTicket' | 'completedVisits';
 
-const PERIODS = [
-  { value: '7d',  label: '7 дней' },
-  { value: '30d', label: '30 дней' },
-  { value: '3m',  label: '3 месяца' },
-  { value: '6m',  label: '6 месяцев' },
-  { value: '1y',  label: 'Год' },
-];
-
-const DEPT_LABEL: Record<string, string> = {
-  COSMETOLOGY: 'Косметология',
-  MASSAGE:     'Массаж',
-  RECEPTION:   'Ресепшн',
-  MANAGEMENT:  'Управление',
+const PERIOD_VALUES = ['7d', '30d', '3m', '6m', '1y'] as const;
+const PERIOD_KEYS: Record<string, string> = {
+  '7d': 'analytics.kpi.period.7d',
+  '30d': 'analytics.kpi.period.30d',
+  '3m': 'analytics.kpi.period.3m',
+  '6m': 'analytics.kpi.period.6m',
+  '1y': 'analytics.kpi.period.1y',
+};
+const DEPT_KEYS: Record<string, string> = {
+  COSMETOLOGY: 'analytics.kpi.dept.cosmetology',
+  MASSAGE:     'analytics.kpi.dept.massage',
+  RECEPTION:   'analytics.kpi.dept.reception',
+  MANAGEMENT:  'analytics.kpi.dept.management',
 };
 
 function fmtMoney(n: number) {
@@ -102,11 +103,20 @@ function Th({ children, sortKey, current, dir, onSort }: {
 
 // ─── Export CSV ───────────────────────────────────────────────────────────────
 
-function exportCsv(kpi: SpecialistKPI[], period: string) {
+function exportCsv(kpi: SpecialistKPI[], period: string, t: (key: string) => string) {
   const rows = [
-    ['Специалист','Направление','Записей','Завершено','Клиентов','Выручка','Средний чек','Ср. длительность (мин)'],
+    [
+      t('analytics.kpi.csv.specialist'),
+      t('analytics.kpi.csv.department'),
+      t('analytics.kpi.csv.bookings'),
+      t('analytics.kpi.csv.completed'),
+      t('analytics.kpi.csv.clients'),
+      t('analytics.kpi.csv.revenue'),
+      t('analytics.kpi.csv.avgTicket'),
+      t('analytics.kpi.csv.avgDuration'),
+    ],
     ...kpi.map((s) => [
-      s.name, DEPT_LABEL[s.department] ?? s.department,
+      s.name, t(DEPT_KEYS[s.department] ?? s.department) ?? s.department,
       s.visits, s.completedVisits, s.uniqueClients,
       s.revenue.toFixed(2), s.avgTicket.toFixed(2), s.avgDuration,
     ]),
@@ -122,6 +132,7 @@ function exportCsv(kpi: SpecialistKPI[], period: string) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function SpecialistsKPIPage() {
+  const { t } = useLanguage();
   const [period, setPeriod]   = React.useState('30d');
   const [kpi,    setKpi]      = React.useState<SpecialistKPI[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -161,44 +172,44 @@ export default function SpecialistsKPIPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Link href="/analytics" className="text-text-tertiary hover:text-text-primary text-sm transition-colors flex items-center gap-1">
-              <ArrowLeft className="w-3.5 h-3.5" /> Аналитика
+              <ArrowLeft className="w-3.5 h-3.5" /> {t('analytics.title')}
             </Link>
           </div>
-          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">KPI специалистов</h2>
-          <p className="text-text-secondary mt-1 text-sm">Выручка, клиенты, средний чек по каждому сотруднику</p>
+          <h2 className="font-serif text-3xl font-medium text-text-primary tracking-tight">{t('analytics.kpi.title')}</h2>
+          <p className="text-text-secondary mt-1 text-sm">{t('analytics.kpi.subtitle')}</p>
         </div>
         <button
-          onClick={() => exportCsv(sorted, period)}
+          onClick={() => exportCsv(sorted, period, t)}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-onyx border border-border-luxury text-text-secondary hover:text-text-primary hover:border-champagne/40 transition-all"
         >
-          <Download className="w-4 h-4" /> Экспорт CSV
+          <Download className="w-4 h-4" /> {t('analytics.kpi.exportCsv')}
         </button>
       </div>
 
       {/* Period selector */}
       <div className="flex flex-wrap gap-2">
-        {PERIODS.map((p) => (
+        {PERIOD_VALUES.map((v) => (
           <button
-            key={p.value}
-            onClick={() => setPeriod(p.value)}
+            key={v}
+            onClick={() => setPeriod(v)}
             className={cn(
               'px-3.5 py-1.5 rounded-xl text-sm transition-colors',
-              period === p.value
+              period === v
                 ? 'bg-champagne text-obsidian font-medium'
                 : 'bg-onyx border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal',
             )}
           >
-            {p.label}
+            {t(PERIOD_KEYS[v])}
           </button>
         ))}
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <SCard icon={<TrendingUp className="w-5 h-5" />} label="Общая выручка" value={fmtMoney(totalRevenue)} />
-        <SCard icon={<BarChart2 className="w-5 h-5" />}  label="Всего записей"  value={fmtNum(totalVisits)} />
-        <SCard icon={<Users className="w-5 h-5" />}      label="Уникальных клиентов" value={fmtNum(totalClients)} />
-        <SCard icon={<Clock className="w-5 h-5" />}      label="Средний чек"    value={fmtMoney(isNaN(overallAvgTicket) ? 0 : overallAvgTicket)} />
+        <SCard icon={<TrendingUp className="w-5 h-5" />} label={t('analytics.kpi.totalRevenue')} value={fmtMoney(totalRevenue)} />
+        <SCard icon={<BarChart2 className="w-5 h-5" />}  label={t('analytics.kpi.totalBookings')} value={fmtNum(totalVisits)} />
+        <SCard icon={<Users className="w-5 h-5" />}      label={t('analytics.kpi.uniqueClients')} value={fmtNum(totalClients)} />
+        <SCard icon={<Clock className="w-5 h-5" />}      label={t('analytics.kpi.avgTicket')} value={fmtMoney(isNaN(overallAvgTicket) ? 0 : overallAvgTicket)} />
       </div>
 
       {/* Leader */}
@@ -207,10 +218,10 @@ export default function SpecialistsKPIPage() {
           <Trophy className="w-6 h-6 text-champagne shrink-0" />
           <div>
             <p className="text-sm font-medium text-text-primary">
-              Лидер по выручке — <span className="text-champagne">{leader.name}</span>
+              {t('analytics.kpi.leaderLabel')} <span className="text-champagne">{leader.name}</span>
             </p>
             <p className="text-xs text-text-tertiary mt-0.5">
-              {fmtMoney(leader.revenue)} · {leader.completedVisits} завершённых записей · {leader.uniqueClients} клиентов
+              {fmtMoney(leader.revenue)} · {leader.completedVisits} {t('analytics.kpi.completedBookings')} · {leader.uniqueClients} {t('analytics.kpi.clients')}
             </p>
           </div>
         </div>
@@ -222,13 +233,13 @@ export default function SpecialistsKPIPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border-luxury bg-charcoal/50">
-                <Th sortKey="name"           current={sortKey} dir={sortDir} onSort={handleSort}>Специалист</Th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase tracking-wider">Направление</th>
-                <Th sortKey="visits"         current={sortKey} dir={sortDir} onSort={handleSort}>Записей</Th>
-                <Th sortKey="completedVisits" current={sortKey} dir={sortDir} onSort={handleSort}>Завершено</Th>
-                <Th sortKey="uniqueClients"  current={sortKey} dir={sortDir} onSort={handleSort}>Клиентов</Th>
-                <Th sortKey="avgTicket"      current={sortKey} dir={sortDir} onSort={handleSort}>Средний чек</Th>
-                <Th sortKey="revenue"        current={sortKey} dir={sortDir} onSort={handleSort}>Выручка</Th>
+                <Th sortKey="name"           current={sortKey} dir={sortDir} onSort={handleSort}>{t('analytics.kpi.col.specialist')}</Th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('analytics.kpi.col.department')}</th>
+                <Th sortKey="visits"         current={sortKey} dir={sortDir} onSort={handleSort}>{t('analytics.kpi.col.bookings')}</Th>
+                <Th sortKey="completedVisits" current={sortKey} dir={sortDir} onSort={handleSort}>{t('analytics.kpi.col.completed')}</Th>
+                <Th sortKey="uniqueClients"  current={sortKey} dir={sortDir} onSort={handleSort}>{t('analytics.kpi.col.clients')}</Th>
+                <Th sortKey="avgTicket"      current={sortKey} dir={sortDir} onSort={handleSort}>{t('analytics.kpi.col.avgTicket')}</Th>
+                <Th sortKey="revenue"        current={sortKey} dir={sortDir} onSort={handleSort}>{t('analytics.kpi.col.revenue')}</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-luxury">
@@ -245,7 +256,7 @@ export default function SpecialistsKPIPage() {
               ) : sorted.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-text-tertiary">
-                    Нет данных за выбранный период
+                    {t('analytics.noData')}
                   </td>
                 </tr>
               ) : (
@@ -271,7 +282,7 @@ export default function SpecialistsKPIPage() {
                           ? 'bg-green-400/10 border-green-400/30 text-green-400'
                           : 'bg-charcoal border-border-luxury text-text-secondary',
                       )}>
-                        {DEPT_LABEL[s.department] ?? s.department}
+                        {DEPT_KEYS[s.department] ? t(DEPT_KEYS[s.department]) : s.department}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-text-primary tabular-nums">{s.visits}</td>
@@ -289,7 +300,7 @@ export default function SpecialistsKPIPage() {
         </div>
         {!loading && sorted.length > 0 && (
           <div className="px-4 py-3 border-t border-border-luxury text-xs text-text-tertiary">
-            {sorted.length} специалистов
+            {sorted.length} {t('analytics.kpi.specialistsCount')}
           </div>
         )}
       </div>

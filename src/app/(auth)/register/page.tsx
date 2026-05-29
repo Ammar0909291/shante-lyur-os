@@ -7,27 +7,14 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff } from 'lucide-react';
+import { useLanguage } from '@/contexts/language';
 
-const registerSchema = z
-  .object({
-    firstName: z.string().min(2, 'Имя должно быть не менее 2 символов'),
-    lastName: z.string().min(2, 'Фамилия должна быть не менее 2 символов'),
-    email: z.string().email('Введите корректный email'),
-    phone: z.string().optional(),
-    password: z.string().min(8, 'Пароль должен быть не менее 8 символов'),
-    confirmPassword: z.string(),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: 'Пароли не совпадают',
-    path: ['confirmPassword'],
-  });
-
-type RegisterFields = z.infer<typeof registerSchema>;
-type FieldErrors = Partial<Record<keyof RegisterFields, string>>;
+type FieldErrors = Partial<Record<'firstName' | 'lastName' | 'email' | 'phone' | 'password' | 'confirmPassword', string>>;
 
 export default function RegisterPage() {
+  const { t } = useLanguage();
   const router = useRouter();
-  const [fields, setFields] = React.useState<RegisterFields>({
+  const [fields, setFields] = React.useState({
     firstName: '',
     lastName: '',
     email: '',
@@ -41,10 +28,26 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
 
+  const registerSchema = z
+    .object({
+      firstName: z.string().min(2, t('auth.firstNameMin')),
+      lastName: z.string().min(2, t('auth.lastNameMin')),
+      email: z.string().email(t('auth.invalidEmail')),
+      phone: z.string().optional(),
+      password: z.string().min(8, t('auth.passwordMin8')),
+      confirmPassword: z.string(),
+    })
+    .refine((d) => d.password === d.confirmPassword, {
+      message: t('auth.passwordMismatch'),
+      path: ['confirmPassword'],
+    });
+
+  type RegisterFields = z.infer<typeof registerSchema>;
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
     setFields((prev) => ({ ...prev, [name]: value }));
-    if (errors[name as keyof RegisterFields]) {
+    if (errors[name as keyof FieldErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
     if (serverError) setServerError('');
@@ -83,9 +86,9 @@ export default function RegisterPage() {
       }
 
       const body = await res.json().catch(() => ({})) as { error?: { message?: string }; message?: string };
-      setServerError(body.error?.message ?? body.message ?? 'Ошибка регистрации. Попробуйте позже.');
+      setServerError(body.error?.message ?? body.message ?? t('auth.registerError'));
     } catch {
-      setServerError('Ошибка соединения. Попробуйте позже.');
+      setServerError(t('auth.networkError'));
     } finally {
       setIsLoading(false);
     }
@@ -95,17 +98,17 @@ export default function RegisterPage() {
     <div className="animate-slide-up">
       <div className="mb-8">
         <h2 className="font-serif text-2xl font-medium text-text-primary tracking-tight">
-          Создать аккаунт
+          {t('auth.createAccount')}
         </h2>
         <p className="text-sm text-text-secondary mt-1.5">
-          Первоначальная настройка студии
+          {t('auth.registerSubtitle')}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div className="grid grid-cols-2 gap-3">
           <Input
-            label="Имя"
+            label={t('auth.firstName')}
             name="firstName"
             type="text"
             value={fields.firstName}
@@ -117,7 +120,7 @@ export default function RegisterPage() {
             disabled={isLoading}
           />
           <Input
-            label="Фамилия"
+            label={t('auth.lastName')}
             name="lastName"
             type="text"
             value={fields.lastName}
@@ -142,7 +145,7 @@ export default function RegisterPage() {
         />
 
         <Input
-          label="Телефон (необязательно)"
+          label={t('auth.phoneOptional')}
           name="phone"
           type="tel"
           value={fields.phone}
@@ -154,22 +157,22 @@ export default function RegisterPage() {
         />
 
         <Input
-          label="Пароль"
+          label={t('auth.password')}
           name="password"
           type={showPassword ? 'text' : 'password'}
           value={fields.password}
           onChange={handleChange}
           error={errors.password}
-          placeholder="Минимум 8 символов"
+          placeholder={t('auth.passwordMin8hint')}
           autoComplete="new-password"
           disabled={isLoading}
-          helperText={!errors.password ? 'Минимум 8 символов' : undefined}
+          helperText={!errors.password ? t('auth.passwordMin8hint') : undefined}
           rightAddon={
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="p-0.5 text-text-tertiary hover:text-text-secondary transition-colors"
-              aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+              aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -177,13 +180,13 @@ export default function RegisterPage() {
         />
 
         <Input
-          label="Подтвердите пароль"
+          label={t('auth.confirmPassword')}
           name="confirmPassword"
           type={showConfirm ? 'text' : 'password'}
           value={fields.confirmPassword}
           onChange={handleChange}
           error={errors.confirmPassword}
-          placeholder="Повторите пароль"
+          placeholder={t('auth.repeatPassword')}
           autoComplete="new-password"
           disabled={isLoading}
           rightAddon={
@@ -191,7 +194,7 @@ export default function RegisterPage() {
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
               className="p-0.5 text-text-tertiary hover:text-text-secondary transition-colors"
-              aria-label={showConfirm ? 'Скрыть пароль' : 'Показать пароль'}
+              aria-label={showConfirm ? t('auth.hidePassword') : t('auth.showPassword')}
             >
               {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -214,15 +217,15 @@ export default function RegisterPage() {
           className="w-full mt-2"
           isLoading={isLoading}
         >
-          Создать аккаунт
+          {t('auth.createAccount')}
         </Button>
       </form>
 
       <div className="mt-6 text-center">
         <p className="text-sm text-text-tertiary">
-          Уже есть аккаунт?{' '}
+          {t('auth.haveAccount')}{' '}
           <Link href="/login" className="text-champagne hover:text-champagne-light transition-colors">
-            Войти
+            {t('auth.login')}
           </Link>
         </p>
       </div>

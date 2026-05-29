@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
+import { useLanguage } from '@/contexts/language';
 
 interface ClientResult {
   id: string;
@@ -28,6 +29,7 @@ interface ClientSearchBoxProps {
 
 export function ClientSearchBox({ defaultValue = '' }: ClientSearchBoxProps) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [query, setQuery] = React.useState(defaultValue);
   const [results, setResults] = React.useState<ClientResult[]>([]);
   const [showDropdown, setShowDropdown] = React.useState(false);
@@ -106,7 +108,7 @@ export function ClientSearchBox({ defaultValue = '' }: ClientSearchBoxProps) {
           onFocus={() => { if (results.length > 0) setShowDropdown(true); }}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          placeholder="Поиск клиентов: имя, email, телефон..."
+          placeholder={t('clients.search.placeholder')}
           className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-onyx border border-border-luxury text-text-primary placeholder:text-text-tertiary text-sm focus:outline-none focus:ring-2 focus:ring-champagne/30 focus:border-champagne/40 transition-all"
           autoComplete="off"
         />
@@ -152,7 +154,7 @@ export function ClientSearchBox({ defaultValue = '' }: ClientSearchBoxProps) {
 
       {showDropdown && query.trim() && results.length === 0 && !loading && (
         <div className="absolute top-full left-0 right-0 mt-1.5 bg-obsidian border border-border-luxury rounded-xl shadow-2xl z-50 px-4 py-3">
-          <p className="text-sm text-text-tertiary">Клиентов не найдено по запросу «{query}»</p>
+          <p className="text-sm text-text-tertiary">{t('clients.search.notFound').replace('{query}', query)}</p>
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Avatar } from '@/components/ui/avatar';
 import { getClientRole } from '@/lib/client-auth';
+import { useLanguage } from '@/contexts/language';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,30 +49,23 @@ interface TimeSlot {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDuration(m: number) {
-  if (m < 60) return `${m} мин`;
+function formatDuration(m: number, minLabel: string, hourLabel: string) {
+  if (m < 60) return `${m} ${minLabel}`;
   const h = Math.floor(m / 60);
   const rem = m % 60;
-  return rem > 0 ? `${h} ч ${rem} мин` : `${h} ч`;
+  return rem > 0 ? `${h} ${hourLabel} ${rem} ${minLabel}` : `${h} ${hourLabel}`;
 }
 
-function typeLabel(t: SpecialistType) {
-  return t === 'MASSAGE_THERAPIST' ? 'Массажист' : 'Косметолог';
-}
-
-function typeIcon(t: SpecialistType, className?: string) {
-  return t === 'MASSAGE_THERAPIST'
+function typeIcon(type: SpecialistType, className?: string) {
+  return type === 'MASSAGE_THERAPIST'
     ? <Leaf className={cn('shrink-0', className)} />
     : <Sparkles className={cn('shrink-0', className)} />;
 }
 
-function formatDay(dateStr: string) {
+function formatDay(dateStr: string, locale: string) {
   const d = new Date(dateStr + 'T12:00:00Z');
-  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', weekday: 'short', timeZone: 'UTC' });
+  return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', weekday: 'short', timeZone: 'UTC' });
 }
-
-const MONTH_NAMES_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-const DAY_NAMES_SHORT = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 
 // ─── Salon location placeholder ───────────────────────────────────────────────
 
@@ -102,16 +96,16 @@ const MOCK_SPECIALISTS: ModalSpecialist[] = [
 
 // ─── Step bar ─────────────────────────────────────────────────────────────────
 
-const STEPS: Array<{ key: Step; label: string }> = [
-  { key: 'client',     label: 'Клиент' },
-  { key: 'specialist', label: 'Специалист' },
-  { key: 'service',    label: 'Услуга' },
-  { key: 'date',       label: 'Дата' },
-  { key: 'time',       label: 'Время' },
-  { key: 'notes',      label: 'Итог' },
-];
-
 function StepBar({ current }: { current: Step }) {
+  const { t } = useLanguage();
+  const STEPS: Array<{ key: Step; label: string }> = [
+    { key: 'client',     label: t('booking.step.client') },
+    { key: 'specialist', label: t('booking.step.specialist') },
+    { key: 'service',    label: t('booking.step.service') },
+    { key: 'date',       label: t('booking.step.date') },
+    { key: 'time',       label: t('booking.step.time') },
+    { key: 'notes',      label: t('booking.step.summary') },
+  ];
   const idx = STEPS.findIndex(s => s.key === current);
   return (
     <div className="flex items-center gap-1 px-6 py-4 border-b border-border-luxury overflow-x-auto">
@@ -150,6 +144,16 @@ interface MonthCalendarProps {
 }
 
 function MonthCalendar({ selected, onSelect }: MonthCalendarProps) {
+  const { lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+  const MONTH_NAMES = Array.from({ length: 12 }, (_, i) =>
+    new Intl.DateTimeFormat(locale, { month: 'long' }).format(new Date(2000, i, 1))
+      .replace(/^./, (c) => c.toUpperCase())
+  );
+  const DAY_NAMES_SHORT = Array.from({ length: 7 }, (_, i) =>
+    new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(new Date(2000, 0, 3 + i))
+  );
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -207,7 +211,7 @@ function MonthCalendar({ selected, onSelect }: MonthCalendarProps) {
           <ChevronLeft className="w-4 h-4" />
         </button>
         <span className="text-sm font-semibold text-text-primary">
-          {MONTH_NAMES_RU[viewMonth]} {viewYear}
+          {MONTH_NAMES[viewMonth]} {viewYear}
         </span>
         <button
           onClick={nextMonth}
@@ -285,6 +289,13 @@ export interface CreatedBooking {
 // ─── Main dialog ──────────────────────────────────────────────────────────────
 
 export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogProps) {
+  const { t, lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+  const minLabel = t('common.min');
+  const hourLabel = t('common.hours');
+  const typeLabel = (type: SpecialistType) =>
+    type === 'MASSAGE_THERAPIST' ? t('booking.massageType') : t('booking.cosmetologyType');
+
   const [step, setStep] = React.useState<Step>('client');
 
   // Selections
@@ -576,22 +587,22 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
           onClose();
         }, 1200);
       } else if (res.status === 409) {
-        const msg = json?.error?.message ?? 'Время уже занято';
+        const msg = json?.error?.message ?? t('booking.busySlot');
         // If massage buffer violation and admin — offer override
         if (isMassageSpecialist && isAdmin && !adminOverride) {
           setShowOverrideDlg(true);
           setError(null);
         } else if (nextAvailableDate) {
-          setError(`${msg}. Ближайший свободный день: ${formatDay(nextAvailableDate)}`);
+          setError(`${msg}. ${t('booking.nearestAvailable')} ${formatDay(nextAvailableDate, locale)}`);
         } else {
           setError(msg);
         }
       } else {
-        setError(json?.error?.message ?? 'Ошибка при создании записи');
+        setError(json?.error?.message ?? t('booking.createError'));
       }
     } catch (err) {
       console.error('[booking] network error', err);
-      setError('Нет соединения с сервером. Проверьте подключение и попробуйте снова.');
+      setError(t('booking.networkError'));
     } finally {
       setSubmitting(false);
     }
@@ -612,9 +623,9 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
           <div className="flex items-start gap-3">
             <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-text-primary text-sm">Обойти буфер восстановления?</p>
+              <p className="font-semibold text-text-primary text-sm">{t('booking.overrideTitle')}</p>
               <p className="text-xs text-text-tertiary mt-1">
-                Массажист требует 30-минутный отдых после сеанса. Как администратор вы можете пропустить это ограничение.
+                {t('booking.overrideDesc')}
               </p>
             </div>
           </div>
@@ -623,13 +634,13 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
               onClick={() => { setShowOverrideDlg(false); }}
               className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-border-luxury text-text-secondary hover:bg-charcoal transition-colors"
             >
-              Оставить буфер
+              {t('booking.keepBuffer')}
             </button>
             <button
               onClick={() => { setShowOverrideDlg(false); setAdminOverride(true); }}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 transition-colors"
             >
-              Создать запись
+              {t('booking.forceCreate')}
             </button>
           </div>
         </div>
@@ -641,9 +652,9 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-0 shrink-0">
           <div>
-            <h2 className="font-serif text-xl font-medium text-text-primary">Новая запись</h2>
+            <h2 className="font-serif text-xl font-medium text-text-primary">{t('booking.title')}</h2>
             {isAdmin && (
-              <p className="text-[11px] text-text-tertiary mt-0.5">Административное создание</p>
+              <p className="text-[11px] text-text-tertiary mt-0.5">{t('booking.adminCreation')}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -657,7 +668,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
                     : 'border-border-luxury text-text-tertiary hover:border-amber-500/30 hover:text-amber-400')}
               >
                 <ShieldAlert className="w-3 h-3" />
-                {adminOverride ? 'Буфер отключён' : 'Обойти буфер'}
+                {adminOverride ? t('booking.bufferDisabled') : t('booking.bypassBuffer')}
               </button>
             )}
             <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
@@ -674,7 +685,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
           {/* ── STEP 1: Client ─────────────────────────────────────── */}
           {step === 'client' && (
             <div className="space-y-4">
-              <p className="text-sm text-text-secondary">Найдите клиента по имени, телефону или email</p>
+              <p className="text-sm text-text-secondary">{t('booking.searchClientHint')}</p>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
                 <input
@@ -683,7 +694,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
                   value={clientSearch}
                   onChange={e => { setClientSearch(e.target.value); setClientDropdownOpen(true); }}
                   onFocus={() => setClientDropdownOpen(true)}
-                  placeholder="Введите имя, телефон или email…"
+                  placeholder={t('booking.clientSearchPlaceholder')}
                   className={cn(
                     'w-full h-11 pl-9 pr-4 rounded-xl text-sm bg-charcoal border border-border-luxury',
                     'text-text-primary placeholder:text-text-tertiary',
@@ -694,7 +705,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
               {clientDropdownOpen && (
                 <div className="rounded-xl border border-border-luxury overflow-hidden divide-y divide-border-luxury">
                   {filteredClients.length === 0 ? (
-                    <div className="px-4 py-6 text-center text-sm text-text-tertiary">Клиент не найден</div>
+                    <div className="px-4 py-6 text-center text-sm text-text-tertiary">{t('booking.clientNotFound')}</div>
                   ) : filteredClients.map(c => (
                     <button key={c.id} onClick={() => { setClient(c); setClientDropdownOpen(false); }}
                       className={cn('w-full flex items-center gap-3 px-4 py-3 text-left transition-colors',
@@ -725,12 +736,12 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
           {/* ── STEP 2: Specialist ────────────────────────────────── */}
           {step === 'specialist' && (
             <div className="space-y-3">
-              <p className="text-sm text-text-secondary">Выберите специалиста</p>
+              <p className="text-sm text-text-secondary">{t('booking.searchSpecialistHint')}</p>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
                 <input autoFocus type="text" value={specialistSearch}
                   onChange={e => setSpecialistSearch(e.target.value)}
-                  placeholder="Поиск по имени или специализации…"
+                  placeholder={t('booking.specialistSearchPlaceholder')}
                   className={cn('w-full h-11 pl-9 pr-4 rounded-xl text-sm bg-charcoal border border-border-luxury',
                     'text-text-primary placeholder:text-text-tertiary',
                     'focus:outline-none focus:border-champagne/40 focus:ring-1 focus:ring-champagne/20')} />
@@ -738,18 +749,18 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
               <div className="flex gap-2">
                 {(['ALL','MASSAGE_THERAPIST','COSMETOLOGIST'] as const).map(f => (
                   <button key={f}
-                    onClick={() => setSpecialistSearch(f === 'ALL' ? '' : f === 'MASSAGE_THERAPIST' ? 'Массажист' : 'Косметолог')}
+                    onClick={() => setSpecialistSearch(f === 'ALL' ? '' : f === 'MASSAGE_THERAPIST' ? t('booking.massageType') : t('booking.cosmetologyType'))}
                     className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
                       f === 'ALL' && !specialistSearch ? 'border-champagne/40 bg-champagne/10 text-champagne' :
-                      f === 'MASSAGE_THERAPIST' && specialistSearch === 'Массажист' ? 'border-sage/40 bg-sage/10 text-sage' :
-                      f === 'COSMETOLOGIST' && specialistSearch === 'Косметолог' ? 'border-champagne/40 bg-champagne/10 text-champagne' :
+                      f === 'MASSAGE_THERAPIST' && specialistSearch === t('booking.massageType') ? 'border-sage/40 bg-sage/10 text-sage' :
+                      f === 'COSMETOLOGIST' && specialistSearch === t('booking.cosmetologyType') ? 'border-champagne/40 bg-champagne/10 text-champagne' :
                       'border-border-luxury text-text-tertiary hover:border-border-light')}>
-                    {f === 'ALL' ? 'Все' : f === 'MASSAGE_THERAPIST' ? 'Массажисты' : 'Косметологи'}
+                    {f === 'ALL' ? t('booking.filterAll') : f === 'MASSAGE_THERAPIST' ? t('booking.filterMassage') : t('booking.filterCosmetology')}
                   </button>
                 ))}
               </div>
               {filteredSpecialists.length === 0
-                ? <div className="py-8 text-center text-sm text-text-tertiary">Специалист не найден</div>
+                ? <div className="py-8 text-center text-sm text-text-tertiary">{t('booking.specialistNotFound')}</div>
                 : filteredSpecialists.map(sp => (
                   <button key={sp.id}
                     onClick={() => { setSpecialist(sp); setService(null); setTime(''); }}
@@ -785,9 +796,9 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
                 <div className="flex items-center gap-2 mb-1">
                   {typeIcon(specialist.type, 'w-4 h-4 ' + (specialist.type === 'MASSAGE_THERAPIST' ? 'text-sage' : 'text-champagne'))}
                   <p className="text-sm text-text-secondary">
-                    Услуги для{' '}
+                    {t('booking.servicesFor')}{' '}
                     <span className={cn('font-medium', specialist.type === 'MASSAGE_THERAPIST' ? 'text-sage' : 'text-champagne')}>
-                      {typeLabel(specialist.type).toLowerCase()}а
+                      {typeLabel(specialist.type).toLowerCase()}
                     </span>
                     {' · '}
                     <span className="text-text-tertiary">{specialist.name}</span>
@@ -797,7 +808,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
               {services.length === 0
                 ? <div className="py-8 text-center text-sm text-text-tertiary">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-champagne" />
-                    Загрузка услуг… (если список пуст — обновите страницу)
+                    {t('booking.loadingServices')}
                   </div>
                 : services.map(svc => (
                   <button key={svc.id} onClick={() => { setService(svc); setTime(''); }}
@@ -811,7 +822,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
                       <p className="text-sm font-medium text-text-primary">{svc.name}</p>
                       <div className="flex items-center gap-1.5 mt-0.5 text-xs text-text-tertiary">
                         <Clock className="w-3 h-3" />
-                        <span>{formatDuration(svc.duration)}</span>
+                        <span>{formatDuration(svc.duration, minLabel, hourLabel)}</span>
                       </div>
                     </div>
                     {service?.id === svc.id && <Check className="w-4 h-4 text-champagne shrink-0" />}
@@ -824,12 +835,12 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
           {/* ── STEP 4: Date — month-view calendar ────────────────── */}
           {step === 'date' && (
             <div className="space-y-3">
-              <p className="text-sm text-text-secondary">Выберите дату</p>
+              <p className="text-sm text-text-secondary">{t('booking.selectDateHint')}</p>
               <MonthCalendar selected={date} onSelect={d => setDate(d)} />
               {date && (
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-champagne/8 border border-champagne/20 text-sm">
                   <Calendar className="w-4 h-4 text-champagne" />
-                  <span className="text-champagne font-medium">{formatDay(date)}</span>
+                  <span className="text-champagne font-medium">{formatDay(date, locale)}</span>
                 </div>
               )}
             </div>
@@ -840,12 +851,12 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
             <div className="space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <p className="text-sm text-text-secondary">
-                  Доступные слоты · {date && formatDay(date)}
+                  {t('booking.availableSlotsLabel')} · {date && formatDay(date, locale)}
                 </p>
                 <div className="flex items-center gap-2">
                   {isMassageSpecialist && !adminOverride && (
                     <span className="text-xs text-sage flex items-center gap-1">
-                      <Leaf className="w-3 h-3" />30 мин буфер
+                      <Leaf className="w-3 h-3" />{t('booking.bufferInfo')}
                     </span>
                   )}
                   {/* Admin override toggle — visible only to admins for massage specialists */}
@@ -858,7 +869,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
                           : 'border-border-luxury text-text-tertiary hover:border-amber-500/30 hover:text-amber-400')}
                     >
                       <ShieldAlert className="w-3 h-3" />
-                      {adminOverride ? 'Буфер отключён' : 'Отключить буфер'}
+                      {adminOverride ? t('booking.bufferDisabled') : t('booking.disableBuffer')}
                     </button>
                   )}
                 </div>
@@ -867,7 +878,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
               {adminOverride && isAdmin && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
                   <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                  Административный режим: буфер восстановления отключён
+                  {t('booking.adminMode')}
                 </div>
               )}
 
@@ -884,9 +895,9 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
                       <button key={slot.time} disabled={!slot.available}
                         onClick={() => setTime(slot.time)}
                         title={!slot.available
-                          ? slot.reason === 'occupied' ? 'Занято'
-                          : slot.reason === 'past' ? 'Прошедшее время'
-                          : 'Вне рабочего времени'
+                          ? slot.reason === 'occupied' ? t('booking.slotOccupied')
+                          : slot.reason === 'past' ? t('booking.slotPast')
+                          : t('booking.slotOutsideHours')
                           : undefined}
                         className={cn('h-10 rounded-xl text-sm font-medium transition-all border',
                           !slot.available
@@ -902,12 +913,12 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
                   {slots.length > 0 && availableSlots.length === 0 && (
                     <div className="flex flex-col items-center gap-2 py-6 text-center">
                       <AlertCircle className="w-8 h-8 text-amber-400" />
-                      <p className="text-sm text-text-secondary">Нет доступных слотов на эту дату</p>
+                      <p className="text-sm text-text-secondary">{t('booking.noSlots')}</p>
                       {nextAvailableDate && (
                         <button onClick={() => { setDate(nextAvailableDate); setNextAvailableDate(null); setStep('date'); }}
                           className="text-sm text-champagne hover:underline flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5" />
-                          Перейти на {formatDay(nextAvailableDate)}
+                          {t('booking.goToDate')} {formatDay(nextAvailableDate, locale)}
                         </button>
                       )}
                     </div>
@@ -925,21 +936,21 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
                   <div className="w-14 h-14 rounded-full bg-sage/15 flex items-center justify-center">
                     <CheckCircle2 className="w-7 h-7 text-sage" />
                   </div>
-                  <p className="font-medium text-text-primary">Запись создана</p>
-                  <p className="text-sm text-text-tertiary">Клиент будет уведомлён</p>
+                  <p className="font-medium text-text-primary">{t('booking.success')}</p>
+                  <p className="text-sm text-text-tertiary">{t('booking.notified')}</p>
                 </div>
               ) : (
                 <>
                   <div className="bg-charcoal rounded-2xl p-4 space-y-3 text-sm">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-3">Сводка записи</p>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-3">{t('booking.summaryLabel')}</p>
                     {[
-                      { icon: <User className="w-3.5 h-3.5" />,    label: 'Клиент',       value: client?.name },
+                      { icon: <User className="w-3.5 h-3.5" />,    label: t('booking.fieldClient'),     value: client?.name },
                       { icon: specialist ? typeIcon(specialist.type, 'w-3.5 h-3.5') : null,
-                                                                     label: 'Специалист',   value: specialist ? `${specialist.name} · ${typeLabel(specialist.type)}` : '' },
-                      { icon: <Sparkles className="w-3.5 h-3.5" />, label: 'Услуга',       value: service?.name },
-                      { icon: <Clock className="w-3.5 h-3.5" />,    label: 'Длительность', value: service ? formatDuration(service.duration) : '' },
-                      { icon: <Calendar className="w-3.5 h-3.5" />, label: 'Дата',         value: date ? formatDay(date) : '' },
-                      { icon: <Clock className="w-3.5 h-3.5" />,    label: 'Время',        value: time || '' },
+                                                                     label: t('booking.fieldSpecialist'), value: specialist ? `${specialist.name} · ${typeLabel(specialist.type)}` : '' },
+                      { icon: <Sparkles className="w-3.5 h-3.5" />, label: t('booking.fieldService'),    value: service?.name },
+                      { icon: <Clock className="w-3.5 h-3.5" />,    label: t('booking.fieldDuration'),   value: service ? formatDuration(service.duration, minLabel, hourLabel) : '' },
+                      { icon: <Calendar className="w-3.5 h-3.5" />, label: t('booking.fieldDate'),       value: date ? formatDay(date, locale) : '' },
+                      { icon: <Clock className="w-3.5 h-3.5" />,    label: t('booking.fieldTime'),       value: time || '' },
                     ].map(row => (
                       <div key={row.label} className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-1.5 text-text-tertiary min-w-[110px]">
@@ -952,7 +963,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
                     {adminOverride && isAdmin && (
                       <div className="pt-2 border-t border-border-luxury text-xs text-amber-400 flex items-center gap-1.5">
                         <ShieldAlert className="w-3.5 h-3.5" />
-                        <span>Буфер восстановления отключён администратором</span>
+                        <span>{t('booking.bufferAdminDisabled')}</span>
                       </div>
                     )}
                     <div className="pt-2 border-t border-border-luxury text-xs text-text-tertiary flex items-center gap-1.5">
@@ -963,10 +974,10 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
 
                   <div>
                     <label className="text-xs font-medium text-text-secondary mb-1.5 block">
-                      Примечания (необязательно)
+                      {t('booking.notesLabel')}
                     </label>
                     <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
-                      placeholder="Пожелания, противопоказания, особые требования…"
+                      placeholder={t('booking.notesPlaceholder')}
                       className={cn('w-full rounded-xl px-4 py-3 text-sm resize-none',
                         'bg-charcoal border border-border-luxury',
                         'text-text-primary placeholder:text-text-tertiary',
@@ -991,16 +1002,16 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
             <button onClick={goBack} disabled={!canGoBack}
               className={cn('flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors',
                 canGoBack ? 'text-text-secondary hover:text-text-primary hover:bg-charcoal border border-border-luxury' : 'invisible')}>
-              <ChevronLeft className="w-4 h-4" /> Назад
+              <ChevronLeft className="w-4 h-4" /> {t('common.back')}
             </button>
             <button onClick={goNext} disabled={!canProceed() || submitting}
               className={cn('flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all',
                 canProceed() && !submitting
                   ? 'luxury-gradient text-obsidian shadow-[0_2px_12px_rgba(212,175,122,0.25)] hover:opacity-90'
                   : 'bg-charcoal text-text-tertiary border border-border-luxury cursor-not-allowed')}>
-              {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Создание…</>
-                : step === 'notes' ? <><Check className="w-4 h-4" /> Создать запись</>
-                : <>Далее <ChevronRight className="w-4 h-4" /></>}
+              {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> {t('booking.creating')}</>
+                : step === 'notes' ? <><Check className="w-4 h-4" /> {t('booking.create')}</>
+                : <>{t('common.next')} <ChevronRight className="w-4 h-4" /></>}
             </button>
           </div>
         )}

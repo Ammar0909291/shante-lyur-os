@@ -10,6 +10,7 @@ import { Badge, getAppointmentStatusBadgeVariant, getAppointmentStatusLabel } fr
 import { Avatar } from '@/components/ui/avatar';
 import { formatTime, formatCurrency } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 interface Appointment {
   id: string;
@@ -93,9 +94,10 @@ function KPICard({ title, value, sub, trend, icon, href, accent }: KPICardProps)
 }
 
 function StatusPill({ status }: { status: string }) {
+  const { t } = useLanguage();
   return (
     <Badge variant={getAppointmentStatusBadgeVariant(status)} dot>
-      {getAppointmentStatusLabel(status)}
+      {getAppointmentStatusLabel(status, t)}
     </Badge>
   );
 }

@@ -7,27 +7,30 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff } from 'lucide-react';
+import { useLanguage } from '@/contexts/language';
 
-const loginSchema = z.object({
-  email: z.string().email('Введите корректный email'),
-  password: z.string().min(6, 'Пароль должен быть не менее 6 символов'),
-});
-
-type LoginFields = z.infer<typeof loginSchema>;
-type FieldErrors = Partial<Record<keyof LoginFields, string>>;
+type FieldErrors = Partial<Record<'email' | 'password', string>>;
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   const router = useRouter();
-  const [fields, setFields] = React.useState<LoginFields>({ email: '', password: '' });
+  const [fields, setFields] = React.useState({ email: '', password: '' });
   const [errors, setErrors] = React.useState<FieldErrors>({});
   const [serverError, setServerError] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
 
+  const loginSchema = z.object({
+    email: z.string().email(t('auth.invalidEmail')),
+    password: z.string().min(6, t('auth.passwordMin6')),
+  });
+
+  type LoginFields = z.infer<typeof loginSchema>;
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
     setFields((prev) => ({ ...prev, [name]: value }));
-    if (errors[name as keyof LoginFields]) {
+    if (errors[name as keyof FieldErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
     if (serverError) setServerError('');
@@ -64,9 +67,9 @@ export default function LoginPage() {
       }
 
       const body = await res.json().catch(() => ({})) as { message?: string };
-      setServerError(body.message ?? 'Неверный email или пароль');
+      setServerError(body.message ?? t('auth.badCredentials'));
     } catch {
-      setServerError('Ошибка соединения. Попробуйте позже.');
+      setServerError(t('auth.networkError'));
     } finally {
       setIsLoading(false);
     }
@@ -76,10 +79,10 @@ export default function LoginPage() {
     <div className="animate-slide-up">
       <div className="mb-8">
         <h2 className="font-serif text-2xl font-medium text-text-primary tracking-tight">
-          Добро пожаловать
+          {t('auth.welcome')}
         </h2>
         <p className="text-sm text-text-secondary mt-1.5">
-          Войдите в систему управления студией
+          {t('auth.loginSubtitle')}
         </p>
       </div>
 
@@ -98,7 +101,7 @@ export default function LoginPage() {
         />
 
         <Input
-          label="Пароль"
+          label={t('auth.password')}
           name="password"
           type={showPassword ? 'text' : 'password'}
           value={fields.password}
@@ -112,7 +115,7 @@ export default function LoginPage() {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="p-0.5 text-text-tertiary hover:text-text-secondary transition-colors"
-              aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+              aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
             >
               {showPassword ? (
                 <EyeOff className="w-4 h-4" />
@@ -137,7 +140,7 @@ export default function LoginPage() {
             href="/forgot-password"
             className="text-xs text-text-tertiary hover:text-champagne transition-colors"
           >
-            Забыли пароль?
+            {t('auth.forgotPassword')}
           </Link>
         </div>
 
@@ -148,15 +151,15 @@ export default function LoginPage() {
           className="w-full"
           isLoading={isLoading}
         >
-          Войти
+          {t('auth.login')}
         </Button>
       </form>
 
       <div className="mt-6 text-center">
         <p className="text-sm text-text-tertiary">
-          Нет аккаунта?{' '}
+          {t('auth.noAccount')}{' '}
           <Link href="/register" className="text-champagne hover:text-champagne-light transition-colors">
-            Зарегистрироваться
+            {t('auth.register')}
           </Link>
         </p>
       </div>

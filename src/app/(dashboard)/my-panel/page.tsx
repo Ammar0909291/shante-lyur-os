@@ -1047,7 +1047,7 @@ function ProfileTab() {
       });
       const j = await res.json() as { success: boolean };
       if (j.success) {
-        setServicesSaveMsg('Saved');
+        setServicesSaveMsg(t('common.saved'));
         setEditingServices(false);
         void loadAll();
         setTimeout(() => setServicesSaveMsg(null), 2000);

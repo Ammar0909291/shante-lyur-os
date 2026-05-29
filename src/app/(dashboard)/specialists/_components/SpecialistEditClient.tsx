@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { X, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 interface SpecialistEditData {
   id: string;
@@ -36,18 +37,19 @@ const selectCls = cn(
   'transition-all',
 );
 
-const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: 'Активен',
-  ON_VACATION: 'Отпуск',
-  INACTIVE: 'Неактивен',
-  TERMINATED: 'Уволен',
-};
-
 export function SpecialistEditClient({ specialist }: Props) {
+  const { t } = useLanguage();
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
   const [success, setSuccess] = React.useState(false);
+
+  const STATUS_LABELS: Record<string, string> = {
+    ACTIVE: t('specialists.status.active'),
+    ON_VACATION: t('specialists.status.vacation'),
+    INACTIVE: t('specialists.status.inactive'),
+    TERMINATED: t('specialists.status.dismissed'),
+  };
 
   const [form, setForm] = React.useState({
     firstName: specialist.firstName,
@@ -87,7 +89,7 @@ export function SpecialistEditClient({ specialist }: Props) {
       });
       const json = await res.json();
       if (!json.success) {
-        setError(json.error?.message ?? 'Ошибка сохранения');
+        setError(json.error?.message ?? t('specialists.edit.saveError'));
         return;
       }
       setSuccess(true);
@@ -96,7 +98,7 @@ export function SpecialistEditClient({ specialist }: Props) {
         window.location.reload();
       }, 800);
     } catch {
-      setError('Сетевая ошибка. Попробуйте снова.');
+      setError(t('specialists.error.network'));
     } finally {
       setSaving(false);
     }
@@ -109,7 +111,7 @@ export function SpecialistEditClient({ specialist }: Props) {
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-border-luxury text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors"
       >
         <Pencil className="w-3.5 h-3.5" />
-        Редактировать
+        {t('specialists.edit.editBtn')}
       </button>
 
       {open && (
@@ -117,7 +119,7 @@ export function SpecialistEditClient({ specialist }: Props) {
           <div className="absolute inset-0 bg-obsidian/80 backdrop-blur-sm" onClick={() => setOpen(false)} />
           <div className="relative bg-onyx border border-border-luxury rounded-2xl w-full max-w-lg shadow-luxury-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury">
-              <h3 className="font-serif text-lg font-medium text-text-primary">Редактировать профиль</h3>
+              <h3 className="font-serif text-lg font-medium text-text-primary">{t('specialists.edit.title')}</h3>
               <button
                 onClick={() => setOpen(false)}
                 className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors"
@@ -129,32 +131,32 @@ export function SpecialistEditClient({ specialist }: Props) {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Имя *</span>
-                  <input value={form.firstName} onChange={set('firstName')} required className={inputCls} placeholder="Имя" />
+                  <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('specialists.form.firstName')}</span>
+                  <input value={form.firstName} onChange={set('firstName')} required className={inputCls} placeholder={t('specialists.form.firstNamePlaceholder')} />
                 </label>
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Фамилия *</span>
-                  <input value={form.lastName} onChange={set('lastName')} required className={inputCls} placeholder="Фамилия" />
+                  <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('specialists.form.lastName')}</span>
+                  <input value={form.lastName} onChange={set('lastName')} required className={inputCls} placeholder={t('specialists.form.lastNamePlaceholder')} />
                 </label>
               </div>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Телефон</span>
+                <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('specialists.edit.phone')}</span>
                 <input value={form.phone} onChange={set('phone')} className={inputCls} placeholder="+7 900 000-00-00" />
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Специализация</span>
-                <input value={form.specialization} onChange={set('specialization')} className={inputCls} placeholder="Массажист, косметолог..." />
+                <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('specialists.form.specialization')}</span>
+                <input value={form.specialization} onChange={set('specialization')} className={inputCls} placeholder={t('specialists.form.specializationPlaceholder')} />
               </label>
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Опыт (лет)</span>
+                  <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('specialists.form.experience')}</span>
                   <input type="number" min="0" max="60" value={form.experienceYears} onChange={set('experienceYears')} className={inputCls} placeholder="0" />
                 </label>
                 <label className="space-y-1.5">
-                  <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Статус</span>
+                  <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('specialists.edit.status')}</span>
                   <select value={form.status} onChange={set('status')} className={selectCls}>
                     {Object.entries(STATUS_LABELS).map(([v, l]) => (
                       <option key={v} value={v}>{l}</option>
@@ -164,7 +166,7 @@ export function SpecialistEditClient({ specialist }: Props) {
               </div>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Цвет (HEX)</span>
+                <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('specialists.edit.color')}</span>
                 <div className="flex gap-2 items-center">
                   <input value={form.color} onChange={set('color')} className={cn(inputCls, 'flex-1')} placeholder="#C9A84C" maxLength={20} />
                   {form.color && /^#[0-9a-fA-F]{3,6}$/.test(form.color) && (
@@ -174,13 +176,13 @@ export function SpecialistEditClient({ specialist }: Props) {
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">О специалисте</span>
+                <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('specialists.form.bio')}</span>
                 <textarea
                   value={form.bio}
                   onChange={set('bio')}
                   rows={3}
                   className={cn(inputCls, 'resize-none')}
-                  placeholder="Краткая биография..."
+                  placeholder={t('specialists.edit.bioPlaceholder')}
                 />
               </label>
 
@@ -188,7 +190,7 @@ export function SpecialistEditClient({ specialist }: Props) {
                 <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
               )}
               {success && (
-                <p className="text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">Сохранено успешно</p>
+                <p className="text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">{t('specialists.edit.saved')}</p>
               )}
 
               <div className="flex gap-3 pt-2">
@@ -197,14 +199,14 @@ export function SpecialistEditClient({ specialist }: Props) {
                   onClick={() => setOpen(false)}
                   className="flex-1 py-2.5 rounded-xl border border-border-luxury text-sm text-text-secondary hover:text-text-primary hover:bg-charcoal transition-colors"
                 >
-                  Отмена
+                  {t('specialists.edit.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="flex-1 py-2.5 rounded-xl bg-champagne text-obsidian text-sm font-medium hover:bg-champagne-light transition-colors disabled:opacity-50"
                 >
-                  {saving ? 'Сохранение...' : 'Сохранить'}
+                  {saving ? t('specialists.edit.saving') : t('specialists.edit.save')}
                 </button>
               </div>
             </form>

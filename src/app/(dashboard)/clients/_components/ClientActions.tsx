@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { UserX, Trash2, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 interface Props {
   clientId: string;
@@ -12,6 +13,7 @@ interface Props {
 
 export function ClientActions({ clientId, currentStatus }: Props) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [loading, setLoading] = React.useState<string | null>(null);
   const [confirm, setConfirm] = React.useState<'disable' | 'delete' | null>(null);
 
@@ -47,16 +49,16 @@ export function ClientActions({ clientId, currentStatus }: Props) {
     <div className="flex items-center gap-2">
       {confirm === 'disable' && (
         <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-xs text-yellow-400">
-          <span>{isDisabled ? 'Активировать клиента?' : 'Отключить клиента?'}</span>
-          <button onClick={handleDisable} disabled={!!loading} className="font-semibold hover:text-yellow-300">Да</button>
-          <button onClick={() => setConfirm(null)} className="hover:text-text-secondary">Нет</button>
+          <span>{isDisabled ? t('clients.confirm.activate') : t('clients.confirm.disable')}</span>
+          <button onClick={handleDisable} disabled={!!loading} className="font-semibold hover:text-yellow-300">{t('common.yes')}</button>
+          <button onClick={() => setConfirm(null)} className="hover:text-text-secondary">{t('common.no')}</button>
         </div>
       )}
       {confirm === 'delete' && (
         <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400">
-          <span>Архивировать клиента?</span>
-          <button onClick={handleDelete} disabled={!!loading} className="font-semibold hover:text-red-300">Да</button>
-          <button onClick={() => setConfirm(null)} className="hover:text-text-secondary">Нет</button>
+          <span>{t('clients.confirm.archive')}</span>
+          <button onClick={handleDelete} disabled={!!loading} className="font-semibold hover:text-red-300">{t('common.yes')}</button>
+          <button onClick={() => setConfirm(null)} className="hover:text-text-secondary">{t('common.no')}</button>
         </div>
       )}
 
@@ -73,7 +75,7 @@ export function ClientActions({ clientId, currentStatus }: Props) {
             )}
           >
             {isDisabled ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
-            {isDisabled ? 'Активировать' : 'Отключить'}
+            {isDisabled ? t('clients.action.activate') : t('clients.action.disable')}
           </button>
 
           <button
@@ -82,7 +84,7 @@ export function ClientActions({ clientId, currentStatus }: Props) {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-40"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            Удалить
+            {t('clients.action.archive')}
           </button>
         </>
       )}

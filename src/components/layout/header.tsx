@@ -176,8 +176,8 @@ function NotificationBell() {
 
   const relativeTime = (iso: string) => {
     const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-    if (diff < 1) return 'только что';
-    if (diff < 60) return `${diff} мин назад`;
+    if (diff < 1) return t('notif.justNow');
+    if (diff < 60) return `${diff} ${t('notif.minsAgo')}`;
     return formatTime(new Date(iso));
   };
 
@@ -258,7 +258,7 @@ function NotificationBell() {
                 {chatConvs.length > 0 && (
                   <>
                     <div className="px-3 py-1.5 border-b border-border-luxury/50 bg-charcoal/40">
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">Сообщения</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">{t('notif.messages')}</p>
                     </div>
                     {chatConvs.slice(0, 5).map((c) => (
                       <div
@@ -269,7 +269,7 @@ function NotificationBell() {
                         <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-text-primary">
-                            {c.unreadCount === 1 ? '1 новое сообщение' : `${c.unreadCount} новых сообщения`}
+                            {c.unreadCount === 1 ? `1 ${t('notif.newMessage')}` : `${c.unreadCount} ${t('notif.newMessages')}`}
                           </p>
                           {c.lastMessagePreview && (
                             <p className="text-xs text-text-secondary mt-0.5 truncate">{c.lastMessagePreview}</p>
@@ -283,7 +283,7 @@ function NotificationBell() {
                   <>
                     {chatConvs.length > 0 && (
                       <div className="px-3 py-1.5 border-b border-border-luxury/50 bg-charcoal/40">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">Уведомления</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">{t('notif.notifications')}</p>
                       </div>
                     )}
                     <div className="py-1">
@@ -321,16 +321,6 @@ function NotificationBell() {
   );
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: 'Супер-администратор',
-  ADMIN: 'Администратор',
-  MANAGER: 'Менеджер',
-  RECEPTIONIST: 'Администратор стойки',
-  COSMETOLOGIST: 'Косметолог',
-  MASSAGIST: 'Массажист',
-  CLIENT: 'Клиент',
-};
-
 function UserMenu() {
   const { t } = useLanguage();
   const router = useRouter();
@@ -342,6 +332,16 @@ function UserMenu() {
       .then((json) => { if (json.success) setMe(json.data); })
       .catch(() => {});
   }, []);
+
+  const ROLE_LABEL: Record<string, string> = {
+    SUPER_ADMIN: t('profile.role.super'),
+    ADMIN: t('profile.role.admin'),
+    MANAGER: t('profile.role.manager'),
+    RECEPTIONIST: t('profile.role.receptionist'),
+    COSMETOLOGIST: t('profile.role.cosmetologist'),
+    MASSAGIST: t('profile.role.massagist'),
+    CLIENT: t('profile.role.client'),
+  };
 
   const fullName = me ? `${me.firstName} ${me.lastName}` : t('header.admin');
   const roleLabel = me ? (ROLE_LABEL[me.role] ?? me.role) : t('header.role');
@@ -411,6 +411,7 @@ function UserMenu() {
 
 export function Header({ title, onMobileMenuOpen }: HeaderProps) {
   const now = useClock();
+  const { t, lang } = useLanguage();
 
   return (
     <header
@@ -428,7 +429,7 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
             'text-text-secondary hover:text-text-primary hover:bg-charcoal',
             'transition-colors',
           )}
-          aria-label="Открыть меню"
+          aria-label={t('header.openMenu')}
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -440,7 +441,7 @@ export function Header({ title, onMobileMenuOpen }: HeaderProps) {
       <div className="flex items-center gap-1 sm:gap-2">
         {now && (
           <div className="hidden md:flex flex-col items-end mr-2">
-            <span className="text-xs text-text-secondary">{formatDate(now)}</span>
+            <span className="text-xs text-text-secondary">{formatDate(now, lang === 'en' ? 'en-US' : 'ru-RU')}</span>
             <span className="text-[10px] text-text-tertiary">{formatTime(now)}</span>
           </div>
         )}

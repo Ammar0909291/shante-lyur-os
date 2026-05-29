@@ -19,6 +19,7 @@ import {
   Banknote,
 } from 'lucide-react';
 import { getClientRole } from '@/lib/client-auth';
+import { useLanguage } from '@/contexts/language';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,7 +109,22 @@ interface ScheduleRequest {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const MONTH_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+function getMonthName(year: number, month: number, lang: string): string {
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'ru-RU', { month: 'long' }).format(new Date(year, month, 1));
+}
+
+function getMonthShort(year: number, month: number, lang: string): string {
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'ru-RU', { month: 'short' }).format(new Date(year, month, 1));
+}
+
+// Mon-first weekday abbreviations (Mon=0 … Sun=6)
+function getWeekdayAbbrs(lang: string): string[] {
+  const fmt = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'ru-RU', { weekday: 'short' });
+  // 2025-01-06 = Monday, 2025-01-07 = Tuesday … 2025-01-12 = Sunday
+  return Array.from({ length: 7 }, (_, i) =>
+    fmt.format(new Date(2025, 0, 6 + i))
+  );
+}
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -130,20 +146,23 @@ function monthBounds(year: number, month: number) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    PENDING:     { label: 'Ожидает',    cls: 'bg-amber-900/40 text-amber-300 border border-amber-700/50' },
-    CONFIRMED:   { label: 'Подтверждена', cls: 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' },
-    IN_PROGRESS: { label: 'В процессе', cls: 'bg-blue-900/40 text-blue-300 border border-blue-700/50' },
-    COMPLETED:   { label: 'Выполнена',  cls: 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' },
-    CANCELLED:   { label: 'Отменена',   cls: 'bg-rose-900/40 text-rose-300 border border-rose-700/50' },
-    NO_SHOW:     { label: 'Неявка',     cls: 'bg-red-900/40 text-red-300 border border-red-700/50' },
-    RESCHEDULED: { label: 'Перенесена', cls: 'bg-indigo-900/40 text-indigo-300 border border-indigo-700/50' },
-    APPROVED:    { label: 'Одобрена',   cls: 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' },
-    REJECTED:    { label: 'Отклонена',  cls: 'bg-rose-900/40 text-rose-300 border border-rose-700/50' },
-    PAID:        { label: 'Оплачено',   cls: 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' },
+  const { t } = useLanguage();
+  const map: Record<string, { labelKey: string; cls: string }> = {
+    PENDING:     { labelKey: 'my.status.pending',     cls: 'bg-amber-900/40 text-amber-300 border border-amber-700/50' },
+    CONFIRMED:   { labelKey: 'my.status.confirmed',   cls: 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' },
+    IN_PROGRESS: { labelKey: 'my.status.inProgress',  cls: 'bg-blue-900/40 text-blue-300 border border-blue-700/50' },
+    COMPLETED:   { labelKey: 'my.status.completed',   cls: 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' },
+    CANCELLED:   { labelKey: 'my.status.cancelled',   cls: 'bg-rose-900/40 text-rose-300 border border-rose-700/50' },
+    NO_SHOW:     { labelKey: 'my.status.noShow',      cls: 'bg-red-900/40 text-red-300 border border-red-700/50' },
+    RESCHEDULED: { labelKey: 'my.status.rescheduled', cls: 'bg-indigo-900/40 text-indigo-300 border border-indigo-700/50' },
+    APPROVED:    { labelKey: 'my.status.approved',    cls: 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' },
+    REJECTED:    { labelKey: 'my.status.rejected',    cls: 'bg-rose-900/40 text-rose-300 border border-rose-700/50' },
+    PAID:        { labelKey: 'my.status.paid',        cls: 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/50' },
   };
-  const s = map[status] ?? { label: status, cls: 'bg-zinc-800 text-zinc-400' };
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${s.cls}`}>{s.label}</span>;
+  const s = map[status];
+  const label = s ? t(s.labelKey) : status;
+  const cls = s?.cls ?? 'bg-zinc-800 text-zinc-400';
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cls}`}>{label}</span>;
 }
 
 async function apiFetch<T>(url: string): Promise<T | null> {
@@ -159,6 +178,7 @@ async function apiFetch<T>(url: string): Promise<T | null> {
 
 function HeaderWidget({ summary }: { summary: Summary }) {
   const { specialist, currentMonth, nextBooking } = summary;
+  const { t } = useLanguage();
   return (
     <div className="bg-charcoal border border-white/10 rounded-2xl p-6 mb-6">
       <div className="flex items-start gap-4">
@@ -179,15 +199,15 @@ function HeaderWidget({ summary }: { summary: Summary }) {
       {/* Stats row */}
       <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="bg-obsidian rounded-xl p-3 border border-white/5">
-          <p className="text-xs text-zinc-500 mb-1">Процедур в мес.</p>
+          <p className="text-xs text-zinc-500 mb-1">{t('my.stat.proceduresMonth')}</p>
           <p className="text-2xl font-bold text-champagne">{currentMonth.completedAppointments}</p>
         </div>
         <div className="bg-obsidian rounded-xl p-3 border border-white/5">
-          <p className="text-xs text-zinc-500 mb-1">Комиссия</p>
+          <p className="text-xs text-zinc-500 mb-1">{t('my.stat.commission')}</p>
           <p className="text-2xl font-bold text-amber-400">{fmtCurrency(currentMonth.totalCommission)}</p>
         </div>
         <div className="bg-obsidian rounded-xl p-3 border border-white/5 col-span-2 sm:col-span-1">
-          <p className="text-xs text-zinc-500 mb-1">К выплате</p>
+          <p className="text-xs text-zinc-500 mb-1">{t('my.stat.payable')}</p>
           <p className="text-2xl font-bold text-emerald-400">{fmtCurrency(currentMonth.totalPayable)}</p>
           {currentMonth.payrollStatus && (
             <StatusBadge status={currentMonth.payrollStatus} />
@@ -199,7 +219,7 @@ function HeaderWidget({ summary }: { summary: Summary }) {
       {nextBooking && (
         <div className="mt-4 bg-obsidian border border-amber-700/30 rounded-xl p-4">
           <p className="text-xs text-amber-400 font-medium mb-2 flex items-center gap-1">
-            <Clock className="w-3 h-3" /> Следующая запись
+            <Clock className="w-3 h-3" /> {t('my.nextBooking')}
           </p>
           <p className="text-sm font-medium text-white">
             {fmtDate(nextBooking.startAt)} · {fmtTime(nextBooking.startAt)}–{fmtTime(nextBooking.endAt)}
@@ -219,6 +239,7 @@ function WorkingDaysTab({ specialistId: _sid }: { specialistId: string }) {
   const [month, setMonth] = useState(now.getMonth());
   const [days,  setDays]  = useState<WorkDay[]>([]);
   const [loading, setLoading] = useState(false);
+  const { t, lang } = useLanguage();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -237,6 +258,7 @@ function WorkingDaysTab({ specialistId: _sid }: { specialistId: string }) {
   const blanks = firstDow === 0 ? 6 : firstDow - 1; // shift to Mon-first
 
   const workDays = days.filter(d => d.isWorkDay).length;
+  const weekdayAbbrs = getWeekdayAbbrs(lang);
 
   return (
     <div>
@@ -245,7 +267,7 @@ function WorkingDaysTab({ specialistId: _sid }: { specialistId: string }) {
         <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <h2 className="text-base font-semibold text-champagne">{MONTH_RU[month]} {year}</h2>
+        <h2 className="text-base font-semibold text-champagne">{getMonthName(year, month, lang)} {year}</h2>
         <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -253,7 +275,7 @@ function WorkingDaysTab({ specialistId: _sid }: { specialistId: string }) {
 
       {/* Day-name header row */}
       <div className="grid grid-cols-7 mb-1">
-        {['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].map(d => (
+        {weekdayAbbrs.map(d => (
           <div key={d} className="text-center text-xs text-zinc-500 py-1 font-medium">{d}</div>
         ))}
       </div>
@@ -289,10 +311,10 @@ function WorkingDaysTab({ specialistId: _sid }: { specialistId: string }) {
 
       {/* Legend */}
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-zinc-400">
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-800/60 border border-emerald-700/50" />Рабочий ({workDays})</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-zinc-700/60" />Выходной</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-rose-800/60 border border-rose-700/50" />Блок</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-800/60 border border-purple-700/50" />Отпуск</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-800/60 border border-emerald-700/50" />{t('my.legend.working')} ({workDays})</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-zinc-700/60" />{t('my.legend.dayOff')}</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-rose-800/60 border border-rose-700/50" />{t('my.legend.blocked')}</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-purple-800/60 border border-purple-700/50" />{t('my.legend.vacation')}</span>
       </div>
     </div>
   );
@@ -309,6 +331,7 @@ function ProceduresTab() {
   const [page, setPage]   = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 20;
+  const { t, lang } = useLanguage();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -333,7 +356,7 @@ function ProceduresTab() {
         <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <h2 className="text-base font-semibold text-champagne">{MONTH_RU[month]} {year}</h2>
+        <h2 className="text-base font-semibold text-champagne">{getMonthName(year, month, lang)} {year}</h2>
         <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -342,17 +365,17 @@ function ProceduresTab() {
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>
       ) : procedures.length === 0 ? (
-        <div className="text-center py-12 text-zinc-500">Нет процедур за этот период</div>
+        <div className="text-center py-12 text-zinc-500">{t('my.procedures.empty')}</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-zinc-500 border-b border-white/10">
-                <th className="pb-2 pr-4 font-medium">Дата</th>
-                <th className="pb-2 pr-4 font-medium">Клиент</th>
-                <th className="pb-2 pr-4 font-medium">Услуги</th>
-                <th className="pb-2 pr-4 font-medium">Статус</th>
-                <th className="pb-2 text-right font-medium">Сумма</th>
+                <th className="pb-2 pr-4 font-medium">{t('my.col.date')}</th>
+                <th className="pb-2 pr-4 font-medium">{t('my.col.client')}</th>
+                <th className="pb-2 pr-4 font-medium">{t('my.col.services')}</th>
+                <th className="pb-2 pr-4 font-medium">{t('my.col.status')}</th>
+                <th className="pb-2 text-right font-medium">{t('my.col.amount')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -375,7 +398,7 @@ function ProceduresTab() {
       {/* Pagination */}
       {total > limit && (
         <div className="mt-4 flex items-center justify-between text-sm text-zinc-400">
-          <span>{total} всего</span>
+          <span>{total} {t('my.pagination.total')}</span>
           <div className="flex gap-2">
             <button disabled={page === 1} onClick={() => setPage(p => p-1)}
               className="px-3 py-1 rounded border border-white/10 disabled:opacity-40 hover:bg-white/10 transition-colors">
@@ -398,6 +421,7 @@ function ProceduresTab() {
 function BookingsTab() {
   const [data, setData] = useState<{ upcoming: Booking[]; recent: Booking[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const { t, lang } = useLanguage();
 
   useEffect(() => {
     apiFetch<{ upcoming: Booking[]; recent: Booking[] }>('/api/v1/my/bookings/upcoming?limit=8')
@@ -407,11 +431,12 @@ function BookingsTab() {
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>;
 
   function BookingCard({ b }: { b: Booking }) {
+    const startDate = new Date(b.startAt);
     return (
       <div className="bg-obsidian border border-white/10 rounded-xl p-4 flex items-start gap-3">
         <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-amber-900/30 border border-amber-700/30 flex flex-col items-center justify-center">
-          <span className="text-xs font-bold text-amber-300">{new Date(b.startAt).getDate()}</span>
-          <span className="text-[10px] text-amber-400/70">{MONTH_RU[new Date(b.startAt).getMonth()].slice(0,3)}</span>
+          <span className="text-xs font-bold text-amber-300">{startDate.getDate()}</span>
+          <span className="text-[10px] text-amber-400/70">{getMonthShort(startDate.getFullYear(), startDate.getMonth(), lang)}</span>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
@@ -419,7 +444,7 @@ function BookingsTab() {
             <StatusBadge status={b.status} />
           </div>
           <p className="text-xs text-zinc-400 truncate">{b.services}</p>
-          <p className="text-xs text-zinc-500 mt-1">{fmtTime(b.startAt)}–{fmtTime(b.endAt)} · {b.duration} мин</p>
+          <p className="text-xs text-zinc-500 mt-1">{fmtTime(b.startAt)}–{fmtTime(b.endAt)} · {b.duration} {t('my.duration.min')}</p>
         </div>
         <span className="text-sm text-amber-300 whitespace-nowrap">{fmtCurrency(b.totalPrice)}</span>
       </div>
@@ -429,16 +454,16 @@ function BookingsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wide mb-3">Предстоящие</h3>
+        <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wide mb-3">{t('my.bookings.upcoming')}</h3>
         {data?.upcoming.length === 0
-          ? <p className="text-zinc-500 text-sm py-4">Нет предстоящих записей</p>
+          ? <p className="text-zinc-500 text-sm py-4">{t('my.bookings.noUpcoming')}</p>
           : <div className="space-y-2">{data?.upcoming.map(b => <BookingCard key={b.id} b={b} />)}</div>
         }
       </div>
       <div>
-        <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wide mb-3">Последние</h3>
+        <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wide mb-3">{t('my.bookings.recent')}</h3>
         {data?.recent.length === 0
-          ? <p className="text-zinc-500 text-sm py-4">Нет последних записей</p>
+          ? <p className="text-zinc-500 text-sm py-4">{t('my.bookings.noRecent')}</p>
           : <div className="space-y-2">{data?.recent.map(b => <BookingCard key={b.id} b={b} />)}</div>
         }
       </div>
@@ -458,6 +483,7 @@ function SalesTab() {
   const [page, setPage]   = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 20;
+  const { t, lang } = useLanguage();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -483,7 +509,7 @@ function SalesTab() {
         <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <h2 className="text-base font-semibold text-champagne">{MONTH_RU[month]} {year}</h2>
+        <h2 className="text-base font-semibold text-champagne">{getMonthName(year, month, lang)} {year}</h2>
         <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
           <ChevronRight className="w-4 h-4" />
         </button>
@@ -493,7 +519,7 @@ function SalesTab() {
         <div className="mb-4 bg-obsidian border border-amber-700/30 rounded-xl p-4 flex items-center gap-3">
           <Banknote className="w-5 h-5 text-amber-400 flex-shrink-0" />
           <div>
-            <p className="text-xs text-zinc-400">Итого комиссия за месяц</p>
+            <p className="text-xs text-zinc-400">{t('my.sales.totalCommission')}</p>
             <p className="text-xl font-bold text-amber-400">{fmtCurrency(summary.totalCommission)}</p>
           </div>
         </div>
@@ -502,17 +528,17 @@ function SalesTab() {
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>
       ) : sales.length === 0 ? (
-        <div className="text-center py-12 text-zinc-500">Нет продаж за этот период</div>
+        <div className="text-center py-12 text-zinc-500">{t('my.sales.empty')}</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-zinc-500 border-b border-white/10">
-                <th className="pb-2 pr-4 font-medium">Дата</th>
-                <th className="pb-2 pr-4 font-medium">Услуги</th>
-                <th className="pb-2 pr-4 font-medium text-right">Продажа</th>
-                <th className="pb-2 pr-4 font-medium text-right">Ставка</th>
-                <th className="pb-2 text-right font-medium">Комиссия</th>
+                <th className="pb-2 pr-4 font-medium">{t('my.col.date')}</th>
+                <th className="pb-2 pr-4 font-medium">{t('my.col.services')}</th>
+                <th className="pb-2 pr-4 font-medium text-right">{t('my.col.sale')}</th>
+                <th className="pb-2 pr-4 font-medium text-right">{t('my.col.rate')}</th>
+                <th className="pb-2 text-right font-medium">{t('my.col.commission')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -532,7 +558,7 @@ function SalesTab() {
 
       {total > limit && (
         <div className="mt-4 flex items-center justify-between text-sm text-zinc-400">
-          <span>{total} всего</span>
+          <span>{total} {t('my.pagination.total')}</span>
           <div className="flex gap-2">
             <button disabled={page === 1} onClick={() => setPage(p => p-1)}
               className="px-3 py-1 rounded border border-white/10 disabled:opacity-40 hover:bg-white/10 transition-colors">←</button>
@@ -577,7 +603,8 @@ function buildEmptyDays(monthStr: string): ScheduleDay[] {
 
 function MonthSchedule({ monthStr }: { monthStr: string }) {
   const [y, m] = monthStr.split('-').map(Number);
-  const monthIdx = m - 1; // 0-indexed for MONTH_RU
+  const monthIdx = m - 1; // 0-indexed
+  const { t, lang } = useLanguage();
 
   const [request,    setRequest]    = useState<ScheduleRequest | null | undefined>(undefined);
   const [days,       setDays]       = useState<ScheduleDay[]>([]);
@@ -624,10 +651,10 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
         setRequest(refreshed?.request ?? null);
         setSuccess(true);
       } else {
-        setError(json.error?.message ?? 'Ошибка при отправке');
+        setError(json.error?.message ?? t('my.schedule.submitError'));
       }
     } catch {
-      setError('Ошибка сети');
+      setError(t('my.schedule.networkError'));
     }
     setSubmitting(false);
   }
@@ -651,9 +678,9 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
           <Lock className="w-4 h-4 mt-0.5 flex-shrink-0 text-zinc-400" />
           <div>
             <p className="text-sm font-semibold text-white mb-0.5">
-              <StatusBadge status={request.status} /> · Подан {fmtDate(request.submittedAt)}
+              <StatusBadge status={request.status} /> · {t('my.schedule.submittedOnLabel')} {fmtDate(request.submittedAt)}
             </p>
-            <p className="text-xs text-zinc-500">Изменения возможны только через администратора.</p>
+            <p className="text-xs text-zinc-500">{t('my.schedule.lockedAdminOnly')}</p>
             {request.reviewNotes && (
               <p className="mt-2 text-sm text-zinc-300 bg-black/20 rounded p-2">{request.reviewNotes}</p>
             )}
@@ -680,7 +707,7 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
 
         {request.note && (
           <div className="mt-3 bg-obsidian rounded-xl p-3 border border-white/10">
-            <p className="text-xs text-zinc-500 mb-1">Примечание</p>
+            <p className="text-xs text-zinc-500 mb-1">{t('my.schedule.noteLabel')}</p>
             <p className="text-sm text-zinc-300">{request.note}</p>
           </div>
         )}
@@ -696,21 +723,21 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
       {/* Rejection banner — shown when resubmitting after a rejection */}
       {request?.status === 'REJECTED' && !success && (
         <div className="mb-4 bg-rose-900/30 border border-rose-700/40 rounded-xl p-4">
-          <p className="text-sm font-semibold text-rose-300 mb-0.5">График отклонён — скорректируйте и подайте повторно</p>
+          <p className="text-sm font-semibold text-rose-300 mb-0.5">{t('my.schedule.rejectedBannerFull')}</p>
           {request.reviewNotes && (
-            <p className="text-xs text-rose-400/80 mt-1">Причина: {request.reviewNotes}</p>
+            <p className="text-xs text-rose-400/80 mt-1">{t('my.schedule.rejectedReasonLabel')} {request.reviewNotes}</p>
           )}
         </div>
       )}
 
       <p className="text-xs text-zinc-500 mb-3">
-        Нажмите на день чтобы отметить рабочим · часы работы 10:00–20:00 · {workDays} {workDays === 1 ? 'день' : workDays < 5 ? 'дня' : 'дней'} выбрано
+        {t('my.schedule.clickHintFull')} · {workDays} {lang === 'en' ? (workDays === 1 ? t('my.schedule.dayWord1') : t('my.schedule.dayWord2')) : (workDays === 1 ? t('my.schedule.dayWord1') : workDays < 5 ? t('my.schedule.dayWord2') : t('my.schedule.dayWord5'))} {t('my.schedule.daysSelected')}
       </p>
 
       {success && (
         <div className="mb-3 bg-emerald-900/30 border border-emerald-700/40 rounded-xl p-3 flex items-center gap-3">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-          <p className="text-sm text-emerald-300">{request?.status === 'REJECTED' ? 'График повторно подан!' : 'График подан!'} Ожидайте подтверждения администратора.</p>
+          <p className="text-sm text-emerald-300">{request?.status === 'REJECTED' ? t('my.schedule.resubmitSuccessFull') : t('my.schedule.submitSuccessFull')} {t('my.schedule.awaitAdminFull')}</p>
         </div>
       )}
       {error && (
@@ -743,7 +770,7 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
       <textarea
         value={note}
         onChange={e => setNote(e.target.value)}
-        placeholder="Примечание (необязательно)..."
+        placeholder={t('my.schedule.notePlaceholder')}
         rows={2}
         className="w-full bg-obsidian border border-white/10 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-none mb-4"
       />
@@ -754,7 +781,7 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
         className="flex items-center gap-2 px-6 py-2.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold rounded-xl transition-colors text-sm"
       >
         {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-        Подать график на {MONTH_RU[monthIdx]}
+        {t('my.schedule.submitForMonth')} {getMonthName(y, monthIdx, lang)}
       </button>
     </div>
   );
@@ -763,6 +790,7 @@ function MonthSchedule({ monthStr }: { monthStr: string }) {
 function ScheduleTab() {
   const months = upcomingMonths(4);
   const [selectedMonth, setSelectedMonth] = useState(months[0]);
+  const { lang } = useLanguage();
 
   return (
     <div>
@@ -781,7 +809,7 @@ function ScheduleTab() {
                   : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
               }`}
             >
-              {MONTH_RU[m - 1]} {y}
+              {getMonthName(y, m - 1, lang)} {y}
             </button>
           );
         })}
@@ -795,17 +823,18 @@ function ScheduleTab() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'working-days', label: 'Рабочие дни',           icon: Calendar },
-  { id: 'procedures',   label: 'Процедуры',              icon: ClipboardList },
-  { id: 'bookings',     label: 'Мои записи',             icon: BookOpen },
-  { id: 'sales',        label: 'Продажи и комиссии',     icon: TrendingUp },
-  { id: 'schedule',     label: 'График на след. месяц',  icon: CalendarRange },
+  { id: 'working-days', labelKey: 'my.tab.workingDaysLabel', icon: Calendar },
+  { id: 'procedures',   labelKey: 'my.tab.proceduresLabel',  icon: ClipboardList },
+  { id: 'bookings',     labelKey: 'my.tab.bookingsLabel',    icon: BookOpen },
+  { id: 'sales',        labelKey: 'my.tab.salesLabel',       icon: TrendingUp },
+  { id: 'schedule',     labelKey: 'my.tab.scheduleLabel',    icon: CalendarRange },
 ];
 
 export default function MyPortalPage() {
   const [summary,    setSummary]    = useState<Summary | null>(null);
   const [activeTab,  setActiveTab]  = useState('working-days');
   const [loading,    setLoading]    = useState(true);
+  const { t } = useLanguage();
 
   const role = getClientRole();
   const isReceptionist = role === 'RECEPTIONIST';
@@ -817,8 +846,8 @@ export default function MyPortalPage() {
     });
   }, []);
 
-  const visibleTabs = TABS.filter(t => {
-    if (t.id === 'sales' && isReceptionist) return false;
+  const visibleTabs = TABS.filter(tab => {
+    if (tab.id === 'sales' && isReceptionist) return false;
     return true;
   });
 
@@ -835,8 +864,8 @@ export default function MyPortalPage() {
       <div className="min-h-screen bg-obsidian flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-10 h-10 text-rose-400 mx-auto mb-3" />
-          <p className="text-zinc-300">Не удалось загрузить данные кабинета.</p>
-          <p className="text-zinc-500 text-sm mt-1">Убедитесь, что вы зарегистрированы как специалист.</p>
+          <p className="text-zinc-300">{t('my.error.loadFailedFull')}</p>
+          <p className="text-zinc-500 text-sm mt-1">{t('my.error.notSpecialistFull')}</p>
         </div>
       </div>
     );
@@ -850,13 +879,13 @@ export default function MyPortalPage() {
         {/* Tabs */}
         <div className="bg-charcoal border border-white/10 rounded-2xl overflow-hidden">
           <div className="flex overflow-x-auto border-b border-white/10 scrollbar-hide">
-            {visibleTabs.map((t) => {
-              const Icon = t.icon;
-              const active = activeTab === t.id;
+            {visibleTabs.map((tab) => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
               return (
                 <button
-                  key={t.id}
-                  onClick={() => setActiveTab(t.id)}
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-3 text-sm whitespace-nowrap transition-colors flex-shrink-0 border-b-2 ${
                     active
                       ? 'border-amber-400 text-amber-300 bg-amber-950/20'
@@ -864,7 +893,7 @@ export default function MyPortalPage() {
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  {t.label}
+                  {t(tab.labelKey)}
                 </button>
               );
             })}
