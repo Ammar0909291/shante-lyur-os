@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Star, Check, Loader2, Phone } from 'lucide-react';
+import { LanguageProvider, useLanguage } from '@/contexts/language';
 
 // ─────────────────────────────────────────────
 // Types
@@ -36,9 +37,6 @@ type Step = 'verify' | 'dept' | 'specialist' | 'service' | 'date' | 'time' | 'co
 
 const PROGRESS_STEPS: Step[] = ['dept', 'specialist', 'service', 'date', 'time', 'confirm'];
 
-const MONTHS_RU  = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-const DOW_SHORT  = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-
 // ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
@@ -52,11 +50,11 @@ function fmtDate(s: string) {
   return `${d}.${m}.${y}`;
 }
 
-function fmtDuration(min: number) {
-  if (min < 60) return `${min} мин`;
+function fmtDuration(min: number, minLabel: string, hLabel: string) {
+  if (min < 60) return `${min} ${minLabel}`;
   const h = Math.floor(min / 60);
   const m = min % 60;
-  return m ? `${h} ч ${m} мин` : `${h} ч`;
+  return m ? `${h} ${hLabel} ${m} ${minLabel}` : `${h} ${hLabel}`;
 }
 
 function calendarMatrix(year: number, month: number): (string | null)[][] {
@@ -126,8 +124,8 @@ function Card({ children, selected, onClick }: {
   );
 }
 
-function NextBtn({ label = 'Далее', onClick, disabled, loading }: {
-  label?: string; onClick: () => void; disabled?: boolean; loading?: boolean;
+function NextBtn({ label, onClick, disabled, loading }: {
+  label: string; onClick: () => void; disabled?: boolean; loading?: boolean;
 }) {
   return (
     <button
@@ -141,14 +139,14 @@ function NextBtn({ label = 'Далее', onClick, disabled, loading }: {
   );
 }
 
-function BackBtn({ onClick }: { onClick: () => void }) {
+function BackBtn({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       className="flex items-center gap-1 text-sm text-white/50 hover:text-white/80 transition-colors mb-4"
     >
       <ChevronLeft size={14} />
-      Назад
+      {label}
     </button>
   );
 }
@@ -163,10 +161,17 @@ function Row({ label, value, highlight }: { label: string; value: string; highli
 }
 
 // ─────────────────────────────────────────────
-// Main page
+// Main page (inner, needs LanguageProvider context)
 // ─────────────────────────────────────────────
 
-export default function BookPage() {
+function BookPageInner() {
+  const { t } = useLanguage();
+
+  const MONTHS = t('book.months').split(',');
+  const DOW    = t('book.dow').split(',');
+  const MIN_LBL = t('book.dur.min');
+  const H_LBL   = t('book.dur.h');
+
   const [portalEnabled, setPortalEnabled] = useState<boolean | null>(null); // null = loading
 
   useEffect(() => {
@@ -214,10 +219,10 @@ export default function BookPage() {
         setClient({ phone, firstName: j.data.firstName, lastName: j.data.lastName });
         setStep('dept');
       } else {
-        setVerifyError('Этот номер не зарегистрирован. Обратитесь к администратору.');
+        setVerifyError(t('book.verify.errorNotFound'));
       }
     } catch {
-      setVerifyError('Сетевая ошибка. Попробуйте ещё раз.');
+      setVerifyError(t('book.verify.errorNetwork'));
     } finally {
       setVerifyLoading(false);
     }
@@ -288,10 +293,10 @@ export default function BookPage() {
         setBookingId(j.data.appointmentId);
         go('done');
       } else {
-        setSubmitError(j.error?.message ?? 'Ошибка при создании записи');
+        setSubmitError(j.error?.message ?? t('book.confirm.errorCreate'));
       }
     } catch {
-      setSubmitError('Сетевая ошибка. Попробуйте ещё раз.');
+      setSubmitError(t('book.confirm.errorNetwork'));
     } finally {
       setSubmitLoading(false);
     }
@@ -315,7 +320,7 @@ export default function BookPage() {
         </div>
         <div>
           <div className="font-serif text-xl font-semibold text-white">Shante Lyur</div>
-          <div className="text-xs tracking-widest uppercase text-white/40">Велнес-студия</div>
+          <div className="text-xs tracking-widest uppercase text-white/40">{t('book.studio')}</div>
         </div>
       </div>
 
@@ -337,10 +342,10 @@ export default function BookPage() {
           >
             <Phone size={22} className="text-champagne/60" />
           </div>
-          <h2 className="font-serif text-xl text-white mb-3">Онлайн-запись временно недоступна</h2>
+          <h2 className="font-serif text-xl text-white mb-3">{t('book.portalDisabled.title')}</h2>
           <p className="text-sm text-white/50 leading-relaxed">
-            Запись через сайт приостановлена администратором.<br />
-            Пожалуйста, свяжитесь с нами по телефону.
+            {t('book.portalDisabled.body')}<br />
+            {t('book.portalDisabled.contact')}
           </p>
         </div>
       )}
@@ -362,7 +367,7 @@ export default function BookPage() {
               onClick={() => { setClient(null); setDept(null); setSpecialist(null); setService(null); setSelectedDate(null); setSelectedTime(null); go('verify'); }}
               className="text-xs text-white/40 hover:text-white/70 transition-colors"
             >
-              Выйти
+              {t('book.exit')}
             </button>
           </div>
         )}
@@ -377,14 +382,14 @@ export default function BookPage() {
               >
                 <Phone size={24} className="text-champagne" />
               </div>
-              <h2 className="font-serif text-2xl text-white mb-2">Онлайн-запись</h2>
+              <h2 className="font-serif text-2xl text-white mb-2">{t('book.verify.title')}</h2>
               <p className="text-sm text-white/50 leading-relaxed">
-                Введите ваш номер телефона.<br />
-                Запись доступна только для зарегистрированных клиентов.
+                {t('book.verify.subtitle')}<br />
+                {t('book.verify.subtitleSub')}
               </p>
             </div>
             <div>
-              <label className="block text-xs text-white/50 mb-1.5">Номер телефона</label>
+              <label className="block text-xs text-white/50 mb-1.5">{t('book.verify.phoneLabel')}</label>
               <input
                 value={phoneInput}
                 onChange={(e) => { setPhoneInput(e.target.value); setVerifyError(null); }}
@@ -399,13 +404,13 @@ export default function BookPage() {
               )}
             </div>
             <NextBtn
-              label="Продолжить"
+              label={t('book.verify.continue')}
               disabled={!phoneInput.trim()}
               loading={verifyLoading}
               onClick={verifyPhone}
             />
             <p className="text-center text-xs text-white/25 mt-4">
-              Ещё не в базе? Позвоните нам для регистрации.
+              {t('book.verify.notRegistered')}
             </p>
           </>
         )}
@@ -413,17 +418,17 @@ export default function BookPage() {
         {/* ── Step: dept ────────────────────────────────────────── */}
         {step === 'dept' && (
           <>
-            <SectionTitle>Выберите направление</SectionTitle>
+            <SectionTitle>{t('book.dept.title')}</SectionTitle>
             <div className="grid grid-cols-2 gap-3">
               <Card selected={dept === 'MASSAGE'} onClick={() => { setDept('MASSAGE'); go('specialist'); }}>
                 <div className="text-2xl mb-2">💆</div>
-                <div className="font-semibold text-sm">Массаж</div>
-                <div className="text-xs text-white/50 mt-1">Расслабление и восстановление</div>
+                <div className="font-semibold text-sm">{t('book.dept.massage')}</div>
+                <div className="text-xs text-white/50 mt-1">{t('book.dept.massageDesc')}</div>
               </Card>
               <Card selected={dept === 'COSMETOLOGY'} onClick={() => { setDept('COSMETOLOGY'); go('specialist'); }}>
                 <div className="text-2xl mb-2">✨</div>
-                <div className="font-semibold text-sm">Косметология</div>
-                <div className="text-xs text-white/50 mt-1">Уход и красота</div>
+                <div className="font-semibold text-sm">{t('book.dept.cosmetology')}</div>
+                <div className="text-xs text-white/50 mt-1">{t('book.dept.cosmetologyDesc')}</div>
               </Card>
             </div>
           </>
@@ -432,8 +437,8 @@ export default function BookPage() {
         {/* ── Step: specialist ──────────────────────────────────── */}
         {step === 'specialist' && (
           <>
-            <BackBtn onClick={() => go('dept')} />
-            <SectionTitle>Выберите специалиста</SectionTitle>
+            <BackBtn label={t('book.back')} onClick={() => go('dept')} />
+            <SectionTitle>{t('book.specialist.title')}</SectionTitle>
             {specialists.length === 0 ? (
               <div className="flex justify-center py-8"><Loader2 className="animate-spin text-champagne" /></div>
             ) : (
@@ -468,8 +473,8 @@ export default function BookPage() {
         {/* ── Step: service ─────────────────────────────────────── */}
         {step === 'service' && (
           <>
-            <BackBtn onClick={() => go('specialist')} />
-            <SectionTitle>Выберите процедуру</SectionTitle>
+            <BackBtn label={t('book.back')} onClick={() => go('specialist')} />
+            <SectionTitle>{t('book.service.title')}</SectionTitle>
             {services.length === 0 ? (
               <div className="flex justify-center py-8"><Loader2 className="animate-spin text-champagne" /></div>
             ) : (
@@ -479,7 +484,7 @@ export default function BookPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="font-semibold text-sm">{svc.name}</div>
-                        <div className="text-xs text-white/50 mt-0.5">{fmtDuration(svc.duration)}</div>
+                        <div className="text-xs text-white/50 mt-0.5">{fmtDuration(svc.duration, MIN_LBL, H_LBL)}</div>
                       </div>
                       <div className="text-champagne font-semibold text-sm whitespace-nowrap">{fmtPrice(svc.price)}</div>
                     </div>
@@ -493,8 +498,8 @@ export default function BookPage() {
         {/* ── Step: date ────────────────────────────────────────── */}
         {step === 'date' && (
           <>
-            <BackBtn onClick={() => go('service')} />
-            <SectionTitle>Выберите дату</SectionTitle>
+            <BackBtn label={t('book.back')} onClick={() => go('service')} />
+            <SectionTitle>{t('book.date.title')}</SectionTitle>
             <div className="flex items-center justify-between mb-4">
               <button
                 onClick={() => { if (calMonth === 0) { setCalYear(y => y-1); setCalMonth(11); } else setCalMonth(m => m-1); }}
@@ -502,7 +507,7 @@ export default function BookPage() {
               >
                 <ChevronLeft size={16} />
               </button>
-              <span className="text-sm font-semibold text-white">{MONTHS_RU[calMonth]} {calYear}</span>
+              <span className="text-sm font-semibold text-white">{MONTHS[calMonth]} {calYear}</span>
               <button
                 onClick={() => { if (calMonth === 11) { setCalYear(y => y+1); setCalMonth(0); } else setCalMonth(m => m+1); }}
                 className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all"
@@ -511,7 +516,7 @@ export default function BookPage() {
               </button>
             </div>
             <div className="grid grid-cols-7 mb-1">
-              {DOW_SHORT.map((d) => (
+              {DOW.map((d) => (
                 <div key={d} className="text-center text-xs text-white/30 py-1 font-medium">{d}</div>
               ))}
             </div>
@@ -543,34 +548,34 @@ export default function BookPage() {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-white/40 mt-3 text-center">Золотом выделены рабочие дни специалиста</p>
+            <p className="text-xs text-white/40 mt-3 text-center">{t('book.date.hint')}</p>
           </>
         )}
 
         {/* ── Step: time ────────────────────────────────────────── */}
         {step === 'time' && (
           <>
-            <BackBtn onClick={() => go('date')} />
-            <SectionTitle>Выберите время</SectionTitle>
+            <BackBtn label={t('book.back')} onClick={() => go('date')} />
+            <SectionTitle>{t('book.time.title')}</SectionTitle>
             <p className="text-sm text-white/50 mb-4">{selectedDate && fmtDate(selectedDate)} · {service?.name}</p>
             {slots.length === 0 ? (
               <div className="py-6 text-center">
-                <p className="text-white/50 text-sm">Нет свободных слотов на эту дату</p>
-                <button onClick={() => go('date')} className="mt-3 text-champagne text-sm underline">Выбрать другую дату</button>
+                <p className="text-white/50 text-sm">{t('book.time.noSlots')}</p>
+                <button onClick={() => go('date')} className="mt-3 text-champagne text-sm underline">{t('book.time.changeDate')}</button>
               </div>
             ) : (
               <div className="grid grid-cols-4 gap-2">
-                {slots.map((t) => (
+                {slots.map((sl) => (
                   <button
-                    key={t}
-                    onClick={() => { setSelectedTime(t); go('confirm'); }}
+                    key={sl}
+                    onClick={() => { setSelectedTime(sl); go('confirm'); }}
                     className={`py-2 rounded-lg text-sm font-medium border transition-all ${
-                      selectedTime === t
+                      selectedTime === sl
                         ? 'bg-champagne text-obsidian border-champagne'
                         : 'bg-white/5 border-white/10 text-white/80 hover:border-champagne/50 hover:text-white'
                     }`}
                   >
-                    {t}
+                    {sl}
                   </button>
                 ))}
               </div>
@@ -581,27 +586,27 @@ export default function BookPage() {
         {/* ── Step: confirm ─────────────────────────────────────── */}
         {step === 'confirm' && (
           <>
-            <BackBtn onClick={() => go('time')} />
-            <SectionTitle>Подтвердите запись</SectionTitle>
+            <BackBtn label={t('book.back')} onClick={() => go('time')} />
+            <SectionTitle>{t('book.confirm.title')}</SectionTitle>
             <div className="rounded-xl border border-white/10 bg-white/5 p-5 flex flex-col gap-3 mb-4">
-              <Row label="Направление"  value={dept === 'MASSAGE' ? 'Массаж' : 'Косметология'} />
-              <Row label="Специалист"   value={specialist?.name ?? ''} />
-              <Row label="Процедура"    value={service?.name ?? ''} />
-              <Row label="Длительность" value={fmtDuration(service?.duration ?? 0)} />
-              <Row label="Дата"         value={selectedDate ? fmtDate(selectedDate) : ''} />
-              <Row label="Время"        value={selectedTime ?? ''} />
+              <Row label={t('book.confirm.direction')}  value={dept === 'MASSAGE' ? t('book.confirm.massage') : t('book.confirm.cosmetology')} />
+              <Row label={t('book.confirm.specialist')} value={specialist?.name ?? ''} />
+              <Row label={t('book.confirm.procedure')}  value={service?.name ?? ''} />
+              <Row label={t('book.confirm.duration')}   value={fmtDuration(service?.duration ?? 0, MIN_LBL, H_LBL)} />
+              <Row label={t('book.confirm.date')}       value={selectedDate ? fmtDate(selectedDate) : ''} />
+              <Row label={t('book.confirm.time')}       value={selectedTime ?? ''} />
               <div className="border-t border-white/10 pt-3">
-                <Row label="Стоимость" value={fmtPrice(service?.price ?? 0)} highlight />
+                <Row label={t('book.confirm.cost')} value={fmtPrice(service?.price ?? 0)} highlight />
               </div>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 p-5 flex flex-col gap-3">
-              <Row label="Клиент"  value={`${client?.firstName ?? ''} ${client?.lastName ?? ''}`.trim()} />
-              <Row label="Телефон" value={client?.phone ?? ''} />
+              <Row label={t('book.confirm.client')} value={`${client?.firstName ?? ''} ${client?.lastName ?? ''}`.trim()} />
+              <Row label={t('book.confirm.phone')}  value={client?.phone ?? ''} />
             </div>
             {submitError && (
               <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{submitError}</div>
             )}
-            <NextBtn label="Записаться" onClick={submitBooking} loading={submitLoading} />
+            <NextBtn label={t('book.confirm.book')} onClick={submitBooking} loading={submitLoading} />
           </>
         )}
 
@@ -614,19 +619,19 @@ export default function BookPage() {
             >
               <Check size={28} className="text-obsidian" />
             </div>
-            <h2 className="font-serif text-2xl text-white mb-2">Запись создана!</h2>
+            <h2 className="font-serif text-2xl text-white mb-2">{t('book.done.title')}</h2>
             <p className="text-white/60 text-sm leading-relaxed mb-6">
-              Спасибо, <span className="text-white">{client?.firstName}</span>! Мы свяжемся с вами
-              по номеру <span className="text-white">{client?.phone}</span> для подтверждения.
+              {t('book.done.thanks')} <span className="text-white">{client?.firstName}</span>! {t('book.done.contact')}
+              {' '}<span className="text-white">{client?.phone}</span> {t('book.done.confirm')}
             </p>
             {bookingId && (
               <p className="text-xs text-white/30 mb-5">№ {bookingId.slice(0, 8).toUpperCase()}</p>
             )}
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-left flex flex-col gap-2 mb-6">
-              <Row label="Специалист" value={specialist?.name ?? ''} />
-              <Row label="Процедура"  value={service?.name ?? ''} />
-              <Row label="Дата"       value={selectedDate ? fmtDate(selectedDate) : ''} />
-              <Row label="Время"      value={selectedTime ?? ''} />
+              <Row label={t('book.done.specialist')} value={specialist?.name ?? ''} />
+              <Row label={t('book.done.procedure')}  value={service?.name ?? ''} />
+              <Row label={t('book.done.date')}       value={selectedDate ? fmtDate(selectedDate) : ''} />
+              <Row label={t('book.done.time')}       value={selectedTime ?? ''} />
             </div>
             <button
               onClick={() => {
@@ -638,13 +643,25 @@ export default function BookPage() {
               }}
               className="text-champagne text-sm underline hover:no-underline"
             >
-              Записаться ещё раз
+              {t('book.done.again')}
             </button>
           </div>
         )}
       </div>}
 
-      <p className="mt-8 text-xs text-white/25">© {new Date().getFullYear()} Shante Lyur. Все права защищены.</p>
+      <p className="mt-8 text-xs text-white/25">{t('book.footer').replace('{year}', String(new Date().getFullYear()))}</p>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Export: wrap with LanguageProvider
+// ─────────────────────────────────────────────
+
+export default function BookPage() {
+  return (
+    <LanguageProvider>
+      <BookPageInner />
+    </LanguageProvider>
   );
 }

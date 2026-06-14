@@ -8,6 +8,7 @@ import {
   Download, AlertCircle,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useLanguage } from '@/contexts/language';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -109,20 +110,7 @@ function weekStart() {
   return new Date(d.setDate(diff)).toISOString().slice(0, 10);
 }
 
-const DEPT_LABELS: Record<string, string> = {
-  COSMETOLOGY: 'Косметология', MASSAGE: 'Массаж',
-  RECEPTION: 'Ресепшн', MANAGEMENT: 'Менеджмент',
-};
-const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: 'Активен', INACTIVE: 'Неактивен',
-  ON_VACATION: 'Отпуск', TERMINATED: 'Уволен',
-};
-const CLIENT_TYPE_LABELS: Record<string, string> = {
-  new: 'Новый', returning: 'Постоянный', subscription: 'Абонемент',
-};
-const DAY_STATUS_LABELS: Record<string, string> = {
-  worked: 'Работал', 'day-off': 'Выходной', leave: 'Отпуск', absent: 'Отсутствие',
-};
+// Label maps are built from t() inside components that have access to useLanguage
 
 const inputCls = 'px-2.5 py-1.5 rounded-lg bg-obsidian border border-border-luxury text-text-primary text-xs focus:outline-none focus:ring-1 focus:ring-champagne/30 disabled:opacity-50';
 
@@ -145,12 +133,12 @@ function MetricCard({ icon, label, value, sub, accent }: {
 
 // ─── SaveIndicator ────────────────────────────────────────────────────────────
 
-function SaveIndicator({ saving }: { saving: boolean }) {
+function SaveIndicator({ saving, label }: { saving: boolean; label: string }) {
   if (!saving) return null;
   return (
     <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-2 rounded-xl bg-charcoal border border-border-luxury shadow-xl">
       <Loader2 className="w-3.5 h-3.5 animate-spin text-champagne" />
-      <span className="text-xs text-text-secondary">Сохранение...</span>
+      <span className="text-xs text-text-secondary">{label}</span>
     </div>
   );
 }
@@ -194,11 +182,46 @@ function EditableCell({ value, onSave, type = 'text', className }: {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function SpecialistActivityPage() {
+  const { t } = useLanguage();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
   const specialistId = params.id;
   const fromPage = searchParams.get('from') ?? 'specialists';
+
+  const DEPT_LABELS: Record<string, string> = {
+    COSMETOLOGY: t('ops.dept.cosmetology'),
+    MASSAGE: t('ops.dept.massage'),
+    MASSAGE_THERAPY: t('ops.dept.massage'),
+    RECEPTION: t('ops.dept.reception'),
+    MANAGEMENT: t('ops.dept.management'),
+  };
+
+  const STATUS_LABELS: Record<string, string> = {
+    ACTIVE: t('specialist.activity.statusActive'),
+    INACTIVE: t('specialist.activity.statusInactive'),
+  };
+
+  const DAY_STATUS_LABELS: Record<string, string> = {
+    worked: t('specialist.activity.dayWorked'),
+    'day-off': t('specialist.activity.dayOff'),
+    leave: t('specialist.activity.dayLeave'),
+    absent: t('specialist.activity.dayAbsent'),
+  };
+
+  const CLIENT_TYPE_LABELS: Record<string, string> = {
+    new: t('sales.client.typeNew'),
+    returning: t('sales.client.typeReturning'),
+    subscription: t('sales.client.typeSubscription'),
+  };
+
+  const PRESETS = [
+    { key: 'today', label: t('specialist.activity.preset.today') },
+    { key: 'this-week', label: t('specialist.activity.preset.thisWeek') },
+    { key: 'this-month', label: t('specialist.activity.preset.thisMonth') },
+    { key: 'last-month', label: t('specialist.activity.preset.lastMonth') },
+    { key: 'custom', label: t('specialist.activity.preset.custom') },
+  ];
 
   // Filter state
   const [filterPreset, setFilterPreset] = React.useState<string>('this-month');
@@ -249,12 +272,12 @@ export default function SpecialistActivityPage() {
       );
       const json = await res.json() as { success: boolean; data?: ActivityData; error?: { message?: string } };
       if (!res.ok || !json.success) {
-        setFetchError(json.error?.message ?? 'Ошибка загрузки');
+        setFetchError(json.error?.message ?? t('specialist.activity.errorLoad'));
         return;
       }
       setData(json.data!);
     } catch {
-      setFetchError('Ошибка сети');
+      setFetchError(t('specialist.activity.errorNetwork'));
     } finally {
       setLoading(false);
     }
@@ -344,21 +367,13 @@ export default function SpecialistActivityPage() {
     window.location.href = `/api/v1/payroll/export?from=${from}&to=${to}&specialistId=${specialistId}&format=xlsx`;
   }
 
-  const backLabel = fromPage === 'payroll' ? '← Ведомость' : '← Сотрудники';
-
-  const PRESETS = [
-    { key: 'today', label: 'Сегодня' },
-    { key: 'this-week', label: 'Эта неделя' },
-    { key: 'this-month', label: 'Этот месяц' },
-    { key: 'last-month', label: 'Прошлый месяц' },
-    { key: 'custom', label: 'Произвольно' },
-  ];
+  const backLabel = fromPage === 'payroll' ? t('specialist.activity.backPayroll') : t('specialist.activity.backSpecialists');
 
   const sp = data?.specialist;
 
   return (
     <div className="min-h-screen bg-obsidian">
-      <SaveIndicator saving={autoSaving} />
+      <SaveIndicator saving={autoSaving} label={t('specialist.activity.saving')} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
@@ -462,32 +477,32 @@ export default function SpecialistActivityPage() {
 
             {/* ── Section 1: Summary ─────────────────────────────────────────── */}
             <div className={cn('grid gap-4', data.summary.massageWorkloadPercent !== undefined ? 'grid-cols-2 lg:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4')}>
-              <MetricCard icon={<Clock className="w-4 h-4" />} label="Услуг оказано" value={String(data.summary.totalServices)} />
-              <MetricCard icon={<DollarSign className="w-4 h-4" />} label="Выручка" value={formatCurrency(data.summary.totalSalesValue)} accent="bg-sky-400/10 text-sky-400" />
-              <MetricCard icon={<TrendingUp className="w-4 h-4" />} label="Комиссия заработана" value={formatCurrency(data.summary.totalCommissionEarned)} accent="bg-emerald-400/10 text-emerald-400" />
-              <MetricCard icon={<Calendar className="w-4 h-4" />} label="Рабочих дней" value={String(data.summary.workingDays)} />
+              <MetricCard icon={<Clock className="w-4 h-4" />} label={t('specialist.activity.metric.services')} value={String(data.summary.totalServices)} />
+              <MetricCard icon={<DollarSign className="w-4 h-4" />} label={t('specialist.activity.metric.revenue')} value={formatCurrency(data.summary.totalSalesValue)} accent="bg-sky-400/10 text-sky-400" />
+              <MetricCard icon={<TrendingUp className="w-4 h-4" />} label={t('specialist.activity.metric.commission')} value={formatCurrency(data.summary.totalCommissionEarned)} accent="bg-emerald-400/10 text-emerald-400" />
+              <MetricCard icon={<Calendar className="w-4 h-4" />} label={t('specialist.activity.metric.workingDays')} value={String(data.summary.workingDays)} />
               {data.summary.massageWorkloadPercent !== undefined && (
-                <MetricCard icon={<Users className="w-4 h-4" />} label="Загрузка массажиста" value={`${data.summary.massageWorkloadPercent}%`} accent="bg-amber-400/10 text-amber-400" />
+                <MetricCard icon={<Users className="w-4 h-4" />} label={t('specialist.activity.metric.massageLoad')} value={`${data.summary.massageWorkloadPercent}%`} accent="bg-amber-400/10 text-amber-400" />
               )}
             </div>
 
             {/* ── Section 2: Services ────────────────────────────────────────── */}
             <SectionWrapper
-              title="Услуги за период"
+              title={t('specialist.activity.section.services')}
               count={data.services.items.length}
               collapsed={collapsed.has('services')}
               onToggle={() => toggle('services')}
             >
               {data.services.items.length === 0 ? (
-                <EmptyState text="Нет услуг за выбранный период" />
+                <EmptyState text={t('specialist.activity.empty.services')} />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border-luxury/60 text-text-muted uppercase tracking-wider">
-                        <Th>Дата</Th><Th>Время</Th><Th>Клиент</Th><Th>Тип</Th>
-                        <Th>Услуга</Th><Th>Мин</Th><Th right>Сумма</Th>
-                        <Th right>Ком.%</Th><Th right>Ком.₽</Th><Th>Статус</Th>
+                        <Th>{t('specialist.activity.col.date')}</Th><Th>{t('specialist.activity.col.time')}</Th><Th>{t('specialist.activity.col.client')}</Th><Th>{t('specialist.activity.col.type')}</Th>
+                        <Th>{t('specialist.activity.col.service')}</Th><Th>{t('specialist.activity.col.min')}</Th><Th right>{t('specialist.activity.col.amount')}</Th>
+                        <Th right>{t('specialist.activity.col.commPct')}</Th><Th right>{t('specialist.activity.col.commAmt')}</Th><Th>{t('specialist.activity.col.status')}</Th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-luxury/30">
@@ -496,7 +511,7 @@ export default function SpecialistActivityPage() {
                           <Td>{row.date}</Td>
                           <Td>{row.time}</Td>
                           <Td>{row.clientName}</Td>
-                          <Td><ClientTypeBadge type={row.clientType} /></Td>
+                          <Td><ClientTypeBadge type={row.clientType} label={CLIENT_TYPE_LABELS[row.clientType] ?? row.clientType} /></Td>
                           <Td className="max-w-[180px] truncate">{row.procedureName}</Td>
                           <Td>{row.duration}</Td>
                           <Td right>{formatCurrency(row.saleAmount)}</Td>
@@ -520,13 +535,13 @@ export default function SpecialistActivityPage() {
                               />
                             ) : <span className="text-text-muted">—</span>}
                           </Td>
-                          <Td><EntryStatusBadge status={row.status} /></Td>
+                          <Td><EntryStatusBadge status={row.status} approvedLabel={t('specialist.activity.entryApproved')} pendingLabel={t('specialist.activity.entryPending')} /></Td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="border-t border-border-luxury text-text-secondary font-medium">
-                        <Td colSpan={6} className="text-text-muted">Итого</Td>
+                        <Td colSpan={6} className="text-text-muted">{t('specialist.activity.col.total')}</Td>
                         <Td right>{formatCurrency(data.services.total.saleAmount)}</Td>
                         <Td right />
                         <Td right>{formatCurrency(data.services.total.commissionAmount)}</Td>
@@ -540,7 +555,7 @@ export default function SpecialistActivityPage() {
 
             {/* ── Section 3: Payroll detail ──────────────────────────────────── */}
             <SectionWrapper
-              title="Начисления и выплаты"
+              title={t('specialist.activity.section.payroll')}
               count={data.payroll.entries.length}
               collapsed={collapsed.has('payroll')}
               onToggle={() => toggle('payroll')}
@@ -552,7 +567,7 @@ export default function SpecialistActivityPage() {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-400/30 bg-sky-400/5 text-sky-400 text-xs font-medium hover:bg-sky-400/10 transition-all"
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
-                    Одобрить всё
+                    {t('specialist.activity.approveAll')}
                   </button>
                   <button
                     type="button"
@@ -566,15 +581,15 @@ export default function SpecialistActivityPage() {
               }
             >
               {data.payroll.entries.length === 0 ? (
-                <EmptyState text="Нет начислений за период" />
+                <EmptyState text={t('specialist.activity.empty.payroll')} />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border-luxury/60 text-text-muted uppercase tracking-wider">
-                        <Th>Дата</Th><Th>Клиент</Th><Th>Роль</Th>
-                        <Th right>Продажа</Th><Th right>Ком.%</Th><Th right>Ком.₽</Th>
-                        <Th>Статус</Th><Th>Заметки</Th>
+                        <Th>{t('specialist.activity.col.date')}</Th><Th>{t('specialist.activity.col.client')}</Th><Th>{t('specialist.activity.col.role')}</Th>
+                        <Th right>{t('specialist.activity.col.sale')}</Th><Th right>{t('specialist.activity.col.commPct')}</Th><Th right>{t('specialist.activity.col.commAmt')}</Th>
+                        <Th>{t('specialist.activity.col.status')}</Th><Th>{t('specialist.activity.col.notes')}</Th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-luxury/30">
@@ -582,7 +597,7 @@ export default function SpecialistActivityPage() {
                         <tr key={e.entryId} className="hover:bg-white/[0.015]">
                           <Td>{e.date}</Td>
                           <Td>{e.clientName}</Td>
-                          <Td>{e.type === 'ADJUSTMENT' ? <span className="text-amber-400">Корректировка</span> : e.roleOnSale}</Td>
+                          <Td>{e.type === 'ADJUSTMENT' ? <span className="text-amber-400">{t('specialist.activity.adjustmentType')}</span> : e.roleOnSale}</Td>
                           <Td right>{e.saleTotal > 0 ? formatCurrency(e.saleTotal) : '—'}</Td>
                           <Td right>
                             {e.commissionPercent !== null ? (
@@ -603,7 +618,7 @@ export default function SpecialistActivityPage() {
                                 className="w-20 text-right"
                               />
                               {e.isManuallyEdited && (
-                                <span title="Вручную изменено" className="text-amber-400">✎</span>
+                                <span title={t('specialist.activity.manuallyEdited')} className="text-amber-400">✎</span>
                               )}
                             </span>
                           </Td>
@@ -613,7 +628,7 @@ export default function SpecialistActivityPage() {
                               onClick={() => patchEntry(e.entryId, { entryStatus: e.status === 'pending' ? 'approved' : 'pending' })}
                               className="cursor-pointer"
                             >
-                              <EntryStatusBadge status={e.status} />
+                              <EntryStatusBadge status={e.status} approvedLabel={t('specialist.activity.entryApproved')} pendingLabel={t('specialist.activity.entryPending')} />
                             </button>
                           </Td>
                           <Td>
@@ -632,10 +647,10 @@ export default function SpecialistActivityPage() {
 
               {/* Manual adjustments */}
               <div className="mt-4 border-t border-border-luxury/60 pt-4 space-y-3">
-                <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">Корректировки</p>
+                <p className="text-xs font-semibold text-text-muted uppercase tracking-wider">{t('specialist.activity.adjustmentTitle')}</p>
 
                 {data.payroll.adjustments.length === 0 ? (
-                  <p className="text-xs text-text-muted italic">Нет корректировок</p>
+                  <p className="text-xs text-text-muted italic">{t('specialist.activity.noAdjustments')}</p>
                 ) : (
                   <div className="space-y-2">
                     {data.payroll.adjustments.map((adj) => (
@@ -660,14 +675,14 @@ export default function SpecialistActivityPage() {
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Описание корректировки"
+                    placeholder={t('specialist.activity.adjPlaceholder')}
                     value={adjDesc}
                     onChange={(e) => setAdjDesc(e.target.value)}
                     className="flex-1 px-3 py-2 rounded-xl bg-obsidian border border-border-luxury text-text-primary text-xs placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-champagne/30"
                   />
                   <input
                     type="number"
-                    placeholder="Сумма"
+                    placeholder={t('specialist.activity.adjAmount')}
                     value={adjAmount}
                     onChange={(e) => setAdjAmount(e.target.value)}
                     className="w-28 px-3 py-2 rounded-xl bg-obsidian border border-border-luxury text-text-primary text-xs focus:outline-none focus:ring-1 focus:ring-champagne/30"
@@ -679,13 +694,13 @@ export default function SpecialistActivityPage() {
                     className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-champagne/30 bg-champagne/5 text-champagne text-xs font-medium hover:bg-champagne/10 disabled:opacity-40 transition-all"
                   >
                     {adjSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                    Добавить
+                    {t('specialist.activity.adjAdd')}
                   </button>
                 </div>
 
                 {/* Period total */}
                 <div className="flex items-center justify-between pt-2 border-t border-border-luxury/60">
-                  <span className="text-xs font-semibold text-text-secondary">Итого за период</span>
+                  <span className="text-xs font-semibold text-text-secondary">{t('specialist.activity.periodTotal')}</span>
                   <span className="text-sm font-semibold text-champagne tabular-nums">{formatCurrency(data.payroll.periodTotal)}</span>
                 </div>
               </div>
@@ -693,33 +708,33 @@ export default function SpecialistActivityPage() {
 
             {/* ── Section 4: Clients ─────────────────────────────────────────── */}
             <SectionWrapper
-              title="Клиентская активность"
+              title={t('specialist.activity.section.clients')}
               collapsed={collapsed.has('clients')}
               onToggle={() => toggle('clients')}
             >
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-                <SmallMetric label="Новые клиенты" value={data.clients.newClients} color="text-champagne" />
-                <SmallMetric label="Постоянные" value={data.clients.returningClients} color="text-sky-400" />
-                <SmallMetric label="Абонементы" value={data.clients.subscriptionClients} color="text-emerald-400" />
-                <SmallMetric label="Возврат клиентов" value={`${data.clients.repeatClientRate}%`} color="text-text-primary" />
+                <SmallMetric label={t('specialist.activity.clientNew')} value={data.clients.newClients} color="text-champagne" />
+                <SmallMetric label={t('specialist.activity.clientReturning')} value={data.clients.returningClients} color="text-sky-400" />
+                <SmallMetric label={t('specialist.activity.clientSubscription')} value={data.clients.subscriptionClients} color="text-emerald-400" />
+                <SmallMetric label={t('specialist.activity.clientReturnRate')} value={`${data.clients.repeatClientRate}%`} color="text-text-primary" />
               </div>
 
               {data.clients.detail.length === 0 ? (
-                <EmptyState text="Нет клиентов за период" />
+                <EmptyState text={t('specialist.activity.empty.clients')} />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-border-luxury/60 text-text-muted uppercase tracking-wider">
-                        <Th>Клиент</Th><Th>Тип</Th><Th right>Визитов</Th>
-                        <Th>Последний визит</Th><Th right>Потрачено</Th>
+                        <Th>{t('specialist.activity.col.client')}</Th><Th>{t('specialist.activity.col.type')}</Th><Th right>{t('specialist.activity.col.visits')}</Th>
+                        <Th>{t('specialist.activity.col.lastVisit')}</Th><Th right>{t('specialist.activity.col.spent')}</Th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-luxury/30">
                       {data.clients.detail.map((c, i) => (
                         <tr key={i} className="hover:bg-white/[0.015]">
                           <Td className="font-medium">{c.clientName}</Td>
-                          <Td><ClientTypeBadge type={c.clientType} /></Td>
+                          <Td><ClientTypeBadge type={c.clientType} label={CLIENT_TYPE_LABELS[c.clientType] ?? c.clientType} /></Td>
                           <Td right>{c.visitCount}</Td>
                           <Td>{c.lastService}</Td>
                           <Td right>{formatCurrency(c.totalSpent)}</Td>
@@ -733,7 +748,7 @@ export default function SpecialistActivityPage() {
 
             {/* ── Section 5: Attendance ──────────────────────────────────────── */}
             <SectionWrapper
-              title="Посещаемость"
+              title={t('specialist.activity.section.attendance')}
               collapsed={collapsed.has('attendance')}
               onToggle={() => toggle('attendance')}
             >
@@ -757,21 +772,21 @@ export default function SpecialistActivityPage() {
               </div>
 
               <div className="flex flex-wrap gap-3 mb-5 text-xs">
-                <LegendDot color="bg-emerald-400/60" label="Работал" />
-                <LegendDot color="bg-white/20" label="Выходной" />
-                <LegendDot color="bg-sky-400/60" label="Отпуск" />
-                <LegendDot color="bg-red-400/50" label="Отсутствие" />
+                <LegendDot color="bg-emerald-400/60" label={t('specialist.activity.legendWorked')} />
+                <LegendDot color="bg-white/20" label={t('specialist.activity.legendDayOff')} />
+                <LegendDot color="bg-sky-400/60" label={t('specialist.activity.legendLeave')} />
+                <LegendDot color="bg-red-400/50" label={t('specialist.activity.legendAbsent')} />
               </div>
 
               {/* Leave requests */}
               {data.attendance.leaveRequests.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Запросы на отпуск</p>
+                  <p className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">{t('specialist.activity.leaveTitle')}</p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-border-luxury/60 text-text-muted uppercase tracking-wider">
-                          <Th>Дата</Th><Th>Причина</Th><Th>Статус</Th><Th>Подано</Th>
+                          <Th>{t('specialist.activity.col.date')}</Th><Th>{t('specialist.activity.col.reason')}</Th><Th>{t('specialist.activity.col.status')}</Th><Th>{t('specialist.activity.col.submitted')}</Th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border-luxury/30">
@@ -786,7 +801,7 @@ export default function SpecialistActivityPage() {
                                 lr.status === 'PENDING' && 'bg-amber-400/10 text-amber-400 border-amber-400/20',
                                 lr.status === 'REJECTED' && 'bg-red-400/10 text-red-400 border-red-400/20',
                               )}>
-                                {lr.status === 'APPROVED' ? 'Одобрен' : lr.status === 'REJECTED' ? 'Отклонён' : 'На рассмотрении'}
+                                {lr.status === 'APPROVED' ? t('specialist.activity.leaveApproved') : lr.status === 'REJECTED' ? t('specialist.activity.leaveRejected') : t('specialist.activity.leavePending')}
                               </span>
                             </Td>
                             <Td>{lr.submittedOn}</Td>
@@ -860,7 +875,7 @@ function Td({ children, right, colSpan, className }: {
   );
 }
 
-function ClientTypeBadge({ type }: { type: string }) {
+function ClientTypeBadge({ type, label }: { type: string; label: string }) {
   return (
     <span className={cn(
       'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border',
@@ -868,19 +883,19 @@ function ClientTypeBadge({ type }: { type: string }) {
       type === 'returning' && 'bg-sky-400/10 text-sky-400 border-sky-400/20',
       type === 'subscription' && 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20',
     )}>
-      {CLIENT_TYPE_LABELS[type] ?? type}
+      {label}
     </span>
   );
 }
 
-function EntryStatusBadge({ status }: { status: string }) {
+function EntryStatusBadge({ status, approvedLabel, pendingLabel }: { status: string; approvedLabel: string; pendingLabel: string }) {
   return (
     <span className={cn(
       'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border',
       status === 'pending' && 'bg-white/5 text-text-muted border-border-luxury',
       status === 'approved' && 'bg-sky-400/10 text-sky-400 border-sky-400/20',
     )}>
-      {status === 'approved' ? 'Одобрено' : 'Ожидает'}
+      {status === 'approved' ? approvedLabel : pendingLabel}
     </span>
   );
 }

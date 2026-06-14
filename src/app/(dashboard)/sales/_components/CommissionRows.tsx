@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Percent } from 'lucide-react';
+import { useLanguage } from '@/contexts/language';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,17 +32,6 @@ interface Props {
   disabled?: boolean;
 }
 
-const CATEGORY_LABELS: Record<CommissionCategory, string> = {
-  STANDARD_SALE:    'Стандартная комиссия',
-  NEW_CLIENT:       'Новый клиент',
-  RETURNING_CLIENT: 'Возврат клиента',
-  UPSELL:           'Допродажа',
-  REFERRAL:         'Реферал',
-  TARGET_BONUS:     'Бонус за план',
-  QUALITY_BONUS:    'Бонус за качество',
-  CUSTOM:           'Особый бонус',
-};
-
 function floorKopek(pct: number, total: number): number {
   return Math.floor((pct / 100) * total * 100) / 100;
 }
@@ -51,6 +41,19 @@ function fmt(n: number) {
 }
 
 export function CommissionRows({ rows, saleTotal, onChange, disabled }: Props) {
+  const { t } = useLanguage();
+
+  const CATEGORY_LABELS: Record<CommissionCategory, string> = {
+    STANDARD_SALE:    t('sales.commission.catStandard'),
+    NEW_CLIENT:       t('sales.commission.catNewClient'),
+    RETURNING_CLIENT: t('sales.commission.catReturning'),
+    UPSELL:           t('sales.commission.catUpsell'),
+    REFERRAL:         t('sales.commission.catReferral'),
+    TARGET_BONUS:     t('sales.commission.catTargetBonus'),
+    QUALITY_BONUS:    t('sales.commission.catQualityBonus'),
+    CUSTOM:           t('sales.commission.catCustom'),
+  };
+
   function updateRow(idx: number, patch: Partial<CommissionRowData>) {
     const next = rows.map((r, i) => {
       if (i !== idx) return r;
@@ -81,15 +84,15 @@ export function CommissionRows({ rows, saleTotal, onChange, disabled }: Props) {
     <div className="rounded-xl border border-border-luxury bg-charcoal/40 overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border-luxury/60">
         <Percent className="w-3.5 h-3.5 text-champagne shrink-0" />
-        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Распределение комиссии</span>
+        <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">{t('sales.commission.title')}</span>
         <span className="ml-auto text-xs text-text-tertiary tabular-nums">
-          Сумма: <span className="text-text-secondary">{fmt(saleTotal)} ₽</span>
+          {t('sales.commission.saleTotal')} <span className="text-text-secondary">{fmt(saleTotal)} ₽</span>
         </span>
       </div>
 
       {saleTotal === 0 && (
         <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-400">
-          Сумма продажи ₽0 — комиссия будет ₽0
+          {t('sales.commission.zeroWarning')}
         </div>
       )}
 
@@ -146,7 +149,7 @@ export function CommissionRows({ rows, saleTotal, onChange, disabled }: Props) {
       }`}>
         <span>
           {totalPct > 100 && '⚠ '}{totalPct === 100 && '✓ '}
-          Итого: <span className="font-medium">{totalPct.toFixed(1)}%</span>
+          {t('sales.commission.total')} <span className="font-medium">{totalPct.toFixed(1)}%</span>
         </span>
         <span className="font-medium">{fmt(totalAmt)} ₽</span>
       </div>

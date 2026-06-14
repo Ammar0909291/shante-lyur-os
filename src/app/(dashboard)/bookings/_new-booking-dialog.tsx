@@ -293,8 +293,8 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
   const locale = lang === 'en' ? 'en-US' : 'ru-RU';
   const minLabel = t('common.min');
   const hourLabel = t('common.hours');
-  const typeLabel = (type: SpecialistType) =>
-    type === 'MASSAGE_THERAPIST' ? t('booking.massageType') : t('booking.cosmetologyType');
+  const typeLabel = React.useCallback((type: SpecialistType) =>
+    type === 'MASSAGE_THERAPIST' ? t('booking.massageType') : t('booking.cosmetologyType'), [t]);
 
   const [step, setStep] = React.useState<Step>('client');
 
@@ -509,7 +509,7 @@ export function NewBookingDialog({ open, onClose, onCreated }: NewBookingDialogP
       sp.specializations.some(s => s.toLowerCase().includes(q)) ||
       typeLabel(sp.type).toLowerCase().includes(q)
     );
-  }, [specialists, specialistSearch]);
+  }, [specialists, specialistSearch, typeLabel]);
 
   const availableSlots = slots.filter(s => s.available);
 

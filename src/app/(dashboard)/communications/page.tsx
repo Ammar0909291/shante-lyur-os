@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 import { TEMPLATES } from '@/lib/communication/templates/definitions';
 import { authHeaders } from '@/lib/client-auth';
+import { useLanguage } from '@/contexts/language';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,17 @@ const STATUS_BADGE: Record<string, string> = {
   QUEUED:     'bg-blue-900/20 text-blue-300 border-blue-800/40',
 };
 
+const CONFIG_FIELD_META: Array<{ key: string; placeholder: string; secret?: boolean }> = [
+  { key: 'telegram_bot_token', placeholder: '1234567890:ABC...', secret: true },
+  { key: 'whatsapp_access_token', placeholder: 'EAAxxxxxxxx...', secret: true },
+  { key: 'whatsapp_phone_id', placeholder: '123456789' },
+  { key: 'max_bot_token', placeholder: 'max-bot-token...', secret: true },
+  { key: 'smtp_host', placeholder: 'smtp.gmail.com' },
+  { key: 'smtp_port', placeholder: '587' },
+  { key: 'smtp_user', placeholder: 'noreply@salon.ru' },
+  { key: 'smtp_pass', placeholder: '••••••••', secret: true },
+  { key: 'smtp_from', placeholder: '"Shante Lyur" <noreply@salon.ru>' },
+];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -95,6 +107,7 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Send Message Panel ───────────────────────────────────────────────────────
 
 function SendPanel({ onSent }: { onSent: () => void }) {
+  const { t, lang } = useLanguage();
   const [userId, setUserId] = React.useState('');
   const [channel, setChannel] = React.useState<'whatsapp' | 'telegram' | 'max' | 'email'>('telegram');
   const [templateKey, setTemplateKey] = React.useState('booking_confirmation');
@@ -102,7 +115,7 @@ function SendPanel({ onSent }: { onSent: () => void }) {
     clientName: 'Анна Смирнова',
     specialistName: 'Ирина Владимирова',
     serviceName: 'Тайский массаж',
-    date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }),
+    date: new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'ru-RU', { day: 'numeric', month: 'long' }),
     time: '14:00',
     room: 'Кабинет №2',
     department: 'MASSAGE',
@@ -117,7 +130,7 @@ function SendPanel({ onSent }: { onSent: () => void }) {
   const preview = selectedTemplate?.bodyRu(vars) ?? '';
 
   async function handleSend() {
-    if (!userId.trim()) { setResult({ ok: false, msg: 'Укажите User ID получателя' }); return; }
+    if (!userId.trim()) { setResult({ ok: false, msg: t('comm.send.errorNoUser') }); return; }
     setSending(true);
     setResult(null);
     try {
@@ -128,10 +141,10 @@ function SendPanel({ onSent }: { onSent: () => void }) {
       });
       const json = await res.json() as { success: boolean; data?: { delivered: boolean; error?: string; messageId: string } };
       if (json.success && json.data?.delivered) {
-        setResult({ ok: true, msg: `✓ Отправлено (ID: ${json.data.messageId.slice(0, 8)}...)` });
+        setResult({ ok: true, msg: `${t('comm.send.success')} (ID: ${json.data.messageId.slice(0, 8)}...)` });
         onSent();
       } else {
-        setResult({ ok: false, msg: json.data?.error ?? 'Ошибка отправки' });
+        setResult({ ok: false, msg: json.data?.error ?? t('comm.send.errorSend') });
       }
     } catch (err) {
       setResult({ ok: false, msg: err instanceof Error ? err.message : 'Network error' });
@@ -144,21 +157,21 @@ function SendPanel({ onSent }: { onSent: () => void }) {
     <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
       <div className="px-5 py-4 border-b border-border-luxury flex items-center gap-2">
         <Send className="w-4 h-4 text-champagne" />
-        <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">Отправить сообщение</h3>
+        <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">{t('comm.send.title')}</h3>
       </div>
       <div className="p-5 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-xs text-text-tertiary mb-1 block">User ID получателя</label>
+            <label className="text-xs text-text-tertiary mb-1 block">{t('comm.send.recipientLabel')}</label>
             <input
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              placeholder="uuid пользователя"
+              placeholder={t('comm.send.recipientPlaceholder')}
               className="w-full bg-charcoal border border-border-luxury rounded-xl px-3 py-2 text-sm text-text-primary"
             />
           </div>
           <div>
-            <label className="text-xs text-text-tertiary mb-1 block">Канал</label>
+            <label className="text-xs text-text-tertiary mb-1 block">{t('comm.send.channelLabel')}</label>
             <select
               value={channel}
               onChange={(e) => setChannel(e.target.value as typeof channel)}
@@ -167,20 +180,20 @@ function SendPanel({ onSent }: { onSent: () => void }) {
               <option value="whatsapp">WhatsApp</option>
               <option value="telegram">Telegram</option>
               <option value="max">MAX</option>
-              <option value="email">Эл. почта</option>
+              <option value="email">{t('comm.send.emailOption')}</option>
             </select>
           </div>
         </div>
 
         <div>
-          <label className="text-xs text-text-tertiary mb-1 block">Шаблон</label>
+          <label className="text-xs text-text-tertiary mb-1 block">{t('comm.send.templateLabel')}</label>
           <select
             value={templateKey}
             onChange={(e) => setTemplateKey(e.target.value)}
             className="w-full bg-charcoal border border-border-luxury rounded-xl px-3 py-2 text-sm text-text-primary"
           >
-            {templateList.map((t) => (
-              <option key={t.key} value={t.key}>{t.nameRu}</option>
+            {templateList.map((tmpl) => (
+              <option key={tmpl.key} value={tmpl.key}>{tmpl.nameRu}</option>
             ))}
           </select>
         </div>
@@ -201,7 +214,7 @@ function SendPanel({ onSent }: { onSent: () => void }) {
         {/* Preview */}
         {preview && (
           <div className="bg-charcoal/50 border border-border-luxury rounded-xl p-3">
-            <p className="text-xs text-text-tertiary mb-1.5 font-semibold uppercase tracking-wider">Предпросмотр</p>
+            <p className="text-xs text-text-tertiary mb-1.5 font-semibold uppercase tracking-wider">{t('comm.send.preview')}</p>
             <p className="text-xs text-text-secondary whitespace-pre-line">{preview.replace(/<[^>]+>/g, '')}</p>
           </div>
         )}
@@ -212,7 +225,7 @@ function SendPanel({ onSent }: { onSent: () => void }) {
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl luxury-gradient text-obsidian font-semibold text-sm disabled:opacity-50"
         >
           {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          {sending ? 'Отправка...' : 'Отправить'}
+          {sending ? t('comm.send.sending') : t('comm.send.send')}
         </button>
 
         {result && (
@@ -228,19 +241,8 @@ function SendPanel({ onSent }: { onSent: () => void }) {
 
 // ─── Channel Settings Panel ───────────────────────────────────────────────────
 
-const CONFIG_FIELDS: Array<{ key: string; label: string; placeholder: string; secret?: boolean }> = [
-  { key: 'telegram_bot_token', label: 'Telegram Bot Token', placeholder: '1234567890:ABC...', secret: true },
-  { key: 'whatsapp_access_token', label: 'WhatsApp Access Token', placeholder: 'EAAxxxxxxxx...', secret: true },
-  { key: 'whatsapp_phone_id', label: 'WhatsApp Phone ID', placeholder: '123456789' },
-  { key: 'max_bot_token', label: 'MAX Bot Token', placeholder: 'max-bot-token...', secret: true },
-  { key: 'smtp_host', label: 'SMTP Хост', placeholder: 'smtp.gmail.com' },
-  { key: 'smtp_port', label: 'SMTP Порт', placeholder: '587' },
-  { key: 'smtp_user', label: 'SMTP Пользователь', placeholder: 'noreply@salon.ru' },
-  { key: 'smtp_pass', label: 'SMTP Пароль', placeholder: '••••••••', secret: true },
-  { key: 'smtp_from', label: 'Email отправителя', placeholder: '"Shante Lyur" <noreply@salon.ru>' },
-];
-
 function SettingsPanel() {
+  const { t } = useLanguage();
   const [values, setValues] = React.useState<Record<string, string>>({});
   const [visible, setVisible] = React.useState<Record<string, boolean>>({});
   const [loading, setLoading] = React.useState(true);
@@ -250,6 +252,21 @@ function SettingsPanel() {
   const [tgChatId, setTgChatId] = React.useState('');
   const [tgTesting, setTgTesting] = React.useState(false);
   const [tgTestResult, setTgTestResult] = React.useState<{ ok: boolean; msg: string } | null>(null);
+
+  function getFieldLabel(key: string): string {
+    const labels: Record<string, string> = {
+      telegram_bot_token: 'Telegram Bot Token',
+      whatsapp_access_token: 'WhatsApp Access Token',
+      whatsapp_phone_id: 'WhatsApp Phone ID',
+      max_bot_token: 'MAX Bot Token',
+      smtp_host: t('comm.settings.smtpHost'),
+      smtp_port: t('comm.settings.smtpPort'),
+      smtp_user: t('comm.settings.smtpUser'),
+      smtp_pass: t('comm.settings.smtpPass'),
+      smtp_from: t('comm.settings.smtpFrom'),
+    };
+    return labels[key] ?? key;
+  }
 
   React.useEffect(() => {
     void (async () => {
@@ -286,9 +303,9 @@ function SettingsPanel() {
       });
       const json = await res.json() as { success: boolean; data?: { message: string }; error?: { message: string } };
       if (json.success) {
-        setTgTestResult({ ok: true, msg: json.data?.message ?? 'Отправлено!' });
+        setTgTestResult({ ok: true, msg: json.data?.message ?? t('comm.settings.tgSuccess') });
       } else {
-        setTgTestResult({ ok: false, msg: json.error?.message ?? 'Ошибка' });
+        setTgTestResult({ ok: false, msg: json.error?.message ?? t('comm.settings.tgError') });
       }
     } catch (e) {
       setTgTestResult({ ok: false, msg: e instanceof Error ? e.message : 'Network error' });
@@ -308,7 +325,7 @@ function SettingsPanel() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-text-tertiary">Настройки применяются мгновенно. Существующие токены скрыты — введите новое значение чтобы обновить.</p>
+      <p className="text-sm text-text-tertiary">{t('comm.settings.hint')}</p>
       {groups.map(({ title, keys }) => (
         <div key={title} className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border-luxury">
@@ -316,11 +333,11 @@ function SettingsPanel() {
           </div>
           <div className="p-5 space-y-4">
             {keys.map((key) => {
-              const field = CONFIG_FIELDS.find((f) => f.key === key)!;
+              const field = CONFIG_FIELD_META.find((f) => f.key === key)!;
               const isVisible = visible[key];
               return (
                 <div key={key}>
-                  <label className="text-xs text-text-tertiary mb-1.5 block">{field.label}</label>
+                  <label className="text-xs text-text-tertiary mb-1.5 block">{getFieldLabel(key)}</label>
                   <div className="relative">
                     <input
                       type={field.secret && !isVisible ? 'password' : 'text'}
@@ -347,15 +364,16 @@ function SettingsPanel() {
             {title === 'Telegram' && (
               <div className="pt-2 border-t border-border-luxury/50 space-y-3">
                 <p className="text-xs text-text-tertiary">
-                  Тест: отправьте сообщение боту в Telegram, узнайте свой chat_id через{' '}
-                  <span className="text-champagne font-medium">@userinfobot</span>, затем введите его ниже.
+                  {t('comm.settings.tgTestHint').split('@userinfobot')[0]}
+                  <span className="text-champagne font-medium">@userinfobot</span>
+                  {t('comm.settings.tgTestHint').split('@userinfobot')[1]}
                 </p>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={tgChatId}
                     onChange={(e) => setTgChatId(e.target.value)}
-                    placeholder="Ваш chat_id (например: 123456789)"
+                    placeholder={t('comm.settings.tgChatIdPlaceholder')}
                     className="flex-1 bg-charcoal border border-border-luxury rounded-xl px-3 py-2 text-sm text-text-primary placeholder-text-tertiary/40"
                   />
                   <button
@@ -364,8 +382,8 @@ function SettingsPanel() {
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 disabled:opacity-40 transition-all whitespace-nowrap"
                   >
                     {tgTesting
-                      ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Отправка...</>
-                      : <><Send className="w-3.5 h-3.5" /> Отправить тест</>}
+                      ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> {t('comm.settings.tgSending')}</>
+                      : <><Send className="w-3.5 h-3.5" /> {t('comm.settings.tgSend')}</>}
                   </button>
                 </div>
                 {tgTestResult && (
@@ -388,12 +406,12 @@ function SettingsPanel() {
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl luxury-gradient text-obsidian font-semibold text-sm disabled:opacity-50"
         >
           {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saving ? 'Сохранение...' : 'Сохранить настройки'}
+          {saving ? t('comm.settings.saving') : t('comm.settings.save')}
         </button>
         {saved && (
           <span className="flex items-center gap-1.5 text-emerald-400 text-sm">
             <CheckCircle2 className="w-4 h-4" />
-            Сохранено
+            {t('comm.settings.saved')}
           </span>
         )}
       </div>
@@ -416,6 +434,7 @@ interface UpcomingBooking {
 }
 
 function AutoRemindersPanel() {
+  const { t, lang } = useLanguage();
   const [bookings, setBookings] = React.useState<UpcomingBooking[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [downloading, setDownloading] = React.useState(false);
@@ -456,13 +475,15 @@ function AutoRemindersPanel() {
     : w === '24ч' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
     : 'bg-blue-500/10 text-blue-400 border-blue-500/20';
 
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+
   return (
     <div className="space-y-5">
       <div className="bg-onyx border border-border-luxury rounded-2xl p-5">
         <div className="flex items-start gap-3 mb-4">
           <div className="flex-1">
-            <h3 className="text-sm font-semibold text-text-primary mb-1">Автоматические напоминания клиентам</h3>
-            <p className="text-xs text-text-tertiary">Система автоматически отправляет запрос на подтверждение записи за 48ч, 24ч и утром в день визита. Ниже показаны ближайшие записи.</p>
+            <h3 className="text-sm font-semibold text-text-primary mb-1">{t('comm.reminders.title')}</h3>
+            <p className="text-xs text-text-tertiary">{t('comm.reminders.desc')}</p>
           </div>
           <button
             onClick={() => void downloadExcel()}
@@ -470,15 +491,15 @@ function AutoRemindersPanel() {
             className="flex items-center gap-2 px-4 py-2 rounded-xl border border-champagne/30 bg-champagne/10 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50 shrink-0"
           >
             {downloading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Скачать Excel
+            {t('comm.reminders.download')}
           </button>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-5">
           {[
-            { label: '48 ч до визита', desc: 'Первое напоминание', color: 'text-blue-400' },
-            { label: '24 ч до визита', desc: 'Второе напоминание', color: 'text-amber-400' },
-            { label: 'Утро дня визита', desc: '09:00 — финальное', color: 'text-red-400' },
+            { label: t('comm.reminders.48h'), desc: t('comm.reminders.48hDesc'), color: 'text-blue-400' },
+            { label: t('comm.reminders.24h'), desc: t('comm.reminders.24hDesc'), color: 'text-amber-400' },
+            { label: t('comm.reminders.morning'), desc: t('comm.reminders.morningDesc'), color: 'text-red-400' },
           ].map(({ label, desc, color }) => (
             <div key={label} className="bg-charcoal rounded-xl p-3 border border-border-luxury text-center">
               <p className={cn('text-sm font-semibold', color)}>{label}</p>
@@ -490,30 +511,30 @@ function AutoRemindersPanel() {
 
       <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border-luxury">
-          <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">Записи ближайших 48 часов</h3>
+          <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">{t('comm.reminders.section')}</h3>
         </div>
         {loading ? (
           <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-champagne" /></div>
         ) : bookings.length === 0 ? (
-          <div className="px-5 py-12 text-center text-text-tertiary text-sm">Нет предстоящих записей</div>
+          <div className="px-5 py-12 text-center text-text-tertiary text-sm">{t('comm.reminders.empty')}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border-luxury">
-                  <th className="text-left px-5 py-3 text-xs text-text-tertiary font-medium">Время</th>
-                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">Клиент</th>
-                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">Специалист</th>
-                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">Процедура</th>
-                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">Кабинет</th>
-                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">Окно</th>
+                  <th className="text-left px-5 py-3 text-xs text-text-tertiary font-medium">{t('comm.reminders.col.time')}</th>
+                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">{t('comm.reminders.col.client')}</th>
+                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">{t('comm.reminders.col.specialist')}</th>
+                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">{t('comm.reminders.col.procedure')}</th>
+                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">{t('comm.reminders.col.room')}</th>
+                  <th className="text-left px-4 py-3 text-xs text-text-tertiary font-medium">{t('comm.reminders.col.window')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-luxury">
                 {bookings.map((b) => (
                   <tr key={b.id} className="hover:bg-charcoal/50 transition-colors">
                     <td className="px-5 py-3 text-text-primary whitespace-nowrap font-mono text-xs">
-                      {new Date(b.startAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(b.startAt).toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="px-4 py-3 text-text-primary">{b.clientName}</td>
                     <td className="px-4 py-3 text-text-secondary text-xs">{b.specialistName}</td>
@@ -538,12 +559,15 @@ function AutoRemindersPanel() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function CommunicationsPage() {
+  const { t, lang } = useLanguage();
   const [tab, setTab] = React.useState<'overview' | 'history' | 'templates' | 'queue' | 'settings' | 'reminders'>('overview');
   const [analytics, setAnalytics] = React.useState<DeliveryStats | null>(null);
   const [queue, setQueue] = React.useState<QueueStatus | null>(null);
   const [history, setHistory] = React.useState<HistoryMessage[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [days, setDays] = React.useState(30);
+
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
 
   async function fetchAnalytics() {
     setLoading(true);
@@ -590,12 +614,12 @@ export default function CommunicationsPage() {
   );
 
   const TABS = [
-    { id: 'overview',   label: 'Обзор',        icon: BarChart2 },
-    { id: 'history',    label: 'История',       icon: MessageSquare },
-    { id: 'templates',  label: 'Шаблоны',       icon: Zap },
-    { id: 'queue',      label: 'Очередь',       icon: Clock },
-    { id: 'reminders',  label: 'Напоминания',   icon: Send },
-    { id: 'settings',   label: 'Настройки',     icon: Settings },
+    { id: 'overview',   label: t('comm.tab.overview'),   icon: BarChart2 },
+    { id: 'history',    label: t('comm.tab.history'),    icon: MessageSquare },
+    { id: 'templates',  label: t('comm.tab.templates'),  icon: Zap },
+    { id: 'queue',      label: t('comm.tab.queue'),      icon: Clock },
+    { id: 'reminders',  label: t('comm.tab.reminders'),  icon: Send },
+    { id: 'settings',   label: t('comm.tab.settings'),   icon: Settings },
   ] as const;
 
   return (
@@ -603,8 +627,8 @@ export default function CommunicationsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary font-serif">Омниканальные коммуникации</h1>
-          <p className="text-sm text-text-tertiary mt-0.5">WhatsApp · Telegram · MAX · Email — централизованный центр рассылок</p>
+          <h1 className="text-2xl font-bold text-text-primary font-serif">{t('comm.title')}</h1>
+          <p className="text-sm text-text-tertiary mt-0.5">{t('comm.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex gap-1 bg-obsidian/60 p-1 rounded-xl border border-border-luxury">
@@ -612,7 +636,7 @@ export default function CommunicationsPage() {
               <button key={d} onClick={() => setDays(d)}
                 className={cn('px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
                   days === d ? 'luxury-gradient text-obsidian' : 'text-text-tertiary hover:text-text-primary')}>
-                {d}д
+                {d}{t('comm.days')}
               </button>
             ))}
           </div>
@@ -659,16 +683,16 @@ export default function CommunicationsPage() {
           {loading && !analytics ? <Spinner /> : analytics ? (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard label="Всего отправлено" value={analytics.summary.total} icon={Send} color="bg-champagne/20 text-champagne" />
-                <StatCard label="Доставлено" value={analytics.summary.sent} sub={`${analytics.summary.deliveryRate}% успех`} icon={CheckCircle2} color="bg-emerald-500/20 text-emerald-400" />
-                <StatCard label="Ошибки" value={analytics.summary.failed} icon={XCircle} color="bg-red-500/20 text-red-400" />
-                <StatCard label="Период" value={`${analytics.summary.periodDays} дн.`} icon={TrendingUp} color="bg-blue-500/20 text-blue-400" />
+                <StatCard label={t('comm.kpi.total')} value={analytics.summary.total} icon={Send} color="bg-champagne/20 text-champagne" />
+                <StatCard label={t('comm.kpi.delivered')} value={analytics.summary.sent} sub={`${analytics.summary.deliveryRate}% ${t('comm.kpi.successRate')}`} icon={CheckCircle2} color="bg-emerald-500/20 text-emerald-400" />
+                <StatCard label={t('comm.kpi.errors')} value={analytics.summary.failed} icon={XCircle} color="bg-red-500/20 text-red-400" />
+                <StatCard label={t('comm.kpi.period')} value={`${analytics.summary.periodDays} ${t('comm.kpi.periodDays')}`} icon={TrendingUp} color="bg-blue-500/20 text-blue-400" />
               </div>
 
               {/* By channel */}
               <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
                 <div className="px-5 py-4 border-b border-border-luxury">
-                  <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">По каналам</h3>
+                  <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">{t('comm.section.byChannel')}</h3>
                 </div>
                 <div className="divide-y divide-border-luxury">
                   {Object.entries(analytics.byChannel).map(([ch, stat]) => {
@@ -696,7 +720,7 @@ export default function CommunicationsPage() {
                     );
                   })}
                   {Object.keys(analytics.byChannel).length === 0 && (
-                    <div className="px-5 py-8 text-center text-text-tertiary text-sm">Нет данных за период</div>
+                    <div className="px-5 py-8 text-center text-text-tertiary text-sm">{t('comm.noChannelData')}</div>
                   )}
                 </div>
               </div>
@@ -706,17 +730,17 @@ export default function CommunicationsPage() {
                 <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
                   <div className="px-5 py-4 border-b border-border-luxury flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-red-400" />
-                    <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">Последние ошибки доставки</h3>
+                    <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">{t('comm.section.recentErrors')}</h3>
                   </div>
                   <div className="divide-y divide-border-luxury">
                     {analytics.recentFailures.slice(0, 8).map((f) => (
                       <div key={f.id} className="px-5 py-3 flex items-center gap-4">
                         <ChannelBadge channel={f.channel} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-text-primary">{f.user ? `${f.user.firstName} ${f.user.lastName}` : 'Неизвестно'}</p>
-                          <p className="text-xs text-red-400 truncate">{f.errorMessage ?? 'Нет описания'}</p>
+                          <p className="text-sm text-text-primary">{f.user ? `${f.user.firstName} ${f.user.lastName}` : t('comm.unknownUser')}</p>
+                          <p className="text-xs text-red-400 truncate">{f.errorMessage ?? t('comm.noErrorDesc')}</p>
                         </div>
-                        <div className="text-xs text-text-tertiary">{f.retryCount} попыток</div>
+                        <div className="text-xs text-text-tertiary">{f.retryCount} {t('comm.retryCount')}</div>
                       </div>
                     ))}
                   </div>
@@ -726,10 +750,10 @@ export default function CommunicationsPage() {
               {/* Connected users */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: 'WhatsApp подключено', val: analytics.preferences.whatsappEnabled, icon: Phone, color: 'text-green-400' },
-                  { label: 'Telegram подключено', val: analytics.preferences.telegramEnabled, icon: Bot, color: 'text-blue-400' },
-                  { label: 'MAX подключено', val: analytics.preferences.maxEnabled, icon: MessageSquare, color: 'text-violet-400' },
-                  { label: 'Email включён', val: analytics.preferences.emailEnabled, icon: Mail, color: 'text-champagne' },
+                  { label: t('comm.pref.whatsapp'), val: analytics.preferences.whatsappEnabled, icon: Phone, color: 'text-green-400' },
+                  { label: t('comm.pref.telegram'), val: analytics.preferences.telegramEnabled, icon: Bot, color: 'text-blue-400' },
+                  { label: t('comm.pref.max'), val: analytics.preferences.maxEnabled, icon: MessageSquare, color: 'text-violet-400' },
+                  { label: t('comm.pref.email'), val: analytics.preferences.emailEnabled, icon: Mail, color: 'text-champagne' },
                 ].map(({ label, val, icon: Icon, color }) => (
                   <div key={label} className="bg-onyx border border-border-luxury rounded-xl p-4 flex items-center gap-3">
                     <Icon className={cn('w-5 h-5', color)} />
@@ -742,7 +766,7 @@ export default function CommunicationsPage() {
               </div>
             </>
           ) : (
-            <div className="text-center text-text-tertiary py-12 text-sm">Нет данных</div>
+            <div className="text-center text-text-tertiary py-12 text-sm">{t('comm.noData')}</div>
           )}
 
           {/* Send panel */}
@@ -757,7 +781,7 @@ export default function CommunicationsPage() {
             <button onClick={() => void fetchHistory()}
               className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border-luxury text-text-tertiary text-sm hover:text-text-primary">
               <RefreshCw className="w-4 h-4" />
-              Обновить
+              {t('comm.history.refresh')}
             </button>
           </div>
 
@@ -767,12 +791,12 @@ export default function CommunicationsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border-luxury">
-                      <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Получатель</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Канал</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Шаблон</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Статус</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Попыток</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">Дата</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('comm.history.col.recipient')}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('comm.history.col.channel')}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('comm.history.col.template')}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('comm.history.col.status')}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('comm.history.col.retries')}</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-tertiary">{t('comm.history.col.date')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border-luxury">
@@ -794,12 +818,12 @@ export default function CommunicationsPage() {
                         </td>
                         <td className="px-4 py-3.5 text-center text-text-tertiary">{msg.retryCount}</td>
                         <td className="px-4 py-3.5 text-xs text-text-tertiary">
-                          {new Date(msg.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(msg.createdAt).toLocaleDateString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                         </td>
                       </tr>
                     ))}
                     {history.length === 0 && (
-                      <tr><td colSpan={6} className="px-5 py-12 text-center text-text-tertiary text-sm">Нет сообщений</td></tr>
+                      <tr><td colSpan={6} className="px-5 py-12 text-center text-text-tertiary text-sm">{t('comm.history.empty')}</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -812,16 +836,16 @@ export default function CommunicationsPage() {
       {/* ── TEMPLATES ──────────────────────────────────────────────────────── */}
       {tab === 'templates' && (
         <div className="grid md:grid-cols-2 gap-4">
-          {Object.values(TEMPLATES).map((t) => (
-            <div key={t.key} className="bg-onyx border border-border-luxury rounded-2xl p-5 space-y-3">
+          {Object.values(TEMPLATES).map((tmpl) => (
+            <div key={tmpl.key} className="bg-onyx border border-border-luxury rounded-2xl p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-text-primary">{t.nameRu}</p>
-                  <p className="text-xs text-text-tertiary font-mono">{t.key}</p>
+                  <p className="text-sm font-semibold text-text-primary">{tmpl.nameRu}</p>
+                  <p className="text-xs text-text-tertiary font-mono">{tmpl.key}</p>
                 </div>
-                {t.whatsappTemplateName && (
+                {tmpl.whatsappTemplateName && (
                   <span className="text-[10px] text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full">
-                    WA: {t.whatsappTemplateName}
+                    WA: {tmpl.whatsappTemplateName}
                   </span>
                 )}
               </div>
@@ -831,18 +855,18 @@ export default function CommunicationsPage() {
                   <p className="text-[10px] text-text-tertiary mb-1">🇷🇺 RU</p>
                   <p className="text-xs text-text-secondary whitespace-pre-line leading-relaxed">
                     {(() => {
-                      const body = t.bodyRu({ clientName: 'Анна Смирнова', specialistName: 'Ирина В.', serviceName: 'Тайский массаж', date: '1 июня', time: '14:00', room: 'Кабинет №2', salonName: 'Shante Lyur', amount: '3 500', currency: 'руб.' }).replace(/<[^>]+>/g, '');
+                      const body = tmpl.bodyRu({ clientName: 'Анна Смирнова', specialistName: 'Ирина В.', serviceName: 'Тайский массаж', date: '1 июня', time: '14:00', room: 'Кабинет №2', salonName: 'Shante Lyur', amount: '3 500', currency: 'руб.' }).replace(/<[^>]+>/g, '');
                       return body.length > 200 ? body.slice(0, 200) + '…' : body;
                     })()}
                   </p>
                 </div>
                 {/* EN preview */}
-                {t.bodyEn && (
+                {tmpl.bodyEn && (
                   <div className="border-t border-border-luxury/40 pt-2">
                     <p className="text-[10px] text-blue-400 mb-1">🇬🇧 EN</p>
                     <p className="text-xs text-text-secondary whitespace-pre-line leading-relaxed">
                       {(() => {
-                        const body = t.bodyEn!({ clientName: 'Anna S.', specialistName: 'Irina V.', serviceName: 'Thai Massage', date: 'June 1', time: '2:00 PM', room: 'Room 2', salonName: 'Shante Lyur', amount: '3 500', currency: 'rub.' }).replace(/<[^>]+>/g, '');
+                        const body = tmpl.bodyEn!({ clientName: 'Anna S.', specialistName: 'Irina V.', serviceName: 'Thai Massage', date: 'June 1', time: '2:00 PM', room: 'Room 2', salonName: 'Shante Lyur', amount: '3 500', currency: 'rub.' }).replace(/<[^>]+>/g, '');
                         return body.length > 200 ? body.slice(0, 200) + '…' : body;
                       })()}
                     </p>
@@ -850,9 +874,9 @@ export default function CommunicationsPage() {
                 )}
               </div>
               <div className="flex items-center gap-2 text-xs text-text-tertiary">
-                {t.bodyEn && <span className="text-blue-400">🇬🇧 EN</span>}
+                {tmpl.bodyEn && <span className="text-blue-400">🇬🇧 EN</span>}
                 <span>🇷🇺 RU</span>
-                <span className="ml-auto text-[10px] opacity-60">Переменные: serviceName, clientName, specialistName, date, time, room</span>
+                <span className="ml-auto text-[10px] opacity-60">{t('comm.templates.variables')}</span>
               </div>
             </div>
           ))}
@@ -872,11 +896,11 @@ export default function CommunicationsPage() {
             <>
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 {[
-                  { label: 'Ожидают', value: queue.queue.waiting, icon: Clock, color: 'text-amber-400' },
-                  { label: 'Активны', value: queue.queue.active, icon: Zap, color: 'text-blue-400' },
-                  { label: 'Выполнено', value: queue.queue.completed, icon: CheckCircle2, color: 'text-emerald-400' },
-                  { label: 'Ошибки', value: queue.queue.failed, icon: XCircle, color: 'text-red-400' },
-                  { label: 'Отложены', value: queue.queue.delayed, icon: Clock, color: 'text-violet-400' },
+                  { label: t('comm.queue.waiting'), value: queue.queue.waiting, icon: Clock, color: 'text-amber-400' },
+                  { label: t('comm.queue.active'), value: queue.queue.active, icon: Zap, color: 'text-blue-400' },
+                  { label: t('comm.queue.completed'), value: queue.queue.completed, icon: CheckCircle2, color: 'text-emerald-400' },
+                  { label: t('comm.queue.failed'), value: queue.queue.failed, icon: XCircle, color: 'text-red-400' },
+                  { label: t('comm.queue.delayed'), value: queue.queue.delayed, icon: Clock, color: 'text-violet-400' },
                 ].map(({ label, value, icon: Icon, color }) => (
                   <div key={label} className="bg-onyx border border-border-luxury rounded-xl p-4 text-center">
                     <Icon className={cn('w-5 h-5 mx-auto mb-1', color)} />
@@ -892,14 +916,14 @@ export default function CommunicationsPage() {
                   className="flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 text-sm font-medium"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  Повторить ошибки
+                  {t('comm.queue.retry')}
                 </button>
               </div>
 
               {Array.isArray(queue.recentFailed) && queue.recentFailed.length > 0 && (
                 <div className="bg-onyx border border-border-luxury rounded-2xl overflow-hidden">
                   <div className="px-5 py-4 border-b border-border-luxury">
-                    <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">Последние ошибки очереди</h3>
+                    <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">{t('comm.queue.recentErrors')}</h3>
                   </div>
                   <div className="p-5 text-xs text-text-secondary">
                     <pre className="overflow-x-auto">{JSON.stringify(queue.recentFailed.slice(0, 5), null, 2)}</pre>

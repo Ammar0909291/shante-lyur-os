@@ -152,7 +152,7 @@ export default function FinancialAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => { void load(from, to); }, [load, from, to]);
 
@@ -173,7 +173,7 @@ export default function FinancialAnalyticsPage() {
     } finally {
       setExporting(false);
     }
-  }, [from, to]);
+  }, [from, to, t]);
 
   // Build combined forecast chart data (historical + forecast)
   const forecastChartData = React.useMemo(() => {

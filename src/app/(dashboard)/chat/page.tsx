@@ -332,7 +332,7 @@ export default function ChatPage() {
       setSending(false);
       inputRef.current?.focus();
     }
-  }, [draft, activeConvId, sending]);
+  }, [draft, activeConvId, sending, t]);
 
   // ── Typing indicator ──────────────────────────────────────────────────────
 

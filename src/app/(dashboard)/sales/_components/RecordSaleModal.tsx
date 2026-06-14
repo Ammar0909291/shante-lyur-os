@@ -5,6 +5,7 @@ import { X, Plus, Trash2 } from 'lucide-react';
 import { FirstTimeClientWizard } from './FirstTimeClientWizard';
 import { ClientSelector, type ClientSearchResult } from './ClientSelector';
 import { CommissionRows, type CommissionRowData, type CommissionCategory } from './CommissionRows';
+import { useLanguage } from '@/contexts/language';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ function fmt(n: number) {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
+  const { t } = useLanguage();
   const [specialists, setSpecialists] = React.useState<Specialist[]>([]);
   const [services,    setServices]    = React.useState<Service[]>([]);
   const [managers,    setManagers]    = React.useState<Manager[]>([]);
@@ -182,12 +184,12 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
     e.preventDefault();
     setError('');
 
-    if (!selectedClient)             { setError('Выберите клиента'); return; }
-    if (!managerId)                  { setError('Выберите менеджера'); return; }
-    if (selectedSpecialists.length === 0) { setError('Выберите хотя бы одного специалиста'); return; }
-    if (lines.some((l) => !l.serviceId)) { setError('Заполните все строки услуг'); return; }
+    if (!selectedClient)             { setError(t('sales.modal.errorClient')); return; }
+    if (!managerId)                  { setError(t('sales.modal.errorManager')); return; }
+    if (selectedSpecialists.length === 0) { setError(t('sales.modal.errorSpecialists')); return; }
+    if (lines.some((l) => !l.serviceId)) { setError(t('sales.modal.errorServices')); return; }
     if (Math.abs(paymentDiff) > 0.01) {
-      setError(`Сумма платежей не совпадает с итогом (разница ${fmt(paymentDiff)} ₽)`); return;
+      setError(`${t('sales.modal.errorPaymentDiff')} ${fmt(paymentDiff)} ₽)`); return;
     }
 
     const employees = [
@@ -220,10 +222,10 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
         }),
       });
       const json = await res.json() as { success: boolean; data?: { appointmentId?: string }; error?: { message: string } };
-      if (!json.success) { setError(json.error?.message ?? 'Ошибка сохранения'); return; }
+      if (!json.success) { setError(json.error?.message ?? t('sales.modal.errorSave')); return; }
 
       onSaved();
-    } catch { setError('Ошибка соединения'); }
+    } catch { setError(t('sales.modal.errorConnection')); }
     finally  { setSaving(false); }
   }
 
@@ -236,7 +238,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
         <div className="w-full max-w-2xl bg-obsidian border border-border-luxury rounded-2xl shadow-2xl max-h-[92vh] flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury shrink-0">
-            <h3 className="font-serif text-lg font-medium text-text-primary">Записать продажу</h3>
+            <h3 className="font-serif text-lg font-medium text-text-primary">{t('sales.modal.title')}</h3>
             <button onClick={onClose} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
               <X className="w-4 h-4" />
             </button>
@@ -246,13 +248,13 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
             {/* ── Client selector ── */}
             <div>
-              <label className={labelCls}>Клиент *</label>
+              <label className={labelCls}>{t('sales.modal.labelClient')}</label>
               <ClientSelector
                 value={selectedClient}
                 onChange={setSelectedClient}
                 disabled={saving}
                 allowCreate={true}
-                placeholder="Поиск клиента по имени, телефону..."
+                placeholder={t('sales.modal.searchPlaceholder')}
               />
               {!selectedClient && (
                 <button
@@ -260,16 +262,16 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                   onClick={() => setShowWizard(true)}
                   className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-dashed border-champagne/30 text-xs text-champagne/70 hover:bg-champagne/5 hover:text-champagne transition-colors"
                 >
-                  Или оформить первый визит через мастер →
+                  {t('sales.modal.firstVisitWizard')}
                 </button>
               )}
             </div>
 
             {/* ── Trade manager ── */}
             <div>
-              <label className={labelCls}>Трейд-менеджер *</label>
+              <label className={labelCls}>{t('sales.modal.labelManager')}</label>
               <select value={managerId} onChange={(e) => setManagerId(e.target.value)} disabled={saving} className={selectCls}>
-                <option value="">Выберите менеджера</option>
+                <option value="">{t('sales.modal.selectManager')}</option>
                 {managers.map((m) => (
                   <option key={m.id} value={m.id}>{m.name} — {m.role}</option>
                 ))}
@@ -278,7 +280,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
             {/* ── Specialists ── */}
             <div>
-              <label className={labelCls}>Специалисты *</label>
+              <label className={labelCls}>{t('sales.modal.labelSpecialists')}</label>
               <div className="flex flex-wrap gap-2">
                 {specialists.map((s) => {
                   const selected = selectedSpecialists.includes(s.userId);
@@ -303,7 +305,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
             {/* ── Service lines ── */}
             <div className="space-y-3">
-              <label className={labelCls}>Услуги *</label>
+              <label className={labelCls}>{t('sales.modal.labelServices')}</label>
               {lines.map((line, i) => (
                 <div key={i} className="rounded-xl border border-border-luxury p-3 space-y-2">
                   <div className="flex items-center gap-2">
@@ -313,7 +315,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                       disabled={saving}
                       className={`${selectCls} flex-1`}
                     >
-                      <option value="">Выберите услугу</option>
+                      <option value="">{t('sales.modal.selectService')}</option>
                       {services.map((s) => (
                         <option key={s.id} value={s.id}>{s.name} — {s.basePrice.toLocaleString('ru-RU')} ₽</option>
                       ))}
@@ -330,7 +332,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                       onChange={(e) => updateLine(i, { performedBySpecialistId: e.target.value })}
                       className={selectCls}
                     >
-                      <option value="">Специалист не выбран</option>
+                      <option value="">{t('sales.modal.specialistUnset')}</option>
                       {selectedSpecialists.map((uid) => {
                         const sp = specialists.find((s) => s.userId === uid);
                         return sp ? <option key={uid} value={sp.id}>{sp.name}</option> : null;
@@ -339,7 +341,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                   )}
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <p className="text-[10px] text-text-tertiary mb-1">Кол-во</p>
+                      <p className="text-[10px] text-text-tertiary mb-1">{t('sales.modal.labelQty')}</p>
                       <input
                         type="number" min="1" max="50" value={line.quantity}
                         onChange={(e) => updateLine(i, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
@@ -348,7 +350,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                       />
                     </div>
                     <div>
-                      <p className="text-[10px] text-text-tertiary mb-1">Цена (₽)</p>
+                      <p className="text-[10px] text-text-tertiary mb-1">{t('sales.modal.labelPrice')}</p>
                       <input
                         type="number" min="0" step="0.01" value={line.unitPrice}
                         onChange={(e) => updateLine(i, { unitPrice: parseFloat(e.target.value) || 0 })}
@@ -357,7 +359,7 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                       />
                     </div>
                     <div>
-                      <p className="text-[10px] text-text-tertiary mb-1">Итого</p>
+                      <p className="text-[10px] text-text-tertiary mb-1">{t('sales.modal.labelLineTotal')}</p>
                       <div className={`${inputCls} text-champagne font-medium cursor-default`}>
                         {fmt(line.unitPrice * line.quantity)} ₽
                       </div>
@@ -370,28 +372,28 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                 onClick={addLine}
                 className="flex items-center gap-1.5 text-xs text-champagne/70 hover:text-champagne transition-colors"
               >
-                <Plus className="w-3.5 h-3.5" /> Добавить услугу
+                <Plus className="w-3.5 h-3.5" /> {t('sales.modal.addService')}
               </button>
             </div>
 
             {/* ── Date/time ── */}
             <div>
-              <label className={labelCls}>Дата и время *</label>
+              <label className={labelCls}>{t('sales.modal.labelDateTime')}</label>
               <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} disabled={saving} className={inputCls} />
             </div>
 
             {/* ── Payment split ── */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <label className={`${labelCls} mb-0`}>Оплата</label>
-                <span className="text-xs text-text-tertiary">Итого: <span className="text-champagne font-medium">{fmt(saleTotal)} ₽</span></span>
+                <label className={`${labelCls} mb-0`}>{t('sales.modal.labelPayment')}</label>
+                <span className="text-xs text-text-tertiary">{t('sales.modal.paymentTotal')} <span className="text-champagne font-medium">{fmt(saleTotal)} ₽</span></span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Наличные', value: amountCash,    set: setAmountCash    },
-                  { label: 'Карта',    value: amountCard,    set: setAmountCard    },
-                  { label: 'Рассрочка', value: amountLoan,  set: setAmountLoan    },
-                  { label: 'Пакет',    value: amountPackage, set: setAmountPackage },
+                  { label: t('sales.modal.paymentCash'),    value: amountCash,    set: setAmountCash    },
+                  { label: t('sales.modal.paymentCard'),    value: amountCard,    set: setAmountCard    },
+                  { label: t('sales.modal.paymentLoan'),    value: amountLoan,    set: setAmountLoan    },
+                  { label: t('sales.modal.paymentPackage'), value: amountPackage, set: setAmountPackage },
                 ].map(({ label, value, set }) => (
                   <div key={label}>
                     <p className="text-[10px] text-text-tertiary mb-1">{label} (₽)</p>
@@ -410,15 +412,15 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                   : 'border-red-500/20 bg-red-500/5 text-red-400'
               }`}>
                 {Math.abs(paymentDiff) < 0.01
-                  ? `✓ ${fmt(paymentTotal)} ₽ — оплата сходится`
-                  : `Разница: ${fmt(paymentDiff)} ₽ (внесено ${fmt(paymentTotal)} из ${fmt(saleTotal)} ₽)`}
+                  ? `✓ ${fmt(paymentTotal)} ₽ — ${t('sales.modal.paymentOk')}`
+                  : `${t('sales.modal.paymentDiff')} ${fmt(paymentDiff)} ₽ (${fmt(paymentTotal)} / ${fmt(saleTotal)} ₽)`}
               </div>
             </div>
 
             {/* ── Other employees ── */}
             {managers.length > 0 && (
               <div>
-                <label className={labelCls}>Другие участники (необязательно)</label>
+                <label className={labelCls}>{t('sales.modal.labelOtherStaff')}</label>
                 <div className="flex flex-wrap gap-2">
                   {managers
                     .filter((m) => !selectedSpecialists.includes(m.id) && m.id !== managerId)
@@ -443,23 +445,23 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
 
             {/* ── Comments ── */}
             <div>
-              <label className={labelCls}>Комментарий</label>
+              <label className={labelCls}>{t('sales.modal.labelComment')}</label>
               <textarea
                 value={comments}
                 onChange={(e) => setComments(e.target.value)}
                 rows={2}
-                placeholder="Пожелания, особенности..."
+                placeholder={t('sales.modal.placeholderComment')}
                 disabled={saving}
                 className={`${inputCls} resize-none`}
               />
             </div>
             <div>
-              <label className={labelCls}>Внутренняя заметка</label>
+              <label className={labelCls}>{t('sales.modal.labelInternalNote')}</label>
               <textarea
                 value={internalNote}
                 onChange={(e) => setInternalNote(e.target.value)}
                 rows={2}
-                placeholder="Не видна клиенту..."
+                placeholder={t('sales.modal.placeholderInternalNote')}
                 disabled={saving}
                 className={`${inputCls} resize-none`}
               />
@@ -488,14 +490,14 @@ export function RecordSaleModal({ onClose, onSaved }: RecordSaleModalProps) {
                 disabled={saving}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors disabled:opacity-50"
               >
-                Отмена
+                {t('sales.modal.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={saving}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50"
               >
-                {saving ? 'Сохранение...' : 'Записать продажу'}
+                {saving ? t('sales.modal.saving') : t('sales.modal.submit')}
               </button>
             </div>
           </form>

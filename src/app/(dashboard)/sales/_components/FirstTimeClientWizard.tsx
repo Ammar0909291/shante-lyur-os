@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { X, ChevronRight, ChevronLeft, Check, Plus, Trash2, Percent } from 'lucide-react';
+import { useLanguage } from '@/contexts/language';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,19 +59,30 @@ function fmt(n: number) {
   return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n);
 }
 
-const SOURCE_OPTIONS: { value: string; label: string }[] = [
-  { value: 'WALK_IN',        label: 'Walk-in (проходящий)' },
-  { value: 'SOCIAL_MEDIA',   label: 'Соцсети' },
-  { value: 'REFERRAL',       label: 'Рекомендация' },
-  { value: 'ONLINE_BOOKING', label: 'Онлайн-запись' },
-  { value: 'OTHER',          label: 'Другое' },
-];
-
-const STEPS = ['Клиент', 'Менеджер', 'Специалисты', 'Услуги', 'Оплата', 'Комментарии', 'Комиссия'];
-
 // ── Wizard Component ─────────────────────────────────────────────────────────
 
 export function FirstTimeClientWizard({ onClose, onSaved, specialists, services, managers }: Props) {
+  const { t, lang } = useLanguage();
+  const locale = lang === 'en' ? 'en-US' : 'ru-RU';
+
+  const SOURCE_OPTIONS: { value: string; label: string }[] = [
+    { value: 'WALK_IN',        label: t('sales.wizard.sourceWalkIn') },
+    { value: 'SOCIAL_MEDIA',   label: t('sales.wizard.sourceSocial') },
+    { value: 'REFERRAL',       label: t('sales.wizard.sourceReferral') },
+    { value: 'ONLINE_BOOKING', label: t('sales.wizard.sourceOnline') },
+    { value: 'OTHER',          label: t('sales.wizard.sourceOther') },
+  ];
+
+  const STEPS = [
+    t('sales.wizard.stepClient'),
+    t('sales.wizard.stepManager'),
+    t('sales.wizard.stepSpecialists'),
+    t('sales.wizard.stepServices'),
+    t('sales.wizard.stepPayment'),
+    t('sales.wizard.stepComments'),
+    t('sales.wizard.stepCommission'),
+  ];
+
   const [step, setStep] = React.useState(0);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -128,7 +140,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
           specialistId: sp?.id ?? uid,
           userId: uid,
           name: sp?.name ?? uid,
-          roleBadge: sp?.specialization ?? 'Специалист',
+          roleBadge: sp?.specialization ?? t('sales.wizard.stepSpecialists'),
           percentage: pct,
           amount: floorKopek(pct, saleTotal),
         };
@@ -150,22 +162,22 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
   function validateStep(): string {
     switch (step) {
       case 0:
-        if (!firstName.trim()) return 'Введите имя';
-        if (!lastName.trim())  return 'Введите фамилию';
-        if (phone.trim().length < 5) return 'Введите корректный телефон';
+        if (!firstName.trim()) return t('sales.wizard.errorFirstName');
+        if (!lastName.trim())  return t('sales.wizard.errorLastName');
+        if (phone.trim().length < 5) return t('sales.wizard.errorPhone');
         return '';
       case 1:
-        if (!managerId) return 'Выберите трейд-менеджера';
+        if (!managerId) return t('sales.wizard.errorManager');
         return '';
       case 2:
-        if (selectedSpecialists.length === 0) return 'Выберите хотя бы одного специалиста';
+        if (selectedSpecialists.length === 0) return t('sales.wizard.errorSpecialists');
         return '';
       case 3:
-        if (lines.some((l) => !l.serviceId)) return 'Заполните все строки услуг';
-        if (lines.length === 0) return 'Добавьте хотя бы одну услугу';
+        if (lines.some((l) => !l.serviceId)) return t('sales.wizard.errorServices');
+        if (lines.length === 0) return t('sales.wizard.errorServicesEmpty');
         return '';
       case 4:
-        if (Math.abs(paymentDiff) > 0.01) return `Сумма платежей не совпадает с итогом (разница ${fmt(paymentDiff)} ₽)`;
+        if (Math.abs(paymentDiff) > 0.01) return `${t('sales.wizard.errorPaymentDiff')} ${fmt(paymentDiff)} ₽)`;
         return '';
       default:
         return '';
@@ -244,9 +256,9 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
     try {
       const res  = await fetch('/api/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body) });
       const json = await res.json() as { success: boolean; data?: { appointmentId?: string }; error?: { message: string } };
-      if (!json.success) { setError(json.error?.message ?? 'Ошибка сохранения'); return; }
+      if (!json.success) { setError(json.error?.message ?? t('sales.wizard.errorSave')); return; }
       onSaved();
-    } catch { setError('Ошибка соединения'); }
+    } catch { setError(t('sales.wizard.errorConnection')); }
     finally  { setSaving(false); }
   }
 
@@ -257,8 +269,8 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-luxury shrink-0">
           <div>
-            <h2 className="font-serif text-xl font-medium text-text-primary">Новый клиент — продажа</h2>
-            <p className="text-xs text-text-tertiary mt-0.5">Шаг {step + 1} из {STEPS.length}: {STEPS[step]}</p>
+            <h2 className="font-serif text-xl font-medium text-text-primary">{t('sales.wizard.title')}</h2>
+            <p className="text-xs text-text-tertiary mt-0.5">{t('sales.wizard.stepLabel')} {step + 1} {t('sales.wizard.stepOf')} {STEPS.length}: {STEPS[step]}</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-charcoal transition-colors">
             <X className="w-4 h-4" />
@@ -282,50 +294,50 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Имя *</label>
-                  <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputCls} placeholder="Имя" />
+                  <label className={labelCls}>{t('sales.wizard.labelFirstName')}</label>
+                  <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputCls} placeholder={t('sales.wizard.placeholderFirstName')} />
                 </div>
                 <div>
-                  <label className={labelCls}>Фамилия *</label>
-                  <input value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputCls} placeholder="Фамилия" />
+                  <label className={labelCls}>{t('sales.wizard.labelLastName')}</label>
+                  <input value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputCls} placeholder={t('sales.wizard.placeholderLastName')} />
                 </div>
               </div>
               <div>
-                <label className={labelCls}>Телефон *</label>
+                <label className={labelCls}>{t('sales.wizard.labelPhone')}</label>
                 <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} placeholder="+7 999 000-00-00" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>WhatsApp</label>
+                  <label className={labelCls}>{t('sales.wizard.labelWhatsapp')}</label>
                   <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={inputCls} placeholder="+7..." />
                 </div>
                 <div>
-                  <label className={labelCls}>Telegram</label>
+                  <label className={labelCls}>{t('sales.wizard.labelTelegram')}</label>
                   <input value={telegram} onChange={(e) => setTelegram(e.target.value)} className={inputCls} placeholder="@username" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Дата рождения</label>
+                  <label className={labelCls}>{t('sales.wizard.labelDob')}</label>
                   <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className={inputCls} />
                 </div>
                 <div>
-                  <label className={labelCls}>Язык</label>
+                  <label className={labelCls}>{t('sales.wizard.labelLang')}</label>
                   <select value={langPref} onChange={(e) => setLangPref(e.target.value as 'ru' | 'en')} className={selectCls}>
-                    <option value="ru">Русский</option>
+                    <option value="ru">{t('sales.wizard.langRu')}</option>
                     <option value="en">English</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label className={labelCls}>Источник</label>
+                <label className={labelCls}>{t('sales.wizard.labelSource')}</label>
                 <select value={sourceChannel} onChange={(e) => setSourceChannel(e.target.value as typeof sourceChannel)} className={selectCls}>
                   {SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
               <div>
-                <label className={labelCls}>Кто порекомендовал</label>
-                <input value={referredBy} onChange={(e) => setReferredBy(e.target.value)} className={inputCls} placeholder="Имя или ссылка на клиента" />
+                <label className={labelCls}>{t('sales.wizard.labelReferredBy')}</label>
+                <input value={referredBy} onChange={(e) => setReferredBy(e.target.value)} className={inputCls} placeholder={t('sales.wizard.placeholderReferredBy')} />
               </div>
             </>
           )}
@@ -333,7 +345,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
           {/* STEP 1 — Manager */}
           {step === 1 && (
             <>
-              <p className="text-sm text-text-secondary">Выберите трейд-менеджера — сотрудника, который занимался привлечением и оформлением.</p>
+              <p className="text-sm text-text-secondary">{t('sales.wizard.managerHint')}</p>
               <div className="space-y-2">
                 {managers.map((m) => (
                   <button
@@ -351,7 +363,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
                   </button>
                 ))}
                 {managers.length === 0 && (
-                  <p className="text-sm text-text-tertiary text-center py-6">Менеджеры не найдены</p>
+                  <p className="text-sm text-text-tertiary text-center py-6">{t('sales.wizard.noManagers')}</p>
                 )}
               </div>
             </>
@@ -360,7 +372,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
           {/* STEP 2 — Specialists */}
           {step === 2 && (
             <>
-              <p className="text-sm text-text-secondary">Выберите специалистов (можно несколько).</p>
+              <p className="text-sm text-text-secondary">{t('sales.wizard.specialistsHint')}</p>
               <div className="space-y-2">
                 {specialists.map((s) => {
                   const selected = selectedSpecialists.includes(s.userId);
@@ -393,14 +405,14 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
           {step === 3 && (
             <>
               <div>
-                <label className={labelCls}>Дата и время</label>
+                <label className={labelCls}>{t('sales.wizard.labelDateTime')}</label>
                 <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={inputCls} />
               </div>
               <div className="space-y-3">
                 {lines.map((line, i) => (
                   <div key={i} className="rounded-xl border border-border-luxury p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">Услуга {i + 1}</span>
+                      <span className="text-xs font-medium text-text-tertiary uppercase tracking-wider">{t('sales.wizard.serviceNum')} {i + 1}</span>
                       {lines.length > 1 && (
                         <button type="button" onClick={() => removeLine(i)} className="p-1 text-red-400 hover:text-red-300 transition-colors">
                           <Trash2 className="w-3.5 h-3.5" />
@@ -412,9 +424,9 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
                       onChange={(e) => onServiceSelect(i, e.target.value)}
                       className={selectCls}
                     >
-                      <option value="">Выберите услугу</option>
+                      <option value="">{t('sales.wizard.selectService')}</option>
                       {services.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name} — {s.basePrice.toLocaleString('ru-RU')} ₽</option>
+                        <option key={s.id} value={s.id}>{s.name} — {s.basePrice.toLocaleString(locale)} ₽</option>
                       ))}
                     </select>
                     {selectedSpecialists.length > 1 && (
@@ -423,7 +435,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
                         onChange={(e) => updateLine(i, { performedBySpecialistId: e.target.value })}
                         className={selectCls}
                       >
-                        <option value="">Специалист (не указан)</option>
+                        <option value="">{t('sales.wizard.specialistUnset')}</option>
                         {selectedSpecialists.map((uid) => {
                           const sp = specialists.find((s) => s.userId === uid);
                           return sp ? <option key={uid} value={sp.id}>{sp.name}</option> : null;
@@ -432,7 +444,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
                     )}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className={labelCls}>Кол-во</label>
+                        <label className={labelCls}>{t('sales.wizard.labelQty')}</label>
                         <input
                           type="number" min="1" max="50" value={line.quantity}
                           onChange={(e) => updateLine(i, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
@@ -440,7 +452,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
                         />
                       </div>
                       <div>
-                        <label className={labelCls}>Цена (₽)</label>
+                        <label className={labelCls}>{t('sales.wizard.labelPrice')}</label>
                         <input
                           type="number" min="0" step="0.01" value={line.unitPrice}
                           onChange={(e) => updateLine(i, { unitPrice: parseFloat(e.target.value) || 0 })}
@@ -449,7 +461,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
                       </div>
                     </div>
                     <div className="text-right text-xs text-text-tertiary">
-                      Итого: <span className="text-champagne font-medium">{fmt(line.unitPrice * line.quantity)} ₽</span>
+                      {t('sales.wizard.lineTotal')} <span className="text-champagne font-medium">{fmt(line.unitPrice * line.quantity)} ₽</span>
                     </div>
                   </div>
                 ))}
@@ -459,10 +471,10 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
                 onClick={addLine}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-champagne/30 text-champagne/70 text-sm hover:bg-champagne/5 transition-colors"
               >
-                <Plus className="w-4 h-4" /> Добавить услугу
+                <Plus className="w-4 h-4" /> {t('sales.wizard.addService')}
               </button>
               <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-champagne/5 border border-champagne/10">
-                <span className="text-sm text-text-secondary">Итого по заказу</span>
+                <span className="text-sm text-text-secondary">{t('sales.wizard.orderTotal')}</span>
                 <span className="text-lg font-semibold text-champagne">{fmt(saleTotal)} ₽</span>
               </div>
             </>
@@ -472,14 +484,14 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
           {step === 4 && (
             <>
               <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-champagne/5 border border-champagne/10 mb-2">
-                <span className="text-sm text-text-secondary">Сумма к оплате</span>
+                <span className="text-sm text-text-secondary">{t('sales.wizard.paymentDue')}</span>
                 <span className="text-lg font-semibold text-champagne">{fmt(saleTotal)} ₽</span>
               </div>
               {[
-                { label: 'Наличные', value: amountCash,    set: setAmountCash    },
-                { label: 'Карта',    value: amountCard,    set: setAmountCard    },
-                { label: 'Рассрочка', value: amountLoan,  set: setAmountLoan    },
-                { label: 'Пакет/баланс', value: amountPackage, set: setAmountPackage },
+                { label: t('sales.wizard.paymentCash'),    value: amountCash,    set: setAmountCash    },
+                { label: t('sales.wizard.paymentCard'),    value: amountCard,    set: setAmountCard    },
+                { label: t('sales.wizard.paymentLoan'),    value: amountLoan,    set: setAmountLoan    },
+                { label: t('sales.wizard.paymentPackage'), value: amountPackage, set: setAmountPackage },
               ].map(({ label, value, set }) => (
                 <div key={label}>
                   <label className={labelCls}>{label} (₽)</label>
@@ -496,7 +508,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
                   : 'border-red-500/30 bg-red-500/5'
               }`}>
                 <span className="text-sm text-text-secondary">
-                  {Math.abs(paymentDiff) < 0.01 ? '✓ Оплата сходится' : `Разница: ${fmt(paymentDiff)} ₽`}
+                  {Math.abs(paymentDiff) < 0.01 ? t('sales.wizard.paymentOk') : `${t('sales.wizard.paymentDiff')} ${fmt(paymentDiff)} ₽`}
                 </span>
                 <span className={`text-sm font-semibold ${Math.abs(paymentDiff) < 0.01 ? 'text-green-400' : 'text-red-400'}`}>
                   {fmt(paymentTotal)} / {fmt(saleTotal)} ₽
@@ -509,22 +521,22 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
           {step === 5 && (
             <>
               <div>
-                <label className={labelCls}>Комментарий (виден всем)</label>
+                <label className={labelCls}>{t('sales.wizard.labelComment')}</label>
                 <textarea
                   value={comments}
                   onChange={(e) => setComments(e.target.value)}
                   rows={4}
-                  placeholder="Пожелания, особенности процедуры..."
+                  placeholder={t('sales.wizard.placeholderComment')}
                   className={`${inputCls} resize-none`}
                 />
               </div>
               <div>
-                <label className={labelCls}>Внутренняя заметка (только для администраторов)</label>
+                <label className={labelCls}>{t('sales.wizard.labelInternalNote')}</label>
                 <textarea
                   value={internalNote}
                   onChange={(e) => setInternalNote(e.target.value)}
                   rows={3}
-                  placeholder="Не видна клиенту..."
+                  placeholder={t('sales.wizard.placeholderInternalNote')}
                   className={`${inputCls} resize-none`}
                 />
               </div>
@@ -535,19 +547,19 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
           {step === 6 && (
             <>
               {commissionAllocs.length === 0 ? (
-                <p className="text-sm text-text-tertiary text-center py-8">Специалисты не выбраны — комиссия не распределяется</p>
+                <p className="text-sm text-text-tertiary text-center py-8">{t('sales.wizard.noSpecialistsForCommission')}</p>
               ) : (
                 <div className="rounded-xl border border-border-luxury bg-charcoal/40 overflow-hidden">
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-border-luxury/60">
                     <Percent className="w-3.5 h-3.5 text-champagne shrink-0" />
-                    <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Распределение комиссии</span>
+                    <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">{t('sales.commission.title')}</span>
                     <span className="ml-auto text-xs text-text-tertiary tabular-nums">
-                      Сумма: <span className="text-text-secondary">{fmt(saleTotal)} ₽</span>
+                      {t('sales.commission.saleTotal')} <span className="text-text-secondary">{fmt(saleTotal)} ₽</span>
                     </span>
                   </div>
                   {saleTotal === 0 && (
                     <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-400">
-                      Сумма продажи ₽0 — комиссия будет ₽0
+                      {t('sales.commission.zeroWarning')}
                     </div>
                   )}
                   <div className="divide-y divide-border-luxury/40">
@@ -589,7 +601,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
                     <span>
                       {allocTotalPct > 100 && '⚠ '}
                       {allocTotalPct === 100 && '✓ '}
-                      Итого: <span className="font-medium">{allocTotalPct.toFixed(1)}%</span>
+                      {t('sales.commission.total')} <span className="font-medium">{allocTotalPct.toFixed(1)}%</span>
                     </span>
                     <span className="font-medium">{fmt(allocTotalAmt)} ₽</span>
                   </div>
@@ -614,7 +626,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
               disabled={saving}
               className="flex items-center gap-1 px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors disabled:opacity-50"
             >
-              <ChevronLeft className="w-4 h-4" /> Назад
+              <ChevronLeft className="w-4 h-4" /> {t('sales.wizard.back')}
             </button>
           ) : (
             <button
@@ -623,7 +635,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
               disabled={saving}
               className="px-4 py-2.5 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors disabled:opacity-50"
             >
-              Отмена
+              {t('sales.wizard.cancel')}
             </button>
           )}
           <div className="flex-1" />
@@ -633,7 +645,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
               onClick={next}
               className="flex items-center gap-1 px-5 py-2.5 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors"
             >
-              Далее <ChevronRight className="w-4 h-4" />
+              {t('sales.wizard.next')} <ChevronRight className="w-4 h-4" />
             </button>
           ) : (
             <button
@@ -642,7 +654,7 @@ export function FirstTimeClientWizard({ onClose, onSaved, specialists, services,
               disabled={saving}
               className="px-5 py-2.5 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50"
             >
-              {saving ? 'Сохранение...' : 'Сохранить продажу'}
+              {saving ? t('sales.wizard.saving') : t('sales.wizard.saveSale')}
             </button>
           )}
         </div>

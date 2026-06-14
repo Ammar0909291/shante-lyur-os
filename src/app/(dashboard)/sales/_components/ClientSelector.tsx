@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Search, X, UserPlus, Star, Clock, Hash } from 'lucide-react';
+import { useLanguage } from '@/contexts/language';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,17 +48,6 @@ const CLIENT_TYPE_BADGE: Record<string, string> = {
   RETURNING:    'text-blue-400 bg-blue-400/10',
   SUBSCRIPTION: 'text-champagne bg-champagne/10',
 };
-const CLIENT_TYPE_LABEL: Record<string, string> = {
-  NEW: 'Новый', RETURNING: 'Постоянный', SUBSCRIPTION: 'Абонемент',
-};
-
-const SOURCE_OPTIONS = [
-  { value: 'WALK_IN',        label: 'Walk-in' },
-  { value: 'SOCIAL_MEDIA',   label: 'Соцсети' },
-  { value: 'REFERRAL',       label: 'Рекомендация' },
-  { value: 'ONLINE_BOOKING', label: 'Онлайн-запись' },
-  { value: 'OTHER',          label: 'Другое' },
-];
 
 function useDebounce<T>(value: T, delay: number): T {
   const [dv, setDv] = React.useState(value);
@@ -68,17 +58,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return dv;
 }
 
-function formatRelative(dateStr: string | null): string {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000);
-  if (diffDays === 0) return 'Сегодня';
-  if (diffDays === 1) return 'Вчера';
-  if (diffDays < 7)  return `${diffDays} дн. назад`;
-  if (diffDays < 30) return `${Math.round(diffDays / 7)} нед. назад`;
-  return `${Math.round(diffDays / 30)} мес. назад`;
-}
-
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function ClientSelector({
@@ -86,9 +65,36 @@ export function ClientSelector({
   onChange,
   onNewClient,
   disabled = false,
-  placeholder = 'Поиск клиента по имени или телефону...',
+  placeholder,
   allowCreate = true,
 }: Props) {
+  const { t } = useLanguage();
+
+  const CLIENT_TYPE_LABEL: Record<string, string> = {
+    NEW: t('sales.client.typeNew'),
+    RETURNING: t('sales.client.typeReturning'),
+    SUBSCRIPTION: t('sales.client.typeSubscription'),
+  };
+
+  const SOURCE_OPTIONS = [
+    { value: 'WALK_IN',        label: t('sales.client.sourceWalkIn') },
+    { value: 'SOCIAL_MEDIA',   label: t('sales.client.sourceSocial') },
+    { value: 'REFERRAL',       label: t('sales.client.sourceReferral') },
+    { value: 'ONLINE_BOOKING', label: t('sales.client.sourceOnline') },
+    { value: 'OTHER',          label: t('sales.client.sourceOther') },
+  ];
+
+  function formatRelative(dateStr: string | null): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+    if (diffDays === 0) return t('sales.client.today');
+    if (diffDays === 1) return t('sales.client.yesterday');
+    if (diffDays < 7)  return `${diffDays} ${t('sales.client.daysAgo')}`;
+    if (diffDays < 30) return `${Math.round(diffDays / 7)} ${t('sales.client.weeksAgo')}`;
+    return `${Math.round(diffDays / 30)} ${t('sales.client.monthsAgo')}`;
+  }
+
   const [query, setQuery]       = React.useState('');
   const [results, setResults]   = React.useState<ClientSearchResult[]>([]);
   const [open, setOpen]         = React.useState(false);
@@ -167,9 +173,9 @@ export function ClientSelector({
   async function handleCreateNew(e: React.FormEvent) {
     e.preventDefault();
     setNewError('');
-    if (!newFirst.trim()) { setNewError('Введите имя'); return; }
-    if (!newLast.trim())  { setNewError('Введите фамилию'); return; }
-    if (newPhone.trim().length < 5) { setNewError('Введите корректный телефон'); return; }
+    if (!newFirst.trim()) { setNewError(t('sales.client.errorFirstName')); return; }
+    if (!newLast.trim())  { setNewError(t('sales.client.errorLastName')); return; }
+    if (newPhone.trim().length < 5) { setNewError(t('sales.client.errorPhone')); return; }
     setCreating(true);
     try {
       const res  = await fetch('/api/clients', {
@@ -190,7 +196,7 @@ export function ClientSelector({
         error?: { message: string };
       };
       if (!json.success || !json.data) {
-        setNewError(json.error?.message ?? 'Ошибка создания клиента');
+        setNewError(json.error?.message ?? t('sales.client.errorCreate'));
         return;
       }
       const created: ClientSearchResult = {
@@ -210,7 +216,7 @@ export function ClientSelector({
       onNewClient?.({ firstName: newFirst, lastName: newLast, phone: newPhone, email: newEmail || undefined, sourceChannel: newSource });
       select(created);
     } catch {
-      setNewError('Ошибка соединения');
+      setNewError(t('sales.client.errorConnection'));
     } finally {
       setCreating(false);
     }
@@ -244,7 +250,7 @@ export function ClientSelector({
           </span>
           {value.totalVisits > 0 && (
             <span className="text-[10px] text-text-tertiary tabular-nums">
-              {value.totalVisits} визит.
+              {value.totalVisits} {t('sales.client.visits')}
             </span>
           )}
           {!disabled && (
@@ -268,7 +274,7 @@ export function ClientSelector({
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t('sales.client.searchPlaceholder')}
           disabled={disabled}
           className={`${inputCls} pl-9 pr-9`}
           autoComplete="off"
@@ -286,8 +292,8 @@ export function ClientSelector({
             >
               <UserPlus className="w-4 h-4 text-champagne shrink-0" />
               <div className="text-left">
-                <p className="text-sm font-medium text-champagne">Первый визит клиента</p>
-                <p className="text-xs text-text-tertiary">Создать нового клиента</p>
+                <p className="text-sm font-medium text-champagne">{t('sales.client.firstVisitLabel')}</p>
+                <p className="text-xs text-text-tertiary">{t('sales.client.firstVisitSub')}</p>
               </div>
             </button>
           )}
@@ -308,12 +314,12 @@ export function ClientSelector({
                 <div>
                   <p className="text-sm font-medium text-text-primary">
                     {c.firstName} {c.lastName}
-                    {c.blacklisted && <span className="ml-1.5 text-[10px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">ЧС</span>}
+                    {c.blacklisted && <span className="ml-1.5 text-[10px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">{t('sales.client.blacklisted')}</span>}
                   </p>
                   <p className="text-xs text-text-tertiary flex items-center gap-2">
                     {c.phone && <span className="flex items-center gap-1"><Hash className="w-3 h-3" />{c.phone}</span>}
                     {c.lastVisitAt && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatRelative(c.lastVisitAt)}</span>}
-                    {c.totalVisits > 0 && <span>{c.totalVisits} визит.</span>}
+                    {c.totalVisits > 0 && <span>{c.totalVisits} {t('sales.client.visits')}</span>}
                   </p>
                 </div>
               </div>
@@ -331,7 +337,7 @@ export function ClientSelector({
           ))}
 
           {results.length === 0 && query.trim().length >= 2 && !searching && (
-            <p className="text-sm text-text-tertiary px-4 py-3">Клиент не найден</p>
+            <p className="text-sm text-text-tertiary px-4 py-3">{t('sales.client.notFound')}</p>
           )}
         </div>
       )}
@@ -339,7 +345,7 @@ export function ClientSelector({
       {showNew && (
         <div className="mt-3 rounded-xl border border-champagne/20 bg-charcoal/50 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-champagne uppercase tracking-wider">Новый клиент</p>
+            <p className="text-xs font-semibold text-champagne uppercase tracking-wider">{t('sales.client.newClientTitle')}</p>
             <button type="button" onClick={() => setShowNew(false)} className="p-1 text-text-tertiary hover:text-text-primary transition-colors">
               <X className="w-3.5 h-3.5" />
             </button>
@@ -351,24 +357,24 @@ export function ClientSelector({
 
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-xs text-text-muted mb-1">Имя *</label>
-              <input value={newFirst} onChange={(e) => setNewFirst(e.target.value)} placeholder="Имя" className={inputCls} />
+              <label className="block text-xs text-text-muted mb-1">{t('sales.client.labelFirstName')}</label>
+              <input value={newFirst} onChange={(e) => setNewFirst(e.target.value)} placeholder={t('sales.client.placeholderFirstName')} className={inputCls} />
             </div>
             <div>
-              <label className="block text-xs text-text-muted mb-1">Фамилия *</label>
-              <input value={newLast} onChange={(e) => setNewLast(e.target.value)} placeholder="Фамилия" className={inputCls} />
+              <label className="block text-xs text-text-muted mb-1">{t('sales.client.labelLastName')}</label>
+              <input value={newLast} onChange={(e) => setNewLast(e.target.value)} placeholder={t('sales.client.placeholderLastName')} className={inputCls} />
             </div>
           </div>
           <div>
-            <label className="block text-xs text-text-muted mb-1">Телефон *</label>
+            <label className="block text-xs text-text-muted mb-1">{t('sales.client.labelPhone')}</label>
             <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="+7 999 000-00-00" className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-text-muted mb-1">Эл. почта</label>
-            <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="почта@пример.ru" type="email" className={inputCls} />
+            <label className="block text-xs text-text-muted mb-1">{t('sales.client.labelEmail')}</label>
+            <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder={t('sales.client.placeholderEmail')} type="email" className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-text-muted mb-1">Источник</label>
+            <label className="block text-xs text-text-muted mb-1">{t('sales.client.labelSource')}</label>
             <select
               value={newSource}
               onChange={(e) => setNewSource(e.target.value as NewClientData['sourceChannel'])}
@@ -383,7 +389,7 @@ export function ClientSelector({
               onClick={() => setShowNew(false)}
               className="flex-1 px-3 py-2 rounded-xl border border-border-luxury text-text-secondary text-sm hover:text-text-primary hover:bg-charcoal transition-colors"
             >
-              Отмена
+              {t('sales.client.cancel')}
             </button>
             <button
               type="button"
@@ -391,7 +397,7 @@ export function ClientSelector({
               disabled={creating}
               className="flex-1 px-3 py-2 rounded-xl bg-champagne/10 border border-champagne/30 text-champagne text-sm font-medium hover:bg-champagne/20 transition-colors disabled:opacity-50"
             >
-              {creating ? 'Создание...' : 'Создать и выбрать'}
+              {creating ? t('sales.client.creating') : t('sales.client.createSelect')}
             </button>
           </div>
         </div>

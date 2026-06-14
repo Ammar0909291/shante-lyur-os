@@ -86,14 +86,14 @@ export function getAppointmentStatusLabel(status: string, t?: (key: string) => s
   const key = STATUS_KEYS[status];
   if (t && key) return t(key);
   const fallback: Record<string, string> = {
-    PENDING: 'Ожидание',
-    CONFIRMED: 'Подтверждено',
-    COMPLETED: 'Завершено',
-    CANCELLED: 'Отменено',
-    NO_SHOW: 'Неявка',
-    ARRIVED: 'Прибыл',
-    ACTIVE: 'В процессе',
-    WAITING: 'Ожидает специалиста',
+    PENDING: 'Pending',
+    CONFIRMED: 'Confirmed',
+    COMPLETED: 'Completed',
+    CANCELLED: 'Cancelled',
+    NO_SHOW: 'No Show',
+    ARRIVED: 'Arrived',
+    ACTIVE: 'In Progress',
+    WAITING: 'Waiting',
   };
   return fallback[status] ?? status;
 }
