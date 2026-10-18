@@ -26,3 +26,23 @@ Paste this at the start of any new session, or save it as CLAUDE.md / memory in 
 
 ## Honest limit
 The reference is AI-generated footage. A procedural renderer can approach the colours, contrast, embers and lensing but not match its photoreal texture detail. Best results: hybrid (AI-generated hero clips from the user + my voice-over, verified facts, graphics, subtitles, music, mix, caption).
+
+## Shot anatomy learned from the reference (apply to every frame)
+1. One hero subject, slightly off-centre, framed by leading curves (gas arcs, light streaks).
+2. Three depth planes: out-of-focus foreground debris/bokeh, sharp mid-ground hero, soft background.
+3. Volumetric atmosphere in every space shot: layered dust and gas with fine filament detail, lit from inside by the hero.
+4. True blacks (0–3 %), highlights near white with a soft roll-off, a limited palette per scene; gentle S-curve; cool shadows and warm highlights; fine grain.
+5. Slow push-ins and drifts of at least 4 s each, with parallax between the depth planes; no fast cuts.
+6. Sound: a ticking pulse under tension, strings swelling at reveals, silence before key questions (in the style of the reference score, never the copyrighted track).
+7. Real imagery wherever it exists: NASA Blue Marble / Black Marble for Earth (public domain) and the ESO Milky Way panorama (CC BY 4.0, credit ESO/S. Brunier). Do not add nebulae where none exist (for example around Earth orbit).
+
+## Long-form YouTube format (documentaries)
+- 16:9 master at 1920×1080 minimum (3840×2160 when render time allows), 24 or 30 fps, H.264 High at CRF 15–16, AAC 192–320 kbps, −14 LUFS integrated, −1 dBTP.
+- Layout: 1920×1080 stage. Subtitles bottom-centre, 38 px semibold, strong shadow, ≤ 2 lines. Chapter cards top-left (serif title over a small amber "CHAPTER n" label). Category tag top-right (for example "Real experiment", "Hypothetical", "Illustration"). Small low-opacity brand mark bottom-right.
+- Structure: a cold-open hook, then numbered chapters with on-screen chapter cards (also listed as YouTube chapters in the description), and a closing question card plus the brand card.
+- Runtime: verified from the real narration timeline, never estimated.
+- Narration for long-form: Piper en_US-norman-medium (public domain, LibriVox) or en_US-joe-medium (CC0), length_scale ≈ 1.15 (about 170 wpm), silence trimmed, loudnorm per clip.
+- Shorts/Reels: cut 9:16 versions from the same master using the vertical rules above.
+
+## Current long-form project
+"The Reality Test — What If Everything You Know Is a Simulation?" for 3D Universal Learning: an 8:58 16:9 documentary in 8 chapters, rendered with the same three.js pipeline at 1920×1080. People and city shots are stylised silhouettes. For photoreal versions of those shots, use AI-generated clips in the style above and keep the narration, graphics, subtitles and mix.
