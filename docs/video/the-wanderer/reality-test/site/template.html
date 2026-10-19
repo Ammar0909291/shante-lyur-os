@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Reality Test · 3D Universal Learning</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root { --amber: #f2b45a; --cyan: #7fd8ff; --ink: #f4f1ea; }
+html, body { margin: 0; background: #000; overflow: hidden; }
+#stage { position: relative; width: 1920px; height: 1080px; transform-origin: 0 0; }
+#c { display: block; width: 1920px; height: 1080px; }
+#ov { position: absolute; inset: 0; pointer-events: none; color: var(--ink); font-family: Inter, system-ui, sans-serif; }
+.o { position: absolute; opacity: 0; visibility: hidden; }
+/* subtitles */
+.sub { left: 0; right: 0; bottom: 70px; text-align: center; }
+.sub span { display: inline-block; max-width: 1380px; font: 600 38px/1.32 Inter, sans-serif; letter-spacing: 0.005em;
+  text-shadow: 0 0 6px rgba(0,0,0,.95), 0 2px 4px rgba(0,0,0,.9), 0 0 24px rgba(0,0,0,.8); }
+.chap { left: 110px; top: 92px; }
+.chap small, .card small { display: block; font: 600 17px Inter; letter-spacing: 0.32em; color: var(--amber); }
+.chap b { display: block; margin-top: 10px; font: 500 72px/1 "Cormorant Garamond", serif; letter-spacing: 0.01em; text-shadow: 0 2px 30px rgba(0,0,0,.7); }
+.brand { right: 70px; bottom: 30px; font: 600 14px Inter; letter-spacing: 0.34em; color: rgba(255,255,255,.75); }
+.tag { right: 70px; top: 60px; font: 600 15px Inter; letter-spacing: 0.26em; text-transform: uppercase; color: rgba(255,255,255,.88);
+  background: rgba(8,10,16,.55); border: 1px solid rgba(255,255,255,.22); padding: 9px 16px 9px 14px; border-radius: 4px; }
+.tag i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); margin-right: 10px; vertical-align: 1px; }
+.card { left: 110px; bottom: 210px; padding: 22px 28px; background: rgba(6,8,14,.62); border-left: 3px solid var(--amber); max-width: 760px; }
+.card b { display: block; margin-top: 8px; font: 500 46px/1.08 "Cormorant Garamond", serif; }
+.card p { margin: 10px 0 0; font: 400 21px/1.45 Inter; color: #d9dde6; }
+.cred { left: 110px; bottom: 30px; font: 400 14px Inter; color: rgba(255,255,255,.6); letter-spacing: .02em; }
+.list { left: 0; top: 300px; padding: 40px 60px 30px 120px; background: linear-gradient(90deg, rgba(4,6,10,.82) 0%, rgba(4,6,10,.72) 70%, rgba(4,6,10,0) 100%); }
+.list p { margin: 0 0 26px; font: 500 40px/1.15 "Cormorant Garamond", serif; text-shadow: 0 2px 20px rgba(0,0,0,.8); }
+.list p em { font-style: normal; font: 700 18px Inter; letter-spacing: .3em; color: var(--amber); margin-right: 18px; vertical-align: 8px; }
+.eq { font: 500 54px/1.2 "Cormorant Garamond", serif; text-shadow: 0 2px 20px rgba(0,0,0,.8); }
+.eq small { display: block; font: 500 17px Inter; letter-spacing: .26em; color: var(--cyan); text-transform: uppercase; margin-bottom: 8px; }
+.center { left: 0; right: 0; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.center b { font: 500 64px/1.15 "Cormorant Garamond", serif; letter-spacing: .02em; max-width: 1500px; }
+.lab { font: 500 18px "JetBrains Mono", monospace; color: var(--cyan); letter-spacing: .06em; text-shadow: 0 0 8px rgba(0,0,0,.9); }
+.note { font: 500 24px/1.4 Inter; color: #e9ecf2; text-shadow: 0 0 10px rgba(0,0,0,.95); }
+</style></head><body>
+<div id="stage"><canvas id="c" width="1920" height="1080"></canvas><div id="ov"></div></div>
+<script>
+// fit the 1920x1080 stage to any window (preview); capture runs at exactly 1920x1080
+(function fit(){ const s = Math.min(innerWidth / 1920, innerHeight / 1080); document.getElementById('stage').style.transform = 'scale(' + s + ')'; addEventListener('resize', fit, { once: true }); })();
+const TL = __TL__;
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="lib.js"></script>
+<script src="world_city.js"></script>
+<script src="main.js"></script>
+<script>
+// overlay classes by id prefix
+const CLS = { sub: 'sub', chap: 'chap', brand: 'brand', tag: 'tag', cred: 'cred' };
+const _ov = ov; ov = function (id, html, css) { const e = _ov(id, html, css); if (!e._cls) { const k = Object.keys(CLS).find(p => id.startsWith(p)); e.classList.add(...((k != null ? CLS[k] : (window.OVCLS && OVCLS[id]) || 'card').split(' ').filter(Boolean))); e._cls = 1; } return e; };
+</script>
+__SHOTS__
+</body></html>

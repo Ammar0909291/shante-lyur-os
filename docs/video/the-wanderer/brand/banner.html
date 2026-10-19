@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Inter:wght@500;700&display=swap">
+<style>html,body{margin:0;background:#000;overflow:hidden}#w{position:relative;width:2560px;height:1440px}canvas{display:block}
+.txt{position:absolute;left:507px;top:508px;width:1546px;height:423px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+h1{margin:0;color:#fff;font:600 168px/1 "Cormorant Garamond",serif;letter-spacing:.09em;text-shadow:0 8px 60px rgba(0,0,0,.85)}
+p{margin:24px 0 0;color:#f2b45a;font:700 25px Inter;letter-spacing:.3em;white-space:nowrap;text-shadow:0 2px 20px #000}
+</style></head><body><div id="w"><canvas id="c" width="2560" height="1440"></canvas><div class="txt"><h1>THE WANDERER</h1><p>EXPLORE REALITY · QUESTION ASSUMPTIONS · FOLLOW THE EVIDENCE</p></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script><script src="lib.js"></script>
+<script>
+const r = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true }); r.setPixelRatio(1); r.setSize(2560, 1440, false); r.outputEncoding = THREE.sRGBEncoding;
+const L = new THREE.TextureLoader(), T = {}; const ld = (k, u, s = true) => new Promise(res => L.load(u, t => { if (s) t.encoding = THREE.sRGBEncoding; t.anisotropy = 16; T[k] = t; res(); }));
+window.__done = Promise.all([ld('day', 'tex/earth_day.jpg'), ld('night', 'tex/earth_night.jpg'), ld('clouds', 'tex/earth_clouds.jpg', false)]).then(() => {
+  const s = new THREE.Scene(); s.add(starPoints(9000, 500, 77, 1.6, 1.0));
+  const e = makeEarth(T, { sun: V3(-0.25, 0.32, -1) }); e.userData.rot0 = 2.6; updateEarth(e, 0, 0); s.add(e);
+  const cam = new THREE.PerspectiveCamera(30, 2560 / 1440, 0.001, 2000); cam.position.set(0, 1.18, 1.95); cam.lookAt(0, 1.32, 0);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW(), color: new THREE.Color(1.0, 0.62, 0.3), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0.55 }));
+  glow.position.set(-0.35, 1.1, -0.9); glow.scale.setScalar(1.6); s.add(glow);
+  r.render(s, cam); return true; });
+</script></body></html>

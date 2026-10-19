@@ -1,0 +1,1385 @@
+{
+"total": 538.471,
+"cues": [
+{
+"i": 0,
+"scene": "window",
+"t0": 4.0,
+"t1": 8.394
+},
+{
+"i": 1,
+"scene": "window",
+"t0": 9.294,
+"t1": 14.169
+},
+{
+"i": 2,
+"scene": "window",
+"t0": 16.369,
+"t1": 22.448
+},
+{
+"i": 3,
+"scene": "window",
+"t0": 23.348,
+"t1": 29.267
+},
+{
+"i": 4,
+"scene": "ascend",
+"t0": 30.867,
+"t1": 34.608
+},
+{
+"i": 5,
+"scene": "ascend",
+"t0": 35.208,
+"t1": 49.504
+},
+{
+"i": 6,
+"scene": "ascend",
+"t0": 50.304,
+"t1": 57.918
+},
+{
+"i": 7,
+"scene": "ascend",
+"t0": 58.718,
+"t1": 63.771
+},
+{
+"i": 8,
+"scene": "build",
+"t0": 65.571,
+"t1": 70.371
+},
+{
+"i": 9,
+"scene": "build",
+"t0": 70.871,
+"t1": 77.612
+},
+{
+"i": 10,
+"scene": "build",
+"t0": 78.112,
+"t1": 86.777
+},
+{
+"i": 11,
+"scene": "worlds",
+"t0": 87.677,
+"t1": 93.764
+},
+{
+"i": 12,
+"scene": "worlds",
+"t0": 94.364,
+"t1": 103.304
+},
+{
+"i": 13,
+"scene": "worlds",
+"t0": 104.104,
+"t1": 114.403
+},
+{
+"i": 14,
+"scene": "archive",
+"t0": 116.003,
+"t1": 122.405
+},
+{
+"i": 15,
+"scene": "archive",
+"t0": 123.005,
+"t1": 134.882
+},
+{
+"i": 16,
+"scene": "archive",
+"t0": 135.782,
+"t1": 144.64
+},
+{
+"i": 17,
+"scene": "archive",
+"t0": 145.54,
+"t1": 156.697
+},
+{
+"i": 18,
+"scene": "archive",
+"t0": 157.597,
+"t1": 162.749
+},
+{
+"i": 19,
+"scene": "archive",
+"t0": 164.149,
+"t1": 175.129
+},
+{
+"i": 20,
+"scene": "archive",
+"t0": 175.929,
+"t1": 188.152
+},
+{
+"i": 21,
+"scene": "archive",
+"t0": 188.952,
+"t1": 200.111
+},
+{
+"i": 22,
+"scene": "zoom",
+"t0": 201.711,
+"t1": 210.992
+},
+{
+"i": 23,
+"scene": "laws",
+"t0": 211.592,
+"t1": 227.449
+},
+{
+"i": 24,
+"scene": "laws",
+"t0": 228.149,
+"t1": 239.981
+},
+{
+"i": 25,
+"scene": "quantum",
+"t0": 240.881,
+"t1": 248.328
+},
+{
+"i": 26,
+"scene": "quantum",
+"t0": 248.828,
+"t1": 259.089
+},
+{
+"i": 27,
+"scene": "quantum",
+"t0": 259.889,
+"t1": 273.859
+},
+{
+"i": 28,
+"scene": "quantum",
+"t0": 274.559,
+"t1": 281.961
+},
+{
+"i": 29,
+"scene": "lab",
+"t0": 283.561,
+"t1": 291.282
+},
+{
+"i": 30,
+"scene": "lab",
+"t0": 291.882,
+"t1": 301.074
+},
+{
+"i": 31,
+"scene": "lab",
+"t0": 301.874,
+"t1": 311.216
+},
+{
+"i": 32,
+"scene": "test",
+"t0": 312.116,
+"t1": 326.493
+},
+{
+"i": 33,
+"scene": "test",
+"t0": 327.093,
+"t1": 337.39
+},
+{
+"i": 34,
+"scene": "test",
+"t0": 338.19,
+"t1": 348.774
+},
+{
+"i": 35,
+"scene": "test",
+"t0": 349.574,
+"t1": 360.895
+},
+{
+"i": 36,
+"scene": "moments",
+"t0": 362.695,
+"t1": 368.253
+},
+{
+"i": 37,
+"scene": "moments",
+"t0": 369.053,
+"t1": 378.906
+},
+{
+"i": 38,
+"scene": "moments",
+"t0": 379.506,
+"t1": 390.677
+},
+{
+"i": 39,
+"scene": "mind",
+"t0": 391.577,
+"t1": 401.56
+},
+{
+"i": 40,
+"scene": "mind",
+"t0": 402.26,
+"t1": 410.942
+},
+{
+"i": 41,
+"scene": "mind",
+"t0": 411.542,
+"t1": 420.048
+},
+{
+"i": 42,
+"scene": "outside",
+"t0": 421.648,
+"t1": 429.654
+},
+{
+"i": 43,
+"scene": "outside",
+"t0": 430.254,
+"t1": 437.312
+},
+{
+"i": 44,
+"scene": "outside",
+"t0": 438.012,
+"t1": 445.892
+},
+{
+"i": 45,
+"scene": "outside",
+"t0": 446.692,
+"t1": 457.548
+},
+{
+"i": 46,
+"scene": "return",
+"t0": 459.548,
+"t1": 464.138
+},
+{
+"i": 47,
+"scene": "return",
+"t0": 464.938,
+"t1": 479.315
+},
+{
+"i": 48,
+"scene": "return",
+"t0": 480.115,
+"t1": 489.937
+},
+{
+"i": 49,
+"scene": "bluedot",
+"t0": 490.937,
+"t1": 500.464
+},
+{
+"i": 50,
+"scene": "bluedot",
+"t0": 501.864,
+"t1": 511.366
+},
+{
+"i": 51,
+"scene": "bluedot",
+"t0": 512.266,
+"t1": 519.371
+}
+],
+"scenes": [
+{
+"id": "drip",
+"t0": 0.0,
+"t1": 3.1,
+"cues": []
+},
+{
+"id": "window",
+"t0": 3.1,
+"t1": 29.967,
+"cues": [
+[
+4.0,
+8.394
+],
+[
+9.294,
+14.169
+],
+[
+16.369,
+22.448
+],
+[
+23.348,
+29.267
+]
+]
+},
+{
+"id": "ascend",
+"t0": 29.967,
+"t1": 64.671,
+"cues": [
+[
+30.867,
+34.608
+],
+[
+35.208,
+49.504
+],
+[
+50.304,
+57.918
+],
+[
+58.718,
+63.771
+]
+]
+},
+{
+"id": "build",
+"t0": 64.671,
+"t1": 86.777,
+"cues": [
+[
+65.571,
+70.371
+],
+[
+70.871,
+77.612
+],
+[
+78.112,
+86.777
+]
+]
+},
+{
+"id": "worlds",
+"t0": 86.777,
+"t1": 115.103,
+"cues": [
+[
+87.677,
+93.764
+],
+[
+94.364,
+103.304
+],
+[
+104.104,
+114.403
+]
+]
+},
+{
+"id": "archive",
+"t0": 115.103,
+"t1": 200.811,
+"cues": [
+[
+116.003,
+122.405
+],
+[
+123.005,
+134.882
+],
+[
+135.782,
+144.64
+],
+[
+145.54,
+156.697
+],
+[
+157.597,
+162.749
+],
+[
+164.149,
+175.129
+],
+[
+175.929,
+188.152
+],
+[
+188.952,
+200.111
+]
+]
+},
+{
+"id": "zoom",
+"t0": 200.811,
+"t1": 210.692,
+"cues": [
+[
+201.711,
+210.992
+]
+]
+},
+{
+"id": "laws",
+"t0": 210.692,
+"t1": 239.981,
+"cues": [
+[
+211.592,
+227.449
+],
+[
+228.149,
+239.981
+]
+]
+},
+{
+"id": "quantum",
+"t0": 239.981,
+"t1": 282.661,
+"cues": [
+[
+240.881,
+248.328
+],
+[
+248.828,
+259.089
+],
+[
+259.889,
+273.859
+],
+[
+274.559,
+281.961
+]
+]
+},
+{
+"id": "lab",
+"t0": 282.661,
+"t1": 311.216,
+"cues": [
+[
+283.561,
+291.282
+],
+[
+291.882,
+301.074
+],
+[
+301.874,
+311.216
+]
+]
+},
+{
+"id": "test",
+"t0": 311.216,
+"t1": 361.795,
+"cues": [
+[
+312.116,
+326.493
+],
+[
+327.093,
+337.39
+],
+[
+338.19,
+348.774
+],
+[
+349.574,
+360.895
+]
+]
+},
+{
+"id": "moments",
+"t0": 361.795,
+"t1": 390.677,
+"cues": [
+[
+362.695,
+368.253
+],
+[
+369.053,
+378.906
+],
+[
+379.506,
+390.677
+]
+]
+},
+{
+"id": "mind",
+"t0": 390.677,
+"t1": 420.748,
+"cues": [
+[
+391.577,
+401.56
+],
+[
+402.26,
+410.942
+],
+[
+411.542,
+420.048
+]
+]
+},
+{
+"id": "outside",
+"t0": 420.748,
+"t1": 458.648,
+"cues": [
+[
+421.648,
+429.654
+],
+[
+430.254,
+437.312
+],
+[
+438.012,
+445.892
+],
+[
+446.692,
+457.548
+]
+]
+},
+{
+"id": "return",
+"t0": 458.648,
+"t1": 490.037,
+"cues": [
+[
+459.548,
+464.138
+],
+[
+464.938,
+479.315
+],
+[
+480.115,
+489.937
+]
+]
+},
+{
+"id": "bluedot",
+"t0": 490.037,
+"t1": 522.471,
+"cues": [
+[
+490.937,
+500.464
+],
+[
+501.864,
+511.366
+],
+[
+512.266,
+519.371
+]
+]
+},
+{
+"id": "end",
+"t0": 522.471,
+"t1": 538.471,
+"cues": []
+}
+],
+"subs": [
+[
+4.0,
+8.544,
+"At 8:17 on an ordinary morning, imagine that the world stops."
+],
+[
+9.294,
+11.027,
+"A bird freezes in midair."
+],
+[
+10.877,
+12.863,
+"Cars stand still on the road."
+],
+[
+12.713,
+14.319,
+"Every sound disappears."
+],
+[
+16.369,
+20.014,
+"Then, one second later, everything carries on."
+],
+[
+19.864,
+22.598,
+"No one else seems to have noticed."
+],
+[
+23.348,
+24.789,
+"What would you conclude?"
+],
+[
+24.639,
+26.78,
+"That your mind played a trick on you?"
+],
+[
+26.63,
+29.417,
+"Or that the world is not quite what you believed?"
+],
+[
+30.867,
+32.759,
+"This is only a thought experiment."
+],
+[
+32.609,
+34.758,
+"Nothing like it has ever been verified."
+],
+[
+35.208,
+37.4,
+"But the doubt behind it is ancient."
+],
+[
+37.25,
+42.885,
+"More than two thousand years ago, the Chinese philosopher Zhuangzi dreamed he was a butterfly,"
+],
+[
+42.735,
+49.654,
+"and woke unsure whether he was a man who had dreamed of being a butterfly, or a butterfly now dreaming it was a man."
+],
+[
+50.304,
+50.984,
+"In 1641,"
+],
+[
+50.834,
+58.068,
+"René Descartes asked how he could be sure that a deceiving demon was not feeding him an entire false world."
+],
+[
+58.718,
+60.996,
+"Today, that old doubt has a modern form."
+],
+[
+60.846,
+63.921,
+"Could the world we experience be running on a computer?"
+],
+[
+65.571,
+70.521,
+"To see why anyone takes this seriously, imagine building a world from scratch."
+],
+[
+70.871,
+73.763,
+"Not a video game with a few scripted characters,"
+],
+[
+73.613,
+77.762,
+"but a world with weather, oceans, cities, and billions of inhabitants."
+],
+[
+78.112,
+83.707,
+"They study the stars, invent technologies, fall in love, and wonder how their universe began."
+],
+[
+83.557,
+86.927,
+"From the inside, their world would simply be the world."
+],
+[
+87.677,
+90.79,
+"Now imagine that its builders can run many such worlds."
+],
+[
+90.64,
+93.914,
+"Some of those worlds might even build worlds of their own."
+],
+[
+94.364,
+99.89,
+"If that were possible, simulated minds could vastly outnumber minds in the original reality."
+],
+[
+99.74,
+103.454,
+"That is the basic intuition behind the simulation hypothesis."
+],
+[
+104.104,
+106.734,
+"But two large ifs are hiding in that sentence."
+],
+[
+106.584,
+110.725,
+"Rendering a convincing world is not the same as creating a conscious mind."
+],
+[
+110.575,
+114.553,
+"And no one has ever built a simulated civilization of conscious beings."
+],
+[
+116.003,
+122.555,
+"In 2003, the philosopher Nick Bostrom published a paper titled, Are You Living in a Computer Simulation?"
+],
+[
+123.005,
+126.73,
+"He did not claim to have found a computer behind the universe."
+],
+[
+126.58,
+131.284,
+"He made a conditional argument about the future of technological civilizations."
+],
+[
+131.134,
+135.032,
+"At least one of three statements, he argued, is very likely true."
+],
+[
+135.782,
+136.205,
+"One."
+],
+[
+136.055,
+144.79,
+"Almost all civilizations at our stage go extinct before they can run vast numbers of realistic simulations of their ancestors."
+],
+[
+145.54,
+145.99,
+"Two."
+],
+[
+145.84,
+152.204,
+"Civilizations that do reach that stage almost never choose to run such simulations."
+],
+[
+152.054,
+154.226,
+"Perhaps they lack interest."
+],
+[
+154.076,
+156.847,
+"Perhaps they consider it unethical."
+],
+[
+157.597,
+158.159,
+"Three."
+],
+[
+158.009,
+162.899,
+"Almost everyone with experiences like ours is living in a simulation."
+],
+[
+164.149,
+165.095,
+"Why the third?"
+],
+[
+164.945,
+170.671,
+"If simulated people vastly outnumber real ones, and you have no evidence about which kind you are,"
+],
+[
+170.521,
+175.279,
+"simple counting says you should expect to be one of the many, not one of the few."
+],
+[
+175.929,
+178.26,
+"But the argument rests on assumptions."
+],
+[
+178.11,
+181.531,
+"The biggest is what Bostrom calls substrate independence:"
+],
+[
+181.381,
+185.203,
+"the idea that a mind could run on silicon as well as on a brain."
+],
+[
+185.053,
+188.302,
+"Bostrom himself calls it not entirely uncontroversial."
+],
+[
+188.952,
+192.14,
+"So the argument does not show that we are simulated."
+],
+[
+191.99,
+196.989,
+"It shows that if its assumptions hold, one of three surprising conclusions follows."
+],
+[
+196.839,
+198.976,
+"Which raises the obvious question."
+],
+[
+198.826,
+200.261,
+"Is there any evidence?"
+],
+[
+201.711,
+204.522,
+"Some people point to the universe itself."
+],
+[
+204.372,
+211.142,
+"From galaxies to grains of sand, from living cells to atoms, nature follows precise mathematical laws."
+],
+[
+211.592,
+215.597,
+"Gravity weakens with the square of distance."
+],
+[
+215.447,
+222.781,
+"Light in a vacuum always travels at the same speed, 299,792,458 metres per second."
+],
+[
+222.631,
+227.599,
+"Could laws like these be the code of a cosmic computer?"
+],
+[
+228.149,
+229.915,
+"It is a tempting analogy."
+],
+[
+229.765,
+231.92,
+"But an analogy is not evidence."
+],
+[
+231.77,
+233.924,
+"Mathematics describes patterns."
+],
+[
+233.774,
+240.131,
+"That a universe can be described by equations does not tell us that a machine is calculating it."
+],
+[
+240.881,
+242.968,
+"Then there is quantum mechanics."
+],
+[
+242.818,
+248.478,
+"Send electrons, one at a time, through a double slit, and each one arrives as a single dot."
+],
+[
+248.828,
+254.427,
+"But dot by dot, a pattern of stripes appears: the signature of a wave interfering with itself."
+],
+[
+254.277,
+255.761,
+"This is not a metaphor."
+],
+[
+255.611,
+259.239,
+"Physicists have watched it build up, one electron at a time."
+],
+[
+259.889,
+265.037,
+"Some compare this to a video game that renders detail only when someone looks."
+],
+[
+264.887,
+269.139,
+"But in quantum physics, a measurement is a physical interaction,"
+],
+[
+268.989,
+272.087,
+"with a detector, an atom, even a stray photon."
+],
+[
+271.937,
+274.009,
+"No human observer is required."
+],
+[
+274.559,
+278.558,
+"No accepted result in physics shows that reality is a simulation."
+],
+[
+278.408,
+279.802,
+"The puzzles are real."
+],
+[
+279.652,
+282.111,
+"They simply do not point to a computer."
+],
+[
+283.561,
+286.962,
+"Imagine a scientist inside a perfect simulation."
+],
+[
+286.812,
+289.807,
+"Every experiment gives consistent results."
+],
+[
+289.657,
+291.432,
+"Every instrument agrees."
+],
+[
+291.882,
+295.283,
+"If the simulation reproduced everything she could observe,"
+],
+[
+295.133,
+298.197,
+"no experiment inside it might ever reveal the truth."
+],
+[
+298.047,
+301.224,
+"The walls of her world would be invisible from within."
+],
+[
+301.874,
+304.495,
+"That is a real philosophical possibility."
+],
+[
+304.345,
+305.761,
+"It is also a warning."
+],
+[
+305.611,
+311.366,
+"An idea that no observation could ever test can explain anything, and so it predicts nothing."
+],
+[
+312.116,
+315.794,
+"Some physicists have tried to make the idea testable."
+],
+[
+315.644,
+323.714,
+"In 2012, Silas Beane, Zohreh Davoudi and Martin Savage asked what would happen if our universe were computed on a grid,"
+],
+[
+323.564,
+326.643,
+"the way physicists simulate particles today."
+],
+[
+327.093,
+331.979,
+"They suggested that the highest-energy cosmic rays might reveal the grid's directions."
+],
+[
+331.829,
+333.851,
+"No such pattern has been reported."
+],
+[
+333.701,
+337.54,
+"And a different kind of simulation need not leave this mark at all."
+],
+[
+338.19,
+342.011,
+"So any claimed glitch in reality should face four questions."
+],
+[
+341.861,
+343.785,
+"What exactly does it predict?"
+],
+[
+343.635,
+344.825,
+"Can it be tested?"
+],
+[
+344.675,
+347.211,
+"Does it rule out ordinary explanations?"
+],
+[
+347.061,
+348.924,
+"And can others reproduce it?"
+],
+[
+349.574,
+355.497,
+"Déjà vu, coincidences and strange personal experiences do not pass that test."
+],
+[
+355.347,
+359.396,
+"A compelling story can make a possibility feel real."
+],
+[
+359.246,
+361.045,
+"Science asks for more."
+],
+[
+362.695,
+365.872,
+"Suppose someone could simulate a world as rich as ours."
+],
+[
+365.722,
+368.403,
+"Would the people in it actually feel anything?"
+],
+[
+369.053,
+370.15,
+"We do not know."
+],
+[
+370.0,
+374.193,
+"Computers can process information and generate realistic images."
+],
+[
+374.043,
+379.056,
+"Whether any machine could have genuine experiences is still an open question."
+],
+[
+379.506,
+384.776,
+"The philosopher David Chalmers called this the hard problem of consciousness:"
+],
+[
+384.626,
+390.827,
+"why any physical process, in a brain or anywhere else, is accompanied by experience at all."
+],
+[
+391.577,
+393.634,
+"But the question has consequences."
+],
+[
+393.484,
+398.625,
+"If a simulated being could truly suffer, its suffering would matter, wherever it existed."
+],
+[
+398.475,
+401.71,
+"If it could love, its relationships would matter to it."
+],
+[
+402.26,
+408.755,
+"In his 2022 book Reality Plus, Chalmers argues that a simulated world would not be an illusion,"
+],
+[
+408.605,
+411.092,
+"but a different kind of real world."
+],
+[
+411.542,
+415.858,
+"Whether or not he is right, it separates two questions we often confuse:"
+],
+[
+415.708,
+420.198,
+"where a world comes from, and whether the experiences inside it have value."
+],
+[
+421.648,
+426.788,
+"Imagine that tomorrow, scientists found convincing evidence that our universe is simulated."
+],
+[
+426.638,
+429.804,
+"It would be one of the greatest discoveries in history."
+],
+[
+430.254,
+432.971,
+"And it would immediately raise another question."
+],
+[
+432.821,
+434.735,
+"What is the reality outside ours?"
+],
+[
+434.585,
+437.462,
+"What laws govern the world where the computer runs?"
+],
+[
+438.012,
+440.192,
+"Could that world be simulated too?"
+],
+[
+440.042,
+443.057,
+"Perhaps the chain ends in a fundamental reality."
+],
+[
+442.907,
+446.042,
+"Perhaps our ideas about outside do not even apply."
+],
+[
+446.692,
+451.055,
+"Either way, the simulation hypothesis does not solve the mystery of existence."
+],
+[
+450.905,
+452.405,
+"It moves it one level up."
+],
+[
+452.255,
+454.998,
+"A computer might explain how our world was made."
+],
+[
+454.848,
+457.698,
+"It would not explain why there is anything at all."
+],
+[
+459.548,
+461.779,
+"So, are we living in a simulation?"
+],
+[
+461.629,
+464.288,
+"The honest answer is that we do not know."
+],
+[
+464.938,
+469.356,
+"There is no reliable evidence that our universe is an artificial simulation."
+],
+[
+469.206,
+473.456,
+"Bostrom's argument gives us a careful way to think about the possibility."
+],
+[
+473.306,
+475.815,
+"Physics offers deep puzzles, but no proof."
+],
+[
+475.665,
+479.465,
+"And whether a machine could ever be conscious remains unresolved."
+],
+[
+480.115,
+484.181,
+"We should not dismiss the question because it sounds strange,"
+],
+[
+484.031,
+487.07,
+"or accept it because it sounds extraordinary."
+],
+[
+486.92,
+490.087,
+"We should investigate it, like any other claim."
+],
+[
+490.937,
+496.523,
+"And if one day we learned that our world was a simulation, would the stars be any less beautiful?"
+],
+[
+496.373,
+498.877,
+"Would the people you love matter any less?"
+],
+[
+498.727,
+500.614,
+"Would curiosity lose its value?"
+],
+[
+501.864,
+505.334,
+"Perhaps the real test is not whether reality is simulated."
+],
+[
+505.184,
+508.597,
+"It is whether we are willing to question our assumptions,"
+],
+[
+508.447,
+511.516,
+"follow the evidence, and admit when we do not know."
+],
+[
+512.266,
+515.103,
+"The universe may be stranger than we imagine."
+],
+[
+514.953,
+516.536,
+"But wonder is not proof."
+],
+[
+516.386,
+519.521,
+"And uncertainty is not a reason to stop searching."
+]
+],
+"chapters": [
+[
+3.1,
+"1 · The First Doubt"
+],
+[
+64.671,
+"2 · Building a World"
+],
+[
+115.103,
+"3 · The Three Possibilities"
+],
+[
+200.811,
+"4 · A Clue in Physics?"
+],
+[
+282.661,
+"5 · The Problem of Proof"
+],
+[
+361.795,
+"6 · Could a Simulation Feel?"
+],
+[
+420.748,
+"7 · Outside the Universe"
+],
+[
+458.648,
+"8 · The Reality Test"
+]
+]
+}

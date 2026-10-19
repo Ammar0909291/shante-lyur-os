@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Cormorant+Garamond:wght@500;600&display=swap">
+<style>
+html,body{margin:0;background:transparent;overflow:hidden}
+#st{position:relative;width:1920px;height:1080px;font-family:Inter,sans-serif}
+.card{position:absolute;right:60px;bottom:205px;display:flex;align-items:center;gap:18px;padding:14px 16px 14px 14px;border-radius:18px;background:rgba(12,14,20,.86);border:1px solid rgba(255,255,255,.14);box-shadow:0 12px 40px rgba(0,0,0,.55);transform-origin:100% 50%}
+.av{width:64px;height:64px;border-radius:50%;flex:none}
+.nm b{display:block;color:#fff;font:700 24px Inter;letter-spacing:.01em}
+.nm span{display:block;color:#aab2c0;font:500 16px Inter;margin-top:3px}
+.btn{position:relative;margin-left:8px;height:52px;padding:0 24px;border-radius:26px;display:flex;align-items:center;gap:10px;font:700 19px Inter;letter-spacing:.02em;color:#fff;background:#ff0033;white-space:nowrap}
+.btn.done{background:#3a3d44;color:#e8e8e8}
+.bell{width:30px;height:30px;transform-origin:50% 10%}
+.cur{position:absolute;width:40px;height:40px;pointer-events:none}
+.ring{position:absolute;border:3px solid rgba(255,255,255,.75);border-radius:50%}
+/* end card */
+.end{position:absolute;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.end .av{width:150px;height:150px}
+.end h1{margin:26px 0 6px;color:#fff;font:600 92px/1 "Cormorant Garamond",serif;letter-spacing:.06em}
+.end p{margin:0 0 34px;color:#c9ced8;font:500 24px Inter;letter-spacing:.05em}
+.end .btn{height:74px;padding:0 40px;border-radius:37px;font:800 28px Inter;margin:0}
+.end .bell{width:40px;height:40px}
+.end small{position:absolute;bottom:30px;left:0;right:0;text-align:center;color:rgba(255,255,255,.6);font:400 14px Inter;letter-spacing:.02em}
+</style></head><body><div id="st"></div>
+<script>
+const AV = `<img class="av" src="avatar.png">`;
+const BELL = `<svg class="bell" viewBox="0 0 24 24"><path fill="currentColor" d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5-6.7V3.5a2 2 0 0 0-4 0v.8A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>`;
+const CUR = `<svg class="cur" viewBox="0 0 24 24"><path d="M5 2l14 12-6.2.9 3.6 6.6-2.6 1.4-3.6-6.7L5 20z" fill="#fff" stroke="#000" stroke-width="1.2"/></svg>`;
+const st = document.getElementById('st');
+const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+window.draw = (mode, t) => {
+  const end = mode === 'end', done = t > (end ? 1.9 : 1.75);
+  const btn = `<div class="btn ${done ? 'done' : ''}" id="b">${done ? BELL + 'SUBSCRIBED' : 'SUBSCRIBE'}</div>`;
+  st.innerHTML = end
+    ? `<div class="end" id="c">${AV}<h1>THE WANDERER</h1><p>Explore reality. Question assumptions. Follow the evidence.</p>${btn}<small>Narration: computer-generated voice (Piper “Norman”, public domain) · Earth imagery: NASA Blue Marble / Black Marble · Milky Way: ESO/S. Brunier (CC BY 4.0) · Sources in the description</small></div>`
+    : `<div class="card" id="c">${AV}<div class="nm"><b>The Wanderer</b><span>Explore reality with us</span></div>${btn}</div>`;
+  const c = document.getElementById('c'), b = document.getElementById('b');
+  const T = end ? 4.6 : 4.5, inK = sm(0, 0.45, t), outK = 1 - sm(T - 0.5, T, t);
+  if (end) { c.style.opacity = sm(0, 0.35, t); } else { c.style.opacity = Math.min(inK, outK); c.style.transform = `translateX(${(1 - inK) * 60}px) scale(${0.9 + 0.1 * inK})`; }
+  const press = Math.exp(-Math.pow((t - (end ? 1.85 : 1.7)) / 0.06, 2)); b.style.transform = `scale(${1 - 0.07 * press})`;
+  const bell = b.querySelector('.bell'); if (bell) bell.style.transform = `rotate(${Math.sin(t * 28) * 22 * sm(1.8, 2.0, t) * (1 - sm(2.6, 3.0, t))}deg)`;
+  // cursor glides to the button, clicks, then leaves
+  const r = b.getBoundingClientRect(), tx = r.left + r.width * 0.55, ty = r.top + r.height * 0.55;
+  const k = sm(end ? 0.7 : 0.8, end ? 1.75 : 1.6, t), lv = sm(end ? 2.6 : 2.4, end ? 3.4 : 3.2, t);
+  const sx = tx + 220, sy = ty + 160, x = sx + (tx - sx) * k + lv * 260, y = sy + (ty - sy) * k + lv * 120;
+  const ca = Math.min(sm(0.6, 0.9, t), 1 - lv) * (end ? 1 : Math.min(inK, outK));
+  st.insertAdjacentHTML('beforeend', CUR); const cu = st.lastElementChild; cu.style.left = x + 'px'; cu.style.top = y + 'px'; cu.style.opacity = ca;
+  const rt = t - (end ? 1.85 : 1.7); if (rt > 0 && rt < 0.6) { const R = 10 + rt * 90; st.insertAdjacentHTML('beforeend', `<div class="ring" style="left:${tx - R}px;top:${ty - R}px;width:${2 * R}px;height:${2 * R}px;opacity:${(1 - rt / 0.6) * ca}"></div>`); }
+};
+</script></body></html>
