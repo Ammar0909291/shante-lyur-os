@@ -108,6 +108,7 @@ Known limits: photoreal humans and cities are beyond this renderer. They appear 
 | # | Title | Status | Files |
 |---|---|---|---|
 | 1 | **The Reality Test: What If Everything You Know Is a Simulation?** (8:58) | Rendered and delivered | `the-wanderer/reality-test/` |
+| T | **Channel trailer (Hindi, 1:00)** | Rendered and delivered | `the-wanderer/trailer/` |
 
 Episode 1 details:
 - **Chapters:** First Doubt · Building a World · Three Possibilities · A Clue in Physics? · Problem of Proof · Could a Simulation Feel? · Outside the Universe · The Reality Test.
@@ -115,9 +116,15 @@ Episode 1 details:
 - **Hindi thumbnails:** "यह दुनिया नकली है?" · "पृथ्वी = कोड?" · "3 रास्ते, 1 सच".
 - **Russian transcript:** `reality-test/transcript_RU.md`.
 
+Channel trailer details (`trailer/`):
+- 9 shots of 6 s re-rendered from the Reality Test film without English overlays (`site_clean`), plus a 6 s Hindi end card. Shot times and lines are in `lines.py`.
+- Hindi only: Rohan voice (length_scale 0.95, `synth.py`), a big Hindi word per shot plus Hindi subtitles, because trailers autoplay muted (`ov.html`, `ovframes.js`).
+- The end card shows the avatar, "द वांडरर", the Hindi tagline and a "सब्सक्राइब करें" button press.
+- Original score (`tscore.js`): ticking pulse, A-minor pads, a hit on every cut, a riser and a major resolve on the end card. Mix −14 LUFS (`assemble.sh`).
+- Upload: YouTube Studio → Customisation → Layout → "Channel trailer for people who haven't subscribed".
+
 ## 10. Still to do (channel completeness)
 1. Channel "About" text and keywords
-2. 60 s Hindi channel trailer (in progress)
-3. Content plan: the next 10 topics and an upload schedule (suggested: one long video every 1–2 weeks plus 2–3 Shorts a week)
-4. Playlists and end screens
-5. A Shorts cut-down plan for each long video
+2. Content plan: the next 10 topics and an upload schedule (suggested: one long video every 1–2 weeks plus 2–3 Shorts a week)
+3. Playlists and end screens
+4. A Shorts cut-down plan for each long video
