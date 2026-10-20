@@ -1,0 +1,15 @@
+# generated
+raw/
+narr/
+out/
+qc/
+audio/*.wav
+# large public-domain / CC BY downloads (re-fetch with fetch_space.sh)
+images/03_milkyway_eso.jpg
+images/17_earth_apollo17.jpg
+images/18_hudf.jpg
+images/18b_jwst_smacs.jpg
+images/24_m87_eht.jpg
+images/25_bh_nasa_svs.mp4
+images/31_iss_sunrise.jpg
+images/31b_iss_limb.jpg
