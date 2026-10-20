@@ -8,5 +8,5 @@ g https://esahubble.org/media/archives/images/large/heic0611b.jpg 18_hudf.jpg   
 g https://esawebb.org/media/archives/images/large/weic2209a.jpg 18b_jwst_smacs.jpg          # NASA, ESA, CSA, STScI
 g https://www.eso.org/public/archives/images/large/eso1907a.jpg 24_m87_eht.jpg               # EHT Collaboration, CC BY 4.0
 g https://svs.gsfc.nasa.gov/vis/a010000/a013300/a013326/BH_AccretionDisk_Sim_360_Center_16x9_1080.mp4 25_bh_nasa_svs.mp4  # NASA GSFC / J. Schnittman
-g https://images-assets.nasa.gov/image/iss054e002538/iss054e002538~orig.jpg 31_iss_sunrise.jpg  # NASA, public domain
+g https://images-assets.nasa.gov/image/iss059e027932/iss059e027932~orig.jpg 31_iss_sunrise.jpg  # NASA, public domain
 g https://images-assets.nasa.gov/image/iss061e123823/iss061e123823~orig.jpg 31b_iss_limb.jpg   # NASA, public domain

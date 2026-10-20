@@ -14,7 +14,7 @@ SHOTS = {
     "hudf": ("18_hudf.jpg", "in"), "jwst": ("18b_jwst_smacs.jpg", "in"), "quantum": ("20_quantum.png", "up"),
     "laser": ("21_laser_lab.png", "r"), "hand": ("23_hand.png", "in"), "m87": ("24_m87_eht.jpg", "in"),
     "bh": ("25_bh_nasa_svs.mp4", "video"), "river": ("27_river.png", "out"), "micro": ("29_microscope.png", "in"),
-    "corridor": ("30_corridor.png", "in"), "sunrise": ("31_iss_sunrise.jpg", "r"), "limb": ("31b_iss_limb.jpg", "l"),
+    "corridor": ("30_corridor.png", "in"), "sunrise": ("31_iss_sunrise.jpg", "sl"), "limb": ("31b_iss_limb.jpg", "l"),
     "diya_end": ("32_diya_end.png", "in"), "black": (None, "none"),
 }
 

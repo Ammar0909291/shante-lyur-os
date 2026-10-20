@@ -27,8 +27,8 @@ def video_frames(fn):
 
 ease = lambda x: 0.5 - 0.5 * math.cos(math.pi * min(1, max(0, x)))
 MOVES = {"in": ((1.0, 0, 0), (1.13, 0, 0)), "out": ((1.13, 0, 0), (1.0, 0, 0)), "r": ((1.1, -0.35, 0), (1.1, 0.35, 0)),
-         "l": ((1.1, 0.35, 0), (1.1, -0.35, 0)), "up": ((1.12, 0, 0.35), (1.12, 0, -0.35))}
-CYCLE = {"in": ["in", "r", "out", "l"], "out": ["out", "l", "in", "r"], "r": ["r", "in", "l", "out"], "l": ["l", "out", "r", "in"], "up": ["up", "in", "out", "r"]}
+         "l": ((1.1, 0.35, 0), (1.1, -0.35, 0)), "up": ((1.12, 0, 0.35), (1.12, 0, -0.35)), "sl": ((1.1, -0.7, 0), (1.2, -0.75, 0))}
+CYCLE = {"in": ["in", "r", "out", "l"], "out": ["out", "l", "in", "r"], "r": ["r", "in", "l", "out"], "l": ["l", "out", "r", "in"], "up": ["up", "in", "out", "r"], "sl": ["sl"]}
 
 def parts(seg):
     """Long shots are split into ~11 s camera moves on the same picture (a new angle each time)."""
