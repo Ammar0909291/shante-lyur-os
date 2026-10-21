@@ -24,8 +24,9 @@ def still(fn):
 
 @functools.lru_cache(maxsize=1)
 def video_frames(fn):
-    p = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(H / "images" / fn), "-vf", f"fps={FPS},scale={W}:{Hh}:flags=lanczos", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True, check=True).stdout
-    return np.frombuffer(p, np.uint8).reshape(-1, Hh, W, 3)
+    # kept at 1920x1080 (the clip's own size; ~2 GB) and scaled per frame, so a 4K render does not hold 9 GB of frames
+    p = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(H / "images" / fn), "-vf", f"fps={FPS},scale=1920:1080", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True, check=True).stdout
+    return np.frombuffer(p, np.uint8).reshape(-1, 1080, 1920, 3)
 
 ease = lambda x: 0.5 - 0.5 * math.cos(math.pi * min(1, max(0, x)))
 MOVES = {"in": ((1.0, 0, 0), (1.13, 0, 0)), "out": ((1.13, 0, 0), (1.0, 0, 0)), "r": ((1.1, -0.35, 0), (1.1, 0.35, 0)),
@@ -48,8 +49,8 @@ def render_part(p, t):
     if mv == "video":
         fr = video_frames(fn); a = fr[int((t - p0) * FPS) % len(fr)]
         z = 1.0 + 0.06 * x; im = Image.fromarray(a)
-        cw, ch = W / z, Hh / z; box = ((W - cw) / 2, (Hh - ch) / 2, (W + cw) / 2, (Hh + ch) / 2)
-        return np.asarray(im.resize((W, Hh), Image.BICUBIC, box=box), np.float32)
+        sw, sh = im.size; cw, ch = sw / z, sh / z; box = ((sw - cw) / 2, (sh - ch) / 2, (sw + cw) / 2, (sh + ch) / 2)
+        return np.asarray(im.resize((W, Hh), Image.LANCZOS, box=box), np.float32)
     im = still(fn); (z0, x0, y0), (z1, x1, y1) = MOVES[mv]
     z, px, py = z0 + (z1 - z0) * x, x0 + (x1 - x0) * x, y0 + (y1 - y0) * x
     # the view is W/1.3/z wide inside the stored image; pan within the remaining margin
