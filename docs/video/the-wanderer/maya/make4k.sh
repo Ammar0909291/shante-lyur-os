@@ -12,6 +12,8 @@ for k in $(seq 0 19); do
   jobs+=("K=2 python3 render.py $(python3 -c "print(${B[$k]}/24)") $(python3 -c "print(${B[$((k+1))]}/24)") out4k/h$k.mp4 > out4k/h$k.log 2>&1")
 done
 printf '%s\n' "${jobs[@]}" | xargs -P 4 -I{} bash -c '{}'
+# never assemble from incomplete pieces
+for k in $(seq 0 19); do grep -q done out4k/h$k.log || { echo "piece h$k not finished"; exit 1; }; done
 # full mix (voice + music), -14 LUFS
 ffmpeg -loglevel error -y -i audio/music.wav -i audio/narration.wav -filter_complex \
   "[0:a]volume=2.4[m];[1:a]pan=stereo|c0=c0|c1=c0[n];[m][n]amix=inputs=2:normalize=0:duration=longest,loudnorm=I=-14:TP=-1.5:LRA=11,atrim=0:$T" \
