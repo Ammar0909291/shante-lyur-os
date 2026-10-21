@@ -13,7 +13,7 @@
 | Name | Cockroach Academy |
 | Category | Education (AI-generated profile) |
 | Owner | The channel owner. It is a separate account from the YouTube channel **The Wanderer**. |
-| Account type | **Not confirmed.** Must be Business or Creator for any scheduling tool to work. See section 11. |
+| Account type | **Creator** (confirmed by the owner, 2026-10-21). Scheduling limits for Creator accounts: see section 8. |
 | Languages | Hindi and English |
 | Audience | Hindi- and English-speaking viewers in India. The channel bible's audience is curious general viewers, students and young adults. |
 
@@ -70,12 +70,14 @@ Write a Hindi caption and a short English version for each reel. The owner appro
 - [ ] Illustrations and hypotheticals are labelled on screen.
 - [ ] Text and subtitles are inside the safe zones.
 - [ ] Caption includes "Narration voice is computer-generated."
-- [ ] **Turn on Instagram's AI label for the reel.** Claude must remind the owner every time. A scheduling tool may not be able to set it, so check manually before it goes live.
+- [ ] **Instagram's AI label is on.** Claude sets the `isAiGenerated` flag on every post it schedules through Metricool and reminds the owner every time. The owner still confirms the label on the live reel.
 - [ ] The owner has approved the post.
 
 ## 8. Workflow and production reality
-- **Default workflow:** Claude drafts the reel plan and caption, the owner approves, and then the post is scheduled. Nothing is published without the owner's approval. The owner may change this later.
-- **Scheduling tool:** none connected yet. The plan is a connector such as Metricool, linked to a Business or Creator account.
+- **Default workflow:** Claude drafts the reel plan and caption, the owner approves, and then the post is scheduled. Nothing is published without the owner's approval. Claude saves each post as a Metricool draft, or sends a phone notification instead of autopublishing, so the owner confirms it first. The owner may change this later.
+- **Scheduling tool:** Metricool, connected to Claude and linked to @cockroachacademy1 on 2026-10-21. A read-only test passed (brand settings, metrics list, scheduled posts, best times). Nothing is scheduled yet.
+- **Creator-account limits in Metricool:** no Story autopublish, and no Reel audio set through Metricool (that needs a Business account linked to a Facebook Page). So the plan is Reels only, with the music already mixed into the video.
+- **Timezone:** the Metricool brand is set to `Asia/Yekaterinburg` (UTC+5). The audience is in India (UTC+5:30), so convert times or change the brand timezone before scheduling.
 - **A new cinematic render every day is not realistic.** A 9-minute film takes about 4.5 h to render, and cloud containers restart every 30 min to 2 h (see `THE_WANDERER.md`). The plan is to produce or cut reels in batches and schedule them from a queue.
 - **Cut-downs:** Shorts/Reels are cut 9:16 from the same masters using the vertical rules above. The cut-down plan per long video is still to do (`THE_WANDERER.md`, section 10).
 
@@ -106,8 +108,8 @@ Credit lines and licences (use unaltered):
 - **Whirlpool Galaxy M51 (heic0506a):** "NASA, ESA, S. Beckwith (STScI), and The Hubble Heritage Team (STScI/AURA)". ESA/Hubble publishes under CC BY 4.0.
 
 ## 11. Open decisions
-1. **Account type:** is @cockroachacademy1 already Business or Creator? Not confirmed.
-2. **Branding on reels:** the black-hole Short ends on a **The Wanderer** end card with a YouTube button and says "जुड़े रहिए, द वॉन्डरर के साथ". If it is posted here, viewers are sent to the other brand. Decide whether Instagram gets its own end card.
-3. **Fonts:** section 4 lists two sets (this account's and The Wanderer's). Decide which one Instagram reels use.
-4. **Finished MP4s:** where they are stored. They are not in the repo.
-5. **Scheduling tool:** not connected yet.
+1. **Branding on reels:** the black-hole Short ends on a **The Wanderer** end card with a YouTube button and says "जुड़े रहिए, द वॉन्डरर के साथ". If it is posted here, viewers are sent to the other brand. Decide whether Instagram gets its own end card.
+2. **Fonts:** section 4 lists two sets (this account's and The Wanderer's). Decide which one Instagram reels use.
+3. **Finished MP4s:** where they are stored. They are not in the repo. Metricool needs a public, Google Drive or Dropbox link for each video.
+4. **Timezone:** keep the Metricool brand on `Asia/Yekaterinburg` or change it to `Asia/Kolkata`.
+5. **Metricool connection type:** Instagram login (scheduling and basic metrics) or through Facebook (full analytics). Check the banner at the bottom of Metricool's Analytics tab for Instagram.
