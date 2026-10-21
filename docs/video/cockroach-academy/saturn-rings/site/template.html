@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8">
+<title>Saturn's Rings · Cockroach Academy</title>
+<style>
+:root { --amber: #ffb020; }
+html, body { margin: 0; background: #000; overflow: hidden; }
+#stage { position: relative; width: 540px; height: 960px; }
+#c { display: block; width: 540px; height: 960px; }
+#ov { position: absolute; inset: 0; pointer-events: none; color: #fff; font-family: "Noto Sans Devanagari", "IBM Plex Sans", sans-serif; }
+.o { position: absolute; opacity: 0; visibility: hidden; }
+.sh { text-shadow: 0 0 4px rgba(0,0,0,.95), 0 2px 3px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.85); }
+#tag { left: 22px; top: 118px; font: 600 11px "Noto Sans Devanagari", "IBM Plex Sans"; background: rgba(6,8,12,.55); border: 1px solid rgba(255,255,255,.22); padding: 5px 9px; border-radius: 3px; }
+#tag i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); margin-right: 7px; vertical-align: 1px; }
+#title { left: 0; right: 60px; top: 170px; text-align: center; }
+#title b { display: block; font: 800 50px/0.95 "Big Shoulders Display"; letter-spacing: .04em; }
+#title span { display: block; margin-top: 8px; font: 700 23px/1.3 "Noto Sans Devanagari"; color: var(--amber); }
+#sub { left: 24px; right: 60px; bottom: 300px; text-align: center; font: 700 19px/1.45 "Noto Sans Devanagari"; }
+#fact { left: 26px; top: 250px; font: 600 13px "Noto Sans Devanagari"; color: #e8e8e8; border-left: 2px solid var(--amber); padding: 4px 0 4px 10px; background: linear-gradient(90deg, rgba(0,0,0,.45), rgba(0,0,0,0)); }
+#fact b { display: block; font: 800 40px/1 "Big Shoulders Display"; color: var(--amber); letter-spacing: .02em; margin-top: 3px; }
+#cta { left: 0; right: 60px; top: 330px; text-align: center; }
+#cta b { display: block; font: 800 40px/1.25 "Noto Sans Devanagari"; }
+#cta span { display: block; margin-top: 10px; font: 700 18px "Noto Sans Devanagari"; color: var(--amber); }
+#handle { right: 66px; bottom: 228px; font: 600 10px "IBM Plex Sans"; letter-spacing: .16em; opacity: .6; }
+</style></head><body>
+<div id="stage"><canvas id="c" width="1080" height="1920"></canvas></div>
+<script>const TL = __TL__;</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="lib.js"></script>
+<script src="saturn.js"></script>
+</body></html>

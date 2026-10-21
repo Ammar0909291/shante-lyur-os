@@ -1,0 +1,8 @@
+# generated
+site/lib.js
+site/index.html
+audio/lines/
+audio/*.wav
+renders/
+output/
+__pycache__/
