@@ -161,10 +161,11 @@ def endcard(fr, t):
     put(fr, AVATAR, (W - 260) / 2, 560, a)
     center(fr, text("THE WANDERER", SERIF, 96, track=4), 860, a)
     center(fr, text("EXPLORE THE UNKNOWN", INB, 34, AMBER, track=8), 990, a)
-    sub = fade(t, 58.0, 61, 0.5); card = Image.new("RGBA", (520, 88), (0, 0, 0, 0)); d = ImageDraw.Draw(card)
-    d.rounded_rectangle((0, 0, 519, 87), radius=44, fill=(204, 0, 0, 235)); lab = text("SUBSCRIBE FOR MORE", INB, 32, track=3, shadow=False)
+    lab = text("SUBSCRIBE FOR MORE", INB, 32, track=3, shadow=False); cw = 110 + lab.width + 20
+    sub = fade(t, 58.0, 61, 0.5); card = Image.new("RGBA", (cw, 88), (0, 0, 0, 0)); d = ImageDraw.Draw(card)
+    d.rounded_rectangle((0, 0, cw - 1, 87), radius=44, fill=(204, 0, 0, 235))
     card.alpha_composite(YT.resize((70, 49)), (34, 20)); card.alpha_composite(lab, (110, (88 - lab.height) // 2))
-    put(fr, card, (W - 520) / 2, 1100, sub)
+    put(fr, card, (W - cw) / 2, 1100, sub)
     put(fr, IG, (W - 64) / 2, 1215, sub * 0.9)
 
 def transitions(arr, t):
