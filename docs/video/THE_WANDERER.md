@@ -12,7 +12,7 @@
 | Hindi tagline | *वास्तविकता को खोजो। धारणाओं पर सवाल करो। सबूतों का पीछा करो।* |
 | Type | Faceless, AI-assisted, cinematic science and philosophy documentaries |
 | Platforms | YouTube (main, long-form, 16:9) · Shorts / Instagram Reels (9:16 cut-downs) |
-| Related accounts | Instagram @cockroachacademy1 ("Cockroach Academy"), the owner's separate short-form science account (Hindi and English 60 s reels, hashtag #CockroachJantaParty) |
+| Related accounts | Instagram @cockroachacademy1 ("Cockroach Academy"), the owner's separate short-form science account (Hindi and English 60 s reels) |
 | Languages | English narration master. YouTube auto-dub for Hindi and other languages. Hindi thumbnails and titles. Russian transcript provided for the first video. |
 
 ## 2. Concept and audience

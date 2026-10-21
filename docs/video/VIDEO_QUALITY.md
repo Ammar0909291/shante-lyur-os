@@ -18,7 +18,7 @@ Paste this at the start of any new session, or save it as CLAUDE.md / memory in 
 - Format: 1080x1920, 30 fps, H.264 + AAC, -14 LUFS (two-pass loudnorm), layout at 540x960 CSS with deviceScaleFactor 2.
 - Safe zones (CSS px at 540x960): top 110, bottom 210, right 60. Subtitles ~18-19 px bold, strong shadow, about 460 px from the bottom, timed to narration. Narration starts 0.35 s into each shot.
 - Length: whatever the user asks (30 s or 60 s so far).
-- Caption: hook line, 3-5 verified facts, sources + credits, 5 hashtags (incl. #CockroachJantaParty), "Narration voice is computer-generated." Remind the user to turn on the AI label.
+- Caption: hook line, 3-5 verified facts, sources + credits, 5 hashtags, "Narration voice is computer-generated." Remind the user to turn on the AI label.
 - Channel: Instagram @cockroachacademy1 ("Cockroach Academy", Education, AI-generated profile).
 - Fonts: Big Shoulders Display + IBM Plex Sans (space), IBM Plex Mono for readouts, Noto Sans Devanagari for Hindi. Accent amber #ffb020.
 - Thumbnails: Hindi title, very large type, thick outline, one bright focal point, high saturation, text inside safe zones.
