@@ -70,10 +70,10 @@ def ig_icon(h=64):
 YT, IG = yt_icon(), ig_icon()
 
 def subscribe_card(t, t0, instagram=False):
-    """Pill with icon(s) + SUBSCRIBE TO THE WANDERER; slides up and fades, ~1.8 s."""
+    """Pill with icon(s) + SUBSCRIBE TO CHANNEL; slides up and fades, ~1.8 s."""
     a = fade(t, t0, t0 + 1.9, 0.3)
     if a <= 0: return None, 0, 0
-    lab = text("SUBSCRIBE TO THE WANDERER", INB, 30, track=2, shadow=False)
+    lab = text("SUBSCRIBE TO CHANNEL", INB, 30, track=2, shadow=False)
     icons = [YT] + ([IG] if instagram else []); iw = sum(i.width for i in icons) + 14 * (len(icons) - 1)
     w2, h2 = iw + lab.width + 40, 92; card = Image.new("RGBA", (w2, h2), (0, 0, 0, 0)); d = ImageDraw.Draw(card)
     d.rounded_rectangle((0, 0, w2 - 1, h2 - 1), radius=46, fill=(12, 12, 16, 205), outline=(255, 255, 255, 60), width=2)
