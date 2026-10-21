@@ -1,6 +1,6 @@
 # THE WANDERER: channel bible
 
-> **For any new session or account:** read this file first, then `VIDEO_QUALITY.md` in the same folder. Together they describe the whole channel: concept, formats, quality bar, branding, production pipeline and rules. Source code and assets for the first video are in `the-wanderer/`.
+> **For any new session or account:** read this file first, then `VIDEO_QUALITY.md` in the same folder. Together they describe the whole channel: concept, formats, quality bar, branding, production pipeline and rules. Source code and assets for the first video are in `the-wanderer/`. The Instagram account has its own file: `INSTAGRAM_ACCOUNT.md`.
 
 ---
 
