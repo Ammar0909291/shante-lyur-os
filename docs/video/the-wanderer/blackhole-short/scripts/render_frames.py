@@ -99,7 +99,9 @@ def base(n):
     if kind == "eht": return eht_frame(t)
     p = H / "renders" / "blender" / f"f_{n:04d}.png"
     if not p.exists() or p.stat().st_size == 0: return None
-    return np.asarray(Image.open(p).convert("RGB"))
+    im = Image.open(p).convert("RGB")
+    if im.size != (W, Hh): im = im.resize((W, Hh), Image.LANCZOS)      # half-resolution Blender frames
+    return np.asarray(im)
 
 if __name__ == "__main__":
     wk, nw = int(sys.argv[1]), int(sys.argv[2])

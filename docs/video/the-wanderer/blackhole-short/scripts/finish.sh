@@ -5,10 +5,10 @@ cd "$(dirname "$0")/.."
 set -e
 find renders/blender -size 0 -delete; rm -f renders/base/*.tmp.png renders/final/*.tmp.png   # leftovers from a killed run
 # 1. Blender shots (skips frames already on disk)
-pgrep -f "blender -b scene/black_hole_blender" >/dev/null || scripts/render_blender.sh
-while pgrep -f "blender -b scene/black_hole_blender" >/dev/null; do sleep 20; done
+pgrep -x blender >/dev/null || scripts/render_blender.sh
+while pgrep -x blender >/dev/null; do sleep 20; done
 # 2. base frames: wait for any running workers, refresh the real-image scene (layout changed), then fill every gap
-while pgrep -f "render_frames.py" >/dev/null; do sleep 20; done
+while pgrep -f "^python3 scripts/render_frames.py" >/dev/null; do sleep 20; done
 [ -f renders/.eht_v2 ] || { for n in $(seq 991 1170); do rm -f renders/base/b_$(printf %04d $n).png; done; touch renders/.eht_v2; }
 for w in 0 1 2 3; do python3 scripts/render_frames.py $w 4 > renders/base2_w$w.log 2>&1 & done; wait
 N=$(ls renders/base/b_*.png | grep -vc tmp); echo "base frames: $N"; [ "$N" -eq 1800 ]
