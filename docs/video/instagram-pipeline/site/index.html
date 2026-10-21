@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=540">
+<style>
+@font-face{font-family:'NSD';src:url(fonts/NotoSansDevanagari.ttf);font-weight:100 900;font-stretch:62.5% 100%}
+@font-face{font-family:'PM';src:url(fonts/IBMPlexMono-Medium.ttf)}
+html,body{margin:0;background:#000;overflow:hidden}
+#stage{position:relative;width:540px;height:960px;overflow:hidden;background:#000}
+#c{position:absolute;left:0;top:0;width:540px;height:960px}
+#ov{position:absolute;left:0;top:0;width:540px;height:960px;pointer-events:none;font-family:'NSD','DejaVu Sans',sans-serif;color:#fff}
+.o{position:absolute;opacity:0;visibility:hidden;white-space:nowrap}
+.sub{left:0;width:480px;bottom:450px;text-align:center;font-weight:700;font-size:19px;line-height:1.38;white-space:normal;text-shadow:0 0 6px #000,0 1px 3px #000,0 2px 10px #000,0 0 22px rgba(0,0,0,.8)}
+.tag{font-family:'PM',monospace;font-size:10.5px;letter-spacing:.14em;padding:4px 8px;border:1px solid rgba(255,255,255,.55);border-radius:2px;background:rgba(0,0,0,.35);text-shadow:0 1px 3px #000}
+.mono{font-family:'PM',monospace;text-shadow:0 0 8px #000,0 2px 12px #000}
+.amber{color:#ffb020}
+.lab{font-weight:700;text-shadow:0 0 6px #000,0 2px 10px #000,0 0 20px rgba(0,0,0,.8)}
+</style></head><body>
+<div id="stage"><canvas id="c" width="1080" height="1920"></canvas><div id="ov"></div></div>
+<script src="vendor/three.min.js"></script>
+<script src="lib.js"></script>
+<script src="tl.js"></script>
+<script src="core.js"></script>
+<script src="sc_space.js"></script>
+<script src="sc_photo.js"></script>
+<script src="sc_moon.js"></script>
+<script src="sc_orbit.js"></script>
+<script src="main.js"></script>
+</body></html>
