@@ -3,6 +3,7 @@
 #   setsid nohup scripts/finish.sh > renders/finish.log 2>&1 < /dev/null &
 cd "$(dirname "$0")/.."
 set -e
+find renders/blender -size 0 -delete; rm -f renders/base/*.tmp.png renders/final/*.tmp.png   # leftovers from a killed run
 # 1. Blender shots (skips frames already on disk)
 pgrep -f "blender -b scene/black_hole_blender" >/dev/null || scripts/render_blender.sh
 while pgrep -f "blender -b scene/black_hole_blender" >/dev/null; do sleep 20; done
