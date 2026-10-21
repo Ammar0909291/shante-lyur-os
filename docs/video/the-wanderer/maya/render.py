@@ -16,7 +16,8 @@ AMBER = (242, 180, 90)
 # ---------- pictures ----------
 @functools.lru_cache(maxsize=12)
 def still(fn):
-    im = Image.open(H / "images" / fn).convert("RGB")
+    hd = H / "images_hd" / fn                                    # Real-ESRGAN 2x upscale when present
+    im = Image.open(hd if hd.exists() else H / "images" / fn).convert("RGB")
     k = max(W * 1.3 / im.width, Hh * 1.3 / im.height)          # cover the frame with 30% headroom for moves
     return im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
 
@@ -77,7 +78,7 @@ _s = np.clip(_x + 0.10 * np.sin(2 * np.pi * (_x - 0.5)) * 0.5 * (1 - abs(2 * _x 
 LUT = np.stack([np.clip(_s * 255 * (1 + 0.03 * _x), 0, 255), _s * 255, np.clip(_s * 255 * (1 - 0.04 * _x) + 6 * (1 - _x) ** 3, 0, 255)], 1).astype(np.float32)
 yy, xx = np.mgrid[0:Hh, 0:W]; VIG = (1 - 0.32 * (((xx - W / 2) / (W / 2)) ** 2 + ((yy - Hh / 2) / (Hh / 2)) ** 2) ** 1.4).clip(0.55, 1)[..., None].astype(np.float32)
 BAND = (1 - 0.55 * np.clip((yy - Hh * 0.62) / (Hh * 0.38), 0, 1) ** 1.3)[..., None].astype(np.float32)
-GRAIN = [np.random.default_rng(k).normal(0, 3.2, (Hh, W, 1)).astype(np.float32) for k in range(6)]
+GRAIN = [np.random.default_rng(k).normal(0, 1.2, (Hh, W, 1)).astype(np.float32) for k in range(6)]
 
 def grade(f, t):
     i = np.clip(f, 0, 255).astype(np.uint8)
