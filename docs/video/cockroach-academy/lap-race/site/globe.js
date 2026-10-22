@@ -29,7 +29,7 @@ window.__ready = Promise.all([lt('day', 'tex/earth_day.jpg'), lt('night', 'tex/e
       c2.beginPath(); c2.roundRect ? c2.roundRect(x0, 20, tw, 260, 40) : c2.rect(x0, 20, tw, 260); c2.fill();
       c2.fillStyle = '#' + new THREE.Color(col).getHexString(); c2.fillText(name, x0 + 40, 140);
       c2.font = '700 80px Inter, Arial'; c2.fillStyle = '#ffffff'; c2.fillText(LAT, x0 + 40, 245); });
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: lab, depthTest: false, transparent: true })); sp.scale.set(1.25, 0.366, 1);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: lab, depthTest: false, transparent: true })); sp.scale.set(0.85, 0.249, 1);
     sp.center.set(name === 'LONDON' ? -0.05 : 1.05, 0.5); sp.position.copy(P(lat, lon, 1.03)); sp.renderOrder = 10; g.add(sp);
     // the runner: her/his own cut-out run cycle, standing on the ring (shown far larger than real scale)
     const man = new THREE.Sprite(new THREE.SpriteMaterial({ map: TEX[key + '0'], depthTest: false, transparent: true })); man.center.set(0.5, 0.02); man.renderOrder = 20; g.add(man);
