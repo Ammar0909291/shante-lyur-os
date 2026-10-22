@@ -14,7 +14,7 @@ KM_DAY = 240.0
 # key, name, latitude label, lap km (WGS-84), colour
 RUN = [("ld", "LONDON", "51.5°N", 25000, (255, 255, 255)), ("dl", "NEW DELHI", "28.6°N", 35210, (255, 166, 58)), ("sg", "SINGAPORE", "1.3°N", 40065, (62, 230, 208))]
 DAY_END = 40065 / KM_DAY
-day_at = lambda t: max(0.0, (t - 12.0) / 12.0 * DAY_END)
+day_at = lambda t: min(DAY_END, max(0.0, (t - 10.0) / 14.0 * DAY_END))
 t_fin = lambda km: 12.0 + 12.0 * (km / KM_DAY) / DAY_END
 sst = lambda a, b, x: (lambda u: u * u * (3 - 2 * u))(min(1.0, max(0.0, (x - a) / (b - a))))
 
@@ -103,48 +103,54 @@ def band(k, name, lat, km, col, t):
 
 GLOBE = {}
 def globe_frame(t):
-    seg, t0 = ("a", 0.0) if t < 12 else ("b", 24.0)
-    if seg not in GLOBE: GLOBE[seg] = cv2.VideoCapture(str(H / "renders" / f"globe_{seg}.mp4"))
-    cap = GLOBE[seg]; cap.set(cv2.CAP_PROP_POS_FRAMES, min(179, int(round((t - t0) * FPS)))); ok, fr = cap.read()
+    if "cap" not in GLOBE: GLOBE["cap"] = cv2.VideoCapture(str(H / "renders" / "globe.mp4"))
+    cap = GLOBE["cap"]; cap.set(cv2.CAP_PROP_POS_FRAMES, int(round(t * FPS))); ok, fr = cap.read()
     return Image.fromarray(fr[..., ::-1]) if ok else Image.new("RGB", (W, HH))
 
 def centre(d, y, s, font, fill=(255, 255, 255), stroke=8):
     d.text((W // 2, y), s, font=font, fill=fill, anchor="ma", stroke_width=stroke, stroke_fill=(0, 0, 0))
 
+def bar(d, y, name, km, col, t):
+    """one progress row: name, bar filling at 240 km/day toward this runner's own lap length"""
+    frac = min(1.0, day_at(t) * KM_DAY / km) if t >= 10 else 0.0
+    text(d, (160, y - 92), name, F("xb", 74), col)
+    text(d, (W - 160, y - 86), f"{km:,} km", F("sb", 60), (235, 235, 235), anchor="ra", stroke=5)
+    d.rounded_rectangle((160, y, W - 160, y + 40), radius=20, fill=(0, 0, 0, 160), outline=(255, 255, 255, 90), width=3)
+    if frac > 0: d.rounded_rectangle((160, y, 160 + int((W - 320) * frac), y + 40), radius=20, fill=col)
+    if frac >= 1: text(d, (W - 160, y + 52), f"DAY {round(km / KM_DAY)}" + ("  ·  WINNER" if name == "LONDON" else ""), F("xb", 64), (255, 210, 60) if name == "LONDON" else col, anchor="ra", stroke=5)
+
 def frame(n):
     t = n / FPS
-    if t < 6 or t >= 24:
-        img = globe_frame(t); d = ImageDraw.Draw(img)
-        if t < 3.1:
-            a = sst(0.2, 0.8, t); centre(d, 520, "3 runners. Same speed.", F("xb", 150), (int(255 * a),) * 3)
-            centre(d, 720, "Who finishes a lap of Earth first?", F("b", 96), (int(255 * a), int(210 * a), int(60 * a)))
-        elif t < 6:
-            centre(d, 560, "Each runs EAST along", F("xb", 120)); centre(d, 720, "their own line of latitude", F("xb", 120))
-        elif t < 27.8:
-            centre(d, 560, "Closer to the poles →", F("xb", 112)); centre(d, 710, "smaller circle → shorter lap", F("xb", 112), (255, 210, 60))
-            centre(d, 3020, "Same speed + shorter track = first to finish", F("b", 76))
-        else:
-            centre(d, 560, "Which city would YOU run from?", F("xb", 112), (255, 210, 60))
-            centre(d, 2960, "Thought experiment: imaginary laps,", F("sb", 70)); centre(d, 3060, "measured on the ground", F("sb", 70))
+    img = globe_frame(t).convert("RGBA"); ov = Image.new("RGBA", img.size, (0, 0, 0, 0)); d = ImageDraw.Draw(ov)
+    if t < 4:
+        a = sst(0.2, 0.8, t); centre(d, 470, "3 runners. Same speed.", F("xb", 150), (255, 255, 255, int(255 * a)))
+        centre(d, 670, "Who finishes a lap of Earth first?", F("b", 96), (255, 210, 60, int(255 * a)))
+    elif t < 7:
+        centre(d, 470, "Each runs EAST along", F("xb", 120)); centre(d, 630, "their own line of latitude", F("xb", 120))
+    elif t < 10:
+        d.rounded_rectangle((120, 380, W - 120, 1130), radius=40, fill=(0, 0, 0, 170))
+        centre(d, 430, "Earth's spin carries them at", F("b", 80))
+        centre(d, 560, "1,042 / 1,470 / 1,674 km/h…", F("xb", 104), (255, 210, 60))
+        if t >= 8.3:
+            a = sst(8.3, 8.8, t); d.line((240, 625, 240 + int((W - 480) * a), 625), fill=(255, 60, 60), width=14)
+            centre(d, 760, "…but on the ground, everyone", F("b", 86)); centre(d, 890, "runs at the same 10 km/h", F("xb", 104), (62, 230, 208))
+    elif t < 24.5:
+        d.rounded_rectangle((W // 2 - 470, 420, W // 2 + 470, 640), radius=40, fill=(0, 0, 0, 170))
+        centre(d, 440, f"DAY {int(day_at(t))}", F("xb", 140), (255, 210, 60), stroke=6)
+        if t < 11.5: centre(d, 700, "GO!  Same pace: 10 km/h, non-stop", F("b", 72))
     else:
-        img = Image.new("RGB", (W, HH))
-        for i, r in enumerate(RUN): img.paste(band(*r, t), (0, i * BAND))
-        d = ImageDraw.Draw(img)
-        for i in (1, 2): d.rectangle((0, i * BAND - 5, W, i * BAND + 5), fill=(0, 0, 0))
-        if 9.0 <= t < 12.0:                                       # the trap: spin speeds, then dismissed
-            box = Image.new("RGBA", (W, 760), (0, 0, 0, 175)); img.paste(box, (0, HH // 2 - 380), box); d = ImageDraw.Draw(img)
-            centre(d, HH // 2 - 320, "Earth's spin carries them at", F("b", 80))
-            centre(d, HH // 2 - 200, "1,042  /  1,470  /  1,674 km/h…", F("xb", 104), (255, 210, 60))
-            if t >= 10.4:
-                a = sst(10.4, 10.9, t); y = HH // 2 - 140; d.line((260, y, 260 + int((W - 520) * a), y), fill=(255, 60, 60), width=14)
-                centre(d, HH // 2 + 20, "…but on the ground, everyone", F("b", 86)); centre(d, HH // 2 + 140, "runs at the same 10 km/h", F("xb", 104), (62, 230, 208))
-        if 12.0 <= t < 24.0:                                      # race clock
-            box = Image.new("RGBA", (900, 240), (0, 0, 0, 185)); img.paste(box, (W // 2 - 450, BAND - 120), box); d = ImageDraw.Draw(img)
-            centre(d, BAND - 105, f"DAY {int(day_at(t))}", F("xb", 120), (255, 210, 60), stroke=6)
-            if t < 13.5: centre(d, BAND + 40, "GO!  Same pace: 10 km/h, non-stop", F("b", 70))
-    # light flash on the cuts between the globe and the split screen
-    if 6.0 <= t < 6.35: img = Image.blend(Image.new("RGB", img.size, (255, 245, 230)), img, sst(6.0, 6.35, t) * 0.7 + 0.3)
-    if 24.0 <= t < 24.35: img = Image.blend(Image.new("RGB", img.size, (255, 245, 230)), img, sst(24.0, 24.35, t) * 0.7 + 0.3)
+        if t < 27.6:
+            centre(d, 470, "Closer to the poles →", F("xb", 112)); centre(d, 620, "smaller circle → shorter lap", F("xb", 112), (255, 210, 60))
+        else:
+            centre(d, 470, "Which city would YOU run from?", F("xb", 112), (255, 210, 60))
+            centre(d, 640, "Thought experiment: imaginary laps, measured on the ground", F("sb", 58))
+    if t >= 7:                                                    # progress rows at the bottom
+        a = sst(7, 8, t); panel = Image.new("RGBA", img.size, (0, 0, 0, 0)); pd = ImageDraw.Draw(panel)
+        pd.rounded_rectangle((90, 2700, W - 90, 3420), radius=44, fill=(0, 0, 0, 150))
+        for i, (k, name, lat, km, col) in enumerate(RUN):
+            bar(pd, 2850 + i * 220, name, km, col + (255,), t)
+        panel.putalpha(Image.eval(panel.getchannel("A"), lambda v: int(v * a))); img.alpha_composite(panel)
+    img.alpha_composite(ov); img = img.convert("RGB")
     a = np.asarray(img).astype(np.float32); a = a * (1 - sst(29.3, 30.0, t)) + np.random.default_rng(n).normal(0, 2.0, (HH, W, 1))
     return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
 
