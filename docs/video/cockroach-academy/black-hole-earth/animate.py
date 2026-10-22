@@ -10,11 +10,11 @@ H = Path(__file__).resolve().parent; P = H.parent / "assets" / "bh_panels"
 W, Hh, FPS, T = 1080, 1920, 30, 30.0
 sst = lambda a, b, x: (lambda u: u * u * (3 - 2 * u))(min(1.0, max(0.0, (x - a) / (b - a))))
 lerp = lambda a, b, u: a + (b - a) * u
-IMG = {i: np.asarray(Image.open(P / f"scene{i}.png").convert("RGB"), np.float32) / 255.0 for i in range(1, 6)}
+IMG = {i: np.asarray(Image.open(P / f"scene{i}.png").convert("RGB"), np.float32)[:, 8:-8] / 255.0 for i in range(1, 6)}   # trim collage dividers
 # black hole centre, shadow radius, outer swirl radius (pixels in each upscaled panel)
-BH = {1: (720, 280, 170, 400), 2: (528, 540, 250, 520), 3: (600, 110, 90, 260), 4: (576, 150, 80, 280), 5: (458, 394, 90, 280)}
+BH = {1: (712, 280, 170, 400), 2: (520, 540, 250, 520), 3: (592, 110, 90, 260), 4: (568, 150, 80, 280), 5: (450, 394, 90, 280)}
 # debris stream start point (on/near Earth) per scene; None = no stream
-SRC = {1: None, 2: None, 3: (520, 520), 4: (470, 900), 5: (300, 1560)}
+SRC = {1: None, 2: None, 3: (512, 520), 4: (462, 900), 5: (292, 1560)}
 # camera: (zoom start, zoom end, centre-y fraction start, end, centre-x fraction)
 CAM = {1: (1.0, 1.07, 0.5, 0.5, 0.5), 2: (1.0, 1.09, 0.52, 0.46, 0.5), 3: (1.0, 1.04, 0.58, 0.46, 0.5),
        4: (1.0, 1.05, 0.62, 0.36, 0.5), 5: (1.12, 1.0, 0.42, 0.48, 0.5)}
@@ -37,7 +37,7 @@ def swirl(i, t):
     return out
 
 # Earth in each panel: centre x, y, radius (pixels); spin rate (rad/s); drift toward the hole (pixels over the scene)
-EARTH = {1: (420, 1166, 432, 0.05, 40), 2: (668, 1416, 352, 0.055, 55), 3: (330, 840, 270, 0.03, 0), 4: (171, 1150, 275, 0.03, 0)}
+EARTH = {1: (412, 1166, 432, 0.05, 40), 2: (660, 1416, 352, 0.055, 55), 3: (322, 840, 270, 0.03, 0), 4: (163, 1150, 275, 0.03, 0)}
 
 def spin(i, img, t):
     """Rotate Earth's surface about its axis inside its disk (outline fixed); two phases cross-faded so the offset stays small."""
@@ -65,6 +65,32 @@ def drift(i, img, tl, dur):
     moved = np.stack([map_coordinates(img[..., k], [ys - sh[1], xs - sh[0]], order=1, mode="nearest") for k in range(3)], -1)
     return img * (1 - m[..., None]) + moved * m[..., None]
 
+def debris_flow(i, img, t):
+    """Scenes 3-5: the painted debris, dust and vapour stream toward the hole (flow map; Earth and the shadow are excluded)."""
+    if i < 3: return img
+    h, w, _ = img.shape; bx, by, r0, _ = BH[i]
+    ys, xs = np.mgrid[0:h, 0:w].astype(np.float32); vx, vy = bx - xs, by - ys; d = np.hypot(vx, vy) + 1e-3; vx, vy = vx / d, vy / d
+    m = np.clip((d - r0 * 1.15) / 40, 0, 1)
+    if i in EARTH: cx, cy, R = EARTH[i][:3]; m *= np.clip((np.hypot(xs - cx, ys - cy) - R * 0.98) / 30, 0, 1)
+    speed = 34 * (1 + 600 / (d + 300))                              # pixels per cycle, faster near the hole
+    Pd = 1.8; acc = np.zeros_like(img)
+    for ph in (0.0, 0.5):
+        f = ((t / Pd) + ph) % 1.0; wgt = 1 - abs(2 * f - 1); k = speed * (f - 0.5) * m
+        acc += np.stack([map_coordinates(img[..., c], [ys - vy * k, xs - vx * k], order=1, mode="nearest") for c in range(3)], -1) * wgt
+    return acc
+
+def flicker(i, img, t):
+    """Hot cracks and embers pulse; stars twinkle."""
+    r, g, b = img[..., 0], img[..., 1], img[..., 2]
+    hot = np.clip((r - 0.55) * 3, 0, 1) * np.clip((r - g * 1.35) * 4, 0, 1) * (b < 0.35)
+    h, w = r.shape; ys, xs = np.mgrid[0:h, 0:w]
+    puls = 1 + 0.28 * np.sin(t * 7.0 + xs * 0.031 + ys * 0.017) * np.sin(t * 3.1 + ys * 0.023)
+    img = img * (1 + hot[..., None] * (puls[..., None] - 1))
+    lum = (r + g + b) / 3; star = np.clip((lum - gaussian_filter(lum, 4) - 0.18) * 6, 0, 1)            # isolated bright points only
+    seed = np.sin(gaussian_filter(xs.astype(np.float32), 0) * 0.37 + ys * 0.91) * 43758.5 % 6.283
+    tw = 1 + 0.4 * star * np.sin(t * 4.7 + seed)
+    return img * tw[..., None]
+
 def view(i, u):
     """Crop rectangle (x0, y0, cw, ch) of panel i for scene progress u, filling 9:16."""
     a = IMG[i]; h, w, _ = a.shape; z0, z1, y0, y1, xc = CAM[i]; z = lerp(z0, z1, u)
@@ -73,7 +99,7 @@ def view(i, u):
     return cx - cw / 2, cy - ch / 2, cw, ch
 
 def render_scene(i, tl, dur):
-    u = tl / dur; src = drift(i, spin(i, swirl(i, tl), tl), tl, dur); x0, y0, cw, ch = view(i, sst(0, 1, u) * 0.7 + u * 0.3)
+    u = tl / dur; src = flicker(i, drift(i, spin(i, debris_flow(i, swirl(i, tl), tl), tl), tl, dur), tl); x0, y0, cw, ch = view(i, sst(0, 1, u) * 0.7 + u * 0.3)
     ys, xs = np.mgrid[0:Hh, 0:W].astype(np.float32)
     sx, sy = x0 + (xs + 0.5) * cw / W, y0 + (ys + 0.5) * ch / Hh
     img = np.stack([map_coordinates(src[..., k], [sy, sx], order=3, mode="nearest") for k in range(3)], -1)
