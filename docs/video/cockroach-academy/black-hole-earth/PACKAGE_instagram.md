@@ -1,0 +1,37 @@
+# Earth meets a black hole reel: Instagram package (@cockroachacademy1)
+
+Video: `output/black_hole_earth.mp4` (not committed). 30 s, 1080×1920, 30 fps, no text, no voice, no audio track.
+Audio: add the "Interstellar" track from Instagram's music library when posting.
+
+## Caption (paste as is)
+```text
+What if Earth wandered too close to a black hole? 🌍🕳️
+
+✦ A black hole's gravity pulls harder on the near side of an object than the far side. This stretches it into a long, thin shape, which scientists call "spaghettification".
+✦ These tidal forces can tear apart whole stars and planets, and the debris can end up swirling in a disk around the black hole.
+✦ Our estimate: near a black hole as massive as Sagittarius A* (about 4 million Suns), Earth would be pulled apart roughly 70 million km away, several times farther out than the event horizon. It would never reach the horizon in one piece.
+✦ Relax: the nearest known black hole, Gaia BH1, is about 1,500 light-years away.
+
+Would you want to see this up close? 👇
+
+Sources: NASA Science, "What Happens When Something Gets 'Too Close' to a Black Hole?"; NASA (Sagittarius A*); ESA Gaia (Gaia BH1). Estimate from the standard tidal-disruption radius (Rees 1988, Nature 333, 523).
+Visuals: the black hole, its light bending and its disk are ray-traced with real general-relativity equations, with the ESO Milky Way (ESO/S. Brunier, CC BY 4.0) behind it. Earth (NASA Visible Earth) stretching and breaking apart is an illustration, sped up enormously.
+
+#BlackHole #Spaghettification #SpaceFacts #Astronomy #Earth
+```
+
+## Verified facts and the estimate (checked 2026-10-21)
+| Claim | Source |
+|---|---|
+| Tidal forces stretch an object into a long, thin shape ("spaghettification") | NASA Science, *What Happens When Something Gets "Too Close" to a Black Hole?*: "stretches out the object more and more as the object gets closer to the black hole, creating a long, thin shape" |
+| Black holes can tear apart whole stars and planets; matter in an accretion disk swirls toward the event horizon | same page: "These objects can tear apart whole stars and planets"; "Matter in an accretion disk will continue to swirl and fall toward the event horizon" |
+| Sagittarius A* is about 4 million times the Sun's mass | NASA / EHT materials (Keck about 3.95 million, VLTI about 4.3 million) |
+| Nearest known black hole Gaia BH1, about 1,500–1,560 ly | NASA *Black Hole Basics* (about 1,500 ly); ESA / NOIRLab (1,560 ly; about 1,600 rounded) |
+| **Estimate (our calculation):** Earth's tidal disruption radius r_t ≈ R_Earth (M_BH / M_Earth)^(1/3) = 6,371 km × (4.3×10⁶ × 333,000)^(1/3) ≈ 72 million km; event-horizon radius 2GM/c² ≈ 12.7 million km | Formula: Rees 1988, *Nature* 333, 523. Labelled as an estimate in the caption |
+
+## What is real and what is illustrative
+- **Real:** the black hole's light bending, from Schwarzschild null geodesics (`the-wanderer/blackhole-short/scripts/gr_render.py`), drawn over the real ESO Milky Way panorama. The distances in units of M are consistent with a Sagittarius A*-mass hole.
+- **Illustrative:** the Earth's stretching, cracks, heating and debris. They are drawn with straight rays, so their own lensing is ignored, and time is compressed. The disk's extent and brightness are also artistic.
+
+## Posting (Metricool, Creator account)
+- Type **REEL**, `isAiGenerated: true`, `autoPublish: false`; the owner adds music in Instagram, then confirms the AI label.

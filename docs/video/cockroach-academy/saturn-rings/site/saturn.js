@@ -177,7 +177,7 @@ const UNI = [groundMat, rockMat, glintMat, dustMat];
 // ---------- camera: slight up-tilt and slow periodic sway (whole cycles per loop) ----------
 function setCams(t) {
   const ph = TAU * t / LOOP;
-  const e = new THREE.Euler((12 + 0.8 * Math.sin(ph * 2)) * D2R, (1.2 * Math.sin(ph) ) * D2R, (1.6 * Math.sin(ph * 3 + 0.7)) * D2R, 'YXZ');
+  const e = new THREE.Euler((7.5 + 0.8 * Math.sin(ph * 2)) * D2R, (1.2 * Math.sin(ph) ) * D2R, (1.6 * Math.sin(ph * 3 + 0.7)) * D2R, 'YXZ');
   for (const c of [farCam, groundCam, nearCam]) c.quaternion.setFromEuler(e);
   nearCam.position.set(0.6 * Math.sin(ph * 2 + 1), 0.5 * Math.sin(ph * 3), 0); groundCam.position.copy(nearCam.position);
   farCam.position.set(0, 0, 0);
