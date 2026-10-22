@@ -6,13 +6,13 @@ H = Path(__file__).parent; V = H / "vo"; V.mkdir(exist_ok=True)
 MODEL = "/root/vw/voices/en_US-joe-medium.onnx"
 LINES = [  # (start s, text) - the winner is only named at the reveal (24.5 s)
     (0.3, "Same speed. Same Earth. Who finishes a lap first? Guess now!"),
-    (4.4, "Each one runs east, along their own line of latitude."),
-    (7.4, "Forget Earth's spin. On foot, all three run ten kilometres an hour."),
+    (4.45, "Each one runs east, along their own line of latitude."),
+    (7.55, "Forget Earth's spin. On foot, all three run ten kilometres an hour."),
     (11.3, "Go! Non-stop, day and night."),
     (15.0, "Who do you think is ahead?"),
     (24.6, "London wins, on day one hundred and four!"),
-    (28.1, "Why? Closer to the poles, the circle around Earth is smaller."),
-    (31.6, "London's lap is twenty-five thousand kilometres. Singapore's, forty thousand."),
+    (27.5, "Why? Closer to the poles, the circle around Earth is smaller."),
+    (31.4, "London runs twenty-five thousand kilometres. Singapore, forty thousand."),
 ]
 inputs, filt = [], []
 for i, (t0, txt) in enumerate(LINES):
