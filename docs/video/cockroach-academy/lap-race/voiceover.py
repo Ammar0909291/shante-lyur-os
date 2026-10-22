@@ -6,10 +6,10 @@ H = Path(__file__).parent; V = H / "vo"; V.mkdir(exist_ok=True)
 MODEL = "/root/vw/voices/en_US-joe-medium.onnx"
 LINES = [  # (start s, text)
     (0.3, "Same speed. But one runner wins by sixty-three days. Guess who?"),
-    (4.2, "Each one runs east, along their own line of latitude."),
-    (7.2, "Forget Earth's spin. On foot, all three run ten kilometres an hour."),
-    (11.0, "Go! Non-stop, day and night."),
-    (13.4, "London's lap is only twenty-five thousand kilometres."),
+    (4.4, "Each one runs east, along their own line of latitude."),
+    (7.4, "Forget Earth's spin. On foot, all three run ten kilometres an hour."),
+    (11.3, "Go! Non-stop, day and night."),
+    (13.65, "London's lap is only twenty-five thousand kilometres."),
     (18.4, "Day one hundred and four. London finishes first!"),
     (21.8, "Delhi, day one forty-seven."),
     (23.6, "Singapore, one sixty-seven."),
