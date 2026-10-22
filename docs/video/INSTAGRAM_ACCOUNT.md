@@ -6,6 +6,15 @@
 
 ---
 
+## 0. Standard reel workflow (approved by the owner, 2026-10-22)
+Every new reel is made this way unless the owner says otherwise. Reference result: `cockroach-academy/black-hole-earth/`.
+1. **Storyboard:** Claude writes five keyframe prompts (photoreal, cinematic, 9:16, consistent style block, no text), each tied to a time slot in a 30 s reel.
+2. **Images:** the owner generates the five keyframes with an AI image tool and approves them. Claude cannot generate images and never pretends to.
+3. **Animate:** Claude crops or collects the panels, upscales them (Real-ESRGAN, `the-wanderer/maya/upscale.py`), and animates them with an `animate.py` modelled on `black-hole-earth/animate.py`. **Everything moves:** camera push-ins and pans, swirling or flowing elements, planets spinning and drifting, debris and dust streaming, glowing parts flickering, stars twinkling, crossfades, and a fade to black at the end.
+4. **Silent master:** 1080×1920, 30 fps, about 30 s. No on-screen text, no voice, no audio track. The owner adds music (for example "Interstellar") from Instagram's library when posting.
+5. **Caption package** (`PACKAGE_instagram.md`): hook, 3–5 verified facts with sources, a line saying the visuals are AI-generated and dramatised, and 5 hashtags. Estimates are labelled as estimates.
+6. **Post:** REEL, `isAiGenerated: true`, `autoPublish: false`. The owner adds the music, then checks the AI label.
+
 ## 1. Identity
 | Item | Value |
 |---|---|
@@ -59,7 +68,7 @@ Every caption has these parts, in this order:
 1. **Hook line**: one sentence, a question or a surprising true fact.
 2. **3–5 verified facts**, one per line.
 3. **Sources**, then **credits**.
-4. **"Narration voice is computer-generated."**
+4. **"Visuals: AI-generated artwork, animated."** (and "Narration voice is computer-generated." only if a reel has narration)
 5. **5 hashtags** relevant to the topic.
 
 Write a Hindi caption and a short English version for each reel. The owner approves the hashtags.
@@ -69,7 +78,7 @@ Write a Hindi caption and a short English version for each reel. The owner appro
 - [ ] Image and music credits are in the caption, and on screen where required.
 - [ ] Illustrations and hypotheticals are labelled on screen.
 - [ ] Text and subtitles are inside the safe zones.
-- [ ] Caption includes "Narration voice is computer-generated."
+- [ ] Caption says the visuals are AI-generated and dramatised.
 - [ ] **Instagram's AI label is on.** Claude sets the `isAiGenerated` flag on every post it schedules through Metricool and reminds the owner every time. The owner still confirms the label on the live reel.
 - [ ] The owner has approved the post.
 
