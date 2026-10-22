@@ -36,6 +36,35 @@ def swirl(i, t):
         out += warped * wgt
     return out
 
+# Earth in each panel: centre x, y, radius (pixels); spin rate (rad/s); drift toward the hole (pixels over the scene)
+EARTH = {1: (420, 1166, 432, 0.05, 40), 2: (668, 1416, 352, 0.055, 55), 3: (330, 840, 270, 0.03, 0), 4: (171, 1150, 275, 0.03, 0)}
+
+def spin(i, img, t):
+    """Rotate Earth's surface about its axis inside its disk (outline fixed); two phases cross-faded so the offset stays small."""
+    if i not in EARTH: return img
+    cx, cy, R, om, _ = EARTH[i]; h, w, _ = img.shape
+    x0, x1, y0, y1 = max(0, cx - R), min(w, cx + R), max(0, cy - R), min(h, cy + R)
+    ys, xs = np.mgrid[y0:y1, x0:x1].astype(np.float32); X, Y = (xs - cx) / R, (ys - cy) / R
+    inside = X * X + Y * Y < 1; Z = np.sqrt(np.clip(1 - X * X - Y * Y, 0, 1)); lam = np.arctan2(X, Z); rr = np.sqrt(np.clip(1 - Y * Y, 1e-6, 1))
+    feather = np.clip((1 - np.sqrt(X * X + Y * Y)) / 0.06, 0, 1) * inside
+    Pd = 6.0; acc = np.zeros((y1 - y0, x1 - x0, 3), np.float32)
+    for ph in (0.0, 0.5):
+        f = ((t / Pd) + ph) % 1.0; wgt = 1 - abs(2 * f - 1); d = om * Pd * (f - 0.5)
+        lam2 = np.clip(lam - d, -1.45, 1.45); sx = cx + rr * np.sin(lam2) * R; sy = ys
+        acc += np.stack([map_coordinates(img[..., k], [sy, sx], order=1, mode="nearest") for k in range(3)], -1) * wgt
+    out = img.copy(); reg = out[y0:y1, x0:x1]; out[y0:y1, x0:x1] = reg * (1 - feather[..., None]) + acc * feather[..., None]
+    return out
+
+def drift(i, img, tl, dur):
+    """Move Earth slowly toward the black hole by shifting its disk region (background kept)."""
+    if i not in EARTH or EARTH[i][4] == 0: return img
+    cx, cy, R, _, dist = EARTH[i]; bx, by = BH[i][:2]; v = np.array([bx - cx, by - cy], np.float32); v /= np.linalg.norm(v)
+    sh = v * dist * (tl / dur); h, w, _ = img.shape
+    ys, xs = np.mgrid[0:h, 0:w].astype(np.float32); r = np.hypot(xs - cx - sh[0], ys - cy - sh[1])
+    m = np.clip((R * 1.04 - r) / (R * 0.06), 0, 1)
+    moved = np.stack([map_coordinates(img[..., k], [ys - sh[1], xs - sh[0]], order=1, mode="nearest") for k in range(3)], -1)
+    return img * (1 - m[..., None]) + moved * m[..., None]
+
 def view(i, u):
     """Crop rectangle (x0, y0, cw, ch) of panel i for scene progress u, filling 9:16."""
     a = IMG[i]; h, w, _ = a.shape; z0, z1, y0, y1, xc = CAM[i]; z = lerp(z0, z1, u)
@@ -44,7 +73,7 @@ def view(i, u):
     return cx - cw / 2, cy - ch / 2, cw, ch
 
 def render_scene(i, tl, dur):
-    u = tl / dur; src = swirl(i, tl); x0, y0, cw, ch = view(i, sst(0, 1, u) * 0.7 + u * 0.3)
+    u = tl / dur; src = drift(i, spin(i, swirl(i, tl), tl), tl, dur); x0, y0, cw, ch = view(i, sst(0, 1, u) * 0.7 + u * 0.3)
     ys, xs = np.mgrid[0:Hh, 0:W].astype(np.float32)
     sx, sy = x0 + (xs + 0.5) * cw / W, y0 + (ys + 0.5) * ch / Hh
     img = np.stack([map_coordinates(src[..., k], [sy, sx], order=3, mode="nearest") for k in range(3)], -1)
