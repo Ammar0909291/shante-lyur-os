@@ -80,67 +80,98 @@ def render_earth(t, out, alpha_out):
 
 FRAG = {}
 def fragment(i):
-    """RGBA sprite of cell i taken from the unstretched Earth (cached)."""
+    """Rock chunk i: jagged outline, Earth's surface on top (sampled inside the limb, so no glassy atmosphere rim),
+    rough rocky texture. Returns (rgba, centre offset from the seed point, ocean fraction). Cached."""
     if i in FRAG: return FRAG[i]
-    R = ER; s = int(R * 0.5)
+    R = ER; s = int(R * 0.5); rg = np.random.default_rng(100 + i)
     ys, xs = np.mgrid[-s:s, -s:s].astype(np.float32); u, v = seeds[i, 0] + xs / R, seeds[i, 1] + ys / R
-    d = (u[..., None] - seeds[:, 0]) ** 2 + (v[..., None] - seeds[:, 1]) ** 2; mine = (np.argmin(d, -1) == i) & (u * u + v * v < 1)
-    lat = np.arcsin(np.clip(-v, -1, 1)); lon = np.arcsin(np.clip(u / np.maximum(np.cos(lat), 1e-3), -1, 1))
-    col = sample_earth(lat, lon); d2 = np.sort(d, -1); edge = np.sqrt(d2[..., 1]) - np.sqrt(d2[..., 0])
-    rim = np.clip(1 - edge / 0.05, 0, 1) * mine; seam = np.clip(1 - edge / 0.012, 0, 1) * mine
-    shade = np.clip(1.1 + 0.45 * (-xs / s) - 0.25 * (ys / s), 0.5, 1.6)[..., None]
-    lit = np.clip((xs * dirB[0] + ys * dirB[1]) / s, 0, 1)[..., None] * mine[..., None]      # side facing the hole
-    col = col * shade * (1 - 0.65 * rim[..., None]) + np.array([0.28, 0.2, 0.15]) * rim[..., None] * 0.6 + np.array([1.6, 0.55, 0.12]) * seam[..., None] * 0.8 + np.array([0.9, 0.42, 0.12]) * lit * rim[..., None] * 1.2 + np.array([0.12, 0.08, 0.05]) * mine[..., None]
-    a = gaussian_filter(mine.astype(np.float32), 0.8)
-    ys_, xs_ = np.nonzero(mine)
-    if len(xs_) == 0: FRAG[i] = None; return None
-    y0, y1, x0, x1 = ys_.min(), ys_.max() + 1, xs_.min(), xs_.max() + 1
-    FRAG[i] = (np.dstack([col[y0:y1, x0:x1], a[y0:y1, x0:x1]]), seeds[i] * R + np.array([(x0 + x1) / 2 - s, (y0 + y1) / 2 - s]) - seeds[i] * R)
+    jit = gaussian_filter(rg.normal(0, 1, (2 * s, 2 * s)), 9); jit = jit / (jit.std() + 1e-6) * 0.009   # ragged, broken edges
+    d = (u[..., None] - seeds[:, 0]) ** 2 + (v[..., None] - seeds[:, 1]) ** 2
+    d2 = np.sort(d, -1); own = np.argmin(d, -1) == i
+    edge = (np.sqrt(d2[..., 1]) - np.sqrt(d2[..., 0])) * np.where(own, 1, -1) + jit
+    mine = (edge > 0) & (u * u + v * v < 0.98)
+    nlab, lab = cv2.connectedComponents(mine.astype(np.uint8))           # keep one solid piece
+    if nlab > 2: big = 1 + np.argmax(np.bincount(lab.ravel())[1:]); mine = lab == big
+    mine = mine.astype(bool)
+    if mine.sum() < 30: FRAG[i] = None; return None
+    k = 0.86                                                     # sample inside the limb
+    lat = np.arcsin(np.clip(-v * k, -1, 1)); lon = np.arcsin(np.clip(u * k / np.maximum(np.cos(lat), 1e-3), -1, 1))
+    col = sample_earth(lat, lon)
+    col = np.maximum(col * 1.5, col * 0.6 + 0.05)                # night-side pieces lit by the disk's glow
+    ocean = np.clip((col[..., 2] - col[..., 0]) * 4, 0, 1)
+    rough = gaussian_filter(rg.random((2 * s, 2 * s)), 1.2); rough = 0.75 + 0.5 * (rough - rough.min()) / (np.ptp(rough) + 1e-6)
+    shade = np.clip(1.0 + 0.4 * (xs * dirB[0] + ys * dirB[1]) / s, 0.55, 1.4)[..., None]
+    rimw = np.clip(1 - edge / 0.02, 0, 1)
+    rock = np.array([0.33, 0.24, 0.17]) * rough[..., None]
+    col = (col * rough[..., None] * shade) * (1 - rimw[..., None]) + rock * rimw[..., None] * shade
+    a = gaussian_filter(mine.astype(np.float32), 0.7)
+    ys_, xs_ = np.nonzero(mine); y0, y1, x0, x1 = ys_.min(), ys_.max() + 1, xs_.min(), xs_.max() + 1
+    FRAG[i] = (np.dstack([col[y0:y1, x0:x1], a[y0:y1, x0:x1]]), np.array([(x0 + x1) / 2 - s, (y0 + y1) / 2 - s]), float(ocean[mine].mean()))
     return FRAG[i]
 
-def render_fragments(t, out):
+def frag_pos(i, t, cx, cy, sc, off):
+    tau = t - T_BREAK[i]; p0 = np.array([cx, cy]) + seeds[i] * ER * sc + off
+    s = (1 - math.exp(-max(tau, 0) * SPD[i])) ** 1.3
+    tgt = np.array([BX, BY + BR0 * 0.2]); ctrl = p0 + (tgt - p0) * 0.5 + np.array([-dirB[1], dirB[0]]) * 160 * BEND[i]
+    return (1 - s) ** 2 * p0 + 2 * (1 - s) * s * ctrl + s * s * tgt, s
+
+def render_fragments(t, out, trail):
     cx, cy, sc, stch, rot = earth_state(t)
+    side = np.array([dirB[1], -dirB[0]]) * 0.6 - dirB * 0.8            # rock thickness shows on the side away from the hole
     for i in np.argsort(T_BREAK):
         tau = t - T_BREAK[i]
         if tau <= 0: continue
         fr = fragment(i)
         if fr is None: continue
-        rgba, off = fr
-        p0 = np.array([cx, cy]) + seeds[i] * ER * sc + off
-        s = 1 - math.exp(-tau * SPD[i]); s = s ** 1.3
-        tgt = np.array([BX, BY + BR0 * 0.2]); ctrl = p0 + (tgt - p0) * 0.5 + np.array([-dirB[1], dirB[0]]) * 160 * BEND[i]
-        pos = (1 - s) ** 2 * p0 + 2 * (1 - s) * s * ctrl + s * s * tgt
+        rgba, off, ocean = fr
+        pos, s = frag_pos(i, t, cx, cy, sc, off)
         scale = (1 - 0.85 * s) * (1 + 0.15 * min(tau, 1)); ang = SPIN[i] * tau * 0.6
-        hh, ww = rgba.shape[:2]; M = cv2.getRotationMatrix2D((ww / 2, hh / 2), math.degrees(ang), scale)
-        M[:, 2] += pos - np.array([ww / 2, hh / 2])
-        warped = cv2.warpAffine(rgba, M, (w, h), flags=cv2.INTER_LINEAR, borderValue=(0, 0, 0, 0))
-        a = warped[..., 3:4] * (1 - sst(0.82, 0.98, s)); heat = sst(0.4, 0.95, s)
-        colr = warped[..., :3] * (1 + heat * np.array([0.7, 0.2, -0.3]))
-        out[:] = out * (1 - a) + colr * a
+        hh, ww = rgba.shape[:2]; fade = 1 - sst(0.82, 0.98, s)
+        thick = 10 * scale
+        for layer in range(2):                                         # 0: dark rock side, 1: the surface
+            M = cv2.getRotationMatrix2D((ww / 2, hh / 2), math.degrees(ang), scale)
+            M[:, 2] += pos - np.array([ww / 2, hh / 2]) + (side * thick if layer == 0 else 0)
+            warped = cv2.warpAffine(rgba, M, (w, h), flags=cv2.INTER_LINEAR, borderValue=(0, 0, 0, 0))
+            a = warped[..., 3:4] * fade
+            if layer == 0: colr = np.array([0.16, 0.11, 0.08]) + warped[..., :3] * 0.15
+            else: colr = warped[..., :3] * (1 + sst(0.4, 0.95, s) * np.array([0.6, 0.2, -0.3]))
+            out[:] = out * (1 - a) + colr * a
+        # ocean pieces shed water: a plume of droplets and vapour along the path behind them
+        if ocean > 0.15:
+            for j in range(1, 14):
+                pj, _ = frag_pos(i, t - j * 0.07, cx, cy, sc, off)
+                if 0 <= pj[0] < w - 1 and 0 <= pj[1] < h - 1:
+                    trail[int(pj[1]), int(pj[0])] += np.array([0.55, 0.75, 1.0]) * ocean * (1 - j / 14) * 0.9 * fade
 
-def particles(t, add, cx, cy):
-    """dust, vapour and embers torn from the near side, streaming into the disk."""
+def particles(t, add, dust, rubble, cx, cy):
+    """Dust clouds, small rubble, water vapour and embers torn from the near side, streaming into the disk."""
     k = sst(9, 18, t)
     if k <= 0: return
-    rng = np.random.default_rng(5); n = 1200
-    ph = rng.random(n); spd = 0.1 + rng.random(n) * 0.2; ang = rng.uniform(-1.1, 1.1, n); kind = rng.random(n)
+    rng = np.random.default_rng(5); n = 2400
+    ph = rng.random(n); spd = 0.08 + rng.random(n) * 0.2; ang = rng.uniform(-1.2, 1.2, n); kind = rng.random(n)
     s = ((ph + t * spd) % 1.0) ** 1.5
-    start = np.stack([cx + ER * 0.95 * np.cos(np.arctan2(dirB[1], dirB[0]) + ang), cy + ER * 0.95 * np.sin(np.arctan2(dirB[1], dirB[0]) + ang)], -1)
-    tgt = np.array([BX, BY + BR0 * 0.2]); off = rng.normal(0, 1, (n, 2)) * 50 * (1 - s)[:, None]
+    a0 = np.arctan2(dirB[1], dirB[0]) + ang
+    start = np.stack([cx + ER * 0.95 * np.cos(a0), cy + ER * 0.95 * np.sin(a0)], -1)
+    tgt = np.array([BX, BY + BR0 * 0.2]); off = rng.normal(0, 1, (n, 2)) * 70 * (1 - s)[:, None]
     pos = start * (1 - s)[:, None] + tgt * s[:, None] + off
-    col = np.where((kind < 0.35)[:, None], [0.4, 0.62, 1.0], np.where((kind < 0.7)[:, None], [0.9, 0.9, 0.95], [1.0, 0.55, 0.18]))
-    br = (0.2 + 1.2 * s ** 2) * np.minimum(1, (1 - s) * 6) * k
     ok = (pos[:, 0] >= 0) & (pos[:, 0] < w - 1) & (pos[:, 1] >= 0) & (pos[:, 1] < h - 1)
-    np.add.at(add, (pos[ok, 1].astype(int), pos[ok, 0].astype(int)), col[ok] * br[ok, None] * 0.3)
+    xi, yi = pos[:, 0].astype(int), pos[:, 1].astype(int); life = np.minimum(1, (1 - s) * 5) * k
+    d = ok & (kind < 0.4) & (s < 0.55); np.add.at(dust, (yi[d], xi[d]), life[d] * (1 - s[d] / 0.55))   # brown dust, thins out near the hole
+    r = ok & (kind >= 0.4) & (kind < 0.7); np.add.at(rubble, (yi[r], xi[r]), life[r])           # dark rubble specks
+    wv = ok & (kind >= 0.7) & (kind < 0.9); np.add.at(add, (yi[wv], xi[wv]), np.array([0.5, 0.7, 1.0]) * life[wv, None] * 0.35)   # water vapour
+    e = ok & (kind >= 0.9); np.add.at(add, (yi[e], xi[e]), np.array([1.0, 0.5, 0.15]) * (life[e] * (0.3 + s[e] ** 2))[:, None] * 0.6)   # embers
 
 def frame(n):
     t = n / FPS
     img = swirl_bg(t)
     alpha = np.zeros((h, w), np.float32)
     render_earth(t, img, alpha)
-    render_fragments(t, img)
-    add = np.zeros_like(img); cx, cy = earth_state(t)[:2]; particles(t, add, cx, cy)
-    img = img + gaussian_filter(add, (1.3, 1.3, 0)) * 5 + gaussian_filter(add, (6, 6, 0)) * 8
+    add = np.zeros_like(img); dust = np.zeros((h, w), np.float32); rubble = np.zeros((h, w), np.float32)
+    cx, cy = earth_state(t)[:2]; particles(t, add, dust, rubble, cx, cy)
+    dA = np.clip(gaussian_filter(dust, 9) * 60, 0, 0.55)[..., None]; img = img * (1 - dA) + np.array([0.36, 0.28, 0.21]) * dA       # dust clouds
+    render_fragments(t, img, add)
+    rA = np.clip(gaussian_filter(rubble, 1.0) * 3, 0, 0.9)[..., None]; img = img * (1 - rA) + np.array([0.12, 0.09, 0.07]) * rA     # rubble
+    img = img + gaussian_filter(add, (1.6, 1.6, 0)) * 4 + gaussian_filter(add, (7, 7, 0)) * 7
     img = A.flicker(2, img, t)
     # camera: slow push toward the hole, then ease back for the aftermath
     z = 1 + 0.10 * sst(0, 22, t) - 0.06 * sst(24, 30, t)
