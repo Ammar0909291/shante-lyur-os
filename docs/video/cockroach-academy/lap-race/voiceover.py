@@ -5,7 +5,7 @@ from pathlib import Path
 H = Path(__file__).parent; V = H / "vo"; V.mkdir(exist_ok=True)
 MODEL = "/root/vw/voices/en_US-joe-medium.onnx"
 LINES = [  # (start s, text)
-    (0.35, "Three runners. Same speed. Who finishes a lap of Earth first?"),
+    (0.3, "Same speed. But one runner wins by sixty-three days. Guess who?"),
     (4.2, "Each one runs east, along their own line of latitude."),
     (7.2, "Forget Earth's spin. On foot, all three run ten kilometres an hour."),
     (11.0, "Go! Non-stop, day and night."),

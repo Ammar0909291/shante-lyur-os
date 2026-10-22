@@ -6,7 +6,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); renderer.
 const COMP = new Compositor(renderer, W, H);
 const TEX = {}, L = new THREE.TextureLoader();
 const lt = (k, u, s = true) => new Promise(r => L.load(u, t => { if (s) t.encoding = THREE.sRGBEncoding; TEX[k] = t; r(); }, undefined, r));
-window.__ready = Promise.all([lt('day', 'tex/earth_day.jpg'), lt('night', 'tex/earth_night.jpg'), lt('clouds', 'tex/earth_clouds.jpg', false), lt('mw', 'tex/milkyway.jpg'), document.fonts.ready, ...['sg', 'dl', 'ld'].flatMap(k => [...Array(8).keys()].map(i => lt(k + i, `tex/run/${k}_${i}.png`)).concat([lt(k + 'w', `tex/run/${k}_win.png`)]))]).then(() => {
+window.__ready = Promise.all([lt('day', 'tex/earth_day.jpg'), lt('night', 'tex/earth_night.jpg'), lt('clouds', 'tex/earth_clouds.jpg', false), lt('mw', 'tex/milkyway.jpg'), document.fonts.ready, ...['sg', 'dl', 'ld'].flatMap(k => [...Array(24).keys()].map(i => lt(k + i, `tex/run/${k}_c${i}.png`)).concat([lt(k + 'w', `tex/run/${k}_win.png`)]))]).then(() => {
   const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(32, W / H, 0.1, 1e5); scene.add(cam);
   scene.add(makeSkyDome(TEX.mw, 0.35, 5e4));
   TEX.clouds.wrapS = THREE.RepeatWrapping; TEX.clouds.needsUpdate = true;   // cloud drift wraps instead of smearing the edge texel
@@ -58,7 +58,7 @@ window.__ready = Promise.all([lt('day', 'tex/earth_day.jpg'), lt('night', 'tex/e
       r.sp.material.opacity = sstep(0.8, 2.0, t) * (1 - sstep(9.5, 10.2, t)) + sstep(24.5, 25.5, t);
       // runner on the ring
       r.man.position.copy(P(r.lat, lonNow, 1.006));
-      r.man.material.map = done ? TEX[r.key + 'w'] : TEX[r.key + (t >= 10 ? Math.floor(t * 11) % 8 : 0)];
+      r.man.material.map = done ? TEX[r.key + 'w'] : TEX[r.key + (t >= 10 ? Math.round(t * 30) % 24 : 0)];
       const h = done ? 0.46 : 0.44, asp = r.man.material.map.image.width / r.man.material.map.image.height;
       // face the direction of travel on screen (east), and fade when on the far side of the globe
       tmp.copy(r.man.position).applyMatrix4(g.matrixWorld).project(cam); tmp2.copy(P(r.lat, lonNow + 2, 1.006)).applyMatrix4(g.matrixWorld).project(cam);

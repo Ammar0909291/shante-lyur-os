@@ -123,8 +123,9 @@ def frame(n):
     t = n / FPS
     img = globe_frame(t).convert("RGBA"); ov = Image.new("RGBA", img.size, (0, 0, 0, 0)); d = ImageDraw.Draw(ov)
     if t < 4:
-        a = sst(0.2, 0.8, t); centre(d, 470, "3 runners. Same speed.", F("xb", 150), (255, 255, 255, int(255 * a)))
-        centre(d, 670, "Who finishes a lap of Earth first?", F("b", 96), (255, 210, 60, int(255 * a)))
+        a = sst(0.2, 0.8, t); centre(d, 440, "Same speed. Same Earth.", F("xb", 140), (255, 255, 255, int(255 * a)))
+        centre(d, 620, "One wins by 63 DAYS.", F("xb", 130), (255, 210, 60, int(255 * sst(0.9, 1.4, t))))
+        centre(d, 790, "Guess which city?", F("b", 96), (255, 255, 255, int(255 * sst(2.0, 2.5, t))))
     elif t < 7:
         centre(d, 470, "Each runs EAST along", F("xb", 120)); centre(d, 630, "their own line of latitude", F("xb", 120))
     elif t < 10:
