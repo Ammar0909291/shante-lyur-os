@@ -6,7 +6,7 @@ import sys, math, numpy as np, cv2
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 H = Path(__file__).resolve().parent; A = H.parent / "assets" / "lap_runners"; C = A / "cache"
-W, HH, FPS, T = 2160, 3840, 30, 30.0
+W, HH, FPS, T = 2160, 3840, 30, 36.0
 BAND = HH // 3
 FONT = "/usr/share/fonts/opentype/inter/"
 F = lambda w, s: ImageFont.truetype(FONT + {"xb": "Inter-ExtraBold.otf", "b": "Inter-Bold.otf", "sb": "Inter-SemiBold.otf"}[w], s)
@@ -114,18 +114,18 @@ def bar(d, y, name, km, col, t):
     """one progress row: name, bar filling at 240 km/day toward this runner's own lap length"""
     frac = min(1.0, day_at(t) * KM_DAY / km) if t >= 10 else 0.0
     text(d, (160, y - 92), name, F("xb", 74), col)
-    text(d, (W - 160, y - 86), f"{km:,} km", F("sb", 60), (235, 235, 235), anchor="ra", stroke=5)
+    if t >= 28: text(d, (W - 160, y - 86), f"{km:,} km", F("sb", 60), (235, 235, 235), anchor="ra", stroke=5)
     d.rounded_rectangle((160, y, W - 160, y + 40), radius=20, fill=(0, 0, 0, 160), outline=(255, 255, 255, 90), width=3)
     if frac > 0: d.rounded_rectangle((160, y, 160 + int((W - 320) * frac), y + 40), radius=20, fill=col)
-    if frac >= 1: text(d, (W - 160, y + 52), f"DAY {round(km / KM_DAY)}" + ("  ·  WINNER" if name == "LONDON" else ""), F("xb", 64), (255, 210, 60) if name == "LONDON" else col, anchor="ra", stroke=5)
+    if frac >= 1 and t >= 24.5: text(d, (W - 160, y + 52), f"DAY {round(km / KM_DAY)}" + ("  ·  WINNER" if name == "LONDON" else ""), F("xb", 64), (255, 210, 60) if name == "LONDON" else col, anchor="ra", stroke=5)
 
 def frame(n):
     t = n / FPS
     img = globe_frame(t).convert("RGBA"); ov = Image.new("RGBA", img.size, (0, 0, 0, 0)); d = ImageDraw.Draw(ov)
     if t < 4:
         a = sst(0.2, 0.8, t); centre(d, 440, "Same speed. Same Earth.", F("xb", 140), (255, 255, 255, int(255 * a)))
-        centre(d, 620, "One wins by 63 DAYS.", F("xb", 130), (255, 210, 60, int(255 * sst(0.9, 1.4, t))))
-        centre(d, 790, "Guess which city?", F("b", 96), (255, 255, 255, int(255 * sst(2.0, 2.5, t))))
+        centre(d, 620, "Who finishes a lap of Earth first?", F("xb", 110), (255, 210, 60, int(255 * sst(0.9, 1.4, t))))
+        centre(d, 790, "Guess now, answer at the end!", F("b", 90), (255, 255, 255, int(255 * sst(2.0, 2.5, t))))
     elif t < 7:
         centre(d, 470, "Each runs EAST along", F("xb", 120)); centre(d, 630, "their own line of latitude", F("xb", 120))
     elif t < 10:
@@ -139,20 +139,25 @@ def frame(n):
         d.rounded_rectangle((W // 2 - 470, 420, W // 2 + 470, 640), radius=40, fill=(0, 0, 0, 170))
         centre(d, 440, f"DAY {int(day_at(t))}", F("xb", 140), (255, 210, 60), stroke=6)
         if t < 11.5: centre(d, 700, "GO!  Same pace: 10 km/h, non-stop", F("b", 72))
+    elif t < 28:                                                  # the reveal
+        a = sst(24.5, 25.0, t); d.rounded_rectangle((W // 2 - 760, 380, W // 2 + 760, 760), radius=44, fill=(0, 0, 0, int(170 * a)))
+        centre(d, 410, "LONDON WINS!", F("xb", 170), (255, 210, 60, int(255 * a)))
+        centre(d, 630, "Day 104  ·  Delhi 147  ·  Singapore 167", F("b", 72), (255, 255, 255, int(255 * sst(25.3, 25.8, t))))
     else:
-        if t < 27.6:
-            centre(d, 470, "Closer to the poles →", F("xb", 112)); centre(d, 620, "smaller circle → shorter lap", F("xb", 112), (255, 210, 60))
+        if t < 33:                                                # the why
+            centre(d, 430, "WHY? Closer to the poles →", F("xb", 112)); centre(d, 580, "smaller circle → shorter lap", F("xb", 112), (255, 210, 60))
+            centre(d, 740, "London's lap: 25,000 km  ·  Singapore's: 40,065 km", F("b", 64))
         else:
             centre(d, 470, "Which city would YOU run from?", F("xb", 112), (255, 210, 60))
             centre(d, 640, "Thought experiment: imaginary laps, measured on the ground", F("sb", 58))
-    if t >= 7:                                                    # progress rows at the bottom
-        a = sst(7, 8, t); panel = Image.new("RGBA", img.size, (0, 0, 0, 0)); pd = ImageDraw.Draw(panel)
+    if t >= 24.5:                                                 # result rows appear only at the reveal
+        a = sst(24.5, 25.3, t); panel = Image.new("RGBA", img.size, (0, 0, 0, 0)); pd = ImageDraw.Draw(panel)
         pd.rounded_rectangle((90, 2700, W - 90, 3420), radius=44, fill=(0, 0, 0, 150))
         for i, (k, name, lat, km, col) in enumerate(RUN):
             bar(pd, 2850 + i * 220, name, km, col + (255,), t)
         panel.putalpha(Image.eval(panel.getchannel("A"), lambda v: int(v * a))); img.alpha_composite(panel)
     img.alpha_composite(ov); img = img.convert("RGB")
-    a = np.asarray(img).astype(np.float32); a = a * (1 - sst(29.3, 30.0, t)) + np.random.default_rng(n).normal(0, 2.0, (HH, W, 1))
+    a = np.asarray(img).astype(np.float32); a = a * (1 - sst(35.3, 36.0, t)) + np.random.default_rng(n).normal(0, 2.0, (HH, W, 1))
     return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8))
 
 if __name__ == "__main__":

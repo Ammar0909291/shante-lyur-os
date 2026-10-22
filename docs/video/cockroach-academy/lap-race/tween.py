@@ -21,7 +21,7 @@ for k in ["sg", "dl", "ld"]:
         fab, fba = fb(gA, gB), fb(gB, gA); pA, pB = premul(A), premul(B)
         for s in range(SUB):
             t = s / SUB
-            f = pA if s == 0 else (1 - t) * warp(pA, fab, t) + t * warp(pB, fba, 1 - t)
+            f = pA if s == 0 else (warp(pA, fab, t) if t < 0.5 else warp(pB, fba, 1 - t))   # warp the nearer drawing only: crisp limbs, no double image
             im = unpremul(f); h, w = im.shape[:2]; im = cv2.resize(im, (round(w * TALL / h), TALL), interpolation=cv2.INTER_AREA)
             cv2.imwrite(str(OUT / f"{k}_c{i}.png"), im); i += 1
     print(k, i, "frames")

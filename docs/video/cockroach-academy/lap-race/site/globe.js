@@ -45,7 +45,7 @@ window.__ready = Promise.all([lt('day', 'tex/earth_day.jpg'), lt('night', 'tex/e
     const follow = 2 * Math.PI * Math.min(1, day(t) * 240 / 35210);
     g.rotation.y = AIM + 0.012 * (t - 10) - follow; earth.userData.mat.uniforms.cloudRot.value = t * 0.0015;
     const draw = sstep(4.0, 7.0, t);
-    const el = lerp(26, 34, sstep(7, 11, t)) * D2R, d = lerp(6.2, 5.3, ease(Math.min(t, 10) / 10)) + 0.9 * sstep(26.5, 30, t);
+    const el = lerp(26, 34, sstep(7, 11, t)) * D2R, d = lerp(6.2, 5.3, ease(Math.min(t, 10) / 10)) + 0.9 * sstep(29, 35, t);
     cam.position.set(0, d * Math.sin(el), d * Math.cos(el)); cam.lookAt(0, 0.1, 0); cam.updateMatrixWorld(); g.updateMatrixWorld();
     for (const r of R) {
       const frac = Math.min(1, day(t) * 240 / r.km), done = frac >= 1 && t >= 10;
