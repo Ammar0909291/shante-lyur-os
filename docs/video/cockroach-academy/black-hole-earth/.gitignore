@@ -3,3 +3,4 @@ site/index.html
 site/tex/
 renders/
 output/
+__pycache__/
